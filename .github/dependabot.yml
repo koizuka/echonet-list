@@ -1,0 +1,16 @@
+# Dependabot configuration file
+# See documentation: https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: "gomod" # Specifies Go modules
+    directory: "/" # Location of go.mod file
+    schedule:
+      interval: "weekly" # Check for updates once a week
+    open-pull-requests-limit: 10 # Limit number of open PRs
+    labels:
+      - "dependencies"
+      - "go"
+    commit-message:
+      prefix: "go mod"
+      include: "scope"

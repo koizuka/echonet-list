@@ -1,0 +1,94 @@
+# AI Assistant Instructions for ECHONET Lite Project
+
+## Project Overview
+This is a Go application for discovering and controlling ECHONET Lite devices on a local network. ECHONET Lite is a communication protocol for smart home devices, primarily used in Japan.
+
+## Key Features
+- Automatic discovery of ECHONET Lite devices on local networks
+- List, get properties from, and set properties on discovered devices
+- Support for various device types (air conditioners, lighting, floor heating, etc.)
+- Persistent storage of discovered devices
+
+## Development Environment
+- Language: Go (1.16+)
+- Project Structure:
+  - `main.go`: Entry point and main application logic
+  - `Command.go`: Command parsing and execution
+  - `Devices.go`: Device management and storage
+  - `Session.go`: Session management for ECHONET Lite communication
+  - `UDPConnection.go`: UDP communication handling
+  - `echonet_lite/`: Package containing ECHONET Lite protocol implementation
+
+## Build Commands
+- Build: `go build`
+- Run: `./echonet-list [-debug]`
+- Run tests: `go test ./...`
+- Run specific test: `go test ./echonet_lite -run TestOperationStatus_Encode`
+- Format code: `go fmt ./...`
+- Check code: `go vet ./...`
+
+## Code Style Guidelines
+- **File Organization**: Package main in root, echonet_lite package for protocol implementation
+- **Imports**: Group standard library, then external packages, then local packages
+- **Naming**: CamelCase for exported entities, camelCase for unexported entities
+- **Comments**: Comments for exported functions start with function name
+- **Types**: Define custom types for specialized uses (e.g., `OperationStatus`)
+- **Error Handling**: Return errors for recoverable failures, use proper error types
+- **Testing**: Table-driven tests with descriptive names for each test case
+- **Formatting**: Standard Go formatting with proper indentation
+- **Hexadecimal**: Use `0x` prefix for clarity (e.g., `0x80` not just `80`)
+
+## Development Workflow
+1. Make changes to Go files
+2. Always run `go fmt ./...` after making changes
+3. After significant changes, run `go vet ./...` to check for potential issues
+4. Run tests to ensure functionality: `go test ./...`
+5. Build and run the application to verify changes: `go build && ./echonet-list`
+
+## Troubleshooting
+
+### Common Errors
+
+#### Port Already in Use
+If you encounter the error message:
+```
+listen udp :3610: bind: address already in use
+```
+This indicates that another instance of the application is already running and using UDP port 3610. 
+
+**Resolution:**
+1. Find and terminate the other running instance of the application
+   - On Linux/macOS: `ps aux | grep echonet-list` to find the process, then `kill <PID>` to terminate it
+   - On Windows: Use Task Manager to end the process
+2. After stopping the other instance, try running the application again
+
+## Common Tasks
+- **Adding support for a new device type**: Create a new file in the `echonet_lite/` package
+- **Modifying command behavior**: Update the relevant functions in `Command.go`
+- **Debugging communication issues**: Run with `-debug` flag and check logs
+
+## Supported Device Types
+- Home Air Conditioner (0x0130)
+- Ventilation Fan (0x0133)
+- Floor Heating (0x027b)
+- Single-Function Lighting (0x0291)
+- Lighting System (0x02a3)
+- Refrigerator (0x03b7)
+- Switch (0x05fd)
+- Portable Terminal (0x05fe)
+- Controller (0x05ff)
+- Node Profile (0x0ef0)
+
+## AI Assistant Guidelines
+When assisting with this project:
+1. Refer to this instruction file for context about the project structure and conventions
+2. Follow Go best practices and the project's code style guidelines
+3. Consider the ECHONET Lite protocol specifications when suggesting code changes
+4. Test suggestions with the provided test commands when possible
+5. Prioritize maintaining compatibility with existing device implementations
+6. When suggesting new features, ensure they align with the project's architecture
+7. If a user encounters the "address already in use" error, instruct them to terminate any existing instances of the application before restarting
+
+## References
+- [ECHONET Lite Specification](https://echonet.jp/spec_v114_lite/)
+- [ECHONET Lite Object Specification](https://echonet.jp/spec_object_rr2/)

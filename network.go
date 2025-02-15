@@ -1,0 +1,65 @@
+package main
+
+import (
+	"fmt"
+	"net"
+)
+
+// getIPv4BroadcastIP は、ローカルネットワークのIPv4ブロードキャストアドレスを自動的に検出します
+func getIPv4BroadcastIP() net.IP {
+	// デフォルトのブロードキャストアドレス（見つからない場合に使用）
+	defaultBroadcast := net.ParseIP("255.255.255.255")
+
+	// すべてのネットワークインターフェースを取得
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		fmt.Printf("ネットワークインターフェースの取得に失敗しました: %v\n", err)
+		return defaultBroadcast
+	}
+
+	// 各インターフェースを処理
+	for _, iface := range interfaces {
+		// ループバックインターフェースをスキップ
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		// インターフェースが起動していない場合はスキップ
+		if iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		// インターフェースのアドレスを取得
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			// IPネットワークアドレスの場合のみ処理
+			ipnet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			// IPv4アドレスのみを処理
+			ip4 := ipnet.IP.To4()
+			if ip4 == nil {
+				continue
+			}
+
+			// ブロードキャストアドレスを計算
+			// ブロードキャストアドレス = IPアドレス | (^サブネットマスク)
+			broadcast := net.IP(make([]byte, 4))
+			for i := range ip4 {
+				broadcast[i] = ip4[i] | ^ipnet.Mask[i]
+			}
+
+			fmt.Printf("インターフェース %s のIPv4ブロードキャストアドレス: %v\n", iface.Name, broadcast)
+			return broadcast
+		}
+	}
+
+	// 適切なインターフェースが見つからない場合はデフォルトを返す
+	return defaultBroadcast
+}
