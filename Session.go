@@ -52,15 +52,16 @@ func (dt DispatchTable) Dispatch(ip net.IP, msg *echonet_lite.ECHONETLiteMessage
 }
 
 type Session struct {
-	mu            sync.RWMutex
-	DispatchTable DispatchTable
-	InfCallback   CallbackFunc
-	TID           echonet_lite.TIDType
-	EOJ           echonet_lite.EOJ
-	Conn          *UDPConnection
-	Debug         bool
-	ctx           context.Context    // コンテキスト
-	cancel        context.CancelFunc // コンテキストのキャンセル関数
+	mu              sync.RWMutex
+	DispatchTable   DispatchTable
+	ReceiveCallback map[echonet_lite.EOJ]CallbackFunc
+	InfCallback     CallbackFunc
+	TID             echonet_lite.TIDType
+	EOJ             echonet_lite.EOJ
+	Conn            *UDPConnection
+	Debug           bool
+	ctx             context.Context    // コンテキスト
+	cancel          context.CancelFunc // コンテキストのキャンセル関数
 }
 
 type CallbackFinished struct {
@@ -94,6 +95,12 @@ func (s *Session) OnInf(callback CallbackFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.InfCallback = callback
+}
+
+func (s *Session) OnReceive(eoj echonet_lite.EOJ, callback CallbackFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ReceiveCallback[eoj] = callback
 }
 
 func (s *Session) MainLoop() {
@@ -221,7 +228,16 @@ func (s *Session) MainLoop() {
 					}
 				}
 			}
-			// TODO リクエストが来たら応答する仕組み
+		case echonet_lite.ESVGet, echonet_lite.ESVSetC, echonet_lite.ESVSetI, echonet_lite.ESVINF_REQ:
+			s.mu.RLock()
+			callback, ok := s.ReceiveCallback[msg.DEOJ]
+			s.mu.RUnlock()
+			if ok {
+				err = callback(addr.IP, msg)
+				if err != nil {
+					fmt.Printf("%v: ReceiveCallbackエラー: %v\n", msg.DEOJ, err)
+				}
+			}
 		}
 	}
 }
