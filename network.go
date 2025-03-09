@@ -63,3 +63,13 @@ func getIPv4BroadcastIP() net.IP {
 	// 適切なインターフェースが見つからない場合はデフォルトを返す
 	return defaultBroadcast
 }
+
+// GetLocalUDPAddressFor は、指定された宛先IPアドレスとポートに対するローカルアドレスを取得します
+func GetLocalUDPAddressFor(ip net.IP, port int) (*net.UDPAddr, error) {
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: ip, Port: port})
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return conn.LocalAddr().(*net.UDPAddr), nil
+}

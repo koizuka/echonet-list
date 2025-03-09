@@ -10,7 +10,8 @@ import (
 )
 
 type UDPConnection struct {
-	UdpConn *net.UDPConn
+	UdpConn   *net.UDPConn
+	LocalAddr *net.UDPAddr
 }
 
 type UDPConnectionOptions struct {
@@ -49,7 +50,13 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, opt UDPConnectionOption
 		}
 	}
 
-	return &UDPConnection{UdpConn: conn}, nil
+	localAddr, err := GetLocalUDPAddressFor(BroadcastIP, echonet_lite.ECHONETLitePort)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to get local address: %w", err)
+	}
+
+	return &UDPConnection{UdpConn: conn, LocalAddr: localAddr}, nil
 }
 
 func (c *UDPConnection) Close() error {
@@ -100,8 +107,6 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 	var udpAddr *net.UDPAddr
 	var readErr error
 
-	localAddr := c.UdpConn.LocalAddr().(*net.UDPAddr)
-
 	go func() {
 		defer close(readDone)
 		// プールからバッファを取得
@@ -115,7 +120,7 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 			return
 		}
 
-		if localAddr.IP.Equal(addr.(*net.UDPAddr).IP) && localAddr.Port == addr.(*net.UDPAddr).Port {
+		if c.LocalAddr.IP.Equal(addr.(*net.UDPAddr).IP) {
 			// ローカルアドレスからのパケットは無視
 			return
 		}

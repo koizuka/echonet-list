@@ -165,6 +165,11 @@ func (s *Session) MainLoop() {
 			continue
 		}
 
+		if len(data) == 0 {
+			// データが空の場合は次の受信を待つ
+			continue
+		}
+
 		if s.Debug {
 			hexDump := hex.EncodeToString(data)
 			if logger != nil {
