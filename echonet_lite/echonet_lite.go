@@ -2,6 +2,7 @@ package echonet_lite
 
 import (
 	"fmt"
+	"strings"
 )
 
 // ECHONET Lite 資料
@@ -11,12 +12,13 @@ import (
 
 // ECHONETLiteMessage はECHONET Liteのメッセージを表します。
 type ECHONETLiteMessage struct {
-	EHD        EHDType    // ヘッダ
-	TID        TIDType    // トランザクションID
-	SEOJ       EOJ        // 送信元ECHONETオブジェクト
-	DEOJ       EOJ        // 宛先ECHONETオブジェクト
-	ESV        ESVType    // サービスコード
-	Properties Properties // プロパティリスト
+	EHD              EHDType    // ヘッダ
+	TID              TIDType    // トランザクションID
+	SEOJ             EOJ        // 送信元ECHONETオブジェクト
+	DEOJ             EOJ        // 宛先ECHONETオブジェクト
+	ESV              ESVType    // サービスコード
+	Properties       Properties // プロパティリスト
+	SetGetProperties Properties // SetGetのときのGetプロパティ
 }
 
 const (
@@ -69,9 +71,24 @@ func (m *ECHONETLiteMessage) EOJ() EOJ {
 
 func (m *ECHONETLiteMessage) String() string {
 	EOJ := m.EOJ()
-	// OPC はプロパティ数なので省略
-	return fmt.Sprintf("EHD:%v, TID:%v, SEOJ:%v, DEOJ:%v, ESV:%v\n - Properties:%v",
-		m.EHD, m.TID, m.SEOJ, m.DEOJ, m.ESV, m.Properties.String(EOJ.ClassCode()))
+	parts := []string{
+		fmt.Sprintf("EHD:%v", m.EHD),
+		fmt.Sprintf("TID:%v", m.TID),
+		fmt.Sprintf("SEOJ:%v", m.SEOJ),
+		fmt.Sprintf("DEOJ:%v", m.DEOJ),
+		fmt.Sprintf("ESV:%v", m.ESV),
+	}
+	if m.ESV.ISSetGet() {
+		parts = append(parts,
+			fmt.Sprintf("Properties(Set):%v", m.Properties.String(EOJ.ClassCode())),
+			fmt.Sprintf("Properties(Get):%v", m.SetGetProperties.String(EOJ.ClassCode())),
+		)
+	} else {
+		parts = append(parts,
+			fmt.Sprintf("Properties:%v", m.Properties.String(EOJ.ClassCode())),
+		)
+	}
+	return strings.Join(parts, ", ")
 }
 
 type ESVType byte
@@ -166,6 +183,35 @@ func (e ESVType) ResponseESVs() []ESVType {
 	}
 }
 
+func (e ESVType) ISSetGet() bool {
+	return e == ESVSetGet || e == ESVSetGet_Res || e == ESVSetGet_SNA
+}
+
+func parseProperties(data []byte, pos int) (int, []Property, error) {
+	OPC := data[pos]
+	pos++
+	properties := make([]Property, 0, OPC)
+	for i := 0; i < int(OPC); i++ {
+		if pos+2 > len(data) {
+			return pos, nil, fmt.Errorf("プロパティの長さが不正です")
+		}
+		prop := Property{
+			EPC: EPCType(data[pos]),
+		}
+		PDC := int(data[pos+1])
+		pos += 2
+		if PDC > 0 {
+			if pos+PDC > len(data) {
+				return pos, nil, fmt.Errorf("EDTの長さが不正です")
+			}
+			prop.EDT = data[pos : pos+PDC]
+			pos += PDC
+		}
+		properties = append(properties, prop)
+	}
+	return pos, properties, nil
+}
+
 // ParseECHONETLiteMessage は受信したバイト列からECHONET Liteメッセージをパースします。
 func ParseECHONETLiteMessage(data []byte) (*ECHONETLiteMessage, error) {
 	// 最低限、EHD(2)+TID(2)+SEOJ(3)+DEOJ(3)+ESV(1)+OPC(1)=12バイトは必要
@@ -180,26 +226,18 @@ func ParseECHONETLiteMessage(data []byte) (*ECHONETLiteMessage, error) {
 		DEOJ: DecodeEOJ(data[7:10]),
 		ESV:  ESVType(data[10]),
 	}
-	OPC := data[11]
-	pos := 12
-	msg.Properties = make([]Property, 0, OPC)
-	for i := 0; i < int(OPC); i++ {
-		if pos+2 > len(data) {
-			return nil, fmt.Errorf("プロパティの長さが不正です")
+	pos, properties, err := parseProperties(data, 11)
+	if err != nil {
+		return nil, err
+	}
+	msg.Properties = properties
+
+	if msg.ESV.ISSetGet() {
+		_, properties, err = parseProperties(data, pos)
+		if err != nil {
+			return nil, err
 		}
-		prop := Property{
-			EPC: EPCType(data[pos]),
-		}
-		PDC := int(data[pos+1])
-		pos += 2
-		if PDC > 0 {
-			if pos+PDC > len(data) {
-				return nil, fmt.Errorf("EDTの長さが不正です")
-			}
-			prop.EDT = data[pos : pos+PDC]
-			pos += PDC
-		}
-		msg.Properties = append(msg.Properties, prop)
+		msg.SetGetProperties = properties
 	}
 	return msg, nil
 }

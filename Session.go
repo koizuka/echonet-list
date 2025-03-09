@@ -54,7 +54,7 @@ func (dt DispatchTable) Dispatch(ip net.IP, msg *echonet_lite.ECHONETLiteMessage
 type Session struct {
 	mu              sync.RWMutex
 	DispatchTable   DispatchTable
-	ReceiveCallback map[echonet_lite.EOJ]CallbackFunc
+	ReceiveCallback CallbackFunc
 	InfCallback     CallbackFunc
 	TID             echonet_lite.TIDType
 	EOJ             echonet_lite.EOJ
@@ -97,10 +97,10 @@ func (s *Session) OnInf(callback CallbackFunc) {
 	s.InfCallback = callback
 }
 
-func (s *Session) OnReceive(eoj echonet_lite.EOJ, callback CallbackFunc) {
+func (s *Session) OnReceive(callback CallbackFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.ReceiveCallback[eoj] = callback
+	s.ReceiveCallback = callback
 }
 
 func (s *Session) MainLoop() {
@@ -230,9 +230,9 @@ func (s *Session) MainLoop() {
 			}
 		case echonet_lite.ESVGet, echonet_lite.ESVSetC, echonet_lite.ESVSetI, echonet_lite.ESVINF_REQ:
 			s.mu.RLock()
-			callback, ok := s.ReceiveCallback[msg.DEOJ]
+			callback := s.ReceiveCallback
 			s.mu.RUnlock()
-			if ok {
+			if callback != nil {
 				err = callback(addr.IP, msg)
 				if err != nil {
 					fmt.Printf("%v: ReceiveCallbackエラー: %v\n", msg.DEOJ, err)
@@ -289,6 +289,30 @@ func (s *Session) SendTo(ip net.IP, SEOJ echonet_lite.EOJ, DEOJ echonet_lite.EOJ
 		key := MakeKey(msg)
 		s.DispatchTable[key] = Entry{msg.ESV.ResponseESVs(), callback}
 		s.mu.Unlock()
+	}
+	return nil
+}
+
+func (s *Session) SendResponse(ip net.IP, msg *echonet_lite.ECHONETLiteMessage, ESV echonet_lite.ESVType, property echonet_lite.Properties, setGetProperty echonet_lite.Properties) error {
+	msgSend := &echonet_lite.ECHONETLiteMessage{
+		TID:              msg.TID,
+		SEOJ:             msg.DEOJ,
+		DEOJ:             msg.SEOJ,
+		ESV:              ESV,
+		Properties:       property,
+		SetGetProperties: setGetProperty,
+	}
+
+	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := s.Conn.SendTo(ctx, ip, msgSend.Encode())
+	if err != nil {
+		fmt.Println("パケット送信に失敗:", err)
+		return err
+	}
+	if s.Debug {
+		fmt.Printf("パケットを送信: %v へ --- %v\n", ip, msgSend)
 	}
 	return nil
 }

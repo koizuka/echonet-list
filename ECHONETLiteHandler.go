@@ -42,11 +42,12 @@ func (e TooManyDevicesError) Error() string {
 
 // ECHONETLiteHandler は、ECHONET Lite の通信処理を担当する構造体
 type ECHONETLiteHandler struct {
-	session *Session
-	devices Devices
-	debug   bool
-	ctx     context.Context    // コンテキスト
-	cancel  context.CancelFunc // コンテキストのキャンセル関数
+	session      *Session
+	devices      Devices
+	localDevices DeviceProperties
+	debug        bool
+	ctx          context.Context    // コンテキスト
+	cancel       context.CancelFunc // コンテキストのキャンセル関数
 }
 
 // SetDebug は、デバッグモードを設定する
@@ -87,16 +88,32 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj echonet_lite.EOJ
 		}
 	}
 
+	localDevices := make(DeviceProperties)
+	emptyPropertyIdentifier := echonet_lite.Property{
+		EPC: echonet_lite.EPCIdentificationNumber,
+		EDT: make([]byte, 9), // 識別番号未設定は9バイトの0
+	}
+
+	// NodeProfileObject
+	npo := echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1)
+	localDevices.SetProperty(npo, emptyPropertyIdentifier)
+
+	// ControllerObject
+	ctrl := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
+	localDevices.SetProperty(ctrl, emptyPropertyIdentifier)
+
 	handler := &ECHONETLiteHandler{
-		session: session,
-		devices: devices,
-		debug:   debug,
-		ctx:     handlerCtx,
-		cancel:  cancel,
+		session:      session,
+		devices:      devices,
+		localDevices: localDevices,
+		debug:        debug,
+		ctx:          handlerCtx,
+		cancel:       cancel,
 	}
 
 	// INFメッセージのコールバックを設定
 	session.OnInf(handler.onInfMessage)
+	session.OnReceive(handler.onReceiveMessage)
 
 	return handler, nil
 }
@@ -113,6 +130,76 @@ func (h *ECHONETLiteHandler) Close() error {
 // StartMainLoop は、メインループを開始する
 func (h *ECHONETLiteHandler) StartMainLoop() {
 	go h.session.MainLoop()
+}
+
+func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
+	if msg == nil {
+		return nil
+	}
+
+	if h.debug {
+		fmt.Printf("%v: メッセージを受信: SEOJ:%v, DEOJ:%v, ESV:%v Property: %v\n",
+			ip, msg.SEOJ, msg.DEOJ, msg.ESV,
+			msg.Properties.String(msg.DEOJ.ClassCode()),
+		)
+	}
+
+	eoj := msg.SEOJ
+	_, ok := h.localDevices[eoj]
+	if !ok {
+		return fmt.Errorf("デバイス %v が見つかりません", eoj)
+	}
+
+	switch msg.ESV {
+	case echonet_lite.ESVGet:
+		responses, ok := h.localDevices.GetProperties(eoj, msg.Properties)
+
+		ESV := echonet_lite.ESVGet_Res
+		if !ok {
+			ESV = echonet_lite.ESVGet_SNA
+		}
+		if h.debug {
+			fmt.Printf("  Getメッセージに対する応答: %v\n", responses) // DEBUG
+		}
+		return h.session.SendResponse(ip, msg, ESV, responses, nil)
+
+	case echonet_lite.ESVSetC, echonet_lite.ESVSetI:
+		responses, success := h.localDevices.SetProperties(eoj, msg.Properties)
+
+		if msg.ESV != echonet_lite.ESVSetI || !success {
+			ESV := echonet_lite.ESVSetI_SNA
+			if msg.ESV == echonet_lite.ESVSetC {
+				if success {
+					ESV = echonet_lite.ESVSet_Res
+				} else {
+					ESV = echonet_lite.ESVSetC_SNA
+				}
+			}
+			if h.debug {
+				fmt.Printf("  %vメッセージに対する応答: %v\n", msg.ESV, responses) // DEBUG
+			}
+			return h.session.SendResponse(ip, msg, ESV, responses, nil)
+		}
+
+	case echonet_lite.ESVSetGet:
+		setResult, setSuccess := h.localDevices.SetProperties(eoj, msg.Properties)
+		getResult, getSuccess := h.localDevices.GetProperties(eoj, msg.SetGetProperties)
+		success := setSuccess && getSuccess
+
+		ESV := echonet_lite.ESVSetGet_Res
+		if !success {
+			ESV = echonet_lite.ESVSetGet_SNA
+		}
+		if h.debug {
+			fmt.Printf("  SetGetメッセージに対する応答: set:%v, get:%v\n", setResult, getResult) // DEBUG
+		}
+		return h.session.SendResponse(ip, msg, ESV, setResult, getResult)
+
+	case echonet_lite.ESVINF: // TODO
+	default:
+		fmt.Printf("  未対応のESV: %v\n", msg.ESV) // DEBUG
+	}
+	return nil
 }
 
 // onInfMessage は、INFメッセージを受信したときのコールバック

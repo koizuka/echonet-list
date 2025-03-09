@@ -12,9 +12,11 @@ import (
 	"sync"
 )
 
+type DeviceProperties map[echonet_lite.EOJ]map[echonet_lite.EPCType]echonet_lite.Property
+
 type DevicesImpl struct {
 	mu   sync.RWMutex
-	data map[string]map[echonet_lite.EOJ]map[echonet_lite.EPCType]echonet_lite.Property
+	data map[string]DeviceProperties
 }
 
 type Devices struct {
@@ -24,7 +26,7 @@ type Devices struct {
 func NewDevices() Devices {
 	return Devices{
 		DevicesImpl: &DevicesImpl{
-			data: make(map[string]map[echonet_lite.EOJ]map[echonet_lite.EPCType]echonet_lite.Property),
+			data: make(map[string]DeviceProperties),
 		},
 	}
 }
@@ -419,4 +421,83 @@ func (d Devices) HasEPCInPropertyMap(ip string, eoj echonet_lite.EOJ, mapType Pr
 		return false
 	}
 	return propMap.Has(epc)
+}
+
+func (d DeviceProperties) SetProperty(eoj echonet_lite.EOJ, property echonet_lite.Property) {
+	if _, ok := d[eoj]; !ok {
+		d[eoj] = make(map[echonet_lite.EPCType]echonet_lite.Property)
+	}
+	d[eoj][property.EPC] = property
+}
+
+func (d DeviceProperties) GetProperty(eoj echonet_lite.EOJ, epc echonet_lite.EPCType) (echonet_lite.Property, bool) {
+	if epc == echonet_lite.EPCGetPropertyMap {
+		// GetPropertyMap は特別なプロパティで、全てのプロパティを含むプロパティマップを返す
+		propertyMap := make(echonet_lite.PropertyMap)
+		for epc := range d[eoj] {
+			propertyMap.Set(epc)
+		}
+		// GetPropertyMapは必ず存在する
+		propertyMap.Set(echonet_lite.EPCGetPropertyMap)
+
+		return echonet_lite.Property{
+			EPC: epc,
+			EDT: propertyMap.Encode(),
+		}, true
+	}
+
+	if _, ok := d[eoj]; !ok {
+		return echonet_lite.Property{}, false
+	}
+	prop, ok := d[eoj][epc]
+	return prop, ok
+}
+
+// GetProperties は指定されたプロパティの値を取得する。第2返り値はすべての指定されたプロパティが取得できたときにtrue。
+// プロパティが存在しない場合は、そのプロパティは EDT が空の状態で返される
+func (d DeviceProperties) GetProperties(eoj echonet_lite.EOJ, properties echonet_lite.Properties) (echonet_lite.Properties, bool) {
+	result := make([]echonet_lite.Property, 0, len(properties))
+	success := true
+
+	for _, p := range properties {
+		rep := echonet_lite.Property{
+			EPC: p.EPC,
+			EDT: []byte{}, // empty
+		}
+		prop, ok := d.GetProperty(eoj, p.EPC)
+		if !ok {
+			success = false
+		} else {
+			rep.EDT = prop.EDT
+		}
+		result = append(result, rep)
+	}
+	return result, success
+}
+
+// SetProperties は指定されたプロパティの値を設定する。第2返り値はすべての指定されたプロパティが設定できたときにtrue。
+// プロパティが書き込めない場合は、そのプロパティはリクエストの値で返され、成功した場合はEDTが空になる
+func (d DeviceProperties) SetProperties(eoj echonet_lite.EOJ, properties echonet_lite.Properties) (echonet_lite.Properties, bool) {
+	setPropertyMap := echonet_lite.PropertyMap{}
+	if p, ok := d.GetProperty(eoj, echonet_lite.EPCSetPropertyMap); ok {
+		setPropertyMap = echonet_lite.DecodePropertyMap(p.EDT)
+	}
+
+	result := make([]echonet_lite.Property, 0, len(properties))
+	success := true
+
+	for _, p := range properties {
+		rep := echonet_lite.Property{
+			EPC: p.EPC,
+			EDT: p.EDT, // 書き込み失敗したらリクエストの値
+		}
+		if !setPropertyMap.Has(p.EPC) {
+			success = false
+		} else {
+			d.SetProperty(eoj, p)
+			rep.EDT = []byte{} // 書き込み成功したら empty
+		}
+		result = append(result, rep)
+	}
+	return result, success
 }
