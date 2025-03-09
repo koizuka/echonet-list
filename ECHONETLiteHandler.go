@@ -89,15 +89,21 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj echonet_lite.EOJ
 	}
 
 	localDevices := make(DeviceProperties)
+	operationStatusOn := *echonet_lite.OperationStatus(true).Property()
 	emptyPropertyIdentifier := echonet_lite.Property{
 		EPC: echonet_lite.EPCIdentificationNumber,
 		EDT: make([]byte, 9), // 識別番号未設定は9バイトの0
 	}
 
 	npo := NodeProfileObject1
+	localDevices.SetProperty(npo, operationStatusOn)
 	localDevices.SetProperty(npo, emptyPropertyIdentifier)
 
+	localDevices.SetProperty(seoj, operationStatusOn)
 	localDevices.SetProperty(seoj, emptyPropertyIdentifier)
+
+	// 最後にやること
+	localDevices.UpdateProfileObjectProperties()
 
 	handler := &ECHONETLiteHandler{
 		session:      session,
@@ -130,13 +136,7 @@ func (h *ECHONETLiteHandler) StartMainLoop() {
 }
 
 func (h *ECHONETLiteHandler) NotifyNodeList() error {
-	EOJs := []echonet_lite.EOJ{}
-	for eoj := range h.localDevices {
-		if eoj.ClassCode() == echonet_lite.NodeProfile_ClassCode {
-			continue
-		}
-		EOJs = append(EOJs, eoj)
-	}
+	EOJs := h.localDevices.GetInstanceList()
 	return h.session.NotifyNodeList(EOJs)
 }
 

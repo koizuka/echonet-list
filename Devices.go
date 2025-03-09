@@ -501,3 +501,37 @@ func (d DeviceProperties) SetProperties(eoj echonet_lite.EOJ, properties echonet
 	}
 	return result, success
 }
+
+func (d DeviceProperties) GetInstanceList() []echonet_lite.EOJ {
+	EOJs := []echonet_lite.EOJ{}
+	for eoj := range d {
+		if eoj.ClassCode() == echonet_lite.NodeProfile_ClassCode {
+			continue
+		}
+		EOJs = append(EOJs, eoj)
+	}
+	return EOJs
+}
+
+func (d DeviceProperties) UpdateProfileObjectProperties() {
+	instanceList := d.GetInstanceList()
+	selfNodeInstances := echonet_lite.SelfNodeInstances(len(instanceList))
+	selfNodeInstanceListS := echonet_lite.SelfNodeInstanceListS(instanceList)
+
+	classes := make(map[echonet_lite.EOJClassCode]struct{})
+	for _, e := range instanceList {
+		classes[e.ClassCode()] = struct{}{}
+	}
+	selfNodeClasses := echonet_lite.SelfNodeClasses(len(classes))
+	classArray := make([]echonet_lite.EOJClassCode, 0, len(classes))
+	for c := range classes {
+		classArray = append(classArray, c)
+	}
+	selfNodeClassListS := echonet_lite.SelfNodeClassListS(classArray)
+
+	eoj := NodeProfileObject1
+	d.SetProperty(eoj, *selfNodeInstances.Property())
+	d.SetProperty(eoj, *selfNodeInstanceListS.Property())
+	d.SetProperty(eoj, *selfNodeClasses.Property())
+	d.SetProperty(eoj, *selfNodeClassListS.Property())
+}

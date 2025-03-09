@@ -19,11 +19,11 @@ var NPO_PropertyTable = PropertyTable{
 		EPC_NPO_VersionInfo:              {"Version information", Decoder(NPO_DecodeVersionInfo), nil},
 		EPC_NPO_IDNumber:                 {"Identification number", nil, nil},
 		EPC_NPO_IndividualID:             {"Individual identification information", nil, nil},
-		EPC_NPO_SelfNodeInstances:        {"Self-node instances number", nil, nil},
-		EPC_NPO_SelfNodeClasses:          {"Self-node classes number", nil, nil},
+		EPC_NPO_SelfNodeInstances:        {"Self-node instances number", Decoder(DecodeSelfNodeInstances), nil},
+		EPC_NPO_SelfNodeClasses:          {"Self-node classes number", Decoder(DecodeSelfNodeClasses), nil},
 		EPC_NPO_InstanceListNotification: {"instance list notification", Decoder(DecodeInstanceListNotification), nil},
 		EPC_NPO_SelfNodeInstanceListS:    {"Self-node instance list S", Decoder(DecodeSelfNodeInstanceListS), nil},
-		EPC_NPO_SelfNodeClassListS:       {"Self-node class list S", nil, nil},
+		EPC_NPO_SelfNodeClassListS:       {"Self-node class list S", Decoder(DecodeSelfNodeClassListS), nil},
 	},
 }
 
@@ -51,6 +51,56 @@ func (s *NPO_VersionInfo) String() string {
 		s.MajorVersion, s.MinorVersion,
 		s.Default, s.Optional,
 	)
+}
+
+type SelfNodeInstances uint32
+
+func DecodeSelfNodeInstances(EDT []byte) *SelfNodeInstances {
+	if len(EDT) < 3 {
+		return nil
+	}
+
+	result := uint32(EDT[0])<<16 | uint32(EDT[1])<<8 | uint32(EDT[2])
+	return (*SelfNodeInstances)(&result)
+}
+
+func (s *SelfNodeInstances) String() string {
+	if s == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("%d", *s)
+}
+
+func (s *SelfNodeInstances) Property() *Property {
+	if s == nil {
+		return nil
+	}
+	return &Property{EPC_NPO_SelfNodeInstances, []byte{byte(*s >> 16), byte(*s >> 8), byte(*s)}}
+}
+
+type SelfNodeClasses uint16
+
+func DecodeSelfNodeClasses(EDT []byte) *SelfNodeClasses {
+	if len(EDT) < 2 {
+		return nil
+	}
+
+	result := uint16(EDT[0])<<8 | uint16(EDT[1])
+	return (*SelfNodeClasses)(&result)
+}
+
+func (s *SelfNodeClasses) String() string {
+	if s == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("%d", *s)
+}
+
+func (s *SelfNodeClasses) Property() *Property {
+	if s == nil {
+		return nil
+	}
+	return &Property{EPC_NPO_SelfNodeClasses, []byte{byte(*s >> 8), byte(*s)}}
 }
 
 type InstanceList []EOJ
@@ -130,4 +180,48 @@ func (s *SelfNodeInstanceListS) Property() *Property {
 		return nil
 	}
 	return &Property{EPC_NPO_SelfNodeInstanceListS, (*InstanceList)(s).EDT()}
+}
+
+type SelfNodeClassListS []EOJClassCode
+
+func DecodeSelfNodeClassListS(EDT []byte) *SelfNodeClassListS {
+	if len(EDT) < 1 {
+		return nil
+	}
+	result := SelfNodeClassListS{}
+	classes := int(EDT[0])
+	if len(EDT) < 1+classes*2 {
+		return nil
+	}
+	for i := 0; i < classes; i++ {
+		class := EOJClassCode(EDT[1+i*2])
+		result = append(result, class)
+	}
+	return &result
+}
+
+func (s *SelfNodeClassListS) String() string {
+	if s == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("%d:%v", len(*s), *s)
+}
+
+func (s *SelfNodeClassListS) EDT() []byte {
+	if s == nil {
+		return nil
+	}
+	EDT := make([]byte, 1, 1+len(*s)*2)
+	EDT[0] = byte(len(*s))
+	for _, class := range *s {
+		EDT = append(EDT, byte(class>>8), byte(class))
+	}
+	return EDT
+}
+
+func (s *SelfNodeClassListS) Property() *Property {
+	if s == nil {
+		return nil
+	}
+	return &Property{EPC_NPO_SelfNodeClassListS, (*SelfNodeClassListS)(s).EDT()}
 }
