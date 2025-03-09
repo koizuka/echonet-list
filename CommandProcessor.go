@@ -3,31 +3,28 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 )
 
 // CommandProcessor は、コマンド処理を担当する構造体
 type CommandProcessor struct {
-	handler   *ECHONETLiteHandler
-	cmdChan   chan *Command
-	done      chan struct{}
-	broadcast net.IP
-	ctx       context.Context    // コンテキスト
-	cancel    context.CancelFunc // コンテキストのキャンセル関数
+	handler *ECHONETLiteHandler
+	cmdChan chan *Command
+	done    chan struct{}
+	ctx     context.Context    // コンテキスト
+	cancel  context.CancelFunc // コンテキストのキャンセル関数
 }
 
 // NewCommandProcessor は、CommandProcessor の新しいインスタンスを作成する
-func NewCommandProcessor(ctx context.Context, handler *ECHONETLiteHandler, broadcast net.IP) *CommandProcessor {
+func NewCommandProcessor(ctx context.Context, handler *ECHONETLiteHandler) *CommandProcessor {
 	// コマンドプロセッサ用のコンテキストを作成
 	processorCtx, cancel := context.WithCancel(ctx)
 
 	return &CommandProcessor{
-		handler:   handler,
-		cmdChan:   make(chan *Command),
-		done:      make(chan struct{}),
-		broadcast: broadcast,
-		ctx:       processorCtx,
-		cancel:    cancel,
+		handler: handler,
+		cmdChan: make(chan *Command),
+		done:    make(chan struct{}),
+		ctx:     processorCtx,
+		cancel:  cancel,
 	}
 }
 
@@ -88,7 +85,7 @@ func (p *CommandProcessor) processCommands() {
 			close(cmd.Done) // 終了コマンドの場合は即座に完了を通知して終了
 			return
 		case CmdDiscover:
-			cmd.Error = p.handler.Discover(p.broadcast)
+			cmd.Error = p.handler.Discover()
 		case CmdDevices:
 			// フィルタリング条件を作成
 			criteria := FilterCriteria{

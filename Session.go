@@ -13,6 +13,11 @@ import (
 
 var NodeProfileObject1 = echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1)
 
+// ブロードキャストアドレスの設定
+var BroadcastIP = getIPv4BroadcastIP()
+
+// var BroadcastIP = net.ParseIP("ff02::1")
+
 type Key struct {
 	TID echonet_lite.TIDType
 }
@@ -317,17 +322,13 @@ func (s *Session) SendResponse(ip net.IP, msg *echonet_lite.ECHONETLiteMessage, 
 	return nil
 }
 
-func (s *Session) NotifyNodeList(ip net.IP, nodes []echonet_lite.EOJ) error {
+func (s *Session) Notify(SEOJ echonet_lite.EOJ, ESV echonet_lite.ESVType, property echonet_lite.Properties) error {
+	return s.SendTo(BroadcastIP, SEOJ, NodeProfileObject1, ESV, property, nil)
+}
+
+func (s *Session) NotifyNodeList(nodes []echonet_lite.EOJ) error {
 	list := echonet_lite.InstanceListNotification(nodes)
-	npo := NodeProfileObject1
-	return s.SendTo(
-		ip,
-		npo,
-		npo,
-		echonet_lite.ESVINF,
-		echonet_lite.Properties{*list.Property()},
-		nil,
-	)
+	return s.Notify(NodeProfileObject1, echonet_lite.ESVINF, echonet_lite.Properties{*list.Property()})
 }
 
 type GetPropertiesCallbackFunc func(net.IP, echonet_lite.EOJ, bool, echonet_lite.Properties) error

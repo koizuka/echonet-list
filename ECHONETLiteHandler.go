@@ -94,13 +94,10 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj echonet_lite.EOJ
 		EDT: make([]byte, 9), // 識別番号未設定は9バイトの0
 	}
 
-	// NodeProfileObject
-	npo := echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1)
+	npo := NodeProfileObject1
 	localDevices.SetProperty(npo, emptyPropertyIdentifier)
 
-	// ControllerObject
-	ctrl := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
-	localDevices.SetProperty(ctrl, emptyPropertyIdentifier)
+	localDevices.SetProperty(seoj, emptyPropertyIdentifier)
 
 	handler := &ECHONETLiteHandler{
 		session:      session,
@@ -130,6 +127,17 @@ func (h *ECHONETLiteHandler) Close() error {
 // StartMainLoop は、メインループを開始する
 func (h *ECHONETLiteHandler) StartMainLoop() {
 	go h.session.MainLoop()
+}
+
+func (h *ECHONETLiteHandler) NotifyNodeList() error {
+	EOJs := []echonet_lite.EOJ{}
+	for eoj := range h.localDevices {
+		if eoj.ClassCode() == echonet_lite.NodeProfile_ClassCode {
+			continue
+		}
+		EOJs = append(EOJs, eoj)
+	}
+	return h.session.NotifyNodeList(EOJs)
 }
 
 func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
@@ -194,6 +202,14 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHON
 			fmt.Printf("  SetGetメッセージに対する応答: set:%v, get:%v\n", setResult, getResult) // DEBUG
 		}
 		return h.session.SendResponse(ip, msg, ESV, setResult, getResult)
+
+	case echonet_lite.ESVINF_REQ:
+		result, success := h.localDevices.GetProperties(eoj, msg.Properties)
+		if !success {
+			// 不可応答を個別に返す
+			return h.session.SendResponse(ip, msg, echonet_lite.ESVINF_REQ_SNA, result, nil)
+		}
+		return h.session.Notify(msg.DEOJ, echonet_lite.ESVINF, result)
 
 	case echonet_lite.ESVINF: // TODO
 	default:
@@ -427,8 +443,8 @@ func (h *ECHONETLiteHandler) GetPropertyMap(ip net.IP, eoj echonet_lite.EOJ) err
 }
 
 // Discover は、ECHONET Liteデバイスを検出する
-func (h *ECHONETLiteHandler) Discover(broadcastIP net.IP) error {
-	return h.GetSelfNodeInstanceListS(broadcastIP)
+func (h *ECHONETLiteHandler) Discover() error {
+	return h.GetSelfNodeInstanceListS(BroadcastIP)
 }
 
 // ListDevices は、検出されたデバイスの一覧を表示する

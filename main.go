@@ -70,7 +70,7 @@ func main() {
 		}
 	}()
 
-	// 自ノード
+	// Controller Object
 	SEOJ := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
 
 	// local address （ECHONET Liteの既定ポートを使用）
@@ -91,15 +91,11 @@ func main() {
 	// メインループの開始
 	handler.StartMainLoop()
 
-	// ブロードキャストアドレスの設定
-	broadcastIP := getIPv4BroadcastIP()
-	// broadcastIP := net.ParseIP("ff02::1")
-
 	// ノードリストの通知
-	_ = handler.session.NotifyNodeList(broadcastIP, []echonet_lite.EOJ{SEOJ})
+	_ = handler.NotifyNodeList()
 
 	// コマンドプロセッサの作成と開始
-	processor := NewCommandProcessor(ctx, handler, broadcastIP)
+	processor := NewCommandProcessor(ctx, handler)
 	processor.Start()
 	// defer processor.Stop() は不要。明示的に呼び出すため
 
