@@ -123,6 +123,13 @@ func (e EPCType) String() string {
 	return fmt.Sprintf("%02X", byte(e))
 }
 
+func (e EPCType) StringForClass(c EOJClassCode) string {
+	if info, ok := GetPropertyInfo(c, e); ok {
+		return fmt.Sprintf("%s(%s)", e.String(), info.EPCs)
+	}
+	return e.String()
+}
+
 func GetPropertyInfo(c EOJClassCode, e EPCType) (*PropertyInfo, bool) {
 	if table, ok := PropertyTables[c]; ok {
 		if ps, ok := table.EPCInfo[e]; ok {

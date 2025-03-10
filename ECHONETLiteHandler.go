@@ -394,12 +394,12 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(ip net.IP, seoj echonet_lite.EOJ, 
 				// properties のうち、EDTが空の物を除去する
 				// 失敗したプロパティも収集して表示する
 				filteredProperties := make(echonet_lite.Properties, 0, len(properties))
-				failedEPCs := make([]echonet_lite.EPCType, 0, len(properties))
+				failedEPCs := make([]string, 0, len(properties))
 				for _, p := range properties {
 					if p.EDT != nil {
 						filteredProperties = append(filteredProperties, p)
 					} else {
-						failedEPCs = append(failedEPCs, p.EPC)
+						failedEPCs = append(failedEPCs, p.EPC.StringForClass(seoj.ClassCode()))
 					}
 				}
 				properties = filteredProperties
