@@ -228,14 +228,7 @@ func (s *Session) MainLoop() {
 			if callback != nil {
 				err = callback(addr.IP, msg)
 				if err != nil {
-					var cbErr CallbackFinished
-					if errors.As(err, &cbErr) {
-						s.mu.Lock()
-						s.InfCallback = nil
-						s.mu.Unlock()
-					} else {
-						fmt.Println("Infコールバックエラー:", err)
-					}
+					fmt.Println("Infコールバックエラー:", err)
 				}
 			}
 		case echonet_lite.ESVGet, echonet_lite.ESVSetC, echonet_lite.ESVSetI, echonet_lite.ESVINF_REQ:

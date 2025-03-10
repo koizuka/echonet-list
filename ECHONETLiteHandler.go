@@ -159,7 +159,7 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHON
 		)
 	}
 
-	eoj := msg.SEOJ
+	eoj := msg.DEOJ
 	_, ok := h.localDevices[eoj]
 	if !ok {
 		return fmt.Errorf("デバイス %v が見つかりません", eoj)
@@ -235,8 +235,33 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLi
 
 	ipStr := ip.String()
 	if logger != nil {
-		logger.Log("INFメッセージを受信: %s, %v", ipStr, msg.SEOJ)
+		logger.Log("INFメッセージを受信: %s, SEOJ:%v, DEOJ:%v", ipStr, msg.SEOJ, msg.DEOJ)
 	}
+
+	if !h.localDevices.IsAcceptableDEOJ(msg.DEOJ) {
+		// 許容できないDEOJをもつmsgは破棄
+		return nil
+	}
+
+	defer func() {
+		if msg.ESV == echonet_lite.ESVINFC {
+			replyProps := make([]echonet_lite.Property, 0, len(msg.Properties))
+			// EDTをnilにする
+			for _, p := range msg.Properties {
+				replyProps = append(replyProps, echonet_lite.Property{
+					EPC: p.EPC,
+					EDT: nil,
+				})
+			}
+			// 応答を返す
+			err := h.session.SendResponse(ip, msg, echonet_lite.ESVINFC_Res, replyProps, nil)
+			if err != nil {
+				if logger != nil {
+					logger.Log("エラー: INFメッセージに対する応答の送信に失敗: %v", err)
+				}
+			}
+		}
+	}()
 
 	if msg.SEOJ.ClassCode() == echonet_lite.NodeProfile_ClassCode {
 		// ノードプロファイルオブジェクトからのメッセージ

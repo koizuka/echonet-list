@@ -543,3 +543,19 @@ func (d DeviceProperties) UpdateProfileObjectProperties() {
 		&selfNodeClassListS,
 	)
 }
+
+func (d DeviceProperties) IsAcceptableDEOJ(deoj echonet_lite.EOJ) bool {
+	// d に　deoj が含まれるなら true
+	if _, ok := d[deoj]; ok {
+		return true
+	}
+	// deoj の instanceCode が 0 の場合、d に deoj の classCode が含まれるなら true
+	if deoj.InstanceCode() == 0 {
+		for eoj := range d {
+			if eoj.ClassCode() == deoj.ClassCode() {
+				return true
+			}
+		}
+	}
+	return false
+}
