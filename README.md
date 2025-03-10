@@ -15,7 +15,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 
 ### Prerequisites
 
-- Go 1.16 or later
+- Go 1.20 or later
 
 ### Building from Source
 
@@ -37,6 +37,7 @@ Run the application:
 ### Command Line Options
 
 - `-debug`: Enable debug mode to display detailed communication logs (packet contents, hex dumps, etc.)
+- `-log`: Specify a log file name
 
 Example with debug mode:
 
@@ -104,8 +105,13 @@ Sets property values on a specific device:
 - `instanceCode`: Instance code (1-255, defaults to 1 if omitted)
 - `property`: Property to set, in one of these formats:
   - `EPC:EDT` (e.g., 80:30)
-  - `on` (equivalent to setting operation status to ON)
-  - `off` (equivalent to setting operation status to OFF)
+  - `EPC` (e.g., 80) - displays available aliases for this EPC
+  - Alias name (e.g., `on`) - automatically expanded to the corresponding EPC:EDT
+  - Examples:
+    - `on` (equivalent to setting operation status to ON)
+    - `off` (equivalent to setting operation status to OFF)
+    - `80:on` (equivalent to setting operation status to ON)
+    - `b0:auto` (equivalent to setting air conditioner to auto mode)
 
 #### Update Device Properties
 
@@ -120,6 +126,18 @@ Updates all properties of devices that match the specified criteria:
 - `instanceCode`: Filter by instance code (1-255, e.g., 0130:1)
 
 This command retrieves all properties listed in the device's GetPropertyMap and updates the local cache. It can be used to refresh the property values of one or multiple devices.
+
+#### Debug Mode
+
+```bash
+> debug [on|off]
+```
+
+Displays or changes the debug mode:
+
+- No arguments: Display current debug mode
+- `on`: Enable debug mode
+- `off`: Disable debug mode
 
 #### Help
 
@@ -156,7 +174,9 @@ The application supports various ECHONET Lite device types, including:
 
 - `main.go`: Entry point and main application logic
 - `Command.go`: Command parsing and execution
+- `CommandProcessor.go`: Command processing and execution
 - `Devices.go`: Device management and storage
+- `ECHONETLiteHandler.go`: ECHONET Lite communication handler
 - `Session.go`: Session management for ECHONET Lite communication
 - `UDPConnection.go`: UDP communication handling
 - `echonet_lite/`: Package containing ECHONET Lite protocol implementation
@@ -194,6 +214,24 @@ The application supports various ECHONET Lite device types, including:
 2. Update all properties of all air conditioners: `update 0130`
 3. Update all properties of a specific device: `update 192.168.0.5 0130:1`
 4. Check the updated properties: `devices 0130 -all`
+
+## Troubleshooting
+
+### Common Errors
+
+#### Port Already in Use
+
+If you encounter the error message:
+```
+listen udp :3610: bind: address already in use
+```
+This indicates that another instance of the application is already running and using UDP port 3610. 
+
+**Resolution:**
+1. Find and terminate the other running instance of the application
+   - On Linux/macOS: `ps aux | grep echonet-list` to find the process, then `kill <PID>` to terminate it
+   - On Windows: Use Task Manager to end the process
+2. After stopping the other instance, try running the application again
 
 ## References
 
