@@ -14,6 +14,13 @@ const (
 	EPC_NPO_SelfNodeClassListS       EPCType = 0xd7
 )
 
+var ECHONETLite_Version NPO_VersionInfo = NPO_VersionInfo{
+	MajorVersion: 1,
+	MinorVersion: 14,
+	Default:      true,
+	Optional:     false,
+}
+
 var NPO_PropertyTable = PropertyTable{
 	EPCInfo: map[EPCType]PropertyInfo{
 		EPC_NPO_VersionInfo:              {"Version information", Decoder(NPO_DecodeVersionInfo), nil},
@@ -44,6 +51,27 @@ func NPO_DecodeVersionInfo(EDT []byte) *NPO_VersionInfo {
 		Default:      EDT[2]&0x01 != 0,
 		Optional:     EDT[2]&0x02 != 0,
 	}
+}
+
+func (s *NPO_VersionInfo) EDT() []byte {
+	if s == nil {
+		return nil
+	}
+	var thirdByte byte
+	if s.Default {
+		thirdByte |= 0x01
+	}
+	if s.Optional {
+		thirdByte |= 0x02
+	}
+	return []byte{s.MajorVersion, s.MinorVersion, thirdByte}
+}
+
+func (s *NPO_VersionInfo) Property() *Property {
+	if s == nil {
+		return nil
+	}
+	return &Property{EPC_NPO_VersionInfo, s.EDT()}
 }
 
 func (s *NPO_VersionInfo) String() string {

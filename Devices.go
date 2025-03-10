@@ -423,11 +423,17 @@ func (d Devices) HasEPCInPropertyMap(ip string, eoj echonet_lite.EOJ, mapType Pr
 	return propMap.Has(epc)
 }
 
-func (d DeviceProperties) Set(eoj echonet_lite.EOJ, property echonet_lite.Property) {
+func (d DeviceProperties) Set(eoj echonet_lite.EOJ, properties ...echonet_lite.IProperty) {
 	if _, ok := d[eoj]; !ok {
 		d[eoj] = make(map[echonet_lite.EPCType]echonet_lite.Property)
 	}
-	d[eoj][property.EPC] = property
+	for _, prop := range properties {
+		p := prop.Property()
+		if p == nil {
+			continue
+		}
+		d[eoj][p.EPC] = *p
+	}
 }
 
 func (d DeviceProperties) Get(eoj echonet_lite.EOJ, epc echonet_lite.EPCType) (echonet_lite.Property, bool) {
@@ -530,8 +536,10 @@ func (d DeviceProperties) UpdateProfileObjectProperties() {
 	selfNodeClassListS := echonet_lite.SelfNodeClassListS(classArray)
 
 	eoj := NodeProfileObject1
-	d.Set(eoj, *selfNodeInstances.Property())
-	d.Set(eoj, *selfNodeInstanceListS.Property())
-	d.Set(eoj, *selfNodeClasses.Property())
-	d.Set(eoj, *selfNodeClassListS.Property())
+	d.Set(eoj,
+		&selfNodeInstances,
+		&selfNodeInstanceListS,
+		&selfNodeClasses,
+		&selfNodeClassListS,
+	)
 }

@@ -48,7 +48,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		EPCInstallationLocation: {"Installation location", Decoder(DecodeInstallationLocation),
 			InstallationLocationAliases()},
 		EPCStandardVersion:                       {"Standard version", Decoder(DecodeStandardVersion), nil},
-		EPCIdentificationNumber:                  {"Identification number", nil, nil},
+		EPCIdentificationNumber:                  {"Identification number", Decoder(DecodeIdentificationNumber), nil},
 		EPCMeasuredInstantaneousPowerConsumption: {"Measured instantaneous power consumption", Decoder(DecodeInstantaneousPowerConsumption), nil},
 		EPCMeasuredCumulativePowerConsumption:    {"Measured cumulative power consumption", Decoder(DecodeCumulativePowerConsumption), nil},
 		EPCManufacturerFaultCode:                 {"Manufacturer fault code", nil, nil},
@@ -241,6 +241,32 @@ func (s *StandardVersion) String() string {
 
 func (s *StandardVersion) Property() *Property {
 	return &Property{EPC: EPCStandardVersion, EDT: []byte{s.Reserved1, s.Reserved2, s.Release, s.Revision}}
+}
+
+type IdentificationNumber struct {
+	ManufacturerCode ManufacturerCode
+	UniqueIdentifier []byte // 13 bytes
+}
+
+func DecodeIdentificationNumber(EDT []byte) *IdentificationNumber {
+	if len(EDT) < 16 {
+		return nil
+	}
+	return &IdentificationNumber{
+		ManufacturerCode: ManufacturerCode(uint32(EDT[0])<<16 | uint32(EDT[1])<<8 | uint32(EDT[2])),
+		UniqueIdentifier: EDT[3:16],
+	}
+}
+
+func (s *IdentificationNumber) String() string {
+	return fmt.Sprintf("%v:%X", s.ManufacturerCode, s.UniqueIdentifier)
+}
+
+func (s *IdentificationNumber) Property() *Property {
+	return &Property{
+		EPC: EPCIdentificationNumber,
+		EDT: append(s.ManufacturerCode.EDT(), s.UniqueIdentifier...),
+	}
 }
 
 type InstantaneousPowerConsumption struct {

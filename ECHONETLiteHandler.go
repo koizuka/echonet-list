@@ -89,21 +89,25 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj echonet_lite.EOJ
 	}
 
 	localDevices := make(DeviceProperties)
-	operationStatusOn := *echonet_lite.OperationStatus(true).Property()
-	emptyPropertyIdentifier := echonet_lite.Property{
-		EPC: echonet_lite.EPCIdentificationNumber,
-		EDT: make([]byte, 9), // 識別番号未設定は9バイトの0
+	operationStatusOn := echonet_lite.OperationStatus(true)
+	manufacturerCode := echonet_lite.ManufacturerCodeExperimental
+	identificationNumber := echonet_lite.IdentificationNumber{
+		ManufacturerCode: manufacturerCode,
+		UniqueIdentifier: make([]byte, 13), // 識別番号未設定は13バイトの0
 	}
-	manufacturerCode := *echonet_lite.ManufacturerCodeExperimental.Property()
 
-	npo := NodeProfileObject1
-	localDevices.Set(npo, operationStatusOn)
-	localDevices.Set(npo, emptyPropertyIdentifier)
-	localDevices.Set(npo, manufacturerCode)
+	localDevices.Set(NodeProfileObject1,
+		&operationStatusOn,
+		&identificationNumber,
+		&manufacturerCode,
+		&echonet_lite.ECHONETLite_Version,
+	)
 
-	localDevices.Set(seoj, operationStatusOn)
-	localDevices.Set(seoj, emptyPropertyIdentifier)
-	localDevices.Set(seoj, manufacturerCode)
+	localDevices.Set(seoj,
+		&operationStatusOn,
+		&identificationNumber,
+		&manufacturerCode,
+	)
 
 	// 最後にやること
 	localDevices.UpdateProfileObjectProperties()

@@ -57,6 +57,10 @@ type Property struct {
 }
 type Properties []Property
 
+func (p Property) Property() *Property {
+	return &p
+}
+
 func (p Property) Encode() []byte {
 	PDC := len(p.EDT)
 	data := make([]byte, 2+PDC) // Create with full length to include EDT
