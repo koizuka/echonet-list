@@ -5,10 +5,10 @@
 - **Dependencies**:
   - github.com/chzyer/readline: For command-line interface
   - golang.org/x/sys: For system-level operations
-- **Version Control**: Git (currently version 2.30.1)
+- **Version Control**: Git (version 2.48.1)
 - **Package Management**: Go modules
-- **Operating System**: macOS (based on the Git version being Apple Git-130)
-- **Package Manager**: Homebrew (available for updating Git)
+- **Operating System**: macOS
+- **Package Manager**: Homebrew (used for updating Git)
 
 ## Development Setup
 - Go 1.20 or later
