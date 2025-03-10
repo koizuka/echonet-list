@@ -23,6 +23,9 @@ func (c EOJClassCode) ClassGroupCode() ClassGroupCodeType {
 func (c EOJClassCode) ClassCode() ClassCodeType {
 	return ClassCodeType(c)
 }
+func (c EOJClassCode) Encode() []byte {
+	return []byte{byte(c >> 8), byte(c)}
+}
 
 func MakeEOJClassCode(classGroupCode ClassGroupCodeType, classCode ClassCodeType) EOJClassCode {
 	return EOJClassCode(uint16(classGroupCode)<<8 | uint16(classCode))

@@ -327,13 +327,13 @@ func (s *Session) SendResponse(ip net.IP, msg *echonet_lite.ECHONETLiteMessage, 
 	return nil
 }
 
-func (s *Session) Notify(SEOJ echonet_lite.EOJ, ESV echonet_lite.ESVType, property echonet_lite.Properties) error {
+func (s *Session) Broadcast(SEOJ echonet_lite.EOJ, ESV echonet_lite.ESVType, property echonet_lite.Properties) error {
 	return s.SendTo(BroadcastIP, SEOJ, NodeProfileObject1, ESV, property, nil)
 }
 
-func (s *Session) NotifyNodeList(nodes []echonet_lite.EOJ) error {
+func (s *Session) BroadcastNodeList(nodes []echonet_lite.EOJ) error {
 	list := echonet_lite.InstanceListNotification(nodes)
-	return s.Notify(NodeProfileObject1, echonet_lite.ESVINF, echonet_lite.Properties{*list.Property()})
+	return s.Broadcast(NodeProfileObject1, echonet_lite.ESVINF, echonet_lite.Properties{*list.Property()})
 }
 
 type GetPropertiesCallbackFunc func(net.IP, echonet_lite.EOJ, bool, echonet_lite.Properties) error

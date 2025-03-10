@@ -135,6 +135,15 @@ func GetPropertyInfo(c EOJClassCode, e EPCType) (*PropertyInfo, bool) {
 	return nil, false
 }
 
+func GetEDTFromAlias(c EOJClassCode, e EPCType, alias string) ([]byte, bool) {
+	if info, ok := GetPropertyInfo(c, e); ok && info.Aliases != nil {
+		if aliases, ok := info.Aliases[alias]; ok {
+			return aliases, true
+		}
+	}
+	return nil, false
+}
+
 func IsPropertyDefaultEPC(c EOJClassCode, epc EPCType) bool {
 	isDefaultEPC := func(table PropertyTable) bool {
 		for _, e := range table.DefaultEPCs {

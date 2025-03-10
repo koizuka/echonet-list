@@ -423,14 +423,14 @@ func (d Devices) HasEPCInPropertyMap(ip string, eoj echonet_lite.EOJ, mapType Pr
 	return propMap.Has(epc)
 }
 
-func (d DeviceProperties) SetProperty(eoj echonet_lite.EOJ, property echonet_lite.Property) {
+func (d DeviceProperties) Set(eoj echonet_lite.EOJ, property echonet_lite.Property) {
 	if _, ok := d[eoj]; !ok {
 		d[eoj] = make(map[echonet_lite.EPCType]echonet_lite.Property)
 	}
 	d[eoj][property.EPC] = property
 }
 
-func (d DeviceProperties) GetProperty(eoj echonet_lite.EOJ, epc echonet_lite.EPCType) (echonet_lite.Property, bool) {
+func (d DeviceProperties) Get(eoj echonet_lite.EOJ, epc echonet_lite.EPCType) (echonet_lite.Property, bool) {
 	if epc == echonet_lite.EPCGetPropertyMap {
 		// GetPropertyMap は特別なプロパティで、全てのプロパティを含むプロパティマップを返す
 		propertyMap := make(echonet_lite.PropertyMap)
@@ -464,7 +464,7 @@ func (d DeviceProperties) GetProperties(eoj echonet_lite.EOJ, properties echonet
 			EPC: p.EPC,
 			EDT: []byte{}, // empty
 		}
-		prop, ok := d.GetProperty(eoj, p.EPC)
+		prop, ok := d.Get(eoj, p.EPC)
 		if !ok {
 			success = false
 		} else {
@@ -479,7 +479,7 @@ func (d DeviceProperties) GetProperties(eoj echonet_lite.EOJ, properties echonet
 // プロパティが書き込めない場合は、そのプロパティはリクエストの値で返され、成功した場合はEDTが空になる
 func (d DeviceProperties) SetProperties(eoj echonet_lite.EOJ, properties echonet_lite.Properties) (echonet_lite.Properties, bool) {
 	setPropertyMap := echonet_lite.PropertyMap{}
-	if p, ok := d.GetProperty(eoj, echonet_lite.EPCSetPropertyMap); ok {
+	if p, ok := d.Get(eoj, echonet_lite.EPCSetPropertyMap); ok {
 		setPropertyMap = echonet_lite.DecodePropertyMap(p.EDT)
 	}
 
@@ -494,7 +494,7 @@ func (d DeviceProperties) SetProperties(eoj echonet_lite.EOJ, properties echonet
 		if !setPropertyMap.Has(p.EPC) {
 			success = false
 		} else {
-			d.SetProperty(eoj, p)
+			d.Set(eoj, p)
 			rep.EDT = []byte{} // 書き込み成功したら empty
 		}
 		result = append(result, rep)
@@ -530,8 +530,8 @@ func (d DeviceProperties) UpdateProfileObjectProperties() {
 	selfNodeClassListS := echonet_lite.SelfNodeClassListS(classArray)
 
 	eoj := NodeProfileObject1
-	d.SetProperty(eoj, *selfNodeInstances.Property())
-	d.SetProperty(eoj, *selfNodeInstanceListS.Property())
-	d.SetProperty(eoj, *selfNodeClasses.Property())
-	d.SetProperty(eoj, *selfNodeClassListS.Property())
+	d.Set(eoj, *selfNodeInstances.Property())
+	d.Set(eoj, *selfNodeInstanceListS.Property())
+	d.Set(eoj, *selfNodeClasses.Property())
+	d.Set(eoj, *selfNodeClassListS.Property())
 }

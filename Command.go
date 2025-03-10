@@ -130,6 +130,21 @@ func parseEPC(epcStr string) (echonet_lite.EPCType, error) {
 	return echonet_lite.EPCType(epc64), nil
 }
 
+func parseHexBytes(hexStr string) ([]byte, error) {
+	if len(hexStr)%2 != 0 {
+		return nil, fmt.Errorf("hex string must be a multiple of 2 characters: %s", hexStr)
+	}
+	bytes := make([]byte, len(hexStr)/2)
+	for i := 0; i < len(hexStr); i += 2 {
+		b, err := strconv.ParseUint(hexStr[i:i+2], 16, 8)
+		if err != nil {
+			return nil, fmt.Errorf("invalid hex byte: %s", hexStr[i:i+2])
+		}
+		bytes[i/2] = byte(b)
+	}
+	return bytes, nil
+}
+
 // プロパティ文字列をパースする
 // propertyStr: プロパティ文字列（"EPC:EDT" 形式または "alias" 形式）
 // classCode: クラスコード
@@ -147,45 +162,27 @@ func parsePropertyString(propertyStr string, classCode echonet_lite.EOJClassCode
 
 		var edt []byte
 
-		// エイリアスのチェック
-		// クラスコードからPropertyInfoを取得
-		if propInfo, ok := echonet_lite.GetPropertyInfo(classCode, epc); ok && propInfo.Aliases != nil {
-			// エイリアスが定義されているか確認
-			if aliasEDT, ok := propInfo.Aliases[propParts[1]]; ok {
-				// エイリアスが見つかった場合、そのEDT値を使用
-				if debug {
-					fmt.Printf("エイリアス '%s' を EDT:%X に展開します\n", propParts[1], aliasEDT)
-				}
-				edt = aliasEDT
+		if aliasEDT, ok := echonet_lite.GetEDTFromAlias(classCode, epc, propParts[1]); ok {
+			if debug {
+				fmt.Printf("エイリアス '%s' を EDT:%X に展開します\n", propParts[1], aliasEDT)
 			}
+			edt = aliasEDT
 		}
 
 		// エイリアスが見つからなかった場合は通常のEDTパース
 		if edt == nil {
-			// EDTのパース（2桁の16進数の倍数）
-			if len(propParts[1])%2 != 0 {
-				return echonet_lite.Property{}, fmt.Errorf("EDT must be a multiple of 2 hexadecimal digits: %s", propParts[1])
-			}
-
-			edt = make([]byte, len(propParts[1])/2)
-			for j := 0; j < len(propParts[1]); j += 2 {
-				b, err := strconv.ParseUint(propParts[1][j:j+2], 16, 8)
-				if err != nil {
-					return echonet_lite.Property{}, fmt.Errorf("invalid EDT: %s (must be hexadecimal digits)", propParts[1])
-				}
-				edt[j/2] = byte(b)
+			edt, err = parseHexBytes(propParts[1])
+			if err != nil {
+				return echonet_lite.Property{}, fmt.Errorf("EPC:%s: %v", propParts[0], err)
 			}
 		}
 
-		// プロパティを返す
 		return echonet_lite.Property{EPC: epc, EDT: edt}, nil
 	} else {
 		// エイリアスのみの場合（例: "on"）
 		alias := propertyStr
 
-		// クラスコードに対応するすべてのプロパティを検索
 		if p, ok := echonet_lite.PropertyTables.FindAlias(classCode, alias); ok {
-			// エイリアスが見つかった場合、そのEPC:EDTを使用
 			if debug {
 				fmt.Printf("エイリアス '%s' を EPC:%s, EDT:%X に展開します\n", alias, p.EPC, p.EDT)
 			}

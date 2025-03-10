@@ -96,11 +96,11 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj echonet_lite.EOJ
 	}
 
 	npo := NodeProfileObject1
-	localDevices.SetProperty(npo, operationStatusOn)
-	localDevices.SetProperty(npo, emptyPropertyIdentifier)
+	localDevices.Set(npo, operationStatusOn)
+	localDevices.Set(npo, emptyPropertyIdentifier)
 
-	localDevices.SetProperty(seoj, operationStatusOn)
-	localDevices.SetProperty(seoj, emptyPropertyIdentifier)
+	localDevices.Set(seoj, operationStatusOn)
+	localDevices.Set(seoj, emptyPropertyIdentifier)
 
 	// 最後にやること
 	localDevices.UpdateProfileObjectProperties()
@@ -137,7 +137,7 @@ func (h *ECHONETLiteHandler) StartMainLoop() {
 
 func (h *ECHONETLiteHandler) NotifyNodeList() error {
 	EOJs := h.localDevices.GetInstanceList()
-	return h.session.NotifyNodeList(EOJs)
+	return h.session.BroadcastNodeList(EOJs)
 }
 
 func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
@@ -209,7 +209,7 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHON
 			// 不可応答を個別に返す
 			return h.session.SendResponse(ip, msg, echonet_lite.ESVINF_REQ_SNA, result, nil)
 		}
-		return h.session.Notify(msg.DEOJ, echonet_lite.ESVINF, result)
+		return h.session.Broadcast(msg.DEOJ, echonet_lite.ESVINF, result)
 
 	case echonet_lite.ESVINF: // TODO
 	default:
@@ -273,7 +273,7 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLi
 				logger.Log("情報: 新しいデバイスを検出: %s, %v", ipStr, msg.SEOJ)
 			}
 			fmt.Printf("%v: 新しいデバイスが検出されました: %v\n", ipStr, msg.SEOJ)
-			err := h.GetPropertyMap(ip, msg.SEOJ)
+			err := h.GetGetPropertyMap(ip, msg.SEOJ)
 			if err != nil {
 				if logger != nil {
 					logger.Log("エラー: プロパティマップの取得に失敗: %v", err)
@@ -333,7 +333,7 @@ func (h *ECHONETLiteHandler) onSelfNodeInstanceListS(ip net.IP, seoj echonet_lit
 	// 各デバイスのプロパティマップを取得
 	var errors []error
 	for _, eoj := range *il {
-		if err := h.GetPropertyMap(ip, eoj); err != nil {
+		if err := h.GetGetPropertyMap(ip, eoj); err != nil {
 			errors = append(errors, fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", eoj, err))
 		}
 	}
@@ -437,8 +437,8 @@ func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
 	return h.session.GetSelfNodeInstanceListS(ip, h.onSelfNodeInstanceListS)
 }
 
-// GetPropertyMap は、GetPropertyMapプロパティを取得する
-func (h *ECHONETLiteHandler) GetPropertyMap(ip net.IP, eoj echonet_lite.EOJ) error {
+// GetGetPropertyMap は、GetPropertyMapプロパティを取得する
+func (h *ECHONETLiteHandler) GetGetPropertyMap(ip net.IP, eoj echonet_lite.EOJ) error {
 	return h.session.GetProperty(ip, eoj, echonet_lite.EPCGetPropertyMap, h.onGetPropertyMap)
 }
 

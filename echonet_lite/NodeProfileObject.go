@@ -214,7 +214,7 @@ func (s *SelfNodeClassListS) EDT() []byte {
 	EDT := make([]byte, 1, 1+len(*s)*2)
 	EDT[0] = byte(len(*s))
 	for _, class := range *s {
-		EDT = append(EDT, byte(class>>8), byte(class))
+		EDT = append(EDT, class.Encode()...)
 	}
 	return EDT
 }

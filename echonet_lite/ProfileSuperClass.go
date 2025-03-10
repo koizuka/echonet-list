@@ -51,9 +51,10 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		}},
 		EPCFaultDescription: {"Fault description", nil, nil},
 		EPCManufacturerCode: {"Manufacturer code", Decoder(DecodeManufacturerCode), map[string][]byte{
-			"Sharp":     {0x00, 0x00, 0x05},
-			"Daikin":    {0x00, 0x00, 0x08},
-			"Panasonic": {0x00, 0x00, 0x0b},
+			"Sharp":        {0x00, 0x00, 0x05},
+			"Daikin":       {0x00, 0x00, 0x08},
+			"Panasonic":    {0x00, 0x00, 0x0b},
+			"Experimental": {0xff, 0xff, 0xff},
 		}},
 		EPCBusinessFacilityCode:          {"Business facility code", nil, nil},
 		EPCProductCode:                   {"Product code", Decoder(DecodeProductCode), nil},
