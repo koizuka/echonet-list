@@ -47,6 +47,7 @@ var HAC_PropertyTable = PropertyTable{
 	},
 	DefaultEPCs: []EPCType{
 		EPC_HAC_OperationModeSetting,
+		EPC_HAC_TemperatureSetting,
 		EPC_HAC_CurrentRoomTemperature,
 		EPC_HAC_CurrentRoomHumidity,
 		EPC_HAC_CurrentOutsideTemperature,
@@ -202,7 +203,7 @@ func (s *HAC_Humidity) EDT() []byte {
 	return []byte{byte(*s)}
 }
 
-type HAC_Temperature int8
+type HAC_Temperature uint8
 
 func HAC_DecodeTemperature(EDT []byte) *HAC_Temperature {
 	if len(EDT) < 1 {
@@ -221,6 +222,9 @@ func (s *HAC_Temperature) EDT() []byte {
 func (s *HAC_Temperature) String() string {
 	if s == nil {
 		return "nil"
+	}
+	if *s == 0xfd {
+		return "unknown"
 	}
 	return fmt.Sprintf("%d℃", *s)
 }
