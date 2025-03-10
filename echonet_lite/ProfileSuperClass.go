@@ -31,6 +31,14 @@ const (
 	EPCGetPropertyMap                        EPCType = 0x9f // Get プロパティマップ
 )
 
+const (
+	// Manufacturer code
+	ManufacturerCodeSharp        ManufacturerCode = 0x000005
+	ManufacturerCodeDaikin       ManufacturerCode = 0x000008
+	ManufacturerCodePanasonic    ManufacturerCode = 0x00000b
+	ManufacturerCodeExperimental ManufacturerCode = 0xffffff
+)
+
 var ProfileSuperClass_PropertyTable = PropertyTable{
 	EPCInfo: map[EPCType]PropertyInfo{
 		EPCOperationStatus: {"Operation status", Decoder(DecodeOperationStatus), map[string][]byte{
@@ -51,10 +59,10 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		}},
 		EPCFaultDescription: {"Fault description", nil, nil},
 		EPCManufacturerCode: {"Manufacturer code", Decoder(DecodeManufacturerCode), map[string][]byte{
-			"Sharp":        {0x00, 0x00, 0x05},
-			"Daikin":       {0x00, 0x00, 0x08},
-			"Panasonic":    {0x00, 0x00, 0x0b},
-			"Experimental": {0xff, 0xff, 0xff},
+			"Sharp":        ManufacturerCodeSharp.EDT(),
+			"Daikin":       ManufacturerCodeDaikin.EDT(),
+			"Panasonic":    ManufacturerCodePanasonic.EDT(),
+			"Experimental": ManufacturerCodeExperimental.EDT(),
 		}},
 		EPCBusinessFacilityCode:          {"Business facility code", nil, nil},
 		EPCProductCode:                   {"Product code", Decoder(DecodeProductCode), nil},
@@ -322,8 +330,12 @@ func (c ManufacturerCode) String() string {
 	return fmt.Sprintf("%X", uint32(c))
 }
 
+func (c ManufacturerCode) EDT() []byte {
+	return []byte{byte(c >> 16), byte(c >> 8), byte(c)}
+}
+
 func (c ManufacturerCode) Property() *Property {
-	return &Property{EPC: EPCManufacturerCode, EDT: []byte{byte(c >> 16), byte(c >> 8), byte(c)}}
+	return &Property{EPC: EPCManufacturerCode, EDT: c.EDT()}
 }
 
 type ProductCode string

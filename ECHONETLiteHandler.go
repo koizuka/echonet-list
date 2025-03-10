@@ -94,13 +94,16 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj echonet_lite.EOJ
 		EPC: echonet_lite.EPCIdentificationNumber,
 		EDT: make([]byte, 9), // 識別番号未設定は9バイトの0
 	}
+	manufacturerCode := *echonet_lite.ManufacturerCodeExperimental.Property()
 
 	npo := NodeProfileObject1
 	localDevices.Set(npo, operationStatusOn)
 	localDevices.Set(npo, emptyPropertyIdentifier)
+	localDevices.Set(npo, manufacturerCode)
 
 	localDevices.Set(seoj, operationStatusOn)
 	localDevices.Set(seoj, emptyPropertyIdentifier)
+	localDevices.Set(seoj, manufacturerCode)
 
 	// 最後にやること
 	localDevices.UpdateProfileObjectProperties()
@@ -211,7 +214,6 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHON
 		}
 		return h.session.Broadcast(msg.DEOJ, echonet_lite.ESVINF, result)
 
-	case echonet_lite.ESVINF: // TODO
 	default:
 		fmt.Printf("  未対応のESV: %v\n", msg.ESV) // DEBUG
 	}
@@ -244,6 +246,15 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLi
 					}
 					return err
 				}
+			case echonet_lite.EPC_NPO_InstanceListNotification:
+				iln := echonet_lite.DecodeInstanceListNotification(p.EDT)
+				if iln == nil {
+					if logger != nil {
+						logger.Log("警告: InstanceListNotificationのデコードに失敗: %X", p.EDT)
+					}
+					return nil // 処理は継続
+				}
+				return h.onInstanceList(ip, msg.SEOJ, echonet_lite.InstanceList(*iln))
 			default:
 				if logger != nil {
 					logger.Log("情報: 未処理のEPC: %v", p.EPC)
@@ -314,10 +325,13 @@ func (h *ECHONETLiteHandler) onSelfNodeInstanceListS(ip net.IP, seoj echonet_lit
 	if il == nil {
 		return fmt.Errorf("SelfNodeInstanceListSのデコードに失敗しました: %X", p.EDT)
 	}
+	return h.onInstanceList(ip, seoj, echonet_lite.InstanceList(*il))
+}
 
+func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, seoj echonet_lite.EOJ, il echonet_lite.InstanceList) error {
 	// デバイスの登録
 	ipStr := ip.String()
-	for _, eoj := range *il {
+	for _, eoj := range il {
 		h.devices.RegisterDevice(ipStr, eoj)
 		// ログ出力は削除（不要なため）
 	}
@@ -332,7 +346,7 @@ func (h *ECHONETLiteHandler) onSelfNodeInstanceListS(ip net.IP, seoj echonet_lit
 
 	// 各デバイスのプロパティマップを取得
 	var errors []error
-	for _, eoj := range *il {
+	for _, eoj := range il {
 		if err := h.GetGetPropertyMap(ip, eoj); err != nil {
 			errors = append(errors, fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", eoj, err))
 		}
