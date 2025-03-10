@@ -96,18 +96,32 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj echonet_lite.EOJ
 		UniqueIdentifier: make([]byte, 13), // 識別番号未設定は13バイトの0
 	}
 
-	localDevices.Set(NodeProfileObject1,
+	err = localDevices.Set(NodeProfileObject1,
 		&operationStatusOn,
 		&identificationNumber,
 		&manufacturerCode,
 		&echonet_lite.ECHONETLite_Version,
 	)
+	if err != nil {
+		cancel() // エラーの場合はコンテキストをキャンセル
+		return nil, err
+	}
 
-	localDevices.Set(seoj,
+	err = localDevices.Set(seoj,
 		&operationStatusOn,
 		&identificationNumber,
 		&manufacturerCode,
 	)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	err = localDevices.UpdateProfileObjectProperties()
+	if err != nil {
+		cancel()
+		return nil, err
+	}
 
 	// 最後にやること
 	localDevices.UpdateProfileObjectProperties()
@@ -159,11 +173,13 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHON
 		)
 	}
 
-	eoj := msg.DEOJ
-	_, ok := h.localDevices[eoj]
-	if !ok {
-		return fmt.Errorf("デバイス %v が見つかりません", eoj)
+	found := h.localDevices.FindEOJ(msg.DEOJ)
+	if len(found) == 0 {
+		// 許容できないDEOJをもつmsgは破棄
+		return fmt.Errorf("デバイス %v が見つかりません", msg.DEOJ)
 	}
+	eoj := found[0] // 全デバイス要求だが最初の1つで返信する
+	msg.DEOJ = eoj
 
 	switch msg.ESV {
 	case echonet_lite.ESVGet:
@@ -238,9 +254,13 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLi
 		logger.Log("INFメッセージを受信: %s, SEOJ:%v, DEOJ:%v", ipStr, msg.SEOJ, msg.DEOJ)
 	}
 
-	if !h.localDevices.IsAcceptableDEOJ(msg.DEOJ) {
+	// DEOJ は instanceCode = 0 (ワイルドカード) の場合がある
+	if found := h.localDevices.FindEOJ(msg.DEOJ); len(found) == 0 {
 		// 許容できないDEOJをもつmsgは破棄
 		return nil
+	} else {
+		// 全デバイス要求だが最初の1つで返信する
+		msg.DEOJ = found[0]
 	}
 
 	defer func() {

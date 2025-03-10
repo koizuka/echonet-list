@@ -423,7 +423,11 @@ func (d Devices) HasEPCInPropertyMap(ip string, eoj echonet_lite.EOJ, mapType Pr
 	return propMap.Has(epc)
 }
 
-func (d DeviceProperties) Set(eoj echonet_lite.EOJ, properties ...echonet_lite.IProperty) {
+func (d DeviceProperties) Set(eoj echonet_lite.EOJ, properties ...echonet_lite.IProperty) error {
+	if eoj.InstanceCode() == 0 {
+		// インスタンスコードが0の場合は設定できない
+		return fmt.Errorf("インスタンスコードが0のEOJにはプロパティを設定できません")
+	}
 	if _, ok := d[eoj]; !ok {
 		d[eoj] = make(map[echonet_lite.EPCType]echonet_lite.Property)
 	}
@@ -434,6 +438,7 @@ func (d DeviceProperties) Set(eoj echonet_lite.EOJ, properties ...echonet_lite.I
 		}
 		d[eoj][p.EPC] = *p
 	}
+	return nil
 }
 
 func (d DeviceProperties) Get(eoj echonet_lite.EOJ, epc echonet_lite.EPCType) (echonet_lite.Property, bool) {
@@ -500,7 +505,7 @@ func (d DeviceProperties) SetProperties(eoj echonet_lite.EOJ, properties echonet
 		if !setPropertyMap.Has(p.EPC) {
 			success = false
 		} else {
-			d.Set(eoj, p)
+			_ = d.Set(eoj, p)
 			rep.EDT = []byte{} // 書き込み成功したら empty
 		}
 		result = append(result, rep)
@@ -519,7 +524,7 @@ func (d DeviceProperties) GetInstanceList() []echonet_lite.EOJ {
 	return EOJs
 }
 
-func (d DeviceProperties) UpdateProfileObjectProperties() {
+func (d DeviceProperties) UpdateProfileObjectProperties() error {
 	instanceList := d.GetInstanceList()
 	selfNodeInstances := echonet_lite.SelfNodeInstances(len(instanceList))
 	selfNodeInstanceListS := echonet_lite.SelfNodeInstanceListS(instanceList)
@@ -536,7 +541,7 @@ func (d DeviceProperties) UpdateProfileObjectProperties() {
 	selfNodeClassListS := echonet_lite.SelfNodeClassListS(classArray)
 
 	eoj := NodeProfileObject1
-	d.Set(eoj,
+	return d.Set(eoj,
 		&selfNodeInstances,
 		&selfNodeInstanceListS,
 		&selfNodeClasses,
@@ -544,18 +549,20 @@ func (d DeviceProperties) UpdateProfileObjectProperties() {
 	)
 }
 
-func (d DeviceProperties) IsAcceptableDEOJ(deoj echonet_lite.EOJ) bool {
+func (d DeviceProperties) FindEOJ(deoj echonet_lite.EOJ) []echonet_lite.EOJ {
 	// d に　deoj が含まれるなら true
 	if _, ok := d[deoj]; ok {
-		return true
+		return []echonet_lite.EOJ{deoj}
 	}
-	// deoj の instanceCode が 0 の場合、d に deoj の classCode が含まれるなら true
+	// deoj の instanceCode が 0 の場合、classCode が一致する EOJ を探す
 	if deoj.InstanceCode() == 0 {
+		result := []echonet_lite.EOJ{}
 		for eoj := range d {
 			if eoj.ClassCode() == deoj.ClassCode() {
-				return true
+				result = append(result, eoj)
 			}
 		}
+		return result
 	}
-	return false
+	return nil
 }
