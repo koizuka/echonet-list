@@ -94,6 +94,9 @@ func main() {
 	// ノードリストの通知
 	_ = handler.NotifyNodeList()
 
+	// デバイスの発見
+	_ = handler.Discover()
+
 	// コマンドプロセッサの作成と開始
 	processor := NewCommandProcessor(ctx, handler)
 	processor.Start()
