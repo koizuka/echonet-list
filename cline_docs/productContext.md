@@ -9,6 +9,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 - Allows users to get and set property values on specific devices
 - Maintains persistent storage of discovered devices
 - Supports various device types (air conditioners, lighting, floor heating, etc.)
+- Provides alias functionality for easier reference to devices
 
 ## How It Works
 1. The application discovers ECHONET Lite devices on the local network using UDP broadcast
@@ -20,6 +21,9 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
    - `get`: Get property values from specific devices
    - `set`: Set property values on specific devices
    - `update`: Update all properties of devices
+   - `alias`: Manage device aliases (create, view, delete, list)
+   - `debug`: Display or change debug mode
    - `help`: Display help information
    - `quit`: Exit the application
 5. The application supports various device types including air conditioners, lighting, floor heating, etc.
+6. Users can create aliases for devices to reference them more easily in commands

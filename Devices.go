@@ -197,75 +197,55 @@ func (d Devices) StringWithPropertyMode(propMode PropertyMode) string {
 		return ""
 	}
 
-	// IPアドレスのスライスを収集してソート
-	ips := make([]string, 0, len(d.data))
-	for ip := range d.data {
-		ips = append(ips, ip)
-	}
-
-	// IPアドレスをソート
-	sort.Slice(ips, func(i, j int) bool {
-		ii, _ := net.ResolveIPAddr("ip", ips[i])
-		ij, _ := net.ResolveIPAddr("ip", ips[j])
-		return string(ii.IP) < string(ij.IP)
+	ipAndEOJs := d.ListIPAndEOJ()
+	sort.Slice(ipAndEOJs, func(i, j int) bool {
+		// IPアドレスでソート
+		if ipAndEOJs[i].IP != ipAndEOJs[j].IP {
+			IPi, _ := net.ResolveIPAddr("ip", ipAndEOJs[i].IP)
+			IPj, _ := net.ResolveIPAddr("ip", ipAndEOJs[j].IP)
+			return string(IPi.IP) < string(IPj.IP)
+		}
+		// EOJでソート
+		return ipAndEOJs[i].EOJ < ipAndEOJs[j].EOJ
 	})
 
 	// 結果の構築
 	var results []string
 
-	for _, ip := range ips {
-		eojMap := d.data[ip]
+	for _, ipAndEOJ := range ipAndEOJs {
+		eoj := ipAndEOJ.EOJ
+		props := d.data[ipAndEOJ.IP][eoj]
+		results = append(results, fmt.Sprintf("%v:", ipAndEOJ))
 
-		// このIPに対するEOJをスライスに収集してソート
-		eojs := make([]echonet_lite.EOJ, 0, len(eojMap))
-		for eoj := range eojMap {
-			eojs = append(eojs, eoj)
+		// 表示するプロパティを選択
+		epcsToShow := make([]echonet_lite.EPCType, 0, len(props))
+
+		// 表示モードに応じてフィルタリング
+		for epc := range props {
+			switch propMode {
+			case PropDefault:
+				// デフォルトのプロパティのみ表示
+				if !echonet_lite.IsPropertyDefaultEPC(eoj.ClassCode(), epc) {
+					continue
+				}
+			case PropKnown:
+				// 既知のプロパティのみ表示
+				if _, ok := echonet_lite.GetPropertyInfo(eoj.ClassCode(), epc); !ok {
+					continue
+				}
+			}
+			epcsToShow = append(epcsToShow, epc)
 		}
 
-		if len(eojs) == 0 {
-			continue
-		}
-
-		// EOJをソート
-		sort.Slice(eojs, func(i, j int) bool {
-			return eojs[i] < eojs[j]
+		// プロパティをソート
+		sort.Slice(epcsToShow, func(i, j int) bool {
+			return epcsToShow[i] < epcsToShow[j]
 		})
 
-		// 各EOJに対する出力を生成
-		for _, eoj := range eojs {
-			props := eojMap[eoj]
-			results = append(results, fmt.Sprintf("%s, %v:", ip, eoj))
-
-			// 表示するプロパティを選択
-			epcsToShow := make([]echonet_lite.EPCType, 0, len(props))
-
-			// 表示モードに応じてフィルタリング
-			for epc := range props {
-				switch propMode {
-				case PropDefault:
-					// デフォルトのプロパティのみ表示
-					if !echonet_lite.IsPropertyDefaultEPC(eoj.ClassCode(), epc) {
-						continue
-					}
-				case PropKnown:
-					// 既知のプロパティのみ表示
-					if _, ok := echonet_lite.GetPropertyInfo(eoj.ClassCode(), epc); !ok {
-						continue
-					}
-				}
-				epcsToShow = append(epcsToShow, epc)
-			}
-
-			// プロパティをソート
-			sort.Slice(epcsToShow, func(i, j int) bool {
-				return epcsToShow[i] < epcsToShow[j]
-			})
-
-			// プロパティの出力を生成
-			for _, epc := range epcsToShow {
-				p := props[epc]
-				results = append(results, fmt.Sprintf("  %v", p.String(eoj.ClassCode())))
-			}
+		// プロパティの出力を生成
+		for _, epc := range epcsToShow {
+			p := props[epc]
+			results = append(results, fmt.Sprintf("  %v", p.String(eoj.ClassCode())))
 		}
 	}
 
@@ -310,14 +290,18 @@ func (d Devices) LoadFromFile(filename string) error {
 	return decoder.Decode(&d.data)
 }
 
-// DeviceInfo は、デバイスの情報を表す構造体
-type DeviceInfo struct {
+// IPAndEOJ は、デバイスの情報を表す構造体
+type IPAndEOJ struct {
 	IP  string
 	EOJ echonet_lite.EOJ
 }
 
+func (d IPAndEOJ) String() string {
+	return fmt.Sprintf("%s %v", d.IP, d.EOJ)
+}
+
 // FindDevicesByClassAndInstance は、指定されたクラスコードとインスタンスコードに一致するデバイスを検索します
-func (d Devices) FindDevicesByClassAndInstance(classCode *echonet_lite.EOJClassCode, instanceCode *echonet_lite.EOJInstanceCode) []DeviceInfo {
+func (d Devices) FindDevicesByClassAndInstance(classCode *echonet_lite.EOJClassCode, instanceCode *echonet_lite.EOJInstanceCode) []IPAndEOJ {
 	if classCode == nil {
 		return nil
 	}
@@ -325,18 +309,37 @@ func (d Devices) FindDevicesByClassAndInstance(classCode *echonet_lite.EOJClassC
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	var matchingDevices []DeviceInfo
+	var matchingDevices []IPAndEOJ
 	for ip, eojMap := range d.data {
 		for eoj := range eojMap {
 			if eoj.ClassCode() == *classCode {
 				if instanceCode == nil || eoj.InstanceCode() == *instanceCode {
-					matchingDevices = append(matchingDevices, DeviceInfo{IP: ip, EOJ: eoj})
+					matchingDevices = append(matchingDevices, IPAndEOJ{IP: ip, EOJ: eoj})
 				}
 			}
 		}
 	}
 
 	return matchingDevices
+}
+
+func (h Devices) Len() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.data)
+}
+
+func (h Devices) ListIPAndEOJ() []IPAndEOJ {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	var devices []IPAndEOJ
+	for ip, eojMap := range h.data {
+		for eoj := range eojMap {
+			devices = append(devices, IPAndEOJ{IP: ip, EOJ: eoj})
+		}
+	}
+	return devices
 }
 
 // HasPropertyWithValue checks if a property with the expected EPC and EDT exists for the given device

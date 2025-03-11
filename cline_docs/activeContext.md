@@ -1,14 +1,16 @@
 # Active Context
 
 ## Current Task
-Git has been successfully updated from version 2.30.1 to version 2.48.1.
+Documentation for the alias command has been added to PrintUsage in Command.go and README.md, but the alias command implementation is not yet complete.
 
 ## Recent Changes
-- Identified that the current Git version was 2.30.1 (Apple Git-130)
-- Confirmed that Homebrew was installed and the latest Git version available was 2.48.1
-- Successfully updated Git to version 2.48.1 using Homebrew
+- Added documentation for the alias command to the PrintUsage function in Command.go
+- Added a "Device Aliases" section to the README.md file
+- The alias command allows users to create, view, delete, and list aliases for devices
 
 ## Next Steps
-1. ✅ Update Git using Homebrew (COMPLETED)
-2. ✅ Verify the update was successful (COMPLETED)
-3. ✅ Check if any Git configurations need to be updated (COMPLETED - No changes needed)
+1. ✅ Update PrintUsage in Command.go to include alias command documentation (COMPLETED)
+2. ✅ Update README.md to include alias command documentation (COMPLETED)
+3. ⬜ Implement SaveToFile functionality for the alias command to persist aliases to disk
+   - The DeviceAliases.go file has SaveToFile and LoadFromFile methods, but they need to be called in the appropriate places
+   - Likely need to update ECHONETLiteHandler.go to call SaveToFile after alias operations

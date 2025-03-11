@@ -139,6 +139,21 @@ func (p *CommandProcessor) processCommands() {
 			}
 		case CmdUpdate:
 			cmd.Error = p.handler.UpdateProperties(cmd)
+		case CmdAliasList:
+			aliases := p.handler.AliasList()
+			for _, alias := range aliases {
+				fmt.Println(alias)
+			}
+		case CmdAliasSet:
+			cmd.Error = p.handler.AliasSet(cmd.DeviceAlias, cmd.DeviceSpec)
+		case CmdAliasDelete:
+			cmd.Error = p.handler.AliasDelete(cmd.DeviceAlias)
+		case CmdAliasGet:
+			device, err := p.handler.AliasGet(cmd.DeviceAlias)
+			cmd.Error = err
+			if err == nil {
+				fmt.Printf("%s: %v\n", *cmd.DeviceAlias, device)
+			}
 		default:
 			panic("unhandled default case")
 		}

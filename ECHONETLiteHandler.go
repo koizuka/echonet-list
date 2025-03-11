@@ -13,7 +13,9 @@ import (
 )
 
 const (
-	DeviceFileName = "devices.json"
+	DeviceFileName        = "devices.json"
+	DeviceAliasesFileName = "aliases.json"
+
 	CommandTimeout = 3 * time.Second // コマンド実行のタイムアウト時間
 )
 
@@ -27,7 +29,7 @@ func (e DeviceClassNotFoundError) Error() string {
 
 type TooManyDevicesError struct {
 	ClassCode echonet_lite.EOJClassCode
-	Devices   []DeviceInfo
+	Devices   []IPAndEOJ
 }
 
 func (e TooManyDevicesError) Error() string {
@@ -42,12 +44,13 @@ func (e TooManyDevicesError) Error() string {
 
 // ECHONETLiteHandler は、ECHONET Lite の通信処理を担当する構造体
 type ECHONETLiteHandler struct {
-	session      *Session
-	devices      Devices
-	localDevices DeviceProperties
-	debug        bool
-	ctx          context.Context    // コンテキスト
-	cancel       context.CancelFunc // コンテキストのキャンセル関数
+	session       *Session
+	devices       Devices
+	DeviceAliases *DeviceAliases
+	localDevices  DeviceProperties
+	debug         bool
+	ctx           context.Context    // コンテキスト
+	cancel        context.CancelFunc // コンテキストのキャンセル関数
 }
 
 // SetDebug は、デバッグモードを設定する
@@ -85,6 +88,17 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj echonet_lite.EOJ
 		if err != nil {
 			cancel() // エラーの場合はコンテキストをキャンセル
 			return nil, fmt.Errorf("デバイス情報の読み込みに失敗: %w", err)
+		}
+	}
+
+	aliases := NewDeviceAliases()
+
+	// DeviceAliasesFileName のファイルが存在するなら読み込む
+	if _, err := os.Stat(DeviceAliasesFileName); err == nil {
+		err = aliases.LoadFromFile(DeviceAliasesFileName)
+		if err != nil {
+			cancel() // エラーの場合はコンテキストをキャンセル
+			return nil, fmt.Errorf("エイリアス情報の読み込みに失敗: %w", err)
 		}
 	}
 
@@ -127,12 +141,13 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj echonet_lite.EOJ
 	localDevices.UpdateProfileObjectProperties()
 
 	handler := &ECHONETLiteHandler{
-		session:      session,
-		devices:      devices,
-		localDevices: localDevices,
-		debug:        debug,
-		ctx:          handlerCtx,
-		cancel:       cancel,
+		session:       session,
+		devices:       devices,
+		DeviceAliases: aliases,
+		localDevices:  localDevices,
+		debug:         debug,
+		ctx:           handlerCtx,
+		cancel:        cancel,
 	}
 
 	// INFメッセージのコールバックを設定
@@ -240,6 +255,23 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHON
 	return nil
 }
 
+func (h *ECHONETLiteHandler) registerProperties(ipString string, seoj echonet_lite.EOJ, properties echonet_lite.Properties) {
+	h.devices.RegisterProperties(ipString, seoj, properties)
+	if property, ok := properties.FindEPC(echonet_lite.EPCIdentificationNumber); ok {
+		if id := echonet_lite.DecodeIdentificationNumber(property.EDT); id != nil {
+			err := h.DeviceAliases.RegisterDeviceIdentification(IPAndEOJ{
+				IP:  ipString,
+				EOJ: seoj,
+			}, id)
+			if err != nil {
+				if logger != nil {
+					logger.Log("警告: IdentificationNumberの登録に失敗: %v", err)
+				}
+			}
+		}
+	}
+}
+
 // onInfMessage は、INFメッセージを受信したときのコールバック
 func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
 	if msg == nil {
@@ -345,7 +377,7 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLi
 		// プロパティの通知を処理
 		if len(msg.Properties) > 0 {
 			// Propertyの通知 -> 値を更新する
-			h.devices.RegisterProperties(ipStr, msg.SEOJ, msg.Properties)
+			h.registerProperties(ipStr, msg.SEOJ, msg.Properties)
 			fmt.Printf("%v/%v: Propertyの通知: %v\n", ipStr, msg.SEOJ, msg.Properties)
 
 			// デバイス情報を保存
@@ -472,7 +504,7 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(ip net.IP, seoj echonet_lite.EOJ, 
 			}
 
 			// プロパティを登録
-			h.devices.RegisterProperties(ip.String(), seoj, properties)
+			h.registerProperties(ip.String(), seoj, properties)
 
 			// デバイス情報を保存
 			if err := h.devices.SaveToFile(DeviceFileName); err != nil {
@@ -589,7 +621,7 @@ func (h *ECHONETLiteHandler) GetProperties(cmd *Command) (net.IP, echonet_lite.E
 			resultProperties = properties
 
 			// プロパティの登録
-			h.devices.RegisterProperties(ip.String(), eoj, properties)
+			h.registerProperties(ip.String(), eoj, properties)
 
 			// デバイス情報を保存
 			if err := h.devices.SaveToFile(DeviceFileName); err != nil {
@@ -666,7 +698,7 @@ func (h *ECHONETLiteHandler) SetProperties(cmd *Command) (net.IP, echonet_lite.E
 			resultProperties = cmd.Properties
 
 			// 戻ってきた properties ではなく、こちらが設定した cmd.Properties で登録する
-			h.devices.RegisterProperties(ip.String(), eoj, cmd.Properties)
+			h.registerProperties(ip.String(), eoj, cmd.Properties)
 
 			// デバイス情報を保存
 			if err := h.devices.SaveToFile(DeviceFileName); err != nil {
@@ -763,7 +795,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 					}
 					properties = nonEmpties
 				}
-				h.devices.RegisterProperties(ipAddress.String(), eoj, properties)
+				h.registerProperties(ipAddress.String(), eoj, properties)
 				// デバイス情報を保存
 				if err := h.devices.SaveToFile(DeviceFileName); err != nil {
 					if logger != nil {
@@ -815,6 +847,50 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 	}
 
 	return nil
+}
+
+func (h *ECHONETLiteHandler) AliasList() []AliasDevicePair {
+	return h.DeviceAliases.GetAllAliases()
+}
+
+func (h *ECHONETLiteHandler) AliasSet(alias *string, device *DeviceSpecifier) error {
+	// TODO device から探索する
+	devices := h.devices.Filter(FilterCriteria{
+		IPAddress:    device.IPAddress,
+		ClassCode:    device.ClassCode,
+		InstanceCode: device.InstanceCode,
+	})
+	if devices.Len() == 0 {
+		return fmt.Errorf("デバイスが見つかりません: %v", device)
+	}
+	if devices.Len() > 1 {
+		return fmt.Errorf("デバイスが複数見つかりました: %v", devices)
+	}
+	found := devices.ListIPAndEOJ()[0]
+
+	err := h.DeviceAliases.SetAlias(found, *alias)
+	if err != nil {
+		return fmt.Errorf("エイリアスを設定できませんでした: %w", err)
+	}
+	return nil
+}
+
+func (h *ECHONETLiteHandler) AliasDelete(alias *string) error {
+	if alias == nil {
+		return errors.New("エイリアス名が指定されていません")
+	}
+	return h.DeviceAliases.RemoveAlias(*alias)
+}
+
+func (h *ECHONETLiteHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
+	if alias == nil {
+		return nil, errors.New("エイリアス名が指定されていません")
+	}
+	device, ok := h.DeviceAliases.GetDeviceByAlias(*alias)
+	if !ok {
+		return nil, fmt.Errorf("エイリアス %s が見つかりません", *alias)
+	}
+	return &device, nil
 }
 
 // プロパティ操作コマンド（get/set）の共通処理を行うヘルパー関数

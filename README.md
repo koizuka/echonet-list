@@ -127,6 +127,37 @@ Updates all properties of devices that match the specified criteria:
 
 This command retrieves all properties listed in the device's GetPropertyMap and updates the local cache. It can be used to refresh the property values of one or multiple devices.
 
+#### Device Aliases
+
+```bash
+> alias
+> alias <aliasName>
+> alias <aliasName> [ipAddress] classCode[:instanceCode]
+> alias -delete <aliasName>
+```
+
+Manages device aliases for easier reference:
+
+- No arguments: Lists all registered aliases
+- `<aliasName>`: Shows information about the specified alias
+- `<aliasName> [ipAddress] classCode[:instanceCode]`: Creates or updates an alias for a device
+- `-delete <aliasName>`: Deletes the specified alias
+
+Examples:
+```bash
+> alias ac 192.168.0.3 0130:1  # Create alias 'ac' for air conditioner at 192.168.0.3
+> alias ac 0130                # Create alias 'ac' for the only air conditioner (if only one exists)
+> alias ac                     # Show information about alias 'ac'
+> alias -delete ac             # Delete alias 'ac'
+> alias                        # List all aliases
+```
+
+Using aliases with other commands:
+```bash
+> get ac 80                    # Get operation status of device with alias 'ac'
+> set ac on                    # Turn on device with alias 'ac'
+```
+
 #### Debug Mode
 
 ```bash

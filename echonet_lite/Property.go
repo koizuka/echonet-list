@@ -210,6 +210,15 @@ func (ps Properties) String(ClassCode EOJClassCode) string {
 	return fmt.Sprintf("[%s]", results)
 }
 
+func (ps Properties) FindEPC(epc EPCType) (Property, bool) {
+	for _, p := range ps {
+		if p.EPC == epc {
+			return p, true
+		}
+	}
+	return Property{}, false
+}
+
 type IProperty interface {
 	Property() *Property
 }

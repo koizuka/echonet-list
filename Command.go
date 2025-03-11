@@ -22,6 +22,10 @@ const (
 	CmdGet
 	CmdDebug
 	CmdUpdate
+	CmdAliasSet
+	CmdAliasGet
+	CmdAliasDelete
+	CmdAliasList
 )
 
 // プロパティ表示モードを表す型
@@ -33,47 +37,72 @@ const (
 	PropAll                         // 全てのプロパティを表示
 )
 
-// DeviceIdentifier は、デバイスを一意に識別するための情報を表す構造体
-type DeviceIdentifier struct {
+// DeviceSpecifier は、デバイスを一意に識別するための情報を表す構造体
+type DeviceSpecifier struct {
 	IPAddress    *string                       // IPアドレス。nilの場合は自動選択
 	ClassCode    *echonet_lite.EOJClassCode    // クラスコード
 	InstanceCode *echonet_lite.EOJInstanceCode // インスタンスコード
 }
 
+func (d *DeviceSpecifier) String() string {
+	var results []string
+
+	if d.IPAddress != nil {
+		results = append(results, *d.IPAddress)
+	}
+	if d.ClassCode != nil {
+		if d.InstanceCode != nil {
+			results = append(results, fmt.Sprintf("%v:%v", *d.ClassCode, *d.InstanceCode))
+		} else {
+			results = append(results, fmt.Sprintf("%v", *d.ClassCode))
+		}
+	}
+	return strings.Join(results, ", ")
+}
+
 // コマンドを表す構造体
 type Command struct {
-	Type       CommandType
-	DeviceID   *DeviceIdentifier       // デバイス識別子
-	EPCs       []echonet_lite.EPCType  // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
-	PropMode   PropertyMode            // プロパティ表示モード
-	Properties []echonet_lite.Property // set/devicesコマンドのプロパティリスト
-	DebugMode  *string                 // debugコマンドのモード ("on" または "off")
-	Done       chan struct{}           // コマンド実行完了を通知するチャネル
-	Error      error                   // コマンド実行中に発生したエラー
+	Type        CommandType
+	DeviceSpec  *DeviceSpecifier        // デバイス指定子
+	DeviceAlias *string                 // エイリアス
+	EPCs        []echonet_lite.EPCType  // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
+	PropMode    PropertyMode            // プロパティ表示モード
+	Properties  []echonet_lite.Property // set/devicesコマンドのプロパティリスト
+	DebugMode   *string                 // debugコマンドのモード ("on" または "off")
+	Done        chan struct{}           // コマンド実行完了を通知するチャネル
+	Error       error                   // コマンド実行中に発生したエラー
 }
 
 // GetIPAddress は、コマンドのIPアドレスを取得する
 func (c *Command) GetIPAddress() *string {
-	if c.DeviceID == nil {
+	if c.DeviceSpec == nil {
 		return nil
 	}
-	return c.DeviceID.IPAddress
+	return c.DeviceSpec.IPAddress
 }
 
 // GetClassCode は、コマンドのクラスコードを取得する
 func (c *Command) GetClassCode() *echonet_lite.EOJClassCode {
-	if c.DeviceID == nil {
+	if c.DeviceSpec == nil {
 		return nil
 	}
-	return c.DeviceID.ClassCode
+	return c.DeviceSpec.ClassCode
 }
 
 // GetInstanceCode は、コマンドのインスタンスコードを取得する
 func (c *Command) GetInstanceCode() *echonet_lite.EOJInstanceCode {
-	if c.DeviceID == nil {
+	if c.DeviceSpec == nil {
 		return nil
 	}
-	return c.DeviceID.InstanceCode
+	return c.DeviceSpec.InstanceCode
+}
+
+type CommandParser struct {
+	DeviceAliases *DeviceAliases
+}
+
+func NewCommandParser(deviceAliases *DeviceAliases) *CommandParser {
+	return &CommandParser{DeviceAliases: deviceAliases}
 }
 
 // IPアドレスをパースして、有効なIPアドレスならその文字列のポインタを返す
@@ -193,7 +222,7 @@ func parsePropertyString(propertyStr string, classCode echonet_lite.EOJClassCode
 	}
 }
 
-// parseDeviceIdentifier は、コマンド引数から DeviceIdentifier をパースする
+// parseDeviceSpecifier は、コマンド引数から DeviceSpecifier をパースする
 // 引数:
 //
 //	parts: コマンドの引数配列
@@ -202,10 +231,10 @@ func parsePropertyString(propertyStr string, classCode echonet_lite.EOJClassCode
 //
 // 戻り値:
 //
-//	deviceIdentifier: パースされた DeviceIdentifier
+//	deviceSpecifier: パースされた DeviceSpecifier
 //	nextArgIndex: 次の引数のインデックス
 //	error: エラー
-func parseDeviceIdentifier(parts []string, argIndex int, requireClassCode bool) (*DeviceIdentifier, int, error) {
+func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requireClassCode bool) (*DeviceSpecifier, int, error) {
 	if argIndex >= len(parts) {
 		if requireClassCode {
 			return nil, argIndex, fmt.Errorf("デバイス識別子が必要です")
@@ -213,17 +242,31 @@ func parseDeviceIdentifier(parts []string, argIndex int, requireClassCode bool) 
 		return nil, argIndex, nil
 	}
 
-	deviceID := &DeviceIdentifier{}
+	// エイリアスの取得
+	if p.DeviceAliases != nil {
+		if alias, ok := p.DeviceAliases.GetDeviceByAlias(parts[argIndex]); ok {
+			classCode := alias.EOJ.ClassCode()
+			instanceCode := alias.EOJ.InstanceCode()
+			deviceSpec := DeviceSpecifier{
+				IPAddress:    &alias.IP,
+				ClassCode:    &classCode,
+				InstanceCode: &instanceCode,
+			}
+			return &deviceSpec, argIndex + 1, nil
+		}
+	}
+
+	deviceSpec := &DeviceSpecifier{}
 
 	// IPアドレスのパース（省略可能）- IPv4/IPv6に対応
 	if ipAddr := tryParseIPAddress(parts[argIndex]); ipAddr != nil {
-		deviceID.IPAddress = ipAddr
+		deviceSpec.IPAddress = ipAddr
 		argIndex++
 
 		if argIndex >= len(parts) && requireClassCode {
 			return nil, argIndex, fmt.Errorf("クラスコードが必要です")
 		} else if argIndex >= len(parts) {
-			return deviceID, argIndex, nil
+			return deviceSpec, argIndex, nil
 		}
 	}
 
@@ -234,14 +277,14 @@ func parseDeviceIdentifier(parts []string, argIndex int, requireClassCode bool) 
 			return nil, argIndex, err
 		}
 		// クラスコードが必須でない場合は、パースエラーを無視して現在の引数を処理せずに返す
-		return deviceID, argIndex, nil
+		return deviceSpec, argIndex, nil
 	}
 
-	deviceID.ClassCode = classCode
-	deviceID.InstanceCode = instanceCode
+	deviceSpec.ClassCode = classCode
+	deviceSpec.InstanceCode = instanceCode
 	argIndex++
 
-	return deviceID, argIndex, nil
+	return deviceSpec, argIndex, nil
 }
 
 // 基本的なコマンドオブジェクトを作成するヘルパー関数
@@ -253,15 +296,15 @@ func newCommand(cmdType CommandType) *Command {
 }
 
 // "get" コマンドをパースする
-func parseGetCommand(parts []string) (*Command, error) {
+func (p CommandParser) parseGetCommand(parts []string) (*Command, error) {
 	cmd := newCommand(CmdGet)
 
 	// デバイス識別子のパース
-	deviceID, argIndex, err := parseDeviceIdentifier(parts, 1, true)
+	deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
 	if err != nil {
 		return nil, err
 	}
-	cmd.DeviceID = deviceID
+	cmd.DeviceSpec = deviceID
 
 	// EPCのパース
 	if argIndex >= len(parts) {
@@ -280,15 +323,15 @@ func parseGetCommand(parts []string) (*Command, error) {
 }
 
 // "set" コマンドをパースする
-func parseSetCommand(parts []string, debug bool) (*Command, error) {
+func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, error) {
 	cmd := newCommand(CmdSet)
 
 	// デバイス識別子のパース
-	deviceID, argIndex, err := parseDeviceIdentifier(parts, 1, true)
+	deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
 	if err != nil {
 		return nil, err
 	}
-	cmd.DeviceID = deviceID
+	cmd.DeviceSpec = deviceID
 
 	// プロパティのパース
 	if argIndex >= len(parts) {
@@ -344,15 +387,15 @@ func parseSetCommand(parts []string, debug bool) (*Command, error) {
 }
 
 // "devices" または "list" コマンドをパースする
-func parseDevicesCommand(parts []string) (*Command, error) {
+func (p CommandParser) parseDevicesCommand(parts []string) (*Command, error) {
 	cmd := newCommand(CmdDevices)
 
 	// デバイス識別子のパース
-	deviceID, argIndex, err := parseDeviceIdentifier(parts, 1, false)
+	deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
 	if err != nil {
 		return nil, err
 	}
-	cmd.DeviceID = deviceID
+	cmd.DeviceSpec = deviceID
 
 	// 残りの引数を解析
 	for i := argIndex; i < len(parts); i++ {
@@ -390,7 +433,7 @@ func parseDevicesCommand(parts []string) (*Command, error) {
 }
 
 // "debug" コマンドをパースする
-func parseDebugCommand(parts []string) (*Command, error) {
+func (p CommandParser) parseDebugCommand(parts []string) (*Command, error) {
 	cmd := newCommand(CmdDebug)
 
 	// 引数がない場合は現在のデバッグモードを表示するためにnilのままにする
@@ -410,15 +453,15 @@ func parseDebugCommand(parts []string) (*Command, error) {
 }
 
 // "update" コマンドをパースする
-func parseUpdateCommand(parts []string) (*Command, error) {
+func (p CommandParser) parseUpdateCommand(parts []string) (*Command, error) {
 	cmd := newCommand(CmdUpdate)
 
 	// デバイス識別子のパース
-	deviceID, argIndex, err := parseDeviceIdentifier(parts, 1, false)
+	deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
 	if err != nil {
 		return nil, err
 	}
-	cmd.DeviceID = deviceID
+	cmd.DeviceSpec = deviceID
 
 	// 残りの引数がある場合はエラー
 	if argIndex < len(parts) {
@@ -428,8 +471,65 @@ func parseUpdateCommand(parts []string) (*Command, error) {
 	return cmd, nil
 }
 
+// "alias" コマンドをパースする
+// 登録する場合:
+// syntax: alias _alias_ [_ipAddress_] _classCode_[:_instanceCode_]
+// 削除する場合:
+// syntax: alias -delete _alias_
+// 表示する場合:
+// syntax: alias _alias_
+// 一覧する場合:
+// syntax: alias
+func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
+	cmd := newCommand(CmdAliasList)
+
+	// 引数がない場合はエイリアス一覧を表示する
+	if len(parts) == 1 {
+		cmd.Type = CmdAliasList
+	} else if parts[1] == "-delete" {
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("エイリアスの削除にはエイリアス名が必要です")
+		}
+		cmd.Type = CmdAliasDelete
+		cmd.DeviceAlias = &parts[2]
+		return cmd, nil
+	} else if len(parts) == 2 {
+		cmd.Type = CmdAliasGet
+
+		// エイリアス名のパース
+		alias := parts[1]
+		if err := validateDeviceAlias(alias); err != nil {
+			return nil, err
+		}
+		cmd.DeviceAlias = &alias
+	} else {
+		cmd.Type = CmdAliasSet
+
+		// エイリアス名のパース
+		alias := parts[1]
+		if err := validateDeviceAlias(alias); err != nil {
+			return nil, err
+		}
+		cmd.DeviceAlias = &alias
+
+		// デバイス識別子のパース
+		deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 2, true)
+		if err != nil {
+			return nil, err
+		}
+		cmd.DeviceSpec = deviceID
+
+		// 残りの引数がある場合はエラー
+		if argIndex < len(parts) {
+			return nil, fmt.Errorf("無効な引数: %s", parts[argIndex])
+		}
+	}
+
+	return cmd, nil
+}
+
 // コマンドをパースする
-func ParseCommand(input string, debug bool) (*Command, error) {
+func (p CommandParser) ParseCommand(input string, debug bool) (*Command, error) {
 	parts := strings.Fields(input)
 	if len(parts) == 0 {
 		return nil, nil
@@ -445,15 +545,17 @@ func ParseCommand(input string, debug bool) (*Command, error) {
 	case "help":
 		cmd = newCommand(CmdHelp)
 	case "get":
-		cmd, err = parseGetCommand(parts)
+		cmd, err = p.parseGetCommand(parts)
 	case "set":
-		cmd, err = parseSetCommand(parts, debug)
+		cmd, err = p.parseSetCommand(parts, debug)
 	case "devices", "list":
-		cmd, err = parseDevicesCommand(parts)
+		cmd, err = p.parseDevicesCommand(parts)
 	case "debug":
-		cmd, err = parseDebugCommand(parts)
+		cmd, err = p.parseDebugCommand(parts)
 	case "update":
-		cmd, err = parseUpdateCommand(parts)
+		cmd, err = p.parseUpdateCommand(parts)
+	case "alias":
+		cmd, err = p.parseAliasCommand(parts)
 	default:
 		return nil, fmt.Errorf("unknown command: %s", parts[0])
 	}
@@ -499,6 +601,17 @@ func PrintUsage() {
 	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時は全デバイスが対象）")
 	fmt.Println("    classCode: クラスコード（4桁の16進数、省略時は全クラスが対象）")
 	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、省略時は指定クラスの全インスタンスが対象）")
+	fmt.Println("  alias: デバイスエイリアスの管理")
+	fmt.Println("    引数なし: 登録済みのエイリアス一覧を表示")
+	fmt.Println("    alias: エイリアス名（例: ac）")
+	fmt.Println("    -delete: エイリアスを削除（例: alias -delete ac）")
+	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）")
+	fmt.Println("    classCode: クラスコード（4桁の16進数）")
+	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、省略時は1）")
+	fmt.Println("    例: alias ac 192.168.0.3 0130:1 - IPアドレス192.168.0.3、クラスコード0130、インスタンスコード1のデバイスに「ac」というエイリアスを設定")
+	fmt.Println("    例: alias ac 0130 - クラスコード0130のデバイスに「ac」というエイリアスを設定（デバイスが1つだけの場合）")
+	fmt.Println("    例: alias ac - 「ac」というエイリアスの情報を表示")
+	fmt.Println("    例: alias -delete ac - 「ac」というエイリアスを削除")
 	fmt.Println("  debug [on|off]: デバッグモードの表示または切り替え")
 	fmt.Println("    引数なし: 現在のデバッグモードを表示")
 	fmt.Println("    on: デバッグモードを有効にする")

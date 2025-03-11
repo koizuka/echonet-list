@@ -159,13 +159,15 @@ func main() {
 		_ = rl.Close()
 	}(rl)
 
+	p := NewCommandParser(handler.DeviceAliases)
+
 	for {
 		line, err := rl.Readline()
 		if err != nil { // io.EOF, readline.ErrInterrupt
 			break
 		}
 
-		cmd, err := ParseCommand(line, handler.debug)
+		cmd, err := p.ParseCommand(line, handler.debug)
 		if err != nil {
 			fmt.Printf("エラー: %v\n", err)
 			continue
