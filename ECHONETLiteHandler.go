@@ -849,6 +849,14 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 	return nil
 }
 
+func (h *ECHONETLiteHandler) SaveAliasFile() error {
+	err := h.DeviceAliases.SaveToFile(DeviceAliasesFileName)
+	if err != nil {
+		return fmt.Errorf("エイリアス情報の保存に失敗しました: %w", err)
+	}
+	return nil
+}
+
 func (h *ECHONETLiteHandler) AliasList() []AliasDevicePair {
 	return h.DeviceAliases.GetAllAliases()
 }
@@ -872,14 +880,17 @@ func (h *ECHONETLiteHandler) AliasSet(alias *string, device *DeviceSpecifier) er
 	if err != nil {
 		return fmt.Errorf("エイリアスを設定できませんでした: %w", err)
 	}
-	return nil
+	return h.SaveAliasFile()
 }
 
 func (h *ECHONETLiteHandler) AliasDelete(alias *string) error {
 	if alias == nil {
 		return errors.New("エイリアス名が指定されていません")
 	}
-	return h.DeviceAliases.RemoveAlias(*alias)
+	if err := h.DeviceAliases.RemoveAlias(*alias); err != nil {
+		return fmt.Errorf("エイリアス %s の削除に失敗しました: %w", *alias, err)
+	}
+	return h.SaveAliasFile()
 }
 
 func (h *ECHONETLiteHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
