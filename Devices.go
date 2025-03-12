@@ -12,7 +12,8 @@ import (
 	"sync"
 )
 
-type DeviceProperties map[echonet_lite.EOJ]map[echonet_lite.EPCType]echonet_lite.Property
+type EPCPropertyMap map[echonet_lite.EPCType]echonet_lite.Property
+type DeviceProperties map[echonet_lite.EOJ]EPCPropertyMap
 
 type DevicesImpl struct {
 	mu   sync.RWMutex
@@ -55,10 +56,10 @@ func (d Devices) IsKnownDevice(IP string, EOJ echonet_lite.EOJ) bool {
 // Caller must hold the lock
 func (d *Devices) ensureDeviceExists(IP string, EOJ echonet_lite.EOJ) {
 	if _, ok := d.data[IP]; !ok {
-		d.data[IP] = make(map[echonet_lite.EOJ]map[echonet_lite.EPCType]echonet_lite.Property)
+		d.data[IP] = make(map[echonet_lite.EOJ]EPCPropertyMap)
 	}
 	if _, ok := d.data[IP][EOJ]; !ok {
-		d.data[IP][EOJ] = make(map[echonet_lite.EPCType]echonet_lite.Property)
+		d.data[IP][EOJ] = make(EPCPropertyMap)
 	}
 }
 
@@ -148,7 +149,7 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 
 			// EPCフィルタがある場合
 			if len(criteria.EPCs) > 0 {
-				matchedProps := make(map[echonet_lite.EPCType]echonet_lite.Property)
+				matchedProps := make(EPCPropertyMap)
 
 				epcMatched := false
 				// 指定されたEPCのいずれかにマッチするプロパティを探す
@@ -173,7 +174,7 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 			} else {
 				// EPCフィルタがなければ、全てのプロパティを結果に含める
 				if _, ok := filtered.data[ip]; !ok {
-					filtered.data[ip] = make(map[echonet_lite.EOJ]map[echonet_lite.EPCType]echonet_lite.Property)
+					filtered.data[ip] = make(map[echonet_lite.EOJ]EPCPropertyMap)
 				}
 				filtered.data[ip][eoj] = props
 			}
@@ -186,7 +187,7 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 // DevicePropertyData は、デバイス（IPAndEOJ）とそのプロパティの組を表します
 type DevicePropertyData struct {
 	Device     IPAndEOJ
-	Properties map[echonet_lite.EPCType]echonet_lite.Property
+	Properties EPCPropertyMap
 }
 
 // ExtractDevicePropertyData は、指定されたプロパティモードに基づいてデバイスとプロパティのデータを抽出します
@@ -222,7 +223,7 @@ func (d Devices) ExtractDevicePropertyData(propMode PropertyMode) []DeviceProper
 		allProps := d.data[ipAndEOJ.IP][eoj]
 
 		// 表示モードに応じてフィルタリングされたプロパティを保持するマップ
-		filteredProps := make(map[echonet_lite.EPCType]echonet_lite.Property)
+		filteredProps := make(EPCPropertyMap)
 
 		// 表示モードに応じてフィルタリング
 		for epc, prop := range allProps {
@@ -253,6 +254,23 @@ func (d Devices) ExtractDevicePropertyData(propMode PropertyMode) []DeviceProper
 	return result
 }
 
+func (m EPCPropertyMap) SortedProperties() echonet_lite.Properties {
+	// プロパティのEPCをソート
+	epcsToShow := make([]echonet_lite.EPCType, 0, len(m))
+	for epc := range m {
+		epcsToShow = append(epcsToShow, epc)
+	}
+	sort.Slice(epcsToShow, func(i, j int) bool {
+		return epcsToShow[i] < epcsToShow[j]
+	})
+
+	properties := make(echonet_lite.Properties, 0, len(m))
+	for _, epc := range epcsToShow {
+		properties = append(properties, m[epc])
+	}
+	return properties
+}
+
 func (d Devices) String() string {
 	return d.StringWithPropertyMode(PropDefault)
 }
@@ -274,18 +292,9 @@ func (d Devices) StringWithPropertyMode(propMode PropertyMode) string {
 		// デバイス情報の出力
 		results = append(results, fmt.Sprintf("%v:", deviceData.Device))
 
-		// プロパティのEPCをソート
-		epcsToShow := make([]echonet_lite.EPCType, 0, len(deviceData.Properties))
-		for epc := range deviceData.Properties {
-			epcsToShow = append(epcsToShow, epc)
-		}
-		sort.Slice(epcsToShow, func(i, j int) bool {
-			return epcsToShow[i] < epcsToShow[j]
-		})
-
 		// プロパティの出力を生成
-		for _, epc := range epcsToShow {
-			p := deviceData.Properties[epc]
+		sortedProperties := deviceData.Properties.SortedProperties()
+		for _, p := range sortedProperties {
 			results = append(results, fmt.Sprintf("  %v", p.String(deviceData.Device.EOJ.ClassCode())))
 		}
 	}
@@ -473,7 +482,7 @@ func (d DeviceProperties) Set(eoj echonet_lite.EOJ, properties ...echonet_lite.I
 		return fmt.Errorf("インスタンスコードが0のEOJにはプロパティを設定できません")
 	}
 	if _, ok := d[eoj]; !ok {
-		d[eoj] = make(map[echonet_lite.EPCType]echonet_lite.Property)
+		d[eoj] = make(EPCPropertyMap)
 	}
 	for _, prop := range properties {
 		p := prop.Property()

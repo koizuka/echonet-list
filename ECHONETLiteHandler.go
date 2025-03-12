@@ -409,12 +409,11 @@ func (h *ECHONETLiteHandler) onSelfNodeInstanceListS(ip net.IP, seoj echonet_lit
 	return h.onInstanceList(ip, seoj, echonet_lite.InstanceList(*il))
 }
 
-func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, seoj echonet_lite.EOJ, il echonet_lite.InstanceList) error {
+func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, _ echonet_lite.EOJ, il echonet_lite.InstanceList) error {
 	// デバイスの登録
 	ipStr := ip.String()
 	for _, eoj := range il {
 		h.devices.RegisterDevice(ipStr, eoj)
-		// ログ出力は削除（不要なため）
 	}
 
 	// デバイス情報の保存
@@ -451,14 +450,14 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(ip net.IP, seoj echonet_lite.EOJ, 
 		if logger != nil {
 			logger.Log("警告: GetPropertyMapプロパティの取得に失敗しました: %v, %v", ip, seoj)
 		}
-		return CallbackFinished{} // 処理は継続
+		return CallbackFinished{}
 	}
 
 	if properties.EPC != echonet_lite.EPCGetPropertyMap {
 		if logger != nil {
 			logger.Log("警告: 予期しないEPC: %v (期待値: %v)", properties.EPC, echonet_lite.EPCGetPropertyMap)
 		}
-		return CallbackFinished{} // 処理は継続
+		return CallbackFinished{}
 	}
 
 	props := echonet_lite.DecodePropertyMap(properties.EDT)
