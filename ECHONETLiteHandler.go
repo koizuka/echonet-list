@@ -255,12 +255,12 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHON
 	return nil
 }
 
-func (h *ECHONETLiteHandler) registerProperties(ipString string, seoj echonet_lite.EOJ, properties echonet_lite.Properties) {
-	h.devices.RegisterProperties(ipString, seoj, properties)
+func (h *ECHONETLiteHandler) registerProperties(ip net.IP, seoj echonet_lite.EOJ, properties echonet_lite.Properties) {
+	h.devices.RegisterProperties(ip, seoj, properties)
 	if property, ok := properties.FindEPC(echonet_lite.EPCIdentificationNumber); ok {
 		if id := echonet_lite.DecodeIdentificationNumber(property.EDT); id != nil {
 			err := h.DeviceAliases.RegisterDeviceIdentification(IPAndEOJ{
-				IP:  ipString,
+				IP:  ip,
 				EOJ: seoj,
 			}, id)
 			if err != nil {
@@ -281,9 +281,8 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLi
 		return nil // 処理は継続
 	}
 
-	ipStr := ip.String()
 	if logger != nil {
-		logger.Log("INFメッセージを受信: %s, SEOJ:%v, DEOJ:%v", ipStr, msg.SEOJ, msg.DEOJ)
+		logger.Log("INFメッセージを受信: %v, SEOJ:%v, DEOJ:%v", ip, msg.SEOJ, msg.DEOJ)
 	}
 
 	// DEOJ は instanceCode = 0 (ワイルドカード) の場合がある
@@ -346,9 +345,9 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLi
 		// その他のオブジェクトからのメッセージ
 
 		// IPアドレスが未登録の場合、デバイス情報を取得
-		if !h.devices.HasIP(ipStr) {
+		if !h.devices.HasIP(ip) {
 			if logger != nil {
-				logger.Log("情報: 未登録のIPアドレスからのメッセージ: %s", ipStr)
+				logger.Log("情報: 未登録のIPアドレスからのメッセージ: %v", ip)
 			}
 			err := h.GetSelfNodeInstanceListS(ip)
 			if err != nil {
@@ -360,11 +359,11 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLi
 		}
 
 		// 未知のデバイスの場合、プロパティマップを取得
-		if !h.devices.IsKnownDevice(ipStr, msg.SEOJ) {
+		if !h.devices.IsKnownDevice(ip, msg.SEOJ) {
 			if logger != nil {
-				logger.Log("情報: 新しいデバイスを検出: %s, %v", ipStr, msg.SEOJ)
+				logger.Log("情報: 新しいデバイスを検出: %v, %v", ip, msg.SEOJ)
 			}
-			fmt.Printf("%v: 新しいデバイスが検出されました: %v\n", ipStr, msg.SEOJ)
+			fmt.Printf("%v: 新しいデバイスが検出されました: %v\n", ip, msg.SEOJ)
 			err := h.GetGetPropertyMap(ip, msg.SEOJ)
 			if err != nil {
 				if logger != nil {
@@ -377,8 +376,8 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLi
 		// プロパティの通知を処理
 		if len(msg.Properties) > 0 {
 			// Propertyの通知 -> 値を更新する
-			h.registerProperties(ipStr, msg.SEOJ, msg.Properties)
-			fmt.Printf("%v/%v: Propertyの通知: %v\n", ipStr, msg.SEOJ, msg.Properties)
+			h.registerProperties(ip, msg.SEOJ, msg.Properties)
+			fmt.Printf("%v/%v: Propertyの通知: %v\n", ip, msg.SEOJ, msg.Properties)
 
 			// デバイス情報を保存
 			if err := h.devices.SaveToFile(DeviceFileName); err != nil {
@@ -411,9 +410,8 @@ func (h *ECHONETLiteHandler) onSelfNodeInstanceListS(ip net.IP, seoj echonet_lit
 
 func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, _ echonet_lite.EOJ, il echonet_lite.InstanceList) error {
 	// デバイスの登録
-	ipStr := ip.String()
 	for _, eoj := range il {
-		h.devices.RegisterDevice(ipStr, eoj)
+		h.devices.RegisterDevice(ip, eoj)
 	}
 
 	// デバイス情報の保存
@@ -503,7 +501,7 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(ip net.IP, seoj echonet_lite.EOJ, 
 			}
 
 			// プロパティを登録
-			h.registerProperties(ip.String(), seoj, properties)
+			h.registerProperties(ip, seoj, properties)
 
 			// デバイス情報を保存
 			if err := h.devices.SaveToFile(DeviceFileName); err != nil {
@@ -555,12 +553,12 @@ func (h *ECHONETLiteHandler) ListDevices(criteria FilterCriteria, propMode Prope
 }
 
 // validateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
-func (h *ECHONETLiteHandler) validateEPCsInPropertyMap(ip string, eoj echonet_lite.EOJ, epcs []echonet_lite.EPCType, mapType PropertyMapType) (bool, []echonet_lite.EPCType, error) {
+func (h *ECHONETLiteHandler) validateEPCsInPropertyMap(ip net.IP, eoj echonet_lite.EOJ, epcs []echonet_lite.EPCType, mapType PropertyMapType) (bool, []echonet_lite.EPCType, error) {
 	invalidEPCs := []echonet_lite.EPCType{}
 
 	// デバイスが存在するか確認
 	if !h.devices.IsKnownDevice(ip, eoj) {
-		return false, invalidEPCs, fmt.Errorf("デバイスが見つかりません: %s, %v", ip, eoj)
+		return false, invalidEPCs, fmt.Errorf("デバイスが見つかりません: %v, %v", ip, eoj)
 	}
 
 	// 各EPCがプロパティマップに含まれているか確認
@@ -585,7 +583,7 @@ func (h *ECHONETLiteHandler) GetProperties(cmd *Command) (DeviceAndProperties, e
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
-	err := handlePropertyCommand(h.ctx, cmd, h.devices, func(targetIP string) (bool, error) {
+	err := handlePropertyCommand(h.ctx, cmd, h.devices, func(targetIP net.IP) (bool, error) {
 		if cmd.GetClassCode() == nil || cmd.GetInstanceCode() == nil {
 			return false, errors.New("get コマンドにはクラスコード、インスタンスコードが必要です")
 		}
@@ -623,7 +621,7 @@ func (h *ECHONETLiteHandler) GetProperties(cmd *Command) (DeviceAndProperties, e
 			result.Properties = properties
 
 			// プロパティの登録
-			h.registerProperties(ip.String(), eoj, properties)
+			h.registerProperties(ip, eoj, properties)
 
 			// デバイス情報を保存
 			if err := h.devices.SaveToFile(DeviceFileName); err != nil {
@@ -654,7 +652,7 @@ func (h *ECHONETLiteHandler) SetProperties(cmd *Command) (DeviceAndProperties, e
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
-	err := handlePropertyCommand(h.ctx, cmd, h.devices, func(targetIP string) (bool, error) {
+	err := handlePropertyCommand(h.ctx, cmd, h.devices, func(targetIP net.IP) (bool, error) {
 		if cmd.GetClassCode() == nil || cmd.GetInstanceCode() == nil {
 			return false, errors.New("set コマンドにはクラスコード、インスタンスコードが必要です")
 		}
@@ -698,7 +696,7 @@ func (h *ECHONETLiteHandler) SetProperties(cmd *Command) (DeviceAndProperties, e
 			result.Properties = cmd.Properties
 
 			// 戻ってきた properties ではなく、こちらが設定した cmd.Properties で登録する
-			h.registerProperties(ip.String(), eoj, cmd.Properties)
+			h.registerProperties(ip, eoj, cmd.Properties)
 
 			// デバイス情報を保存
 			if err := h.devices.SaveToFile(DeviceFileName); err != nil {
@@ -757,7 +755,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 	var firstErr error
 
 	// 各デバイスに対して処理を実行
-	for ip, eojMap := range filtered.data {
+	for ip, eojMap := range filtered.data { // TODO data に直接アクセスするのは良くない
 		for eoj := range eojMap {
 			wg.Add(1)
 
@@ -772,7 +770,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 				continue
 			}
 
-			propMap := h.devices.GetPropertyMap(ip, eoj, GetPropertyMap)
+			propMap := h.devices.GetPropertyMap(ipAddr, eoj, GetPropertyMap)
 			if propMap == nil {
 				errMutex.Lock()
 				if firstErr == nil {
@@ -798,7 +796,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 					}
 					properties = nonEmpties
 				}
-				h.registerProperties(ipAddress.String(), eoj, properties)
+				h.registerProperties(ipAddress, eoj, properties)
 				// デバイス情報を保存
 				if err := h.devices.SaveToFile(DeviceFileName); err != nil {
 					if logger != nil {
@@ -912,10 +910,10 @@ func (h *ECHONETLiteHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
 }
 
 // プロパティ操作コマンド（get/set）の共通処理を行うヘルパー関数
-func handlePropertyCommand(ctx context.Context, cmd *Command, devices Devices, requiredParamCheck func(targetIP string) (bool, error), executeOperation func(ip net.IP, deoj echonet_lite.EOJ, callbackDone chan struct{}) error, timeoutMessage string) error {
+func handlePropertyCommand(ctx context.Context, cmd *Command, devices Devices, requiredParamCheck func(targetIP net.IP) (bool, error), executeOperation func(ip net.IP, deoj echonet_lite.EOJ, callbackDone chan struct{}) error, timeoutMessage string) error {
 	// 必要なパラメータのチェック
 	// IPアドレスが指定されていない場合、クラスコードに一致するデバイスを探す
-	var targetIP string
+	var ip net.IP
 	if cmd.GetIPAddress() == nil {
 		// クラスコードとインスタンスコードに一致するデバイスを検索
 		matchingDevices := devices.FindDevicesByClassAndInstance(cmd.GetClassCode(), cmd.GetInstanceCode())
@@ -929,20 +927,13 @@ func handlePropertyCommand(ctx context.Context, cmd *Command, devices Devices, r
 		}
 
 		// 一致するデバイスが1つだけの場合、そのIPアドレスを使用
-		targetIP = matchingDevices[0].IP
+		ip = matchingDevices[0].IP
 	} else {
-		targetIP = *cmd.GetIPAddress()
+		ip = *cmd.GetIPAddress()
 	}
 
-	if ok, err := requiredParamCheck(targetIP); !ok {
+	if ok, err := requiredParamCheck(ip); !ok {
 		cmd.Error = err
-		return cmd.Error
-	}
-
-	// 宛先アドレスの作成
-	ip := net.ParseIP(targetIP)
-	if ip == nil {
-		cmd.Error = fmt.Errorf("無効なIPアドレス: %v", targetIP)
 		return cmd.Error
 	}
 

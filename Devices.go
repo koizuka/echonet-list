@@ -16,7 +16,7 @@ type DeviceProperties map[echonet_lite.EOJ]EPCPropertyMap
 
 type DevicesImpl struct {
 	mu   sync.RWMutex
-	data map[string]DeviceProperties
+	data map[string]DeviceProperties // key is IP address string
 }
 
 type Devices struct {
@@ -31,21 +31,22 @@ func NewDevices() Devices {
 	}
 }
 
-func (d Devices) HasIP(IP string) bool {
+func (d Devices) HasIP(ip net.IP) bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	_, ok := d.data[IP]
+	_, ok := d.data[ip.String()]
 	return ok
 }
 
-func (d Devices) IsKnownDevice(IP string, EOJ echonet_lite.EOJ) bool {
+func (d Devices) IsKnownDevice(ip net.IP, EOJ echonet_lite.EOJ) bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	if _, ok := d.data[IP]; !ok {
+	ipStr := ip.String()
+	if _, ok := d.data[ipStr]; !ok {
 		return false
 	}
-	if _, ok := d.data[IP][EOJ]; !ok {
+	if _, ok := d.data[ipStr][EOJ]; !ok {
 		return false
 	}
 	return true
@@ -53,34 +54,36 @@ func (d Devices) IsKnownDevice(IP string, EOJ echonet_lite.EOJ) bool {
 
 // ensureDeviceExists ensures the map structure exists for the given IP and EOJ
 // Caller must hold the lock
-func (d *Devices) ensureDeviceExists(IP string, EOJ echonet_lite.EOJ) {
-	if _, ok := d.data[IP]; !ok {
-		d.data[IP] = make(map[echonet_lite.EOJ]EPCPropertyMap)
+func (d *Devices) ensureDeviceExists(ip net.IP, EOJ echonet_lite.EOJ) {
+	ipStr := ip.String()
+	if _, ok := d.data[ipStr]; !ok {
+		d.data[ipStr] = make(map[echonet_lite.EOJ]EPCPropertyMap)
 	}
-	if _, ok := d.data[IP][EOJ]; !ok {
-		d.data[IP][EOJ] = make(EPCPropertyMap)
+	if _, ok := d.data[ipStr][EOJ]; !ok {
+		d.data[ipStr][EOJ] = make(EPCPropertyMap)
 	}
 }
 
-func (d Devices) RegisterDevice(IP string, EOJ echonet_lite.EOJ) {
+func (d Devices) RegisterDevice(ip net.IP, EOJ echonet_lite.EOJ) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.ensureDeviceExists(IP, EOJ)
+	d.ensureDeviceExists(ip, EOJ)
 }
 
-func (d Devices) RegisterProperty(IP string, EOJ echonet_lite.EOJ, property echonet_lite.Property) {
+func (d Devices) RegisterProperty(ip net.IP, EOJ echonet_lite.EOJ, property echonet_lite.Property) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.ensureDeviceExists(IP, EOJ)
-	d.data[IP][EOJ][property.EPC] = property
+	d.ensureDeviceExists(ip, EOJ)
+	d.data[ip.String()][EOJ][property.EPC] = property
 }
 
-func (d Devices) RegisterProperties(IP string, EOJ echonet_lite.EOJ, properties echonet_lite.Properties) {
+func (d Devices) RegisterProperties(ip net.IP, EOJ echonet_lite.EOJ, properties echonet_lite.Properties) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.ensureDeviceExists(IP, EOJ)
+	d.ensureDeviceExists(ip, EOJ)
+	ipStr := ip.String()
 	for _, p := range properties {
-		d.data[IP][EOJ][p.EPC] = p
+		d.data[ipStr][EOJ][p.EPC] = p
 	}
 }
 
@@ -88,7 +91,7 @@ func (d Devices) RegisterProperties(IP string, EOJ echonet_lite.EOJ, properties 
 // IPAddress, ClassCode, InstanceCode, and PropertyValues are used to filter devices.
 // EPCs is used to filter properties of the matched devices.
 type FilterCriteria struct {
-	IPAddress      *string                       // Filters devices by IP address
+	IPAddress      *net.IP                       // Filters devices by IP address
 	ClassCode      *echonet_lite.EOJClassCode    // Filters devices by class code
 	InstanceCode   *echonet_lite.EOJInstanceCode // Filters devices by instance code
 	EPCs           []echonet_lite.EPCType        // Filters properties of matched devices (not devices themselves)
@@ -113,7 +116,7 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 
 	for ip, eojMap := range d.data {
 		// IPアドレスフィルタがある場合、マッチしないものはスキップ
-		if criteria.IPAddress != nil && ip != *criteria.IPAddress {
+		if criteria.IPAddress != nil && ip != criteria.IPAddress.String() {
 			continue
 		}
 
@@ -164,7 +167,8 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 				}
 
 				// 初めて見つかったEOJの場合は、プロパティのマップを初期化
-				filtered.ensureDeviceExists(ip, eoj)
+				ipAddr := net.ParseIP(ip)
+				filtered.ensureDeviceExists(ipAddr, eoj)
 
 				// マッチしたプロパティだけを結果に含める
 				for epc, prop := range matchedProps {
@@ -205,10 +209,9 @@ func (d Devices) ListDevicePropertyData(propMode PropertyMode) []DevicePropertyD
 	// IPアドレスとEOJでソート
 	sort.Slice(ipAndEOJs, func(i, j int) bool {
 		// IPアドレスでソート
-		if ipAndEOJs[i].IP != ipAndEOJs[j].IP {
-			IPi, _ := net.ResolveIPAddr("ip", ipAndEOJs[i].IP)
-			IPj, _ := net.ResolveIPAddr("ip", ipAndEOJs[j].IP)
-			return string(IPi.IP) < string(IPj.IP)
+		if !ipAndEOJs[i].IP.Equal(ipAndEOJs[j].IP) {
+			// IPアドレスをバイト値として比較
+			return bytes.Compare(ipAndEOJs[i].IP, ipAndEOJs[j].IP) < 0
 		}
 		// EOJでソート
 		return ipAndEOJs[i].EOJ < ipAndEOJs[j].EOJ
@@ -219,7 +222,8 @@ func (d Devices) ListDevicePropertyData(propMode PropertyMode) []DevicePropertyD
 
 	for _, ipAndEOJ := range ipAndEOJs {
 		eoj := ipAndEOJ.EOJ
-		allProps := d.data[ipAndEOJ.IP][eoj]
+		ipStr := ipAndEOJ.IP.String()
+		allProps := d.data[ipStr][eoj]
 
 		// 表示モードに応じてフィルタリングされたプロパティを保持するマップ
 		filteredProps := make(EPCPropertyMap)
@@ -318,12 +322,12 @@ func (d Devices) LoadFromFile(filename string) error {
 
 // IPAndEOJ は、デバイスの情報を表す構造体
 type IPAndEOJ struct {
-	IP  string
+	IP  net.IP
 	EOJ echonet_lite.EOJ
 }
 
 func (d IPAndEOJ) String() string {
-	return fmt.Sprintf("%s %v", d.IP, d.EOJ)
+	return fmt.Sprintf("%v %v", d.IP, d.EOJ)
 }
 
 // FindDevicesByClassAndInstance は、指定されたクラスコードとインスタンスコードに一致するデバイスを検索します
@@ -336,11 +340,11 @@ func (d Devices) FindDevicesByClassAndInstance(classCode *echonet_lite.EOJClassC
 	defer d.mu.RUnlock()
 
 	var matchingDevices []IPAndEOJ
-	for ip, eojMap := range d.data {
+	for ipStr, eojMap := range d.data {
 		for eoj := range eojMap {
 			if eoj.ClassCode() == *classCode {
 				if instanceCode == nil || eoj.InstanceCode() == *instanceCode {
-					matchingDevices = append(matchingDevices, IPAndEOJ{IP: ip, EOJ: eoj})
+					matchingDevices = append(matchingDevices, IPAndEOJ{IP: net.ParseIP(ipStr), EOJ: eoj})
 				}
 			}
 		}
@@ -360,24 +364,23 @@ func (h Devices) ListIPAndEOJ() []IPAndEOJ {
 	defer h.mu.RUnlock()
 
 	var devices []IPAndEOJ
-	for ip, eojMap := range h.data {
+	for ipStr, eojMap := range h.data {
 		for eoj := range eojMap {
-			devices = append(devices, IPAndEOJ{IP: ip, EOJ: eoj})
+			devices = append(devices, IPAndEOJ{IP: net.ParseIP(ipStr), EOJ: eoj})
 		}
 	}
 	return devices
 }
 
 // HasPropertyWithValue checks if a property with the expected EPC and EDT exists for the given device
-func (d Devices) HasPropertyWithValue(ip string, eoj echonet_lite.EOJ, epc echonet_lite.EPCType, expectedEDT []byte) bool {
+func (d Devices) HasPropertyWithValue(ip net.IP, eoj echonet_lite.EOJ, epc echonet_lite.EPCType, expectedEDT []byte) bool {
 	// Create a filter criteria for the specific IP, EOJ, and property value (EPC and EDT)
-	ipCopy := ip
 	propValue := echonet_lite.Property{
 		EPC: epc,
 		EDT: expectedEDT,
 	}
 	criteria := FilterCriteria{
-		IPAddress:      &ipCopy,
+		IPAddress:      &ip,
 		PropertyValues: []echonet_lite.Property{propValue},
 	}
 
@@ -390,12 +393,13 @@ func (d Devices) HasPropertyWithValue(ip string, eoj echonet_lite.EOJ, epc echon
 
 // GetProperty returns the property for the given IP, EOJ, and EPC
 // If the property does not exist, returns nil and false
-func (d Devices) GetProperty(ip string, eoj echonet_lite.EOJ, epc echonet_lite.EPCType) (*echonet_lite.Property, bool) {
+func (d Devices) GetProperty(ip net.IP, eoj echonet_lite.EOJ, epc echonet_lite.EPCType) (*echonet_lite.Property, bool) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
+	ipStr := ip.String()
 	// Check if the device exists
-	if deviceMap, ok := d.data[ip]; ok {
+	if deviceMap, ok := d.data[ipStr]; ok {
 		if properties, ok := deviceMap[eoj]; ok {
 			// Check if the property exists
 			if prop, ok := properties[epc]; ok {
@@ -416,7 +420,7 @@ const (
 )
 
 // GetPropertyMap は指定されたプロパティマップを取得する
-func (d Devices) GetPropertyMap(ip string, eoj echonet_lite.EOJ, mapType PropertyMapType) echonet_lite.PropertyMap {
+func (d Devices) GetPropertyMap(ip net.IP, eoj echonet_lite.EOJ, mapType PropertyMapType) echonet_lite.PropertyMap {
 	var mapEPC echonet_lite.EPCType
 
 	switch mapType {
@@ -444,7 +448,7 @@ func (d Devices) GetPropertyMap(ip string, eoj echonet_lite.EOJ, mapType Propert
 }
 
 // HasEPCInPropertyMap は指定されたプロパティマップに EPC が含まれているかどうかを確認する
-func (d Devices) HasEPCInPropertyMap(ip string, eoj echonet_lite.EOJ, mapType PropertyMapType, epc echonet_lite.EPCType) bool {
+func (d Devices) HasEPCInPropertyMap(ip net.IP, eoj echonet_lite.EOJ, mapType PropertyMapType, epc echonet_lite.EPCType) bool {
 	propMap := d.GetPropertyMap(ip, eoj, mapType)
 	if propMap == nil {
 		return false

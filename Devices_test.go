@@ -2,6 +2,7 @@ package main
 
 import (
 	"echonet-list/echonet_lite"
+	"net"
 	"os"
 	"testing"
 )
@@ -10,6 +11,9 @@ func TestDevices_SaveToFile(t *testing.T) {
 	// Create a temporary file for testing
 	tempFile := "test_save.json"
 	defer os.Remove(tempFile) // Clean up after test
+
+	// Define IP addresses
+	ip1 := net.ParseIP("192.168.1.1")
 
 	// Create a Devices instance with test data
 	devices := NewDevices()
@@ -23,7 +27,7 @@ func TestDevices_SaveToFile(t *testing.T) {
 	}
 
 	// Register the test property
-	devices.RegisterProperty("192.168.1.1", eoj, property)
+	devices.RegisterProperty(ip1, eoj, property)
 
 	// Save to file
 	err := devices.SaveToFile(tempFile)
@@ -44,16 +48,16 @@ func TestDevices_SaveToFile(t *testing.T) {
 	}
 
 	// Verify the loaded data using public methods
-	if !loadedDevices.HasIP("192.168.1.1") {
+	if !loadedDevices.HasIP(ip1) {
 		t.Errorf("Expected device with IP 192.168.1.1 to exist, but it doesn't")
 	}
 
-	if !loadedDevices.IsKnownDevice("192.168.1.1", eoj) {
+	if !loadedDevices.IsKnownDevice(ip1, eoj) {
 		t.Errorf("Expected device with IP 192.168.1.1 and EOJ %v to exist, but it doesn't", eoj)
 	}
 
 	// Verify the property value (EPC and EDT) is correctly saved and loaded
-	if !loadedDevices.HasPropertyWithValue("192.168.1.1", eoj, epc, []byte{0x30}) {
+	if !loadedDevices.HasPropertyWithValue(ip1, eoj, epc, []byte{0x30}) {
 		t.Errorf("Property value was not correctly saved and loaded")
 	}
 }
@@ -62,6 +66,9 @@ func TestDevices_LoadFromFile(t *testing.T) {
 	// Create a temporary file for testing
 	tempFile := "test_load.json"
 	defer os.Remove(tempFile) // Clean up after test
+
+	// Define IP addresses
+	ip1 := net.ParseIP("192.168.1.1")
 
 	// Create a temporary Devices instance with test data
 	tempDevices := NewDevices()
@@ -75,7 +82,7 @@ func TestDevices_LoadFromFile(t *testing.T) {
 	}
 
 	// Register the test property
-	tempDevices.RegisterProperty("192.168.1.1", eoj, property)
+	tempDevices.RegisterProperty(ip1, eoj, property)
 
 	// Save to the temporary file
 	err := tempDevices.SaveToFile(tempFile)
@@ -93,16 +100,16 @@ func TestDevices_LoadFromFile(t *testing.T) {
 	}
 
 	// Verify the loaded data using public methods
-	if !devices.HasIP("192.168.1.1") {
+	if !devices.HasIP(ip1) {
 		t.Errorf("Expected device with IP 192.168.1.1 to exist, but it doesn't")
 	}
 
-	if !devices.IsKnownDevice("192.168.1.1", eoj) {
+	if !devices.IsKnownDevice(ip1, eoj) {
 		t.Errorf("Expected device with IP 192.168.1.1 and EOJ %v to exist, but it doesn't", eoj)
 	}
 
 	// Verify the property value (EPC and EDT) is correctly loaded
-	if !devices.HasPropertyWithValue("192.168.1.1", eoj, epc, []byte{0x30}) {
+	if !devices.HasPropertyWithValue(ip1, eoj, epc, []byte{0x30}) {
 		t.Errorf("Property value was not correctly loaded")
 	}
 }
@@ -111,6 +118,10 @@ func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 	// Create a temporary file for testing
 	tempFile := "test_save_load.json"
 	defer os.Remove(tempFile) // Clean up after test
+
+	// Define IP addresses
+	ip1 := net.ParseIP("192.168.1.1")
+	ip2 := net.ParseIP("192.168.1.2")
 
 	// Create a Devices instance with test data
 	originalDevices := NewDevices()
@@ -133,8 +144,8 @@ func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 	}
 
 	// Register the test properties
-	originalDevices.RegisterProperty("192.168.1.1", eoj1, property1)
-	originalDevices.RegisterProperty("192.168.1.2", eoj2, property2)
+	originalDevices.RegisterProperty(ip1, eoj1, property1)
+	originalDevices.RegisterProperty(ip2, eoj2, property2)
 
 	// Save to file
 	err := originalDevices.SaveToFile(tempFile)
@@ -153,26 +164,26 @@ func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 
 	// Verify the loaded data matches the original data using public methods
 	// Check IPs
-	if !loadedDevices.HasIP("192.168.1.1") {
+	if !loadedDevices.HasIP(ip1) {
 		t.Errorf("Expected loaded device with IP 192.168.1.1 to exist, but it doesn't")
 	}
-	if !loadedDevices.HasIP("192.168.1.2") {
+	if !loadedDevices.HasIP(ip2) {
 		t.Errorf("Expected loaded device with IP 192.168.1.2 to exist, but it doesn't")
 	}
 
 	// Check EOJs
-	if !loadedDevices.IsKnownDevice("192.168.1.1", eoj1) {
+	if !loadedDevices.IsKnownDevice(ip1, eoj1) {
 		t.Errorf("Expected loaded device with IP 192.168.1.1 and EOJ %v to exist, but it doesn't", eoj1)
 	}
-	if !loadedDevices.IsKnownDevice("192.168.1.2", eoj2) {
+	if !loadedDevices.IsKnownDevice(ip2, eoj2) {
 		t.Errorf("Expected loaded device with IP 192.168.1.2 and EOJ %v to exist, but it doesn't", eoj2)
 	}
 
 	// Verify the property values (EPC and EDT) are correctly saved and loaded
-	if !loadedDevices.HasPropertyWithValue("192.168.1.1", eoj1, epc1, []byte{0x30}) {
+	if !loadedDevices.HasPropertyWithValue(ip1, eoj1, epc1, []byte{0x30}) {
 		t.Errorf("Property 1 value was not correctly saved and loaded")
 	}
-	if !loadedDevices.HasPropertyWithValue("192.168.1.2", eoj2, epc2, []byte{0x41, 0x42}) {
+	if !loadedDevices.HasPropertyWithValue(ip2, eoj2, epc2, []byte{0x41, 0x42}) {
 		t.Errorf("Property 2 value was not correctly saved and loaded")
 	}
 }

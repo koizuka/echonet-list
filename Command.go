@@ -40,7 +40,7 @@ const (
 
 // DeviceSpecifier は、デバイスを一意に識別するための情報を表す構造体
 type DeviceSpecifier struct {
-	IPAddress    *string                       // IPアドレス。nilの場合は自動選択
+	IPAddress    *net.IP                       // IPアドレス。nilの場合は自動選択
 	ClassCode    *echonet_lite.EOJClassCode    // クラスコード
 	InstanceCode *echonet_lite.EOJInstanceCode // インスタンスコード
 }
@@ -49,7 +49,7 @@ func (d *DeviceSpecifier) String() string {
 	var results []string
 
 	if d.IPAddress != nil {
-		results = append(results, *d.IPAddress)
+		results = append(results, d.IPAddress.String())
 	}
 	if d.ClassCode != nil {
 		if d.InstanceCode != nil {
@@ -75,7 +75,7 @@ type Command struct {
 }
 
 // GetIPAddress は、コマンドのIPアドレスを取得する
-func (c *Command) GetIPAddress() *string {
+func (c *Command) GetIPAddress() *net.IP {
 	if c.DeviceSpec == nil {
 		return nil
 	}
@@ -106,11 +106,11 @@ func NewCommandParser(deviceAliases *DeviceAliases) *CommandParser {
 	return &CommandParser{DeviceAliases: deviceAliases}
 }
 
-// IPアドレスをパースして、有効なIPアドレスならその文字列のポインタを返す
+// IPアドレスをパースして、有効なIPアドレスならそのポインタを返す
 // 無効なIPアドレスならnilを返す
-func tryParseIPAddress(ipStr string) *string {
+func tryParseIPAddress(ipStr string) *net.IP {
 	if ip := net.ParseIP(ipStr); ip != nil {
-		return &ipStr
+		return &ip
 	}
 	return nil
 }

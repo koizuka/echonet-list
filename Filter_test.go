@@ -3,16 +3,17 @@ package main
 import (
 	"bytes"
 	"echonet-list/echonet_lite"
+	"net"
 	"testing"
 )
 
 func TestFilter(t *testing.T) {
+	// Define IP addresses
+	ip1 := net.ParseIP("192.168.1.1")
+	ip2 := net.ParseIP("192.168.1.2")
+
 	// Define constants for test data
 	const (
-		// IP addresses
-		ip1 = "192.168.1.1"
-		ip2 = "192.168.1.2"
-
 		// Instance codes
 		instanceCode1 = 0x01
 		instanceCode2 = 0x02 // 別のインスタンスコード（フィルタリングテスト用）
@@ -81,6 +82,10 @@ func TestFilter(t *testing.T) {
 	devices.RegisterProperties(ip1, eoj3, []echonet_lite.Property{ac_property1, ac_property2, ac_property3}) // インスタンスコード2のデバイスも登録
 	devices.RegisterProperties(ip2, eoj1, []echonet_lite.Property{ac_property1, ac_property2, ac_property3})
 
+	// For string representation in expected results
+	ip1Str := ip1.String()
+	ip2Str := ip2.String()
+
 	// Define test cases
 	tests := []struct {
 		name            string
@@ -94,16 +99,16 @@ func TestFilter(t *testing.T) {
 				EPCs: []echonet_lite.EPCType{epc1},
 			},
 			expectedDevices: map[string][]echonet_lite.EOJ{
-				ip1: {eoj1, eoj2, eoj3},
-				ip2: {eoj1},
+				ip1Str: {eoj1, eoj2, eoj3},
+				ip2Str: {eoj1},
 			},
 			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
-				ip1: {
+				ip1Str: {
 					eoj1: {epc1},
 					eoj2: {epc1},
 					eoj3: {epc1},
 				},
-				ip2: {
+				ip2Str: {
 					eoj1: {epc1},
 				},
 			},
@@ -119,15 +124,15 @@ func TestFilter(t *testing.T) {
 				},
 			},
 			expectedDevices: map[string][]echonet_lite.EOJ{
-				ip1: {eoj1, eoj3},
-				ip2: {eoj1},
+				ip1Str: {eoj1, eoj3},
+				ip2Str: {eoj1},
 			},
 			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
-				ip1: {
+				ip1Str: {
 					eoj1: {epc1, epc2, epc3},
 					eoj3: {epc1, epc2, epc3},
 				},
-				ip2: {
+				ip2Str: {
 					eoj1: {epc1, epc2, epc3},
 				},
 			},
@@ -157,15 +162,15 @@ func TestFilter(t *testing.T) {
 				},
 			},
 			expectedDevices: map[string][]echonet_lite.EOJ{
-				ip1: {eoj1, eoj3},
-				ip2: {eoj1},
+				ip1Str: {eoj1, eoj3},
+				ip2Str: {eoj1},
 			},
 			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
-				ip1: {
+				ip1Str: {
 					eoj1: {epc1, epc2},
 					eoj3: {epc1, epc2},
 				},
-				ip2: {
+				ip2Str: {
 					eoj1: {epc1, epc2},
 				},
 			},
@@ -173,13 +178,13 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Filter by IP address",
 			criteria: FilterCriteria{
-				IPAddress: ptr(ip1),
+				IPAddress: &ip1,
 			},
 			expectedDevices: map[string][]echonet_lite.EOJ{
-				ip1: {eoj1, eoj2, eoj3},
+				ip1Str: {eoj1, eoj2, eoj3},
 			},
 			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
-				ip1: {
+				ip1Str: {
 					eoj1: {epc1, epc2, epc3},
 					eoj2: {epc1, epc2, epc4},
 					eoj3: {epc1, epc2, epc3},
@@ -192,15 +197,15 @@ func TestFilter(t *testing.T) {
 				ClassCode: ptr(echonet_lite.HomeAirConditioner_ClassCode),
 			},
 			expectedDevices: map[string][]echonet_lite.EOJ{
-				ip1: {eoj1, eoj3},
-				ip2: {eoj1},
+				ip1Str: {eoj1, eoj3},
+				ip2Str: {eoj1},
 			},
 			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
-				ip1: {
+				ip1Str: {
 					eoj1: {epc1, epc2, epc3},
 					eoj3: {epc1, epc2, epc3},
 				},
-				ip2: {
+				ip2Str: {
 					eoj1: {epc1, epc2, epc3},
 				},
 			},
@@ -211,15 +216,15 @@ func TestFilter(t *testing.T) {
 				InstanceCode: ptr(echonet_lite.EOJInstanceCode(instanceCode1)),
 			},
 			expectedDevices: map[string][]echonet_lite.EOJ{
-				ip1: {eoj1, eoj2}, // eoj3はinstanceCode2なので含まれない
-				ip2: {eoj1},
+				ip1Str: {eoj1, eoj2}, // eoj3はinstanceCode2なので含まれない
+				ip2Str: {eoj1},
 			},
 			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
-				ip1: {
+				ip1Str: {
 					eoj1: {epc1, epc2, epc3},
 					eoj2: {epc1, epc2, epc4},
 				},
-				ip2: {
+				ip2Str: {
 					eoj1: {epc1, epc2, epc3},
 				},
 			},
@@ -230,10 +235,10 @@ func TestFilter(t *testing.T) {
 				InstanceCode: ptr(echonet_lite.EOJInstanceCode(instanceCode2)),
 			},
 			expectedDevices: map[string][]echonet_lite.EOJ{
-				ip1: {eoj3}, // instanceCode2のデバイスのみ
+				ip1Str: {eoj3}, // instanceCode2のデバイスのみ
 			},
 			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
-				ip1: {
+				ip1Str: {
 					eoj3: {epc1, epc2, epc3},
 				},
 			},
@@ -241,15 +246,15 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Complex filter: IP + Class + EPCs",
 			criteria: FilterCriteria{
-				IPAddress: ptr(ip1),
+				IPAddress: &ip1,
 				ClassCode: ptr(echonet_lite.SingleFunctionLighting_ClassCode),
 				EPCs:      []echonet_lite.EPCType{epc1, epc4},
 			},
 			expectedDevices: map[string][]echonet_lite.EOJ{
-				ip1: {eoj2},
+				ip1Str: {eoj2},
 			},
 			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
-				ip1: {
+				ip1Str: {
 					eoj2: {epc1, epc4},
 				},
 			},
@@ -263,21 +268,22 @@ func TestFilter(t *testing.T) {
 
 			// Check if all expected devices are in the filtered result
 			for ip, expectedEOJs := range tt.expectedDevices {
+				ipAddr := net.ParseIP(ip)
 				for _, eoj := range expectedEOJs {
-					if !filtered.IsKnownDevice(ip, eoj) {
+					if !filtered.IsKnownDevice(ipAddr, eoj) {
 						t.Errorf("Expected device with IP %s and EOJ %v to exist in filtered result, but it doesn't", ip, eoj)
 					}
 
 					// Check if all expected properties are in the filtered result
 					if expectedProps, ok := tt.expectedProps[ip][eoj]; ok {
 						for _, epc := range expectedProps {
-							prop, exists := filtered.GetProperty(ip, eoj, epc)
+							prop, exists := filtered.GetProperty(ipAddr, eoj, epc)
 							if !exists {
 								t.Errorf("Expected property with EPC %v to exist for device %s, EOJ %v, but it doesn't", epc, ip, eoj)
 							}
 
 							// Get the original property to compare
-							originalProp, _ := devices.GetProperty(ip, eoj, epc)
+							originalProp, _ := devices.GetProperty(ipAddr, eoj, epc)
 							if originalProp != nil && prop != nil && !bytes.Equal(prop.EDT, originalProp.EDT) {
 								t.Errorf("Property EDT mismatch for IP %s, EOJ %v, EPC %v: got %v, want %v",
 									ip, eoj, epc, prop.EDT, originalProp.EDT)
@@ -325,5 +331,5 @@ func TestFilter(t *testing.T) {
 
 // Helper function for creating pointers
 func ptr[T any](v T) *T {
-    return &v
+	return &v
 }

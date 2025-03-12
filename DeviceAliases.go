@@ -43,15 +43,20 @@ func (e InvalidAliasError) Error() string {
 // 1つの識別子に対して複数のエイリアスを設定できます。
 type DeviceAliases struct {
 	mu                     sync.RWMutex
-	deviceToIdentification map[IPAndEOJ]string // IPAndEOJ から IdentificationNumber の文字列表現へのマップ
+	deviceToIdentification map[string]string   // IPAndEOJ の文字列表現から IdentificationNumber の文字列表現へのマップ
 	identificationToDevice map[string]IPAndEOJ // IdentificationNumber の文字列表現から IPAndEOJ へのマップ
 	aliasToIdentification  map[string]string   // エイリアスから IdentificationNumber の文字列表現へのマップ
+}
+
+// deviceToKey は IPAndEOJ をマップのキーとして使用するための文字列に変換します
+func deviceToKey(device IPAndEOJ) string {
+	return fmt.Sprintf("%v:%v", device.IP, device.EOJ)
 }
 
 // NewDeviceAliases は新しいDeviceAliasesインスタンスを作成します
 func NewDeviceAliases() *DeviceAliases {
 	return &DeviceAliases{
-		deviceToIdentification: make(map[IPAndEOJ]string),
+		deviceToIdentification: make(map[string]string),
 		identificationToDevice: make(map[string]IPAndEOJ),
 		aliasToIdentification:  make(map[string]string),
 	}
@@ -64,22 +69,23 @@ func (da *DeviceAliases) RegisterDeviceIdentification(device IPAndEOJ, identific
 	}
 
 	idStr := identificationNumber.String()
+	deviceKey := deviceToKey(device)
 
 	da.mu.Lock()
 	defer da.mu.Unlock()
 
 	// 既存のデバイスに関連付けられたIdentificationNumberがある場合、それを削除
-	if existingID, ok := da.deviceToIdentification[device]; ok {
+	if existingID, ok := da.deviceToIdentification[deviceKey]; ok {
 		delete(da.identificationToDevice, existingID)
 	}
 
 	// 既存のIdentificationNumberに関連付けられたデバイスがある場合、それを削除
 	if existingDevice, ok := da.identificationToDevice[idStr]; ok {
-		delete(da.deviceToIdentification, existingDevice)
+		delete(da.deviceToIdentification, deviceToKey(existingDevice))
 	}
 
 	// 新しい関連付けを設定
-	da.deviceToIdentification[device] = idStr
+	da.deviceToIdentification[deviceKey] = idStr
 	da.identificationToDevice[idStr] = device
 
 	return nil
@@ -123,7 +129,8 @@ func (da *DeviceAliases) SetAlias(device IPAndEOJ, alias string) error {
 	defer da.mu.Unlock()
 
 	// デバイスからIdentificationNumberを取得
-	idStr, ok := da.deviceToIdentification[device]
+	deviceKey := deviceToKey(device)
+	idStr, ok := da.deviceToIdentification[deviceKey]
 	if !ok {
 		return &DeviceNotFoundError{Device: device}
 	}
@@ -144,7 +151,8 @@ func (da *DeviceAliases) GetAliases(device IPAndEOJ) []string {
 	da.mu.RLock()
 	defer da.mu.RUnlock()
 
-	idStr, ok := da.deviceToIdentification[device]
+	deviceKey := deviceToKey(device)
+	idStr, ok := da.deviceToIdentification[deviceKey]
 	if !ok {
 		return []string{}
 	}
@@ -294,13 +302,14 @@ func (da *DeviceAliases) RemoveDevice(device IPAndEOJ) error {
 	defer da.mu.Unlock()
 
 	// デバイスからIdentificationNumberを取得
-	idStr, ok := da.deviceToIdentification[device]
+	deviceKey := deviceToKey(device)
+	idStr, ok := da.deviceToIdentification[deviceKey]
 	if !ok {
 		return &DeviceNotFoundError{Device: device}
 	}
 
 	// デバイスとIdentificationNumberの関連付けを削除
-	delete(da.deviceToIdentification, device)
+	delete(da.deviceToIdentification, deviceKey)
 	delete(da.identificationToDevice, idStr)
 
 	return nil
