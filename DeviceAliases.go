@@ -40,11 +40,11 @@ func (e InvalidAliasError) Error() string {
 // DeviceAliases は デバイスを特定する IPAndEOJ に対して、
 // 永続的な識別子 echonet_lite.IdentificationNumber と、
 // 人間が理解しやすい名前 Alias (string) を紐づけるための構造体です。
+// 1つの識別子に対して複数のエイリアスを設定できます。
 type DeviceAliases struct {
 	mu                     sync.RWMutex
 	deviceToIdentification map[IPAndEOJ]string // IPAndEOJ から IdentificationNumber の文字列表現へのマップ
 	identificationToDevice map[string]IPAndEOJ // IdentificationNumber の文字列表現から IPAndEOJ へのマップ
-	identificationToAlias  map[string]string   // IdentificationNumber の文字列表現からエイリアスへのマップ
 	aliasToIdentification  map[string]string   // エイリアスから IdentificationNumber の文字列表現へのマップ
 }
 
@@ -53,7 +53,6 @@ func NewDeviceAliases() *DeviceAliases {
 	return &DeviceAliases{
 		deviceToIdentification: make(map[IPAndEOJ]string),
 		identificationToDevice: make(map[string]IPAndEOJ),
-		identificationToAlias:  make(map[string]string),
 		aliasToIdentification:  make(map[string]string),
 	}
 }
@@ -113,6 +112,7 @@ func validateDeviceAlias(alias string) error {
 }
 
 // SetAlias はIdentificationNumberにエイリアスを設定します
+// 1つのIdentificationNumberに対して複数のエイリアスを設定できます
 func (da *DeviceAliases) SetAlias(device IPAndEOJ, alias string) error {
 	// エイリアスのバリデーション
 	if err := validateDeviceAlias(alias); err != nil {
@@ -133,30 +133,31 @@ func (da *DeviceAliases) SetAlias(device IPAndEOJ, alias string) error {
 		return &AliasAlreadyExistsError{Alias: alias}
 	}
 
-	// 既存のIdentificationNumberに関連付けられたエイリアスがある場合、それを削除
-	if existingAlias, ok := da.identificationToAlias[idStr]; ok {
-		delete(da.aliasToIdentification, existingAlias)
-	}
-
 	// 新しいエイリアスを設定
-	da.identificationToAlias[idStr] = alias
 	da.aliasToIdentification[alias] = idStr
 
 	return nil
 }
 
-// GetAlias はデバイスに関連付けられたエイリアスを取得します
-func (da *DeviceAliases) GetAlias(device IPAndEOJ) (string, bool) {
+// GetAliases はデバイスに関連付けられた全てのエイリアスを取得します
+func (da *DeviceAliases) GetAliases(device IPAndEOJ) []string {
 	da.mu.RLock()
 	defer da.mu.RUnlock()
 
 	idStr, ok := da.deviceToIdentification[device]
 	if !ok {
-		return "", false
+		return []string{}
 	}
 
-	alias, ok := da.identificationToAlias[idStr]
-	return alias, ok
+	// 指定されたIdentificationNumberに関連付けられた全てのエイリアスを収集
+	aliases := []string{}
+	for alias, id := range da.aliasToIdentification {
+		if id == idStr {
+			aliases = append(aliases, alias)
+		}
+	}
+
+	return aliases
 }
 
 // GetDeviceByAlias はエイリアスに関連付けられたデバイスを取得します
@@ -236,12 +237,10 @@ func (da *DeviceAliases) LoadFromFile(filename string) error {
 
 	// マップをクリア
 	da.aliasToIdentification = make(map[string]string)
-	da.identificationToAlias = make(map[string]string)
 
 	// データを読み込む
 	for alias, idStr := range data {
 		da.aliasToIdentification[alias] = idStr
-		da.identificationToAlias[idStr] = alias
 	}
 
 	return nil
@@ -312,15 +311,13 @@ func (da *DeviceAliases) RemoveAlias(alias string) error {
 	da.mu.Lock()
 	defer da.mu.Unlock()
 
-	// エイリアスからIdentificationNumberを取得
-	idStr, ok := da.aliasToIdentification[alias]
-	if !ok {
+	// エイリアスが存在するか確認
+	if _, ok := da.aliasToIdentification[alias]; !ok {
 		return &AliasNotFoundError{Alias: alias}
 	}
 
 	// エイリアスとIdentificationNumberの関連付けを削除
 	delete(da.aliasToIdentification, alias)
-	delete(da.identificationToAlias, idStr)
 
 	return nil
 }
