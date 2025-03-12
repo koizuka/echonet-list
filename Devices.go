@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"sort"
-	"strings"
 	"sync"
 )
 
@@ -190,8 +189,8 @@ type DevicePropertyData struct {
 	Properties EPCPropertyMap
 }
 
-// ExtractDevicePropertyData は、指定されたプロパティモードに基づいてデバイスとプロパティのデータを抽出します
-func (d Devices) ExtractDevicePropertyData(propMode PropertyMode) []DevicePropertyData {
+// ListDevicePropertyData は、指定されたプロパティモードに基づいてデバイスとプロパティのデータを抽出します
+func (d Devices) ListDevicePropertyData(propMode PropertyMode) []DevicePropertyData {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -226,28 +225,36 @@ func (d Devices) ExtractDevicePropertyData(propMode PropertyMode) []DeviceProper
 		filteredProps := make(EPCPropertyMap)
 
 		// 表示モードに応じてフィルタリング
-		for epc, prop := range allProps {
-			switch propMode {
-			case PropDefault:
-				// デフォルトのプロパティのみ表示
-				if !echonet_lite.IsPropertyDefaultEPC(eoj.ClassCode(), epc) {
-					continue
-				}
-			case PropKnown:
-				// 既知のプロパティのみ表示
-				if _, ok := echonet_lite.GetPropertyInfo(eoj.ClassCode(), epc); !ok {
-					continue
-				}
-			}
-			filteredProps[epc] = prop
-		}
-
-		// フィルタリングされたプロパティがある場合のみ結果に追加
-		if len(filteredProps) > 0 {
+		if propMode == PropNone {
+			// フィルタリングなし
 			result = append(result, DevicePropertyData{
 				Device:     ipAndEOJ,
 				Properties: filteredProps,
 			})
+		} else {
+			for epc, prop := range allProps {
+				switch propMode {
+				case PropDefault:
+					// デフォルトのプロパティのみ表示
+					if !echonet_lite.IsPropertyDefaultEPC(eoj.ClassCode(), epc) {
+						continue
+					}
+				case PropKnown:
+					// 既知のプロパティのみ表示
+					if _, ok := echonet_lite.GetPropertyInfo(eoj.ClassCode(), epc); !ok {
+						continue
+					}
+				}
+				filteredProps[epc] = prop
+			}
+
+			// フィルタリングされたプロパティがある場合のみ結果に追加
+			if len(filteredProps) > 0 {
+				result = append(result, DevicePropertyData{
+					Device:     ipAndEOJ,
+					Properties: filteredProps,
+				})
+			}
 		}
 	}
 
@@ -269,37 +276,6 @@ func (m EPCPropertyMap) SortedProperties() echonet_lite.Properties {
 		properties = append(properties, m[epc])
 	}
 	return properties
-}
-
-func (d Devices) String() string {
-	return d.StringWithPropertyMode(PropDefault)
-}
-
-// StringWithPropertyMode returns a string representation of devices with the specified property mode
-func (d Devices) StringWithPropertyMode(propMode PropertyMode) string {
-	// データを抽出
-	deviceDataList := d.ExtractDevicePropertyData(propMode)
-
-	// 結果が空の場合は早期リターン
-	if len(deviceDataList) == 0 {
-		return ""
-	}
-
-	// 結果の構築
-	var results []string
-
-	for _, deviceData := range deviceDataList {
-		// デバイス情報の出力
-		results = append(results, fmt.Sprintf("%v:", deviceData.Device))
-
-		// プロパティの出力を生成
-		sortedProperties := deviceData.Properties.SortedProperties()
-		for _, p := range sortedProperties {
-			results = append(results, fmt.Sprintf("  %v", p.String(deviceData.Device.EOJ.ClassCode())))
-		}
-	}
-
-	return strings.Join(results, "\n")
 }
 
 // SaveToFile saves the Devices data to a file in JSON format.

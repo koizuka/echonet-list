@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // CommandProcessor は、コマンド処理を担当する構造体
@@ -95,26 +96,39 @@ func (p *CommandProcessor) processCommands() {
 				EPCs:           cmd.EPCs,
 				PropertyValues: cmd.Properties,
 			}
-			fmt.Println(p.handler.ListDevices(criteria, cmd.PropMode))
+			result := p.handler.ListDevices(criteria, cmd.PropMode)
+			for _, device := range result {
+				names := p.handler.GetAliases(device.Device)
+				names = append(names, device.Device.String())
+				fmt.Println(strings.Join(names, " "))
+
+				classCode := device.Device.EOJ.ClassCode()
+				for _, prop := range device.Properties.SortedProperties() {
+					fmt.Printf("  %v\n", prop.String(classCode))
+				}
+			}
+
 		case CmdHelp:
 			PrintUsage()
 		case CmdGet:
-			ip, eoj, properties, err := p.handler.GetProperties(cmd)
+			result, err := p.handler.GetProperties(cmd)
 			cmd.Error = err
 			if err == nil {
-				fmt.Printf("プロパティ取得成功: %s, %v\n", ip, eoj)
-				for _, p := range properties {
-					propStr := p.String(eoj.ClassCode())
+				classCode := result.EOJ.ClassCode()
+				fmt.Printf("プロパティ取得成功: %s, %v\n", result.IP, result.EOJ)
+				for _, p := range result.Properties {
+					propStr := p.String(classCode)
 					fmt.Printf("  %v\n", propStr)
 				}
 			}
 		case CmdSet:
-			ip, eoj, properties, err := p.handler.SetProperties(cmd)
+			result, err := p.handler.SetProperties(cmd)
 			cmd.Error = err
 			if err == nil {
-				fmt.Printf("プロパティ設定成功: %s, %v\n", ip, eoj)
-				for _, p := range properties {
-					propStr := p.String(eoj.ClassCode())
+				fmt.Printf("プロパティ設定成功: %s, %v\n", result.IP, result.EOJ)
+				classCode := result.EOJ.ClassCode()
+				for _, p := range result.Properties {
+					propStr := p.String(classCode)
 					fmt.Printf("  %v\n", propStr)
 				}
 			}

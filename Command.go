@@ -35,6 +35,7 @@ const (
 	PropDefault PropertyMode = iota // デフォルトのプロパティを表示
 	PropKnown                       // 既知のプロパティのみ表示
 	PropAll                         // 全てのプロパティを表示
+	PropNone                        // プロパティを表示しない & プロパティがなくてもデバイスを列挙する
 )
 
 // DeviceSpecifier は、デバイスを一意に識別するための情報を表す構造体

@@ -542,7 +542,7 @@ func (h *ECHONETLiteHandler) Discover() error {
 }
 
 // ListDevices は、検出されたデバイスの一覧を表示する
-func (h *ECHONETLiteHandler) ListDevices(criteria FilterCriteria, propMode PropertyMode) string {
+func (h *ECHONETLiteHandler) ListDevices(criteria FilterCriteria, propMode PropertyMode) []DevicePropertyData {
 	// フィルタリングを実行
 	filtered := h.devices.Filter(criteria)
 
@@ -551,8 +551,7 @@ func (h *ECHONETLiteHandler) ListDevices(criteria FilterCriteria, propMode Prope
 		propMode = PropAll
 	}
 
-	// 文字列化して返す
-	return filtered.StringWithPropertyMode(propMode)
+	return filtered.ListDevicePropertyData(propMode)
 }
 
 // validateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
@@ -574,13 +573,17 @@ func (h *ECHONETLiteHandler) validateEPCsInPropertyMap(ip string, eoj echonet_li
 	return len(invalidEPCs) == 0, invalidEPCs, nil
 }
 
+type DeviceAndProperties struct {
+	IP         net.IP
+	EOJ        echonet_lite.EOJ
+	Properties echonet_lite.Properties
+}
+
 // GetProperties は、プロパティ値を取得する
 // 成功時には ip, eoj と properties を返す
-func (h *ECHONETLiteHandler) GetProperties(cmd *Command) (net.IP, echonet_lite.EOJ, echonet_lite.Properties, error) {
+func (h *ECHONETLiteHandler) GetProperties(cmd *Command) (DeviceAndProperties, error) {
 	// 結果を格納する変数
-	var resultIP net.IP
-	var resultEOJ echonet_lite.EOJ
-	var resultProperties echonet_lite.Properties
+	var result DeviceAndProperties
 
 	err := handlePropertyCommand(h.ctx, cmd, h.devices, func(targetIP string) (bool, error) {
 		if cmd.GetClassCode() == nil || cmd.GetInstanceCode() == nil {
@@ -615,9 +618,9 @@ func (h *ECHONETLiteHandler) GetProperties(cmd *Command) (net.IP, echonet_lite.E
 			}
 
 			// 成功した場合の処理
-			resultIP = ip
-			resultEOJ = eoj
-			resultProperties = properties
+			result.IP = ip
+			result.EOJ = eoj
+			result.Properties = properties
 
 			// プロパティの登録
 			h.registerProperties(ip.String(), eoj, properties)
@@ -643,15 +646,13 @@ func (h *ECHONETLiteHandler) GetProperties(cmd *Command) (net.IP, echonet_lite.E
 
 		return err
 	}, "プロパティ取得がタイムアウトしました")
-	return resultIP, resultEOJ, resultProperties, err
+	return result, err
 }
 
 // SetProperties は、プロパティ値を設定する
-func (h *ECHONETLiteHandler) SetProperties(cmd *Command) (net.IP, echonet_lite.EOJ, echonet_lite.Properties, error) {
+func (h *ECHONETLiteHandler) SetProperties(cmd *Command) (DeviceAndProperties, error) {
 	// 結果を格納する変数
-	var resultIP net.IP
-	var resultEOJ echonet_lite.EOJ
-	var resultProperties echonet_lite.Properties
+	var result DeviceAndProperties
 
 	err := handlePropertyCommand(h.ctx, cmd, h.devices, func(targetIP string) (bool, error) {
 		if cmd.GetClassCode() == nil || cmd.GetInstanceCode() == nil {
@@ -692,9 +693,9 @@ func (h *ECHONETLiteHandler) SetProperties(cmd *Command) (net.IP, echonet_lite.E
 			}
 
 			// 成功した場合の処理
-			resultIP = ip
-			resultEOJ = eoj
-			resultProperties = cmd.Properties
+			result.IP = ip
+			result.EOJ = eoj
+			result.Properties = cmd.Properties
 
 			// 戻ってきた properties ではなく、こちらが設定した cmd.Properties で登録する
 			h.registerProperties(ip.String(), eoj, cmd.Properties)
@@ -720,7 +721,7 @@ func (h *ECHONETLiteHandler) SetProperties(cmd *Command) (net.IP, echonet_lite.E
 
 		return err
 	}, "プロパティ設定がタイムアウトしました")
-	return resultIP, resultEOJ, resultProperties, err
+	return result, err
 }
 
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
@@ -740,7 +741,10 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 		return fmt.Errorf("条件に一致するデバイスが見つかりません")
 	}
 
-	fmt.Printf("更新対象のデバイス:\n%s\n", filtered.String())
+	fmt.Println("更新対象のデバイス:")
+	for _, d := range filtered.ListDevicePropertyData(PropNone) {
+		fmt.Println("  ", d.Device)
+	}
 	fmt.Println("プロパティの更新を開始します...")
 
 	// タイムアウト付きのコンテキストを作成（親コンテキストを使用）
@@ -858,6 +862,10 @@ func (h *ECHONETLiteHandler) SaveAliasFile() error {
 
 func (h *ECHONETLiteHandler) AliasList() []AliasDevicePair {
 	return h.DeviceAliases.GetAllAliases()
+}
+
+func (h *ECHONETLiteHandler) GetAliases(device IPAndEOJ) []string {
+	return h.DeviceAliases.GetAliases(device)
 }
 
 func (h *ECHONETLiteHandler) AliasSet(alias *string, device *DeviceSpecifier) error {
