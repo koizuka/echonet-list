@@ -183,21 +183,26 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 	return filtered
 }
 
-func (d Devices) String() string {
-	return d.StringWithPropertyMode(PropDefault)
+// DevicePropertyData は、デバイス（IPAndEOJ）とそのプロパティの組を表します
+type DevicePropertyData struct {
+	Device     IPAndEOJ
+	Properties map[echonet_lite.EPCType]echonet_lite.Property
 }
 
-// StringWithPropertyMode returns a string representation of devices with the specified property mode
-func (d Devices) StringWithPropertyMode(propMode PropertyMode) string {
+// ExtractDevicePropertyData は、指定されたプロパティモードに基づいてデバイスとプロパティのデータを抽出します
+func (d Devices) ExtractDevicePropertyData(propMode PropertyMode) []DevicePropertyData {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
 	// 結果が空の場合は早期リターン
 	if len(d.data) == 0 {
-		return ""
+		return nil
 	}
 
+	// デバイスのリストを取得
 	ipAndEOJs := d.ListIPAndEOJ()
+
+	// IPアドレスとEOJでソート
 	sort.Slice(ipAndEOJs, func(i, j int) bool {
 		// IPアドレスでソート
 		if ipAndEOJs[i].IP != ipAndEOJs[j].IP {
@@ -210,18 +215,17 @@ func (d Devices) StringWithPropertyMode(propMode PropertyMode) string {
 	})
 
 	// 結果の構築
-	var results []string
+	var result []DevicePropertyData
 
 	for _, ipAndEOJ := range ipAndEOJs {
 		eoj := ipAndEOJ.EOJ
-		props := d.data[ipAndEOJ.IP][eoj]
-		results = append(results, fmt.Sprintf("%v:", ipAndEOJ))
+		allProps := d.data[ipAndEOJ.IP][eoj]
 
-		// 表示するプロパティを選択
-		epcsToShow := make([]echonet_lite.EPCType, 0, len(props))
+		// 表示モードに応じてフィルタリングされたプロパティを保持するマップ
+		filteredProps := make(map[echonet_lite.EPCType]echonet_lite.Property)
 
 		// 表示モードに応じてフィルタリング
-		for epc := range props {
+		for epc, prop := range allProps {
 			switch propMode {
 			case PropDefault:
 				// デフォルトのプロパティのみ表示
@@ -234,18 +238,55 @@ func (d Devices) StringWithPropertyMode(propMode PropertyMode) string {
 					continue
 				}
 			}
-			epcsToShow = append(epcsToShow, epc)
+			filteredProps[epc] = prop
 		}
 
-		// プロパティをソート
+		// フィルタリングされたプロパティがある場合のみ結果に追加
+		if len(filteredProps) > 0 {
+			result = append(result, DevicePropertyData{
+				Device:     ipAndEOJ,
+				Properties: filteredProps,
+			})
+		}
+	}
+
+	return result
+}
+
+func (d Devices) String() string {
+	return d.StringWithPropertyMode(PropDefault)
+}
+
+// StringWithPropertyMode returns a string representation of devices with the specified property mode
+func (d Devices) StringWithPropertyMode(propMode PropertyMode) string {
+	// データを抽出
+	deviceDataList := d.ExtractDevicePropertyData(propMode)
+
+	// 結果が空の場合は早期リターン
+	if len(deviceDataList) == 0 {
+		return ""
+	}
+
+	// 結果の構築
+	var results []string
+
+	for _, deviceData := range deviceDataList {
+		// デバイス情報の出力
+		results = append(results, fmt.Sprintf("%v:", deviceData.Device))
+
+		// プロパティのEPCをソート
+		epcsToShow := make([]echonet_lite.EPCType, 0, len(deviceData.Properties))
+		for epc := range deviceData.Properties {
+			epcsToShow = append(epcsToShow, epc)
+		}
 		sort.Slice(epcsToShow, func(i, j int) bool {
 			return epcsToShow[i] < epcsToShow[j]
 		})
 
 		// プロパティの出力を生成
 		for _, epc := range epcsToShow {
-			p := props[epc]
-			results = append(results, fmt.Sprintf("  %v", p.String(eoj.ClassCode())))
+			p := deviceData.Properties[epc]
+			results = append(results, fmt.Sprintf("  %v", p.String(deviceData.Device.EOJ.ClassCode())))
 		}
 	}
 
