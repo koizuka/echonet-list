@@ -229,36 +229,28 @@ func (d Devices) ListDevicePropertyData(propMode PropertyMode) []DevicePropertyD
 		filteredProps := make(EPCPropertyMap)
 
 		// 表示モードに応じてフィルタリング
-		if propMode == PropNone {
-			// フィルタリングなし
+		for epc, prop := range allProps {
+			switch propMode {
+			case PropDefault:
+				// デフォルトのプロパティのみ表示
+				if !echonet_lite.IsPropertyDefaultEPC(eoj.ClassCode(), epc) {
+					continue
+				}
+			case PropKnown:
+				// 既知のプロパティのみ表示
+				if _, ok := echonet_lite.GetPropertyInfo(eoj.ClassCode(), epc); !ok {
+					continue
+				}
+			}
+			filteredProps[epc] = prop
+		}
+
+		// フィルタリングされたプロパティがある場合のみ結果に追加
+		if len(filteredProps) > 0 {
 			result = append(result, DevicePropertyData{
 				Device:     ipAndEOJ,
 				Properties: filteredProps,
 			})
-		} else {
-			for epc, prop := range allProps {
-				switch propMode {
-				case PropDefault:
-					// デフォルトのプロパティのみ表示
-					if !echonet_lite.IsPropertyDefaultEPC(eoj.ClassCode(), epc) {
-						continue
-					}
-				case PropKnown:
-					// 既知のプロパティのみ表示
-					if _, ok := echonet_lite.GetPropertyInfo(eoj.ClassCode(), epc); !ok {
-						continue
-					}
-				}
-				filteredProps[epc] = prop
-			}
-
-			// フィルタリングされたプロパティがある場合のみ結果に追加
-			if len(filteredProps) > 0 {
-				result = append(result, DevicePropertyData{
-					Device:     ipAndEOJ,
-					Properties: filteredProps,
-				})
-			}
 		}
 	}
 

@@ -740,8 +740,8 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 	}
 
 	fmt.Println("更新対象のデバイス:")
-	for _, d := range filtered.ListDevicePropertyData(PropNone) {
-		fmt.Println("  ", d.Device)
+	for _, d := range filtered.ListIPAndEOJ() {
+		fmt.Println("  ", d)
 	}
 	fmt.Println("プロパティの更新を開始します...")
 
