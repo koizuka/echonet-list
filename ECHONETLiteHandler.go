@@ -735,7 +735,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 	filtered := h.devices.Filter(criteria)
 
 	// フィルタリング結果が空の場合
-	if len(filtered.data) == 0 {
+	if filtered.Len() == 0 {
 		return fmt.Errorf("条件に一致するデバイスが見つかりません")
 	}
 
@@ -755,88 +755,78 @@ func (h *ECHONETLiteHandler) UpdateProperties(cmd *Command) error {
 	var firstErr error
 
 	// 各デバイスに対して処理を実行
-	for ip, eojMap := range filtered.data { // TODO data に直接アクセスするのは良くない
-		for eoj := range eojMap {
-			wg.Add(1)
+	for _, device := range filtered.ListIPAndEOJ() {
+		ipAddr := device.IP
+		eoj := device.EOJ
 
-			ipAddr := net.ParseIP(ip)
-			if ipAddr == nil {
-				errMutex.Lock()
-				if firstErr == nil {
-					firstErr = fmt.Errorf("無効なIPアドレス: %s", ip)
-				}
-				errMutex.Unlock()
-				wg.Done()
-				continue
+		wg.Add(1)
+
+		propMap := h.devices.GetPropertyMap(ipAddr, eoj, GetPropertyMap)
+		if propMap == nil {
+			errMutex.Lock()
+			if firstErr == nil {
+				firstErr = fmt.Errorf("プロパティマップが見つかりません: %s, %v", ipAddr, eoj)
 			}
-
-			propMap := h.devices.GetPropertyMap(ipAddr, eoj, GetPropertyMap)
-			if propMap == nil {
-				errMutex.Lock()
-				if firstErr == nil {
-					firstErr = fmt.Errorf("プロパティマップが見つかりません: %s, %v", ip, eoj)
-				}
-				errMutex.Unlock()
-				wg.Done()
-				continue
-			}
-
-			// コールバック完了を待つためのチャネル
-			callbackDone := make(chan struct{})
-
-			err := h.session.GetProperties(ipAddr, eoj, propMap.EPCs(), func(ipAddress net.IP, eoj echonet_lite.EOJ, success bool, properties echonet_lite.Properties) error {
-				defer close(callbackDone) // 必ず完了を通知
-
-				if !success {
-					nonEmpties := make(echonet_lite.Properties, 0, len(properties))
-					for _, p := range properties {
-						if p.EDT != nil {
-							nonEmpties = append(nonEmpties, p)
-						}
-					}
-					properties = nonEmpties
-				}
-				h.registerProperties(ipAddress, eoj, properties)
-				// デバイス情報を保存
-				if err := h.devices.SaveToFile(DeviceFileName); err != nil {
-					if logger != nil {
-						logger.Log("警告: デバイス情報の保存に失敗しました: %v", err)
-					}
-					// 保存に失敗しても処理は継続
-				}
-
-				// 結果を記録
-				fmt.Printf("デバイス %s, %s のプロパティを %v個 更新しました\n", ipAddress, eoj, len(properties))
-				return CallbackFinished{}
-			})
-
-			if err != nil {
-				errMutex.Lock()
-				if firstErr == nil {
-					firstErr = fmt.Errorf("プロパティ取得リクエストの送信に失敗: %w", err)
-				}
-				errMutex.Unlock()
-				close(callbackDone) // エラー時も完了を通知
-				wg.Done()
-				continue
-			}
-
-			// 非同期でコールバックの完了またはタイムアウトを待つ
-			go func(ip string, eoj echonet_lite.EOJ) {
-				defer wg.Done()
-				select {
-				case <-callbackDone:
-					// コールバックが呼ばれた
-				case <-timeoutCtx.Done():
-					// タイムアウトした
-					errMutex.Lock()
-					if firstErr == nil {
-						firstErr = fmt.Errorf("デバイス %s, %s のプロパティ更新がタイムアウトしました", ip, eoj)
-					}
-					errMutex.Unlock()
-				}
-			}(ip, eoj)
+			errMutex.Unlock()
+			wg.Done()
+			continue
 		}
+
+		// コールバック完了を待つためのチャネル
+		callbackDone := make(chan struct{})
+
+		err := h.session.GetProperties(ipAddr, eoj, propMap.EPCs(), func(ipAddress net.IP, eoj echonet_lite.EOJ, success bool, properties echonet_lite.Properties) error {
+			defer close(callbackDone) // 必ず完了を通知
+
+			if !success {
+				nonEmpties := make(echonet_lite.Properties, 0, len(properties))
+				for _, p := range properties {
+					if p.EDT != nil {
+						nonEmpties = append(nonEmpties, p)
+					}
+				}
+				properties = nonEmpties
+			}
+			h.registerProperties(ipAddress, eoj, properties)
+			// デバイス情報を保存
+			if err := h.devices.SaveToFile(DeviceFileName); err != nil {
+				if logger != nil {
+					logger.Log("警告: デバイス情報の保存に失敗しました: %v", err)
+				}
+				// 保存に失敗しても処理は継続
+			}
+
+			// 結果を記録
+			fmt.Printf("デバイス %s, %s のプロパティを %v個 更新しました\n", ipAddress, eoj, len(properties))
+			return CallbackFinished{}
+		})
+
+		if err != nil {
+			errMutex.Lock()
+			if firstErr == nil {
+				firstErr = fmt.Errorf("プロパティ取得リクエストの送信に失敗: %w", err)
+			}
+			errMutex.Unlock()
+			close(callbackDone) // エラー時も完了を通知
+			wg.Done()
+			continue
+		}
+
+		// 非同期でコールバックの完了またはタイムアウトを待つ
+		go func(ipAddr net.IP, eoj echonet_lite.EOJ) {
+			defer wg.Done()
+			select {
+			case <-callbackDone:
+				// コールバックが呼ばれた
+			case <-timeoutCtx.Done():
+				// タイムアウトした
+				errMutex.Lock()
+				if firstErr == nil {
+					firstErr = fmt.Errorf("デバイス %s, %s のプロパティ更新がタイムアウトしました", ipAddr, eoj)
+				}
+				errMutex.Unlock()
+			}
+		}(ipAddr, eoj)
 	}
 
 	// 全てのデバイスの更新が完了するまで待つ
