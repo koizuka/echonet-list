@@ -13,6 +13,10 @@ import (
 	"github.com/chzyer/readline"
 )
 
+const (
+	defaultLog = "echonet-list.log" // デフォルトのログファイル名
+)
+
 func main() {
 	// コマンドライン引数のヘルプメッセージをカスタマイズ
 	flag.Usage = func() {
@@ -32,17 +36,15 @@ func main() {
 	logFilename := *logFilenameFlag
 
 	// ロガーのセットアップ
-	var err error
-	logger, err = NewLogger(logFilename, debug)
+	logger, err := echonet_lite.NewLogger(logFilename, debug)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "ログ設定エラー: %v\n", err)
 		return
 	}
-	defer func() {
-		if logFile != nil {
-			_ = logFile.Close()
-		}
-	}()
+	echonet_lite.SetLogger(logger)
+
+	// ログファイルを閉じる
+	defer echonet_lite.SetLogger(nil)
 
 	// ルートコンテキストの作成
 	ctx, cancel := context.WithCancel(context.Background())
@@ -64,6 +66,7 @@ func main() {
 		for {
 			<-rotateSignalCh
 			fmt.Println("SIGHUPを受信しました。ログファイルをローテーションします...")
+			logger := echonet_lite.GetLogger()
 			if err := logger.Rotate(); err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "ログローテーションエラー: %v\n", err)
 			}
@@ -77,7 +80,7 @@ func main() {
 	var localIP net.IP = nil // nilはすべてのインターフェースをリッスンする
 
 	// ECHONETLiteHandlerの作成
-	handler, err := NewECHONETLiteHandler(ctx, localIP, SEOJ, debug)
+	handler, err := echonet_lite.NewECHONETLiteHandler(ctx, localIP, SEOJ, debug)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -167,7 +170,7 @@ func main() {
 			break
 		}
 
-		cmd, err := p.ParseCommand(line, handler.debug)
+		cmd, err := p.ParseCommand(line, handler.Debug)
 		if err != nil {
 			fmt.Printf("エラー: %v\n", err)
 			continue

@@ -1,8 +1,7 @@
-package main
+package echonet_lite
 
 import (
 	"context"
-	"echonet-list/echonet_lite"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -11,7 +10,7 @@ import (
 	"time"
 )
 
-var NodeProfileObject1 = echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1)
+var NodeProfileObject1 = MakeEOJ(NodeProfile_ClassCode, 1)
 
 // ブロードキャストアドレスの設定
 var BroadcastIP = getIPv4BroadcastIP()
@@ -19,23 +18,30 @@ var BroadcastIP = getIPv4BroadcastIP()
 // var BroadcastIP = net.ParseIP("ff02::1")
 
 type Key struct {
-	TID echonet_lite.TIDType
+	TID TIDType
 }
 
-func MakeKey(msg *echonet_lite.ECHONETLiteMessage) Key {
+func MakeKey(msg *ECHONETLiteMessage) Key {
 	return Key{msg.TID}
 }
 
-type CallbackFunc func(net.IP, *echonet_lite.ECHONETLiteMessage) error
+type CallbackCompleteStatus int // プロパティコールバック完了ステータス
+const (
+	CallbackFinished CallbackCompleteStatus = iota
+	CallbackContinue
+)
+
+type CallbackFunc func(net.IP, *ECHONETLiteMessage) (CallbackCompleteStatus, error)
+type PersistentCallbackFunc func(net.IP, *ECHONETLiteMessage) error
 
 type Entry struct {
-	ESVs     []echonet_lite.ESVType
+	ESVs     []ESVType
 	Callback CallbackFunc
 }
 
 type DispatchTable map[Key]Entry
 
-func (dt DispatchTable) Register(key Key, ESVs []echonet_lite.ESVType, callback CallbackFunc) {
+func (dt DispatchTable) Register(key Key, ESVs []ESVType, callback CallbackFunc) {
 	dt[key] = Entry{ESVs, callback}
 }
 
@@ -43,7 +49,7 @@ func (dt DispatchTable) Unregister(key Key) {
 	delete(dt, key)
 }
 
-func (dt DispatchTable) Dispatch(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
+func (dt DispatchTable) Dispatch(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 	key := MakeKey(msg)
 	entry, ok := dt[key]
 	if ok {
@@ -53,30 +59,23 @@ func (dt DispatchTable) Dispatch(ip net.IP, msg *echonet_lite.ECHONETLiteMessage
 			}
 		}
 	}
-	return nil
+	return CallbackContinue, nil
 }
 
 type Session struct {
 	mu              sync.RWMutex
-	DispatchTable   DispatchTable
-	ReceiveCallback CallbackFunc
-	InfCallback     CallbackFunc
-	TID             echonet_lite.TIDType
-	EOJ             echonet_lite.EOJ
-	Conn            *UDPConnection
+	dispatchTable   DispatchTable
+	receiveCallback PersistentCallbackFunc
+	infCallback     PersistentCallbackFunc
+	tid             TIDType
+	eoj             EOJ
+	conn            *UDPConnection
 	Debug           bool
 	ctx             context.Context    // コンテキスト
 	cancel          context.CancelFunc // コンテキストのキャンセル関数
 }
 
-type CallbackFinished struct {
-}
-
-func (c CallbackFinished) Error() string {
-	return "callback finished"
-}
-
-func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug bool) (*Session, error) {
+func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Session, error) {
 	// タイムアウトなしのコンテキストを作成（キャンセルのみ可能）
 	sessionCtx, cancel := context.WithCancel(ctx)
 
@@ -86,33 +85,33 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug b
 		return nil, err
 	}
 	return &Session{
-		DispatchTable: make(DispatchTable),
-		TID:           echonet_lite.TIDType(1),
-		EOJ:           EOJ,
-		Conn:          conn,
+		dispatchTable: make(DispatchTable),
+		tid:           TIDType(1),
+		eoj:           EOJ,
+		conn:          conn,
 		Debug:         debug,
 		ctx:           sessionCtx,
 		cancel:        cancel,
 	}, nil
 }
 
-func (s *Session) OnInf(callback CallbackFunc) {
+func (s *Session) OnInf(callback PersistentCallbackFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.InfCallback = callback
+	s.infCallback = callback
 }
 
-func (s *Session) OnReceive(callback CallbackFunc) {
+func (s *Session) OnReceive(callback PersistentCallbackFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.ReceiveCallback = callback
+	s.receiveCallback = callback
 }
 
 func (s *Session) MainLoop() {
 	for {
 		// DispatchTableがnilかどうかをロックして確認
 		s.mu.RLock()
-		dt := s.DispatchTable
+		dt := s.dispatchTable
 		isNil := dt == nil
 		s.mu.RUnlock()
 
@@ -131,7 +130,7 @@ func (s *Session) MainLoop() {
 
 		// タイムアウトなしでコンテキストを作成（キャンセルのみ可能）
 		receiveCtx, cancel := context.WithCancel(s.ctx)
-		data, addr, err := s.Conn.Receive(receiveCtx)
+		data, addr, err := s.conn.Receive(receiveCtx)
 		cancel() // 必ずキャンセルする
 
 		if err != nil {
@@ -177,7 +176,7 @@ func (s *Session) MainLoop() {
 			}
 		}
 
-		msg, err := echonet_lite.ParseECHONETLiteMessage(data)
+		msg, err := ParseECHONETLiteMessage(data)
 		if err != nil {
 			fmt.Println("パケット解析エラー:", err)
 			continue
@@ -188,40 +187,39 @@ func (s *Session) MainLoop() {
 		}
 
 		switch msg.ESV {
-		case echonet_lite.ESVSet_Res, echonet_lite.ESVSetI_SNA, echonet_lite.ESVSetC_SNA,
-			echonet_lite.ESVGet_Res, echonet_lite.ESVGet_SNA,
-			echonet_lite.ESVINFC_Res,
-			echonet_lite.ESVINF_REQ_SNA,
-			echonet_lite.ESVSetGet_Res, echonet_lite.ESVSetGet_SNA:
+		case ESVSet_Res, ESVSetI_SNA, ESVSetC_SNA,
+			ESVGet_Res, ESVGet_SNA,
+			ESVINFC_Res,
+			ESVINF_REQ_SNA,
+			ESVSetGet_Res, ESVSetGet_SNA:
 			// Get the callback while holding the lock
 			s.mu.RLock()
 			key := MakeKey(msg)
-			entry, ok := s.DispatchTable[key]
+			entry, ok := s.dispatchTable[key]
 			s.mu.RUnlock()
 
 			// Execute callback outside the lock
 			if ok {
 				for _, esv := range entry.ESVs {
 					if esv == msg.ESV {
-						err = entry.Callback(addr.IP, msg)
+						var complete CallbackCompleteStatus
+						complete, err = entry.Callback(addr.IP, msg)
+						if complete == CallbackFinished {
+							s.mu.Lock()
+							delete(s.dispatchTable, key)
+							s.mu.Unlock()
+						}
 						break
 					}
 				}
 			}
 			if err != nil {
-				var cbErr CallbackFinished
-				if errors.As(err, &cbErr) {
-					s.mu.Lock()
-					delete(s.DispatchTable, key)
-					s.mu.Unlock()
-				} else {
-					fmt.Println("ディスパッチエラー:", err)
-				}
+				fmt.Println("ディスパッチエラー:", err)
 			}
-		case echonet_lite.ESVINF, echonet_lite.ESVINFC:
+		case ESVINF, ESVINFC:
 			// Get the callback while holding the lock
 			s.mu.RLock()
-			callback := s.InfCallback
+			callback := s.infCallback
 			s.mu.RUnlock()
 
 			// Execute callback outside the lock
@@ -231,9 +229,9 @@ func (s *Session) MainLoop() {
 					fmt.Println("Infコールバックエラー:", err)
 				}
 			}
-		case echonet_lite.ESVGet, echonet_lite.ESVSetC, echonet_lite.ESVSetI, echonet_lite.ESVINF_REQ:
+		case ESVGet, ESVSetC, ESVSetI, ESVINF_REQ:
 			s.mu.RLock()
-			callback := s.ReceiveCallback
+			callback := s.receiveCallback
 			s.mu.RUnlock()
 			if callback != nil {
 				err = callback(addr.IP, msg)
@@ -247,7 +245,7 @@ func (s *Session) MainLoop() {
 
 func (s *Session) Close() error {
 	s.mu.Lock()
-	s.DispatchTable = nil // まずディスパッチテーブルをクリアして新しい処理を停止
+	s.dispatchTable = nil // まずディスパッチテーブルをクリアして新しい処理を停止
 
 	// コンテキストをキャンセル
 	if s.cancel != nil {
@@ -256,30 +254,30 @@ func (s *Session) Close() error {
 	s.mu.Unlock()
 
 	// コネクションを閉じてエラーを返す
-	if err := s.Conn.Close(); err != nil {
+	if err := s.conn.Close(); err != nil {
 		return fmt.Errorf("failed to close connection: %w", err)
 	}
 
 	return nil
 }
 
-func (s *Session) SendTo(ip net.IP, SEOJ echonet_lite.EOJ, DEOJ echonet_lite.EOJ, ESV echonet_lite.ESVType, property echonet_lite.Properties, callback CallbackFunc) error {
+func (s *Session) sendTo(ip net.IP, SEOJ EOJ, DEOJ EOJ, ESV ESVType, property Properties, callback CallbackFunc) error {
 	// 送信用のコンテキストを作成（タイムアウト5秒）
 	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
 	defer cancel()
 
 	s.mu.Lock()
-	TID := s.TID
-	s.TID++
+	TID := s.tid
+	s.tid++
 	s.mu.Unlock()
-	msg := &echonet_lite.ECHONETLiteMessage{
+	msg := &ECHONETLiteMessage{
 		TID:        TID,
 		SEOJ:       SEOJ,
 		DEOJ:       DEOJ,
 		ESV:        ESV,
 		Properties: property,
 	}
-	_, err := s.Conn.SendTo(ctx, ip, msg.Encode())
+	_, err := s.conn.SendTo(ctx, ip, msg.Encode())
 	if err != nil {
 		fmt.Println("パケット送信に失敗:", err)
 		return err
@@ -290,14 +288,14 @@ func (s *Session) SendTo(ip net.IP, SEOJ echonet_lite.EOJ, DEOJ echonet_lite.EOJ
 	if callback != nil {
 		s.mu.Lock()
 		key := MakeKey(msg)
-		s.DispatchTable[key] = Entry{msg.ESV.ResponseESVs(), callback}
+		s.dispatchTable[key] = Entry{msg.ESV.ResponseESVs(), callback}
 		s.mu.Unlock()
 	}
 	return nil
 }
 
-func (s *Session) SendResponse(ip net.IP, msg *echonet_lite.ECHONETLiteMessage, ESV echonet_lite.ESVType, property echonet_lite.Properties, setGetProperty echonet_lite.Properties) error {
-	msgSend := &echonet_lite.ECHONETLiteMessage{
+func (s *Session) SendResponse(ip net.IP, msg *ECHONETLiteMessage, ESV ESVType, property Properties, setGetProperty Properties) error {
+	msgSend := &ECHONETLiteMessage{
 		TID:              msg.TID,
 		SEOJ:             msg.DEOJ,
 		DEOJ:             msg.SEOJ,
@@ -309,7 +307,7 @@ func (s *Session) SendResponse(ip net.IP, msg *echonet_lite.ECHONETLiteMessage, 
 	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
 	defer cancel()
 
-	_, err := s.Conn.SendTo(ctx, ip, msgSend.Encode())
+	_, err := s.conn.SendTo(ctx, ip, msgSend.Encode())
 	if err != nil {
 		fmt.Println("パケット送信に失敗:", err)
 		return err
@@ -320,66 +318,68 @@ func (s *Session) SendResponse(ip net.IP, msg *echonet_lite.ECHONETLiteMessage, 
 	return nil
 }
 
-func (s *Session) Broadcast(SEOJ echonet_lite.EOJ, ESV echonet_lite.ESVType, property echonet_lite.Properties) error {
-	return s.SendTo(BroadcastIP, SEOJ, NodeProfileObject1, ESV, property, nil)
+func (s *Session) Broadcast(SEOJ EOJ, ESV ESVType, property Properties) error {
+	return s.sendTo(BroadcastIP, SEOJ, NodeProfileObject1, ESV, property, nil)
 }
 
-func (s *Session) BroadcastNodeList(nodes []echonet_lite.EOJ) error {
-	list := echonet_lite.InstanceListNotification(nodes)
-	return s.Broadcast(NodeProfileObject1, echonet_lite.ESVINF, echonet_lite.Properties{*list.Property()})
+func (s *Session) BroadcastNodeList(nodes []EOJ) error {
+	list := InstanceListNotification(nodes)
+	return s.Broadcast(NodeProfileObject1, ESVINF, Properties{*list.Property()})
 }
 
-type GetPropertiesCallbackFunc func(net.IP, echonet_lite.EOJ, bool, echonet_lite.Properties) error
+type GetPropertiesCallbackFunc func(IPAndEOJ, bool, Properties) (CallbackCompleteStatus, error)
 
-func (s *Session) GetProperties(ip net.IP, DEOJ echonet_lite.EOJ, EPCs []echonet_lite.EPCType, callback GetPropertiesCallbackFunc) error {
-	forGet := make([]echonet_lite.IPropertyForGet, 0, len(EPCs))
+func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) error {
+	forGet := make([]IPropertyForGet, 0, len(EPCs))
 	for _, epc := range EPCs {
 		forGet = append(forGet, epc)
 	}
 	// TODO broadcastでない場合、タイムアウト時に再送する仕組みを追加したい
-	return s.SendTo(ip, s.EOJ, DEOJ, echonet_lite.ESVGet, echonet_lite.PropertiesForESVGet(forGet...), func(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
-		if msg.ESV == echonet_lite.ESVGet_Res {
-			return callback(ip, msg.SEOJ, true, msg.Properties)
+	return s.sendTo(device.IP, s.eoj, device.EOJ, ESVGet, PropertiesForESVGet(forGet...), func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+		device := IPAndEOJ{ip, msg.SEOJ}
+		if msg.ESV == ESVGet_Res {
+			return callback(device, true, msg.Properties)
 		}
-		return callback(ip, msg.SEOJ, false, msg.Properties)
+		return callback(device, false, msg.Properties)
 	})
 }
 
-type GetPropertyCallbackFunc func(net.IP, echonet_lite.EOJ, bool, echonet_lite.Property) error
+type GetPropertyCallbackFunc func(IPAndEOJ, bool, Property) (CallbackCompleteStatus, error)
 
-func (s *Session) GetProperty(ip net.IP, DEOJ echonet_lite.EOJ, EPC echonet_lite.EPCType, callback GetPropertyCallbackFunc) error {
-	return s.GetProperties(ip, DEOJ, []echonet_lite.EPCType{EPC}, func(ip net.IP, eoj echonet_lite.EOJ, success bool, properties echonet_lite.Properties) error {
+func (s *Session) GetProperty(device IPAndEOJ, EPC EPCType, callback GetPropertyCallbackFunc) error {
+	return s.GetProperties(device, []EPCType{EPC}, func(device IPAndEOJ, success bool, properties Properties) (CallbackCompleteStatus, error) {
 		// propertiesの中から EPC == EPC となるものを探す
 		for _, p := range properties {
 			if p.EPC == EPC {
-				return callback(ip, eoj, success, p)
+				return callback(device, success, p)
 			}
 		}
-		return callback(ip, eoj, false, echonet_lite.Property{})
+		return callback(device, false, Property{})
 	})
 }
 
 func (s *Session) GetSelfNodeInstanceListS(ip net.IP, callback GetPropertyCallbackFunc) error {
-	return s.GetProperty(ip, NodeProfileObject1, echonet_lite.EPC_NPO_SelfNodeInstanceListS, callback)
+	return s.GetProperty(IPAndEOJ{ip, NodeProfileObject1}, EPC_NPO_SelfNodeInstanceListS, callback)
 }
 
-func (s *Session) SetProperties(ip net.IP, DEOJ echonet_lite.EOJ, properties echonet_lite.Properties, callback GetPropertiesCallbackFunc) error {
-	return s.SendTo(ip, s.EOJ, DEOJ, echonet_lite.ESVSetC, properties, func(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
-		if msg.ESV == echonet_lite.ESVSet_Res {
-			return callback(ip, msg.SEOJ, true, msg.Properties)
+func (s *Session) SetProperties(device IPAndEOJ, properties Properties, callback GetPropertiesCallbackFunc) error {
+	return s.sendTo(device.IP, s.eoj, device.EOJ, ESVSetC, properties, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+		device := IPAndEOJ{ip, msg.SEOJ}
+		if msg.ESV == ESVSet_Res {
+			return callback(device, true, msg.Properties)
 		}
-		return callback(ip, msg.SEOJ, false, msg.Properties)
+		return callback(device, false, msg.Properties)
 	})
 }
 
-func (s *Session) SetProperty(ip net.IP, DEOJ echonet_lite.EOJ, property echonet_lite.Property, callback GetPropertyCallbackFunc) error {
-	return s.SetProperties(ip, DEOJ, echonet_lite.Properties{property}, func(ip net.IP, eoj echonet_lite.EOJ, success bool, properties echonet_lite.Properties) error {
+func (s *Session) SetProperty(device IPAndEOJ, property Property, callback GetPropertyCallbackFunc) error {
+	return s.SetProperties(device, Properties{property}, func(device IPAndEOJ, success bool, properties Properties) (CallbackCompleteStatus, error) {
 		// propertiesの中から EPC == property.EPC となるものを探す
 		for _, p := range properties {
 			if p.EPC == property.EPC {
-				return callback(ip, eoj, success, p)
+				return callback(device, success, p)
 			}
 		}
-		return callback(ip, eoj, false, echonet_lite.Property{})
+		return callback(device, false, Property{})
 	})
 }

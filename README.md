@@ -206,20 +206,24 @@ The application supports various ECHONET Lite device types, including:
 - `main.go`: Entry point and main application logic
 - `Command.go`: Command parsing and execution
 - `CommandProcessor.go`: Command processing and execution
-- `Devices.go`: Device management and storage
-- `ECHONETLiteHandler.go`: ECHONET Lite communication handler
-- `Session.go`: Session management for ECHONET Lite communication
-- `UDPConnection.go`: UDP communication handling
 - `echonet_lite/`: Package containing ECHONET Lite protocol implementation
+  - `DeviceAliases.go`: Device alias management
+  - `Devices.go`: Device implementation and management
+  - `ECHONETLiteHandler.go`: ECHONET Lite communication handler
   - `echonet_lite.go`: Core ECHONET Lite message handling
   - `EOJ.go`: ECHONET Object implementation
+  - `IPAndEOJ.go`: IP address and EOJ handling
+  - `logger.go`: Logging utilities
+  - `network.go`: Network communication utilities
   - `Property.go`: Property handling
-  - `ProfileSuperClass.go`: Base class for profiles
+  - `Session.go`: Session management for ECHONET Lite communication
+  - `UDPConnection.go`: UDP communication handling
   - Device-specific implementations:
+    - `NodeProfileObject.go`: Node profile implementation
+    - `ProfileSuperClass.go`: Base class for profiles
     - `HomeAirConditioner.go`
     - `FloorHeating.go`
     - `SingleFunctionLighting.go`
-    - etc.
 
 ## Example Use Cases
 

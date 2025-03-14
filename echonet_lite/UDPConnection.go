@@ -1,8 +1,7 @@
-package main
+package echonet_lite
 
 import (
 	"context"
-	"echonet-list/echonet_lite"
 	"fmt"
 	"net"
 	"sync"
@@ -22,7 +21,7 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, opt UDPConnectionOption
 	// UDPソケットの作成
 	addr := &net.UDPAddr{
 		IP:   ip,
-		Port: echonet_lite.ECHONETLitePort,
+		Port: ECHONETLitePort,
 	}
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
@@ -50,7 +49,7 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, opt UDPConnectionOption
 		}
 	}
 
-	localAddr, err := GetLocalUDPAddressFor(BroadcastIP, echonet_lite.ECHONETLitePort)
+	localAddr, err := GetLocalUDPAddressFor(BroadcastIP, ECHONETLitePort)
 	if err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("failed to get local address: %w", err)
@@ -74,7 +73,7 @@ func (c *UDPConnection) SendTo(ctx context.Context, ip net.IP, data []byte) (int
 
 	dst := &net.UDPAddr{
 		IP:   ip,
-		Port: echonet_lite.ECHONETLitePort,
+		Port: ECHONETLitePort,
 	}
 	return c.UdpConn.WriteTo(data, dst)
 }

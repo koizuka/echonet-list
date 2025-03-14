@@ -1,7 +1,6 @@
-package main
+package echonet_lite
 
 import (
-	"echonet-list/echonet_lite"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -63,7 +62,7 @@ func NewDeviceAliases() *DeviceAliases {
 }
 
 // RegisterDeviceIdentification はデバイスとIdentificationNumberを関連付けます
-func (da *DeviceAliases) RegisterDeviceIdentification(device IPAndEOJ, identificationNumber *echonet_lite.IdentificationNumber) error {
+func (da *DeviceAliases) RegisterDeviceIdentification(device IPAndEOJ, identificationNumber *IdentificationNumber) error {
 	if identificationNumber == nil {
 		return fmt.Errorf("identificationNumber cannot be nil")
 	}
@@ -97,8 +96,8 @@ var hexPattern = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
 // 先頭文字が数字と記号の場合にマッチする正規表現パターン
 var invalidFirstChar = regexp.MustCompile(`^[0-9\!"#\$%&'\(\)\*\+,\./:;<=>\?@\[\\\]\^_\{\|\}~\-]`)
 
-// validateDeviceAlias はエイリアスが有効かどうかを検証します
-func validateDeviceAlias(alias string) error {
+// ValidateDeviceAlias はエイリアスが有効かどうかを検証します
+func ValidateDeviceAlias(alias string) error {
 	// 空文字列は禁止
 	if alias == "" {
 		return &InvalidAliasError{Alias: alias, Reason: "empty alias is not allowed"}
@@ -121,7 +120,7 @@ func validateDeviceAlias(alias string) error {
 // 1つのIdentificationNumberに対して複数のエイリアスを設定できます
 func (da *DeviceAliases) SetAlias(device IPAndEOJ, alias string) error {
 	// エイリアスのバリデーション
-	if err := validateDeviceAlias(alias); err != nil {
+	if err := ValidateDeviceAlias(alias); err != nil {
 		return err
 	}
 
@@ -183,7 +182,7 @@ func (da *DeviceAliases) GetDeviceByAlias(alias string) (IPAndEOJ, bool) {
 }
 
 // GetDeviceByIdentificationNumber はIdentificationNumberに関連付けられたデバイスを取得します
-func (da *DeviceAliases) GetDeviceByIdentificationNumber(identificationNumber *echonet_lite.IdentificationNumber) (IPAndEOJ, bool) {
+func (da *DeviceAliases) GetDeviceByIdentificationNumber(identificationNumber *IdentificationNumber) (IPAndEOJ, bool) {
 	if identificationNumber == nil {
 		return IPAndEOJ{}, false
 	}
