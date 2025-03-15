@@ -7,13 +7,18 @@ const (
 	EPC_SF_Illuminance EPCType = 0xb0
 )
 
-var SF_PropertyTable = PropertyTable{
-	EPCInfo: map[EPCType]PropertyInfo{
-		EPC_SF_Illuminance: {"Illuminance level", Decoder(SF_DecodeIlluminance), nil},
-	},
-	DefaultEPCs: []EPCType{
-		EPC_SF_Illuminance,
-	},
+func (r PropertyRegistry) SingleFunctionLighting() PropertyRegistryEntry {
+	return PropertyRegistryEntry{
+		ClassCode: SingleFunctionLighting_ClassCode,
+		PropertyTable: PropertyTable{
+			EPCInfo: map[EPCType]PropertyInfo{
+				EPC_SF_Illuminance: {"Illuminance level", Decoder(SF_DecodeIlluminance), nil},
+			},
+			DefaultEPCs: []EPCType{
+				EPC_SF_Illuminance,
+			},
+		},
+	}
 }
 
 type Illuminance uint8

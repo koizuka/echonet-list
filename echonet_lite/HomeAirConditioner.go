@@ -15,43 +15,48 @@ const (
 	EPC_HAC_HumidificationModeSetting EPCType = 0xC1 // 加湿モード設定
 )
 
-var HAC_PropertyTable = PropertyTable{
-	EPCInfo: map[EPCType]PropertyInfo{
-		EPC_HAC_AirVolumeSetting:         {"Air volume setting", Decoder(HAC_DecodeAirVolumeSetting), nil},
-		EPC_HAC_AirDirectionSwingSetting: {"Air direction swing setting", Decoder(HAC_DecodeAirDirectionSwingSetting), nil},
-		EPC_HAC_OperationModeSetting: {
-			EPCs:    "Operation mode setting",
-			Decoder: Decoder(HAC_DecodeOperationModeSetting),
-			Aliases: map[string][]byte{
-				"auto":    {HAC_OperationModeAutomatic},
-				"cooling": {HAC_OperationModeCooling},
-				"heating": {HAC_OperationModeHeating},
-				"dry":     {HAC_OperationModeDehumidification},
-				"fan":     {HAC_OperationModeAirCirculator},
-				"other":   {HAC_OperationModeOther},
+func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
+	return PropertyRegistryEntry{
+		ClassCode: HomeAirConditioner_ClassCode,
+		PropertyTable: PropertyTable{
+			EPCInfo: map[EPCType]PropertyInfo{
+				EPC_HAC_AirVolumeSetting:         {"Air volume setting", Decoder(HAC_DecodeAirVolumeSetting), nil},
+				EPC_HAC_AirDirectionSwingSetting: {"Air direction swing setting", Decoder(HAC_DecodeAirDirectionSwingSetting), nil},
+				EPC_HAC_OperationModeSetting: {
+					EPCs:    "Operation mode setting",
+					Decoder: Decoder(HAC_DecodeOperationModeSetting),
+					Aliases: map[string][]byte{
+						"auto":    {HAC_OperationModeAutomatic},
+						"cooling": {HAC_OperationModeCooling},
+						"heating": {HAC_OperationModeHeating},
+						"dry":     {HAC_OperationModeDehumidification},
+						"fan":     {HAC_OperationModeAirCirculator},
+						"other":   {HAC_OperationModeOther},
+					},
+				},
+				EPC_HAC_TemperatureSetting:        {"Temperature setting", Decoder(HAC_DecodeTemperature), nil},
+				EPC_HAC_RelativeHumiditySetting:   {"Relative humidity setting", Decoder(HAC_DecodeHumidity), nil},
+				EPC_HAC_CurrentRoomHumidity:       {"Current room humidity", Decoder(HAC_DecodeHumidity), nil},
+				EPC_HAC_CurrentRoomTemperature:    {"Current room temperature", Decoder(HAC_DecodeTemperature), nil},
+				EPC_HAC_CurrentOutsideTemperature: {"Current outside temperature", Decoder(HAC_DecodeTemperature), nil},
+				EPC_HAC_HumidificationModeSetting: {
+					EPCs:    "Humidification mode setting",
+					Decoder: Decoder(HAC_DecodeHumidificationModeSetting),
+					Aliases: map[string][]byte{
+						"on":  {0x41},
+						"off": {0x42},
+					},
+				},
+			},
+			DefaultEPCs: []EPCType{
+				EPC_HAC_OperationModeSetting,
+				EPC_HAC_TemperatureSetting,
+				EPC_HAC_CurrentRoomTemperature,
+				EPC_HAC_CurrentRoomHumidity,
+				EPC_HAC_CurrentOutsideTemperature,
 			},
 		},
-		EPC_HAC_TemperatureSetting:        {"Temperature setting", Decoder(HAC_DecodeTemperature), nil},
-		EPC_HAC_RelativeHumiditySetting:   {"Relative humidity setting", Decoder(HAC_DecodeHumidity), nil},
-		EPC_HAC_CurrentRoomHumidity:       {"Current room humidity", Decoder(HAC_DecodeHumidity), nil},
-		EPC_HAC_CurrentRoomTemperature:    {"Current room temperature", Decoder(HAC_DecodeTemperature), nil},
-		EPC_HAC_CurrentOutsideTemperature: {"Current outside temperature", Decoder(HAC_DecodeTemperature), nil},
-		EPC_HAC_HumidificationModeSetting: {
-			EPCs:    "Humidification mode setting",
-			Decoder: Decoder(HAC_DecodeHumidificationModeSetting),
-			Aliases: map[string][]byte{
-				"on":  {0x41},
-				"off": {0x42},
-			},
-		},
-	},
-	DefaultEPCs: []EPCType{
-		EPC_HAC_OperationModeSetting,
-		EPC_HAC_TemperatureSetting,
-		EPC_HAC_CurrentRoomTemperature,
-		EPC_HAC_CurrentRoomHumidity,
-		EPC_HAC_CurrentOutsideTemperature,
-	},
+	}
 }
 
 type AirVolume byte

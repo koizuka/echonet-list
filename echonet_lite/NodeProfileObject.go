@@ -21,17 +21,22 @@ var ECHONETLite_Version NPO_VersionInfo = NPO_VersionInfo{
 	Optional:     false,
 }
 
-var NPO_PropertyTable = PropertyTable{
-	EPCInfo: map[EPCType]PropertyInfo{
-		EPC_NPO_VersionInfo:              {"Version information", Decoder(NPO_DecodeVersionInfo), nil},
-		EPC_NPO_IDNumber:                 {"Identification number", nil, nil},
-		EPC_NPO_IndividualID:             {"Individual identification information", nil, nil},
-		EPC_NPO_SelfNodeInstances:        {"Self-node instances number", Decoder(DecodeSelfNodeInstances), nil},
-		EPC_NPO_SelfNodeClasses:          {"Self-node classes number", Decoder(DecodeSelfNodeClasses), nil},
-		EPC_NPO_InstanceListNotification: {"instance list notification", Decoder(DecodeInstanceListNotification), nil},
-		EPC_NPO_SelfNodeInstanceListS:    {"Self-node instance list S", Decoder(DecodeSelfNodeInstanceListS), nil},
-		EPC_NPO_SelfNodeClassListS:       {"Self-node class list S", Decoder(DecodeSelfNodeClassListS), nil},
-	},
+func (r PropertyRegistry) NodeProfileObject() PropertyRegistryEntry {
+	return PropertyRegistryEntry{
+		ClassCode: NodeProfile_ClassCode,
+		PropertyTable: PropertyTable{
+			EPCInfo: map[EPCType]PropertyInfo{
+				EPC_NPO_VersionInfo:              {"Version information", Decoder(NPO_DecodeVersionInfo), nil},
+				EPC_NPO_IDNumber:                 {"Identification number", nil, nil},
+				EPC_NPO_IndividualID:             {"Individual identification information", nil, nil},
+				EPC_NPO_SelfNodeInstances:        {"Self-node instances number", Decoder(DecodeSelfNodeInstances), nil},
+				EPC_NPO_SelfNodeClasses:          {"Self-node classes number", Decoder(DecodeSelfNodeClasses), nil},
+				EPC_NPO_InstanceListNotification: {"instance list notification", Decoder(DecodeInstanceListNotification), nil},
+				EPC_NPO_SelfNodeInstanceListS:    {"Self-node instance list S", Decoder(DecodeSelfNodeInstanceListS), nil},
+				EPC_NPO_SelfNodeClassListS:       {"Self-node class list S", Decoder(DecodeSelfNodeClassListS), nil},
+			},
+		},
+	}
 }
 
 type NPO_VersionInfo struct {

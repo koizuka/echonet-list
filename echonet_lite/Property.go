@@ -1,16 +1,39 @@
 package echonet_lite
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
-// PropertyTable: 新しい機器クラスを定義するときは、ここに追加すること
+type PropertyRegistryEntry struct {
+	ClassCode     EOJClassCode
+	PropertyTable PropertyTable
+}
+
+type PropertyRegistry struct{}
+
 type PropertyTableMap map[EOJClassCode]PropertyTable
 
-var PropertyTables = PropertyTableMap{
-	NodeProfile_ClassCode:            NPO_PropertyTable,
-	SingleFunctionLighting_ClassCode: SF_PropertyTable,
-	HomeAirConditioner_ClassCode:     HAC_PropertyTable,
-	FloorHeating_ClassCode:           FH_PropertyTable,
+func BuildPropertyTableMap() PropertyTableMap {
+	// reflect を使って、 PropertyRegistry のメソッドのうち、戻り型が PropertyRegistryEntry のものを探す
+	// そのメソッドを呼び出して、PropertyTableMap を作成する
+
+	result := PropertyTableMap{}
+
+	var registry interface{} = &PropertyRegistry{}
+	t := reflect.TypeOf(registry)
+	v := reflect.ValueOf(registry)
+	for i := 0; i < t.NumMethod(); i++ {
+		method := t.Method(i)
+		if method.Type.Out(0) == reflect.TypeOf(PropertyRegistryEntry{}) {
+			entry := v.Method(i).Call(nil)[0].Interface().(PropertyRegistryEntry)
+			result[entry.ClassCode] = entry.PropertyTable
+		}
+	}
+	return result
 }
+
+var PropertyTables = BuildPropertyTableMap()
 
 func (pt PropertyTableMap) FindAlias(classCode EOJClassCode, alias string) (Property, bool) {
 	if prop, ok := ProfileSuperClass_PropertyTable.FindAlias(alias); ok {

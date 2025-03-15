@@ -12,16 +12,21 @@ const (
 	EPC_FH_OffTimerHHMM     EPCType = 0x95 // OFFタイマ設定値
 )
 
-var FH_PropertyTable = PropertyTable{
-	EPCInfo: map[EPCType]PropertyInfo{
-		EPC_FH_RoomTemperature:  {"Room temperature", Decoder(FH_DecodeTemperature), nil},
-		EPC_FH_FloorTemperature: {"Floor temperature", Decoder(FH_DecodeTemperature), nil},
+func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
+	return PropertyRegistryEntry{
+		ClassCode: FloorHeating_ClassCode,
+		PropertyTable: PropertyTable{
+			EPCInfo: map[EPCType]PropertyInfo{
+				EPC_FH_RoomTemperature:  {"Room temperature", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_FloorTemperature: {"Floor temperature", Decoder(FH_DecodeTemperature), nil},
 
-		EPC_FH_OnTimerEnabled:  {"ON timer enabled", Decoder(FH_DecodeOnOff), nil},
-		EPC_FH_OnTimerHHMM:     {"ON timer setting", Decoder(FH_DecodeHHMM), nil},
-		EPC_FH_OffTimerEnabled: {"OFF timer enabled", Decoder(FH_DecodeOnOff), nil},
-		EPC_FH_OffTimerHHMM:    {"OFF timer setting", Decoder(FH_DecodeHHMM), nil},
-	},
+				EPC_FH_OnTimerEnabled:  {"ON timer enabled", Decoder(FH_DecodeOnOff), nil},
+				EPC_FH_OnTimerHHMM:     {"ON timer setting", Decoder(FH_DecodeHHMM), nil},
+				EPC_FH_OffTimerEnabled: {"OFF timer enabled", Decoder(FH_DecodeOnOff), nil},
+				EPC_FH_OffTimerHHMM:    {"OFF timer setting", Decoder(FH_DecodeHHMM), nil},
+			},
+		},
+	}
 }
 
 type Temperature int8
