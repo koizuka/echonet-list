@@ -344,22 +344,8 @@ func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPro
 	})
 }
 
-type GetPropertyCallbackFunc func(IPAndEOJ, bool, Property) (CallbackCompleteStatus, error)
-
-func (s *Session) GetProperty(device IPAndEOJ, EPC EPCType, callback GetPropertyCallbackFunc) error {
-	return s.GetProperties(device, []EPCType{EPC}, func(device IPAndEOJ, success bool, properties Properties) (CallbackCompleteStatus, error) {
-		// propertiesの中から EPC == EPC となるものを探す
-		for _, p := range properties {
-			if p.EPC == EPC {
-				return callback(device, success, p)
-			}
-		}
-		return callback(device, false, Property{})
-	})
-}
-
-func (s *Session) GetSelfNodeInstanceListS(ip net.IP, callback GetPropertyCallbackFunc) error {
-	return s.GetProperty(IPAndEOJ{ip, NodeProfileObject1}, EPC_NPO_SelfNodeInstanceListS, callback)
+func (s *Session) GetSelfNodeInstanceListS(ip net.IP, callback GetPropertiesCallbackFunc) error {
+	return s.GetProperties(IPAndEOJ{ip, NodeProfileObject1}, []EPCType{EPC_NPO_SelfNodeInstanceListS}, callback)
 }
 
 func (s *Session) SetProperties(device IPAndEOJ, properties Properties, callback GetPropertiesCallbackFunc) error {
@@ -369,17 +355,5 @@ func (s *Session) SetProperties(device IPAndEOJ, properties Properties, callback
 			return callback(device, true, msg.Properties)
 		}
 		return callback(device, false, msg.Properties)
-	})
-}
-
-func (s *Session) SetProperty(device IPAndEOJ, property Property, callback GetPropertyCallbackFunc) error {
-	return s.SetProperties(device, Properties{property}, func(device IPAndEOJ, success bool, properties Properties) (CallbackCompleteStatus, error) {
-		// propertiesの中から EPC == property.EPC となるものを探す
-		for _, p := range properties {
-			if p.EPC == property.EPC {
-				return callback(device, success, p)
-			}
-		}
-		return callback(device, false, Property{})
 	})
 }

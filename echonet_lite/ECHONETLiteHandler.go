@@ -419,7 +419,7 @@ func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, il InstanceList) error {
 }
 
 // onGetPropertyMap は、GetPropertyMapプロパティを受信したときのコールバック
-func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, properties Property) (CallbackCompleteStatus, error) {
+func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, properties Properties) (CallbackCompleteStatus, error) {
 	logger := GetLogger()
 	if !success {
 		if logger != nil {
@@ -428,16 +428,18 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 		return CallbackFinished, nil
 	}
 
-	if properties.EPC != EPCGetPropertyMap {
+	p := properties[0]
+
+	if p.EPC != EPCGetPropertyMap {
 		if logger != nil {
-			logger.Log("警告: 予期しないEPC: %v (期待値: %v)", properties.EPC, EPCGetPropertyMap)
+			logger.Log("警告: 予期しないEPC: %v (期待値: %v)", p.EPC, EPCGetPropertyMap)
 		}
 		return CallbackFinished, nil
 	}
 
-	props := DecodePropertyMap(properties.EDT)
+	props := DecodePropertyMap(p.EDT)
 	if props == nil {
-		return CallbackFinished, ErrInvalidPropertyMap{EDT: properties.EDT}
+		return CallbackFinished, ErrInvalidPropertyMap{EDT: p.EDT}
 	}
 
 	// 取得するプロパティのリストを作成
@@ -498,14 +500,14 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 
 // GetSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを取得する
 func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
-	return h.session.GetSelfNodeInstanceListS(ip, func(ie IPAndEOJ, b bool, p Property) (CallbackCompleteStatus, error) {
-		return CallbackFinished, h.onSelfNodeInstanceListS(ie, b, p)
+	return h.session.GetSelfNodeInstanceListS(ip, func(ie IPAndEOJ, b bool, p Properties) (CallbackCompleteStatus, error) {
+		return CallbackFinished, h.onSelfNodeInstanceListS(ie, b, p[0])
 	})
 }
 
 // GetGetPropertyMap は、GetPropertyMapプロパティを取得する
 func (h *ECHONETLiteHandler) GetGetPropertyMap(device IPAndEOJ) error {
-	return h.session.GetProperty(device, EPCGetPropertyMap, h.onGetPropertyMap)
+	return h.session.GetProperties(device, []EPCType{EPCGetPropertyMap}, h.onGetPropertyMap)
 }
 
 // Discover は、ECHONET Liteデバイスを検出する
