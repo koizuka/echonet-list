@@ -17,6 +17,11 @@
 ## What's Left to Build
 - All planned features for the current development cycle have been implemented
 
+### 将来の計画 (Future Plans)
+- **メッセージ再送機能**: Session でメッセージを送信したあと、返信を必要としているものについて、返信タイムアウトになったときには同一メッセージを再送する仕組み
+- **アーキテクチャ分割**: ECHONET Liteに関する処理は web(WebSocket) サーバーにして、コンソールUIアプリはそれにアクセスするように分割する
+- **Web UI開発**: 上記分割が済んだら、web UIを作成する
+
 ## Progress Status
 - **Alias Command Documentation in PrintUsage**: ✅ COMPLETED
 - **Alias Command Documentation in README.md**: ✅ COMPLETED
