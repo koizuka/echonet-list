@@ -154,8 +154,8 @@ func (h *ECHONETLiteHandler) StartMainLoop() {
 }
 
 func (h *ECHONETLiteHandler) NotifyNodeList() error {
-	EOJs := h.localDevices.GetInstanceList()
-	return h.session.BroadcastNodeList(EOJs)
+	list := InstanceListNotification(h.localDevices.GetInstanceList())
+	return h.session.Broadcast(NodeProfileObject1, ESVINF, Properties{*list.Property()})
 }
 
 func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessage) error {
@@ -485,9 +485,11 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 
 // GetSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを取得する
 func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
-	return h.session.GetSelfNodeInstanceListS(ip, func(ie IPAndEOJ, b bool, p Properties, f []EPCType) (CallbackCompleteStatus, error) {
-		return CallbackFinished, h.onSelfNodeInstanceListS(ie, b, p[0])
-	})
+	return h.session.GetProperties(
+		IPAndEOJ{ip, NodeProfileObject1}, []EPCType{EPC_NPO_SelfNodeInstanceListS},
+		func(ie IPAndEOJ, b bool, p Properties, f []EPCType) (CallbackCompleteStatus, error) {
+			return CallbackFinished, h.onSelfNodeInstanceListS(ie, b, p[0])
+		})
 }
 
 // GetGetPropertyMap は、GetPropertyMapプロパティを取得する

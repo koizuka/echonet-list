@@ -332,11 +332,6 @@ func (s *Session) Broadcast(SEOJ EOJ, ESV ESVType, property Properties) error {
 	return s.sendMessage(BroadcastIP, msg)
 }
 
-func (s *Session) BroadcastNodeList(nodes []EOJ) error {
-	list := InstanceListNotification(nodes)
-	return s.Broadcast(NodeProfileObject1, ESVINF, Properties{*list.Property()})
-}
-
 // GetPropertiesCallbackFunc はプロパティ取得のコールバック関数の型。
 type GetPropertiesCallbackFunc func(device IPAndEOJ, success bool, properties Properties, FailedEPCs []EPCType) (CallbackCompleteStatus, error)
 
@@ -374,10 +369,6 @@ func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPro
 		return callback(device, false, successProperties, failedEPCs)
 	})
 	return nil
-}
-
-func (s *Session) GetSelfNodeInstanceListS(ip net.IP, callback GetPropertiesCallbackFunc) error {
-	return s.GetProperties(IPAndEOJ{ip, NodeProfileObject1}, []EPCType{EPC_NPO_SelfNodeInstanceListS}, callback)
 }
 
 func (s *Session) SetProperties(device IPAndEOJ, properties Properties, callback GetPropertiesCallbackFunc) error {
