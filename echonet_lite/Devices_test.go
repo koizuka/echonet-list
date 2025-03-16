@@ -6,6 +6,18 @@ import (
 	"testing"
 )
 
+// HasPropertyWithValue is a test helper function that checks if a property with the expected EPC and EDT exists for the given device
+func HasPropertyWithValue(d Devices, device IPAndEOJ, epc EPCType, expectedEDT []byte) bool {
+	classCode := device.EOJ.ClassCode()
+	instanceCode := device.EOJ.InstanceCode()
+	criteria := FilterCriteria{
+		Device:         &DeviceSpecifier{IP: &device.IP, ClassCode: &classCode, InstanceCode: &instanceCode},
+		PropertyValues: []Property{{EPC: epc, EDT: expectedEDT}},
+	}
+
+	return d.Filter(criteria).Len() > 0
+}
+
 func TestDevices_SaveToFile(t *testing.T) {
 	// Create a temporary file for testing
 	tempFile := "test_save.json"
@@ -57,7 +69,7 @@ func TestDevices_SaveToFile(t *testing.T) {
 	}
 
 	// Verify the property value (EPC and EDT) is correctly saved and loaded
-	if !loadedDevices.HasPropertyWithValue(ip1eoj, epc, []byte{0x30}) {
+	if !HasPropertyWithValue(loadedDevices, ip1eoj, epc, []byte{0x30}) {
 		t.Errorf("Property value was not correctly saved and loaded")
 	}
 }
@@ -111,7 +123,7 @@ func TestDevices_LoadFromFile(t *testing.T) {
 	}
 
 	// Verify the property value (EPC and EDT) is correctly loaded
-	if !devices.HasPropertyWithValue(ip1eoj, epc, []byte{0x30}) {
+	if !HasPropertyWithValue(devices, ip1eoj, epc, []byte{0x30}) {
 		t.Errorf("Property value was not correctly loaded")
 	}
 }
@@ -185,10 +197,10 @@ func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 	}
 
 	// Verify the property values (EPC and EDT) are correctly saved and loaded
-	if !loadedDevices.HasPropertyWithValue(ip1eoj1, epc1, []byte{0x30}) {
+	if !HasPropertyWithValue(loadedDevices, ip1eoj1, epc1, []byte{0x30}) {
 		t.Errorf("Property 1 value was not correctly saved and loaded")
 	}
-	if !loadedDevices.HasPropertyWithValue(ip2eoj2, epc2, []byte{0x41, 0x42}) {
+	if !HasPropertyWithValue(loadedDevices, ip2eoj2, epc2, []byte{0x41, 0x42}) {
 		t.Errorf("Property 2 value was not correctly saved and loaded")
 	}
 }

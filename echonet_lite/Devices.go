@@ -315,25 +315,6 @@ func (h Devices) ListIPAndEOJ() []IPAndEOJ {
 	return devices
 }
 
-// HasPropertyWithValue checks if a property with the expected EPC and EDT exists for the given device
-func (d Devices) HasPropertyWithValue(device IPAndEOJ, epc EPCType, expectedEDT []byte) bool {
-	// Create a filter criteria for the specific IP, EOJ, and property value (EPC and EDT)
-	propValue := Property{
-		EPC: epc,
-		EDT: expectedEDT,
-	}
-	criteria := FilterCriteria{
-		Device:         &DeviceSpecifier{IP: &device.IP},
-		PropertyValues: []Property{propValue},
-	}
-
-	// Filter the devices based on the property value criteria
-	filtered := d.Filter(criteria)
-
-	// Check if the device and EOJ exist in the filtered result
-	return filtered.IsKnownDevice(device)
-}
-
 // GetProperty returns the property for the given IP, EOJ, and EPC
 // If the property does not exist, returns nil and false
 func (d Devices) GetProperty(device IPAndEOJ, epc EPCType) (*Property, bool) {
