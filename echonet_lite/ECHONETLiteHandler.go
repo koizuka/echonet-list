@@ -121,7 +121,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 	}
 
 	// 最後にやること
-	localDevices.UpdateProfileObjectProperties()
+	_ = localDevices.UpdateProfileObjectProperties()
 
 	handler := &ECHONETLiteHandler{
 		session:       session,
