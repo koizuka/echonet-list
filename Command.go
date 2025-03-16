@@ -274,6 +274,49 @@ func newCommand(cmdType CommandType) *Command {
 	}
 }
 
+type AvailableAliasesForAll struct {
+	Aliases map[string]string
+}
+
+func (e *AvailableAliasesForAll) Error() string {
+	messages := make([]string, 0, len(e.Aliases)+1)
+	messages = append(messages, "利用可能なエイリアス:")
+
+	// sort by alias
+	sortedAliases := make([]string, 0, len(e.Aliases))
+	for alias := range e.Aliases {
+		sortedAliases = append(sortedAliases, alias)
+	}
+	sort.Strings(sortedAliases)
+
+	for _, alias := range sortedAliases {
+		messages = append(messages, fmt.Sprintf("  %s -> %v", alias, e.Aliases[alias]))
+	}
+	return strings.Join(messages, "\n")
+}
+
+type AvailableAliasesForEPC struct {
+	EPC     echonet_lite.EPCType
+	Aliases map[string][]byte
+}
+
+func (e *AvailableAliasesForEPC) Error() string {
+	if len(e.Aliases) == 0 {
+		return fmt.Sprintf("EPC %s にはエイリアスが定義されていません", e.EPC)
+	}
+	messages := make([]string, 0, len(e.Aliases)+1)
+	messages = append(messages, fmt.Sprintf("利用可能なエイリアス for EPC %s:", e.EPC))
+	sortedAliases := make([]string, 0, len(e.Aliases))
+	for alias := range e.Aliases {
+		sortedAliases = append(sortedAliases, alias)
+	}
+	sort.Strings(sortedAliases)
+	for _, alias := range sortedAliases {
+		messages = append(messages, fmt.Sprintf("  %s -> %X", alias, e.Aliases[alias]))
+	}
+	return strings.Join(messages, "\n")
+}
+
 // "get" コマンドをパースする
 func (p CommandParser) parseGetCommand(parts []string) (*Command, error) {
 	cmd := newCommand(CmdGet)
@@ -316,19 +359,7 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 	if argIndex >= len(parts) {
 		// 可能なエイリアス一覧
 		aliases := echonet_lite.PropertyTables.AvailableAliases(*cmd.GetClassCode())
-		fmt.Printf("利用可能なエイリアス:\n")
-		// sort by alias
-
-		sortedAliases := make([]string, 0, len(aliases))
-		for alias := range aliases {
-			sortedAliases = append(sortedAliases, alias)
-		}
-		sort.Strings(sortedAliases)
-		fmt.Println("sorted names: ", sortedAliases) // DEBUG
-		for _, alias := range sortedAliases {
-			fmt.Printf("%s: %s\n", alias, aliases[alias])
-		}
-		return nil, fmt.Errorf("set コマンドには少なくとも1つのプロパティが必要です")
+		return nil, &AvailableAliasesForAll{Aliases: aliases}
 	}
 
 	for i := argIndex; i < len(parts); i++ {
@@ -337,19 +368,10 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 		if err == nil {
 			// クラスコードからPropertyInfoを取得
 			if propInfo, ok := echonet_lite.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
-				fmt.Printf("利用可能なエイリアス for EPC %s (%s):\n", epc, propInfo.EPCs)
-				sortedAliases := make([]string, 0, len(propInfo.Aliases))
-				for alias := range propInfo.Aliases {
-					sortedAliases = append(sortedAliases, alias)
-				}
-				sort.Strings(sortedAliases)
-				for _, alias := range sortedAliases {
-					fmt.Printf("  %s -> %X\n", alias, propInfo.Aliases[alias])
-				}
+				return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
 			} else {
-				fmt.Printf("EPC %s にはエイリアスが定義されていません\n", epc)
+				return nil, &AvailableAliasesForEPC{EPC: epc}
 			}
-			continue
 		}
 
 		// プロパティ文字列をパース
@@ -363,6 +385,14 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 	}
 
 	return cmd, nil
+}
+
+type InvalidArgument struct {
+	Argument string
+}
+
+func (e *InvalidArgument) Error() string {
+	return fmt.Sprintf("無効な引数: %s", e.Argument)
 }
 
 // "devices" または "list" コマンドをパースする
@@ -408,7 +438,7 @@ func (p CommandParser) parseDevicesCommand(parts []string) (*Command, error) {
 		}
 
 		// 上記のいずれにも該当しない場合はエラー
-		return nil, fmt.Errorf("無効な引数: %s", parts[i])
+		return nil, &InvalidArgument{Argument: parts[i]}
 	}
 
 	return cmd, nil
@@ -447,7 +477,7 @@ func (p CommandParser) parseUpdateCommand(parts []string) (*Command, error) {
 
 	// 残りの引数がある場合はエラー
 	if argIndex < len(parts) {
-		return nil, fmt.Errorf("無効な引数: %s", parts[argIndex])
+		return nil, &InvalidArgument{Argument: parts[argIndex]}
 	}
 
 	return cmd, nil
@@ -503,7 +533,7 @@ func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
 
 		// 残りの引数がある場合はエラー
 		if argIndex < len(parts) {
-			return nil, fmt.Errorf("無効な引数: %s", parts[argIndex])
+			return nil, &InvalidArgument{Argument: parts[argIndex]}
 		}
 	}
 
