@@ -88,7 +88,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 		UniqueIdentifier: make([]byte, 13), // 識別番号未設定は13バイトの0
 	}
 
-	err = localDevices.Set(NodeProfileObject1,
+	err = localDevices.Set(NodeProfileObject,
 		&operationStatusOn,
 		&identificationNumber,
 		&manufacturerCode,
@@ -151,7 +151,7 @@ func (h *ECHONETLiteHandler) StartMainLoop() {
 
 func (h *ECHONETLiteHandler) NotifyNodeList() error {
 	list := InstanceListNotification(h.localDevices.GetInstanceList())
-	return h.session.Broadcast(NodeProfileObject1, ESVINF, Properties{*list.Property()})
+	return h.session.Broadcast(NodeProfileObject, ESVINF, Properties{*list.Property()})
 }
 
 func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessage) error {
@@ -481,7 +481,7 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 // GetSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを取得する
 func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
 	return h.session.GetProperties(
-		IPAndEOJ{ip, NodeProfileObject1}, []EPCType{EPC_NPO_SelfNodeInstanceListS},
+		IPAndEOJ{ip, NodeProfileObject}, []EPCType{EPC_NPO_SelfNodeInstanceListS},
 		func(ie IPAndEOJ, b bool, p Properties, f []EPCType) (CallbackCompleteStatus, error) {
 			return CallbackFinished, h.onSelfNodeInstanceListS(ie, b, p[0])
 		})

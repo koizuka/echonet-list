@@ -12,7 +12,8 @@ import (
 	"time"
 )
 
-var NodeProfileObject1 = MakeEOJ(NodeProfile_ClassCode, 1)
+var NodeProfileObject = MakeEOJ(NodeProfile_ClassCode, 1)
+var NodeProfileObject_SendOnly = MakeEOJ(NodeProfile_ClassCode, 2)
 
 // ブロードキャストアドレスの設定
 var BroadcastIP = network.GetIPv4BroadcastIP()
@@ -323,7 +324,7 @@ func (s *Session) Broadcast(SEOJ EOJ, ESV ESVType, property Properties) error {
 	msg := &ECHONETLiteMessage{
 		TID:        s.newTID(),
 		SEOJ:       SEOJ,
-		DEOJ:       NodeProfileObject1,
+		DEOJ:       NodeProfileObject,
 		ESV:        ESV,
 		Properties: property,
 	}

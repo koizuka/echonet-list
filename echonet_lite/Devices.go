@@ -497,7 +497,7 @@ func (d DeviceProperties) UpdateProfileObjectProperties() error {
 	}
 	selfNodeClassListS := SelfNodeClassListS(classArray)
 
-	eoj := NodeProfileObject1
+	eoj := NodeProfileObject
 	return d.Set(eoj,
 		&selfNodeInstances,
 		&selfNodeInstanceListS,
