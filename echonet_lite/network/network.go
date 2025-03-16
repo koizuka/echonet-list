@@ -1,12 +1,12 @@
-package echonet_lite
+package network
 
 import (
 	"fmt"
 	"net"
 )
 
-// getIPv4BroadcastIP は、ローカルネットワークのIPv4ブロードキャストアドレスを自動的に検出します
-func getIPv4BroadcastIP() net.IP {
+// GetIPv4BroadcastIP は、ローカルネットワークのIPv4ブロードキャストアドレスを自動的に検出します
+func GetIPv4BroadcastIP() net.IP {
 	// デフォルトのブロードキャストアドレス（見つからない場合に使用）
 	defaultBroadcast := net.ParseIP("255.255.255.255")
 
@@ -70,6 +70,8 @@ func GetLocalUDPAddressFor(ip net.IP, port int) (*net.UDPAddr, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func(conn *net.UDPConn) {
+		_ = conn.Close()
+	}(conn)
 	return conn.LocalAddr().(*net.UDPAddr), nil
 }

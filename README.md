@@ -213,11 +213,13 @@ The application supports various ECHONET Lite device types, including:
   - `echonet_lite.go`: Core ECHONET Lite message handling
   - `EOJ.go`: ECHONET Object implementation
   - `IPAndEOJ.go`: IP address and EOJ handling
-  - `logger.go`: Logging utilities
-  - `network.go`: Network communication utilities
   - `Property.go`: Property handling
   - `Session.go`: Session management for ECHONET Lite communication
-  - `UDPConnection.go`: UDP communication handling
+  - `log/`: Logging utilities
+    - `logger.go`: Logging utilities
+  - `network/`: Network communication utilities
+    - `network.go`: Network communication utilities
+    - `UDPConnection.go`: UDP communication handling
   - Device-specific implementations:
     - `NodeProfileObject.go`: Node profile implementation
     - `ProfileSuperClass.go`: Base class for profiles

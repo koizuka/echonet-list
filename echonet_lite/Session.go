@@ -3,6 +3,7 @@ package echonet_lite
 import (
 	"context"
 	"echonet-list/echonet_lite/log"
+	"echonet-list/echonet_lite/network"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -14,7 +15,7 @@ import (
 var NodeProfileObject1 = MakeEOJ(NodeProfile_ClassCode, 1)
 
 // ブロードキャストアドレスの設定
-var BroadcastIP = getIPv4BroadcastIP()
+var BroadcastIP = network.GetIPv4BroadcastIP()
 
 // var BroadcastIP = net.ParseIP("ff02::1")
 
@@ -70,7 +71,7 @@ type Session struct {
 	infCallback     PersistentCallbackFunc
 	tid             TIDType
 	eoj             EOJ
-	conn            *UDPConnection
+	conn            *network.UDPConnection
 	Debug           bool
 	ctx             context.Context    // コンテキスト
 	cancel          context.CancelFunc // コンテキストのキャンセル関数
@@ -80,7 +81,7 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Sessio
 	// タイムアウトなしのコンテキストを作成（キャンセルのみ可能）
 	sessionCtx, cancel := context.WithCancel(ctx)
 
-	conn, err := CreateUDPConnection(sessionCtx, ip, UDPConnectionOptions{DefaultTimeout: 30 * time.Second})
+	conn, err := network.CreateUDPConnection(sessionCtx, ip, ECHONETLitePort, BroadcastIP, network.UDPConnectionOptions{DefaultTimeout: 30 * time.Second})
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		return nil, err

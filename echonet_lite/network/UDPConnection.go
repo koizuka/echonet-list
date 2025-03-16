@@ -1,4 +1,4 @@
-package echonet_lite
+package network
 
 import (
 	"context"
@@ -11,17 +11,18 @@ import (
 type UDPConnection struct {
 	UdpConn   *net.UDPConn
 	LocalAddr *net.UDPAddr
+	Port      int
 }
 
 type UDPConnectionOptions struct {
 	DefaultTimeout time.Duration
 }
 
-func CreateUDPConnection(ctx context.Context, ip net.IP, opt UDPConnectionOptions) (*UDPConnection, error) {
+func CreateUDPConnection(ctx context.Context, ip net.IP, port int, broadcastIP net.IP, opt UDPConnectionOptions) (*UDPConnection, error) {
 	// UDPソケットの作成
 	addr := &net.UDPAddr{
 		IP:   ip,
-		Port: ECHONETLitePort,
+		Port: port,
 	}
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
@@ -38,24 +39,24 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, opt UDPConnectionOption
 	if ok {
 		// タイムアウトが設定されている場合は、それを使用
 		if err := conn.SetReadDeadline(deadline); err != nil {
-			conn.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("failed to set read deadline: %w", err)
 		}
 	} else {
 		// タイムアウトが設定されていない場合は、タイムアウトを解除
 		if err := conn.SetReadDeadline(time.Time{}); err != nil {
-			conn.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("failed to clear read deadline: %w", err)
 		}
 	}
 
-	localAddr, err := GetLocalUDPAddressFor(BroadcastIP, ECHONETLitePort)
+	localAddr, err := GetLocalUDPAddressFor(broadcastIP, port)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to get local address: %w", err)
 	}
 
-	return &UDPConnection{UdpConn: conn, LocalAddr: localAddr}, nil
+	return &UDPConnection{UdpConn: conn, LocalAddr: localAddr, Port: port}, nil
 }
 
 func (c *UDPConnection) Close() error {
@@ -65,7 +66,7 @@ func (c *UDPConnection) Close() error {
 func (c *UDPConnection) SendTo(ip net.IP, data []byte) (int, error) {
 	dst := &net.UDPAddr{
 		IP:   ip,
-		Port: ECHONETLitePort,
+		Port: c.Port,
 	}
 	return c.UdpConn.WriteTo(data, dst)
 }
@@ -127,7 +128,7 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 	case <-ctx.Done():
 		// contextがキャンセルされた場合
 		// ReadFromをキャンセルするためにSetReadDeadlineを呼び出す
-		c.UdpConn.SetReadDeadline(time.Now())
+		_ = c.UdpConn.SetReadDeadline(time.Now())
 		<-readDone // ReadFromの終了を待つ
 		return nil, nil, ctx.Err()
 	case <-readDone:
