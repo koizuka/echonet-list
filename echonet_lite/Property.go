@@ -140,6 +140,15 @@ func (ps Properties) Encode() []byte {
 	return flattenBytes(data)
 }
 
+func (ps Properties) GetIdentificationNumber() *IdentificationNumber {
+	for _, p := range ps {
+		if p.EPC == EPCIdentificationNumber {
+			return DecodeIdentificationNumber(p.EDT)
+		}
+	}
+	return nil
+}
+
 type EPCType byte
 
 func (e EPCType) PropertyForGet() *Property {

@@ -239,13 +239,12 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessage
 
 func (h *ECHONETLiteHandler) registerProperties(device IPAndEOJ, properties Properties) {
 	h.devices.RegisterProperties(device, properties)
-	if property, ok := properties.FindEPC(EPCIdentificationNumber); ok {
-		if id := DecodeIdentificationNumber(property.EDT); id != nil {
-			err := h.DeviceAliases.RegisterDeviceIdentification(device, id)
-			if err != nil {
-				if logger := GetLogger(); logger != nil {
-					logger.Log("警告: IdentificationNumberの登録に失敗: %v", err)
-				}
+	// IdentificationNumber を受信した場合、登録する
+	if id := properties.GetIdentificationNumber(); id != nil {
+		err := h.DeviceAliases.RegisterDeviceIdentification(device, id)
+		if err != nil {
+			if logger := GetLogger(); logger != nil {
+				logger.Log("警告: IdentificationNumberの登録に失敗: %v", err)
 			}
 		}
 	}
