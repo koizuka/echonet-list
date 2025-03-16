@@ -327,7 +327,8 @@ func (s *Session) BroadcastNodeList(nodes []EOJ) error {
 	return s.Broadcast(NodeProfileObject1, ESVINF, Properties{*list.Property()})
 }
 
-type GetPropertiesCallbackFunc func(IPAndEOJ, bool, Properties) (CallbackCompleteStatus, error)
+// GetPropertiesCallbackFunc はプロパティ取得のコールバック関数の型。
+type GetPropertiesCallbackFunc func(device IPAndEOJ, success bool, properties Properties, FailedEPCs []EPCType) (CallbackCompleteStatus, error)
 
 func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) error {
 	props := make([]Property, 0, len(EPCs))
@@ -338,9 +339,19 @@ func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPro
 	return s.sendTo(device.IP, s.eoj, device.EOJ, ESVGet, props, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		device := IPAndEOJ{ip, msg.SEOJ}
 		if msg.ESV == ESVGet_Res {
-			return callback(device, true, msg.Properties)
+			return callback(device, true, msg.Properties, nil)
 		}
-		return callback(device, false, msg.Properties)
+		// Getは EDT=nilが失敗
+		successProperties := make(Properties, 0, len(msg.Properties))
+		failedEPCs := make([]EPCType, 0, len(msg.Properties))
+		for _, p := range msg.Properties {
+			if p.EDT != nil {
+				successProperties = append(successProperties, p)
+			} else {
+				failedEPCs = append(failedEPCs, p.EPC)
+			}
+		}
+		return callback(device, false, successProperties, failedEPCs)
 	})
 }
 
@@ -352,8 +363,19 @@ func (s *Session) SetProperties(device IPAndEOJ, properties Properties, callback
 	return s.sendTo(device.IP, s.eoj, device.EOJ, ESVSetC, properties, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		device := IPAndEOJ{ip, msg.SEOJ}
 		if msg.ESV == ESVSet_Res {
-			return callback(device, true, msg.Properties)
+			return callback(device, true, msg.Properties, nil)
 		}
-		return callback(device, false, msg.Properties)
+		successProperties := make(Properties, 0, len(properties))
+		failedEPCs := make([]EPCType, 0)
+
+		// Setは EDT == nil が成功
+		for i, p := range msg.Properties {
+			if p.EDT == nil {
+				successProperties = append(successProperties, properties[i])
+			} else {
+				failedEPCs = append(failedEPCs, p.EPC)
+			}
+		}
+		return callback(device, false, successProperties, failedEPCs)
 	})
 }

@@ -419,7 +419,7 @@ func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, il InstanceList) error {
 }
 
 // onGetPropertyMap は、GetPropertyMapプロパティを受信したときのコールバック
-func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, properties Properties) (CallbackCompleteStatus, error) {
+func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, properties Properties, _ []EPCType) (CallbackCompleteStatus, error) {
 	logger := GetLogger()
 	if !success {
 		if logger != nil {
@@ -460,20 +460,8 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 	err := h.session.GetProperties(
 		device,
 		forGet,
-		func(device IPAndEOJ, success bool, properties Properties) (CallbackCompleteStatus, error) {
+		func(device IPAndEOJ, success bool, properties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
 			if !success {
-				// properties のうち、EDTが空の物を除去する
-				// 失敗したプロパティも収集して表示する
-				filteredProperties := make(Properties, 0, len(properties))
-				failedEPCs := make([]string, 0, len(properties))
-				for _, p := range properties {
-					if p.EDT != nil {
-						filteredProperties = append(filteredProperties, p)
-					} else {
-						failedEPCs = append(failedEPCs, p.EPC.StringForClass(device.EOJ.ClassCode()))
-					}
-				}
-				properties = filteredProperties
 				if logger != nil {
 					logger.Log("警告: プロパティ取得に失敗しました: %v, Failed EPCs: %v", device, failedEPCs)
 				}
@@ -500,7 +488,7 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 
 // GetSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを取得する
 func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
-	return h.session.GetSelfNodeInstanceListS(ip, func(ie IPAndEOJ, b bool, p Properties) (CallbackCompleteStatus, error) {
+	return h.session.GetSelfNodeInstanceListS(ip, func(ie IPAndEOJ, b bool, p Properties, f []EPCType) (CallbackCompleteStatus, error) {
 		return CallbackFinished, h.onSelfNodeInstanceListS(ie, b, p[0])
 	})
 }
@@ -567,11 +555,11 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType) (Dev
 	// コマンドを実行
 	err = waitCallbackDone(h.ctx, func(callbackDone chan struct{}) error {
 		// コンテキストは親コンテキスト（h.ctx）を使用
-		err := h.session.GetProperties(device, EPCs, func(device IPAndEOJ, success bool, properties Properties) (CallbackCompleteStatus, error) {
+		err := h.session.GetProperties(device, EPCs, func(device IPAndEOJ, success bool, properties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
 			defer close(callbackDone) // 必ず完了を通知
 
 			if !success {
-				errMsg := fmt.Sprintf("プロパティ取得失敗: %v", device)
+				errMsg := fmt.Sprintf("プロパティ取得失敗: %v: %v", device, failedEPCs)
 				if logger != nil {
 					logger.Log("エラー: %s", errMsg)
 				}
@@ -631,11 +619,11 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 	// コマンドを実行
 	err = waitCallbackDone(h.ctx, func(callbackDone chan struct{}) error {
 		// コンテキストは親コンテキスト（h.ctx）を使用
-		err := h.session.SetProperties(device, properties, func(device IPAndEOJ, success bool, returnedProperties Properties) (CallbackCompleteStatus, error) {
+		err := h.session.SetProperties(device, properties, func(device IPAndEOJ, success bool, returnedProperties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
 			defer close(callbackDone) // 必ず完了を通知
 
 			if !success {
-				errMsg := fmt.Sprintf("プロパティ設定失敗: %v", device)
+				errMsg := fmt.Sprintf("プロパティ設定失敗: %v: %v", device, failedEPCs)
 				if logger != nil {
 					logger.Log("エラー: %s", errMsg)
 				}
@@ -646,7 +634,6 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 			result.Device = device
 			result.Properties = properties
 
-			// 戻ってきた returnedProperties ではなく、こちらが設定した properties で登録する
 			h.registerProperties(device, properties)
 
 			// デバイス情報を保存
@@ -712,18 +699,9 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 		// コールバック完了を待つためのチャネル
 		callbackDone := make(chan struct{})
 
-		err := h.session.GetProperties(device, propMap.EPCs(), func(device IPAndEOJ, success bool, properties Properties) (CallbackCompleteStatus, error) {
+		err := h.session.GetProperties(device, propMap.EPCs(), func(device IPAndEOJ, success bool, properties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
 			defer close(callbackDone) // 必ず完了を通知
 
-			if !success {
-				nonEmpties := make(Properties, 0, len(properties))
-				for _, p := range properties {
-					if p.EDT != nil {
-						nonEmpties = append(nonEmpties, p)
-					}
-				}
-				properties = nonEmpties
-			}
 			h.registerProperties(device, properties)
 			// デバイス情報を保存
 			h.saveDeviceInfo()
