@@ -1,4 +1,4 @@
-package echonet_lite
+package log
 
 import (
 	"fmt"

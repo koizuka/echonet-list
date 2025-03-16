@@ -2,6 +2,7 @@ package echonet_lite
 
 import (
 	"context"
+	"echonet-list/echonet_lite/log"
 	"errors"
 	"fmt"
 	"net"
@@ -31,7 +32,7 @@ type ECHONETLiteHandler struct {
 // saveDeviceInfo は、デバイス情報をファイルに保存する共通処理
 func (h *ECHONETLiteHandler) saveDeviceInfo() {
 	if err := h.devices.SaveToFile(DeviceFileName); err != nil {
-		if logger := GetLogger(); logger != nil {
+		if logger := log.GetLogger(); logger != nil {
 			logger.Log("警告: デバイス情報の保存に失敗しました: %v", err)
 		}
 		// 保存に失敗しても処理は継続
@@ -243,7 +244,7 @@ func (h *ECHONETLiteHandler) registerProperties(device IPAndEOJ, properties Prop
 	if id := properties.GetIdentificationNumber(); id != nil {
 		err := h.DeviceAliases.RegisterDeviceIdentification(device, id)
 		if err != nil {
-			if logger := GetLogger(); logger != nil {
+			if logger := log.GetLogger(); logger != nil {
 				logger.Log("警告: IdentificationNumberの登録に失敗: %v", err)
 			}
 		}
@@ -252,7 +253,7 @@ func (h *ECHONETLiteHandler) registerProperties(device IPAndEOJ, properties Prop
 
 // onInfMessage は、INFメッセージを受信したときのコールバック
 func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) error {
-	logger := GetLogger()
+	logger := log.GetLogger()
 	if msg == nil {
 		if logger != nil {
 			logger.Log("警告: 無効なINFメッセージを受信しました: nil")
@@ -405,7 +406,7 @@ func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, il InstanceList) error {
 	// エラーがあれば報告（ただし処理は継続）
 	if len(errors) > 0 {
 		for _, err := range errors {
-			if logger := GetLogger(); logger != nil {
+			if logger := log.GetLogger(); logger != nil {
 				logger.Log("警告: %v", err)
 			}
 		}
@@ -416,7 +417,7 @@ func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, il InstanceList) error {
 
 // onGetPropertyMap は、GetPropertyMapプロパティを受信したときのコールバック
 func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, properties Properties, _ []EPCType) (CallbackCompleteStatus, error) {
-	logger := GetLogger()
+	logger := log.GetLogger()
 	if !success {
 		if logger != nil {
 			logger.Log("警告: GetPropertyMapプロパティの取得に失敗しました: %v", device)
@@ -539,7 +540,7 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType) (Dev
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
-	logger := GetLogger()
+	logger := log.GetLogger()
 
 	// 指定されたEPCがGetPropertyMapに含まれているか確認
 	valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, EPCs, GetPropertyMap)
@@ -597,7 +598,7 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
-	logger := GetLogger()
+	logger := log.GetLogger()
 
 	// 指定されたEPCがSetPropertyMapに含まれているか確認
 	// Propertiesから各EPCを抽出

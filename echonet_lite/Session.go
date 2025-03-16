@@ -2,6 +2,7 @@ package echonet_lite
 
 import (
 	"context"
+	"echonet-list/echonet_lite/log"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -108,7 +109,7 @@ func (s *Session) OnReceive(callback PersistentCallbackFunc) {
 }
 
 func (s *Session) MainLoop() {
-	logger := GetLogger()
+	logger := log.GetLogger()
 	for {
 		// DispatchTableがnilかどうかをロックして確認
 		s.mu.RLock()
@@ -293,7 +294,7 @@ func (s *Session) registerCallbackFromMessage(msg *ECHONETLiteMessage, callback 
 
 func (s *Session) sendMessage(ip net.IP, msg *ECHONETLiteMessage) error {
 	if _, err := s.conn.SendTo(ip, msg.Encode()); err != nil {
-		logger := GetLogger()
+		logger := log.GetLogger()
 		if logger != nil {
 			logger.Log("パケット送信エラー: %v", err)
 		}

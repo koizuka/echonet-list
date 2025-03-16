@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/log"
 	"flag"
 	"fmt"
 	"net"
@@ -36,15 +37,15 @@ func main() {
 	logFilename := *logFilenameFlag
 
 	// ロガーのセットアップ
-	logger, err := echonet_lite.NewLogger(logFilename)
+	logger, err := log.NewLogger(logFilename)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "ログ設定エラー: %v\n", err)
 		return
 	}
-	echonet_lite.SetLogger(logger)
+	log.SetLogger(logger)
 
 	// ログファイルを閉じる
-	defer echonet_lite.SetLogger(nil)
+	defer log.SetLogger(nil)
 
 	// ルートコンテキストの作成
 	ctx, cancel := context.WithCancel(context.Background())
@@ -66,7 +67,7 @@ func main() {
 		for {
 			<-rotateSignalCh
 			fmt.Println("SIGHUPを受信しました。ログファイルをローテーションします...")
-			logger := echonet_lite.GetLogger()
+			logger := log.GetLogger()
 			if err := logger.Rotate(); err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "ログローテーションエラー: %v\n", err)
 			}
