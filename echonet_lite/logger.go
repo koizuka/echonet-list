@@ -12,7 +12,6 @@ type Logger struct {
 	logFile    *os.File
 	logMutex   sync.Mutex
 	fileLogger *log.Logger
-	debugMode  bool
 }
 
 var (
@@ -31,7 +30,7 @@ func SetLogger(l *Logger) {
 }
 
 // NewLogger creates a new logger that writes to the specified file
-func NewLogger(filename string, debug bool) (*Logger, error) {
+func NewLogger(filename string) (*Logger, error) {
 	// Close existing log file if open
 
 	// Open log file with append mode
@@ -46,7 +45,6 @@ func NewLogger(filename string, debug bool) (*Logger, error) {
 	return &Logger{
 		logFile:    logFile,
 		fileLogger: fileLogger,
-		debugMode:  debug,
 	}, nil
 }
 
@@ -65,18 +63,6 @@ func (l *Logger) Log(format string, v ...interface{}) {
 	if l.fileLogger != nil {
 		l.fileLogger.Printf(format, v...)
 	}
-}
-
-// Debug writes a debug message to stdout if debug mode is enabled
-func (l *Logger) Debug(format string, v ...interface{}) {
-	if l.debugMode {
-		fmt.Printf(format, v...)
-	}
-}
-
-// SetDebug sets the debug mode
-func (l *Logger) SetDebug(debug bool) {
-	l.debugMode = debug
 }
 
 // Rotate closes and reopens the log file

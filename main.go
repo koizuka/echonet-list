@@ -36,7 +36,7 @@ func main() {
 	logFilename := *logFilenameFlag
 
 	// ロガーのセットアップ
-	logger, err := echonet_lite.NewLogger(logFilename, debug)
+	logger, err := echonet_lite.NewLogger(logFilename)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "ログ設定エラー: %v\n", err)
 		return

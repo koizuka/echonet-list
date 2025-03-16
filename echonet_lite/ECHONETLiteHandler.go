@@ -42,9 +42,6 @@ func (h *ECHONETLiteHandler) saveDeviceInfo() {
 func (h *ECHONETLiteHandler) SetDebug(debug bool) {
 	h.Debug = debug
 	h.session.Debug = debug
-	if logger := GetLogger(); logger != nil {
-		logger.SetDebug(debug)
-	}
 }
 
 // IsDebug は、現在のデバッグモードを返す
