@@ -256,5 +256,5 @@ func (s *SelfNodeClassListS) Property() *Property {
 	if s == nil {
 		return nil
 	}
-	return &Property{EPC_NPO_SelfNodeClassListS, (*SelfNodeClassListS)(s).EDT()}
+	return &Property{EPC_NPO_SelfNodeClassListS, s.EDT()}
 }
