@@ -177,7 +177,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Filter by IP address",
 			criteria: FilterCriteria{
-				Device: &DeviceSpecifier{IPAddress: &ip1},
+				Device: &DeviceSpecifier{IP: &ip1},
 			},
 			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj1, eoj2, eoj3},
@@ -246,7 +246,7 @@ func TestFilter(t *testing.T) {
 			name: "Complex filter: IP + Class + EPCs",
 			criteria: FilterCriteria{
 				Device: &DeviceSpecifier{
-					IPAddress: &ip1,
+					IP:        &ip1,
 					ClassCode: ptr(SingleFunctionLighting_ClassCode),
 				},
 				EPCs: []EPCType{epc1, epc4},

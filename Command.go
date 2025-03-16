@@ -55,7 +55,7 @@ func (c *Command) GetIPAddress() *net.IP {
 	if c.DeviceSpec == nil {
 		return nil
 	}
-	return c.DeviceSpec.IPAddress
+	return c.DeviceSpec.IP
 }
 
 // GetClassCode は、コマンドのクラスコードを取得する
@@ -226,7 +226,7 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 			classCode := alias.EOJ.ClassCode()
 			instanceCode := alias.EOJ.InstanceCode()
 			deviceSpec := echonet_lite.DeviceSpecifier{
-				IPAddress:    &alias.IP,
+				IP:           &alias.IP,
 				ClassCode:    &classCode,
 				InstanceCode: &instanceCode,
 			}
@@ -238,7 +238,7 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 
 	// IPアドレスのパース（省略可能）- IPv4/IPv6に対応
 	if ipAddr := tryParseIPAddress(parts[argIndex]); ipAddr != nil {
-		deviceSpec.IPAddress = ipAddr
+		deviceSpec.IP = ipAddr
 		argIndex++
 
 		if argIndex >= len(parts) && requireClassCode {

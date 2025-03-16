@@ -89,7 +89,7 @@ func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties) {
 
 // DeviceSpecifier は、デバイスを一意に識別するための情報を表す構造体
 type DeviceSpecifier struct {
-	IPAddress    *net.IP          // IPアドレス。nilの場合は自動選択
+	IP           *net.IP          // IPアドレス。nilの場合は自動選択
 	ClassCode    *EOJClassCode    // クラスコード
 	InstanceCode *EOJInstanceCode // インスタンスコード
 }
@@ -97,8 +97,8 @@ type DeviceSpecifier struct {
 func (d *DeviceSpecifier) String() string {
 	var results []string
 
-	if d.IPAddress != nil {
-		results = append(results, d.IPAddress.String())
+	if d.IP != nil {
+		results = append(results, d.IP.String())
 	}
 	if d.ClassCode != nil {
 		if d.InstanceCode != nil {
@@ -111,7 +111,7 @@ func (d *DeviceSpecifier) String() string {
 }
 
 // FilterCriteria defines filtering criteria for devices and their properties.
-// IPAddress, ClassCode, InstanceCode, and PropertyValues are used to filter devices.
+// Device, and PropertyValues are used to filter devices.
 // EPCs is used to filter properties of the matched devices.
 type FilterCriteria struct {
 	Device         *DeviceSpecifier // Filters devices by IP address, ClassCode, and InstanceCode
@@ -137,12 +137,12 @@ func (c FilterCriteria) String() string {
 
 // Filter returns a new Devices filtered by the given criteria.
 // The filtering process works as follows:
-// 1. Devices are filtered by IPAddress, ClassCode, InstanceCode, and PropertyValues
+// 1. Devices are filtered by Device and PropertyValues
 // 2. For matched devices, if EPCs is specified, only those properties are included in the result
 func (d Devices) Filter(criteria FilterCriteria) Devices {
 	// ショートカット：フィルタ条件が無い場合は自身を返す
 	if (criteria.Device == nil ||
-		(criteria.Device.IPAddress == nil && criteria.Device.ClassCode == nil && criteria.Device.InstanceCode == nil)) &&
+		(criteria.Device.IP == nil && criteria.Device.ClassCode == nil && criteria.Device.InstanceCode == nil)) &&
 		len(criteria.EPCs) == 0 && len(criteria.PropertyValues) == 0 {
 		return d
 	}
@@ -158,7 +158,7 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 
 	for ip, eojMap := range d.data {
 		// IPアドレスフィルタがある場合、マッチしないものはスキップ
-		if deviceSpec.IPAddress != nil && ip != deviceSpec.IPAddress.String() {
+		if deviceSpec.IP != nil && ip != deviceSpec.IP.String() {
 			continue
 		}
 
@@ -359,7 +359,7 @@ func (d Devices) HasPropertyWithValue(device IPAndEOJ, epc EPCType, expectedEDT 
 		EDT: expectedEDT,
 	}
 	criteria := FilterCriteria{
-		Device:         &DeviceSpecifier{IPAddress: &device.IP},
+		Device:         &DeviceSpecifier{IP: &device.IP},
 		PropertyValues: []Property{propValue},
 	}
 
