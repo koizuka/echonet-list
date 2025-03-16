@@ -292,11 +292,7 @@ func (s *Session) registerCallbackFromMessage(msg *ECHONETLiteMessage, callback 
 }
 
 func (s *Session) sendMessage(ip net.IP, msg *ECHONETLiteMessage) error {
-	// 送信用のコンテキストを作成（タイムアウト5秒）
-	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
-	defer cancel()
-
-	if _, err := s.conn.SendTo(ctx, ip, msg.Encode()); err != nil {
+	if _, err := s.conn.SendTo(ip, msg.Encode()); err != nil {
 		logger := GetLogger()
 		if logger != nil {
 			logger.Log("パケット送信エラー: %v", err)

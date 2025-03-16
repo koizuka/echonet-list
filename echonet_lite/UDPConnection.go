@@ -62,15 +62,7 @@ func (c *UDPConnection) Close() error {
 	return c.UdpConn.Close()
 }
 
-func (c *UDPConnection) SendTo(ctx context.Context, ip net.IP, data []byte) (int, error) {
-	// contextからタイムアウトを設定
-	deadline, ok := ctx.Deadline()
-	if ok {
-		if err := c.UdpConn.SetWriteDeadline(deadline); err != nil {
-			return 0, fmt.Errorf("failed to set write deadline: %w", err)
-		}
-	}
-
+func (c *UDPConnection) SendTo(ip net.IP, data []byte) (int, error) {
 	dst := &net.UDPAddr{
 		IP:   ip,
 		Port: ECHONETLitePort,
