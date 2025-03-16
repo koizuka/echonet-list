@@ -108,6 +108,7 @@ func (s *Session) OnReceive(callback PersistentCallbackFunc) {
 }
 
 func (s *Session) MainLoop() {
+	logger := GetLogger()
 	for {
 		// DispatchTableがnilかどうかをロックして確認
 		s.mu.RLock()
@@ -122,7 +123,9 @@ func (s *Session) MainLoop() {
 		// コンテキストがキャンセルされていないか確認
 		select {
 		case <-s.ctx.Done():
-			fmt.Println("コンテキストがキャンセルされました:", s.ctx.Err())
+			if logger != nil {
+				logger.Log("コンテキストがキャンセルされました: %v", s.ctx.Err())
+			}
 			return
 		default:
 			// 継続
@@ -142,7 +145,9 @@ func (s *Session) MainLoop() {
 
 			// 接続が閉じられた場合
 			if err.Error() == "use of closed network connection" {
-				fmt.Println("受信終了: 接続が閉じられました")
+				if logger != nil {
+					logger.Log("受信終了: 接続が閉じられました")
+				}
 				break
 			}
 
@@ -150,12 +155,12 @@ func (s *Session) MainLoop() {
 			// net.Error.Temporary()はdeprecatedなので、特定のエラータイプで判断する
 			if errors.Is(err, net.ErrClosed) {
 				// 接続が閉じられた場合
-				fmt.Println("受信終了: 接続が閉じられました")
+				if logger != nil {
+					logger.Log("受信終了: 接続が閉じられました")
+				}
 				break
 			}
 
-			// 一時的なエラーとして扱い、少し待ってから再試行
-			fmt.Printf("ネットワークエラー: %v - 再試行します\n", err)
 			// エラーログを記録
 			if logger != nil {
 				logger.Log("ERROR: データ受信中にエラーが発生: %v", err)
@@ -178,7 +183,9 @@ func (s *Session) MainLoop() {
 
 		msg, err := ParseECHONETLiteMessage(data)
 		if err != nil {
-			fmt.Println("パケット解析エラー:", err)
+			if logger != nil {
+				logger.Log("パケット解析エラー: %v", err)
+			}
 			continue
 		}
 
@@ -214,7 +221,9 @@ func (s *Session) MainLoop() {
 				}
 			}
 			if err != nil {
-				fmt.Println("ディスパッチエラー:", err)
+				if logger != nil {
+					logger.Log("ディスパッチエラー: %v", err)
+				}
 			}
 		case ESVINF, ESVINFC:
 			// Get the callback while holding the lock
@@ -226,7 +235,9 @@ func (s *Session) MainLoop() {
 			if callback != nil {
 				err = callback(addr.IP, msg)
 				if err != nil {
-					fmt.Println("Infコールバックエラー:", err)
+					if logger != nil {
+						logger.Log("Infコールバックエラー: %v", err)
+					}
 				}
 			}
 		case ESVGet, ESVSetC, ESVSetI, ESVINF_REQ:
@@ -236,7 +247,9 @@ func (s *Session) MainLoop() {
 			if callback != nil {
 				err = callback(addr.IP, msg)
 				if err != nil {
-					fmt.Printf("%v: ReceiveCallbackエラー: %v\n", msg.DEOJ, err)
+					if logger != nil {
+						logger.Log("%v: ReceiveCallbackエラー: %v", msg.DEOJ, err)
+					}
 				}
 			}
 		}
@@ -261,35 +274,37 @@ func (s *Session) Close() error {
 	return nil
 }
 
-func (s *Session) sendTo(ip net.IP, SEOJ EOJ, DEOJ EOJ, ESV ESVType, property Properties, callback CallbackFunc) error {
+func (s *Session) newTID() TIDType {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tid++
+	return s.tid
+}
+
+func (s *Session) registerCallback(key Key, ESVs []ESVType, callback CallbackFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dispatchTable.Register(key, ESVs, callback)
+}
+
+func (s *Session) registerCallbackFromMessage(msg *ECHONETLiteMessage, callback CallbackFunc) {
+	s.registerCallback(MakeKey(msg), msg.ESV.ResponseESVs(), callback)
+}
+
+func (s *Session) sendMessage(ip net.IP, msg *ECHONETLiteMessage) error {
 	// 送信用のコンテキストを作成（タイムアウト5秒）
 	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
 	defer cancel()
 
-	s.mu.Lock()
-	TID := s.tid
-	s.tid++
-	s.mu.Unlock()
-	msg := &ECHONETLiteMessage{
-		TID:        TID,
-		SEOJ:       SEOJ,
-		DEOJ:       DEOJ,
-		ESV:        ESV,
-		Properties: property,
-	}
-	_, err := s.conn.SendTo(ctx, ip, msg.Encode())
-	if err != nil {
-		fmt.Println("パケット送信に失敗:", err)
+	if _, err := s.conn.SendTo(ctx, ip, msg.Encode()); err != nil {
+		logger := GetLogger()
+		if logger != nil {
+			logger.Log("パケット送信エラー: %v", err)
+		}
 		return err
 	}
 	if s.Debug {
 		fmt.Printf("パケットを送信: %v へ --- %v\n", ip, msg)
-	}
-	if callback != nil {
-		s.mu.Lock()
-		key := MakeKey(msg)
-		s.dispatchTable[key] = Entry{msg.ESV.ResponseESVs(), callback}
-		s.mu.Unlock()
 	}
 	return nil
 }
@@ -303,23 +318,18 @@ func (s *Session) SendResponse(ip net.IP, msg *ECHONETLiteMessage, ESV ESVType, 
 		Properties:       property,
 		SetGetProperties: setGetProperty,
 	}
-
-	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
-	defer cancel()
-
-	_, err := s.conn.SendTo(ctx, ip, msgSend.Encode())
-	if err != nil {
-		fmt.Println("パケット送信に失敗:", err)
-		return err
-	}
-	if s.Debug {
-		fmt.Printf("パケットを送信: %v へ --- %v\n", ip, msgSend)
-	}
-	return nil
+	return s.sendMessage(ip, msgSend)
 }
 
 func (s *Session) Broadcast(SEOJ EOJ, ESV ESVType, property Properties) error {
-	return s.sendTo(BroadcastIP, SEOJ, NodeProfileObject1, ESV, property, nil)
+	msg := &ECHONETLiteMessage{
+		TID:        s.newTID(),
+		SEOJ:       SEOJ,
+		DEOJ:       NodeProfileObject1,
+		ESV:        ESV,
+		Properties: property,
+	}
+	return s.sendMessage(BroadcastIP, msg)
 }
 
 func (s *Session) BroadcastNodeList(nodes []EOJ) error {
@@ -336,7 +346,17 @@ func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPro
 		props = append(props, *epc.PropertyForGet())
 	}
 	// TODO broadcastでない場合、タイムアウト時に再送する仕組みを追加したい
-	return s.sendTo(device.IP, s.eoj, device.EOJ, ESVGet, props, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+	msg := &ECHONETLiteMessage{
+		TID:        s.newTID(),
+		SEOJ:       s.eoj,
+		DEOJ:       device.EOJ,
+		ESV:        ESVGet,
+		Properties: props,
+	}
+	if err := s.sendMessage(device.IP, msg); err != nil {
+		return err
+	}
+	s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		device := IPAndEOJ{ip, msg.SEOJ}
 		if msg.ESV == ESVGet_Res {
 			return callback(device, true, msg.Properties, nil)
@@ -353,6 +373,7 @@ func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPro
 		}
 		return callback(device, false, successProperties, failedEPCs)
 	})
+	return nil
 }
 
 func (s *Session) GetSelfNodeInstanceListS(ip net.IP, callback GetPropertiesCallbackFunc) error {
@@ -360,7 +381,17 @@ func (s *Session) GetSelfNodeInstanceListS(ip net.IP, callback GetPropertiesCall
 }
 
 func (s *Session) SetProperties(device IPAndEOJ, properties Properties, callback GetPropertiesCallbackFunc) error {
-	return s.sendTo(device.IP, s.eoj, device.EOJ, ESVSetC, properties, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+	msg := &ECHONETLiteMessage{
+		TID:        s.newTID(),
+		SEOJ:       s.eoj,
+		DEOJ:       device.EOJ,
+		ESV:        ESVSetC,
+		Properties: properties,
+	}
+	if err := s.sendMessage(device.IP, msg); err != nil {
+		return err
+	}
+	s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		device := IPAndEOJ{ip, msg.SEOJ}
 		if msg.ESV == ESVSet_Res {
 			return callback(device, true, msg.Properties, nil)
@@ -378,4 +409,5 @@ func (s *Session) SetProperties(device IPAndEOJ, properties Properties, callback
 		}
 		return callback(device, false, successProperties, failedEPCs)
 	})
+	return nil
 }
