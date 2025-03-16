@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"sync"
 	"time"
 )
@@ -66,23 +65,19 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 	devices := NewDevices()
 
 	// DeviceFileName のファイルが存在するなら読み込む
-	if _, err := os.Stat(DeviceFileName); err == nil {
-		err = devices.LoadFromFile(DeviceFileName)
-		if err != nil {
-			cancel() // エラーの場合はコンテキストをキャンセル
-			return nil, fmt.Errorf("デバイス情報の読み込みに失敗: %w", err)
-		}
+	err = devices.LoadFromFile(DeviceFileName)
+	if err != nil {
+		cancel() // エラーの場合はコンテキストをキャンセル
+		return nil, fmt.Errorf("デバイス情報の読み込みに失敗: %w", err)
 	}
 
 	aliases := NewDeviceAliases()
 
 	// DeviceAliasesFileName のファイルが存在するなら読み込む
-	if _, err := os.Stat(DeviceAliasesFileName); err == nil {
-		err = aliases.LoadFromFile(DeviceAliasesFileName)
-		if err != nil {
-			cancel() // エラーの場合はコンテキストをキャンセル
-			return nil, fmt.Errorf("エイリアス情報の読み込みに失敗: %w", err)
-		}
+	err = aliases.LoadFromFile(DeviceAliasesFileName)
+	if err != nil {
+		cancel() // エラーの場合はコンテキストをキャンセル
+		return nil, fmt.Errorf("エイリアス情報の読み込みに失敗: %w", err)
 	}
 
 	localDevices := make(DeviceProperties)
