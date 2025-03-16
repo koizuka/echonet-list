@@ -245,22 +245,3 @@ func (ps Properties) FindEPC(epc EPCType) (Property, bool) {
 type IProperty interface {
 	Property() *Property
 }
-type IPropertyForGet interface {
-	PropertyForGet() *Property
-}
-
-func PropertiesForESVGet(p ...IPropertyForGet) []Property {
-	props := make([]Property, 0, len(p))
-	for _, prop := range p {
-		props = append(props, *prop.PropertyForGet())
-	}
-	return props
-}
-
-func PropertiesForESVSet(p ...IProperty) []Property {
-	props := make([]Property, 0, len(p))
-	for _, prop := range p {
-		props = append(props, *prop.Property())
-	}
-	return props
-}

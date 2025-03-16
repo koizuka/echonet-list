@@ -330,12 +330,12 @@ func (s *Session) BroadcastNodeList(nodes []EOJ) error {
 type GetPropertiesCallbackFunc func(IPAndEOJ, bool, Properties) (CallbackCompleteStatus, error)
 
 func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) error {
-	forGet := make([]IPropertyForGet, 0, len(EPCs))
+	props := make([]Property, 0, len(EPCs))
 	for _, epc := range EPCs {
-		forGet = append(forGet, epc)
+		props = append(props, *epc.PropertyForGet())
 	}
 	// TODO broadcastでない場合、タイムアウト時に再送する仕組みを追加したい
-	return s.sendTo(device.IP, s.eoj, device.EOJ, ESVGet, PropertiesForESVGet(forGet...), func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+	return s.sendTo(device.IP, s.eoj, device.EOJ, ESVGet, props, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		device := IPAndEOJ{ip, msg.SEOJ}
 		if msg.ESV == ESVGet_Res {
 			return callback(device, true, msg.Properties)
