@@ -35,6 +35,7 @@ const (
 	PropDefault PropertyMode = iota // デフォルトのプロパティを表示
 	PropKnown                       // 既知のプロパティのみ表示
 	PropAll                         // 全てのプロパティを表示
+	PropEPC                         // 特定のEPCのみ表示
 )
 
 // コマンドを表す構造体
@@ -380,9 +381,11 @@ func (p CommandParser) parseDevicesCommand(parts []string) (*Command, error) {
 		switch parts[i] {
 		case "-all":
 			cmd.PropMode = PropAll
+			cmd.EPCs = nil // EPCsをクリア
 			continue
 		case "-props":
 			cmd.PropMode = PropKnown
+			cmd.EPCs = nil // EPCsをクリア
 			continue
 		}
 
@@ -400,6 +403,7 @@ func (p CommandParser) parseDevicesCommand(parts []string) (*Command, error) {
 		epc, err := parseEPC(parts[i])
 		if err == nil {
 			cmd.EPCs = append(cmd.EPCs, epc)
+			cmd.PropMode = PropEPC
 			continue
 		}
 
@@ -555,8 +559,8 @@ func PrintUsage() {
 	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、例: 0130:1）")
 	fmt.Println("    -all: 全てのEPCを表示")
 	fmt.Println("    -props: 既知のEPCのみを表示")
-	fmt.Println("    ※-all と -props が両方指定された場合は後に指定された方が有効")
 	fmt.Println("    epc: 2桁の16進数で指定（例: 80）。複数指定可能")
+	fmt.Println("    ※-all, -props, epc は最後に指定されたものが有効になります")
 	fmt.Println("  get [ipAddress] classCode[:instanceCode] epc1 [epc2...]: プロパティ値の取得")
 	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）")
 	fmt.Println("    classCode: クラスコード（4桁の16進数、必須）")

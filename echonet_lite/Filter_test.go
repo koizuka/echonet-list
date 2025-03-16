@@ -93,26 +93,6 @@ func TestFilter(t *testing.T) {
 		expectedProps   map[string]map[EOJ][]EPCType // 期待されるプロパティ
 	}{
 		{
-			name: "Filter by EPCs only",
-			criteria: FilterCriteria{
-				EPCs: []EPCType{epc1},
-			},
-			expectedDevices: map[string][]EOJ{
-				ip1Str: {eoj1, eoj2, eoj3},
-				ip2Str: {eoj1},
-			},
-			expectedProps: map[string]map[EOJ][]EPCType{
-				ip1Str: {
-					eoj1: {epc1},
-					eoj2: {epc1},
-					eoj3: {epc1},
-				},
-				ip2Str: {
-					eoj1: {epc1},
-				},
-			},
-		},
-		{
 			name: "Filter by PropertyValues only",
 			criteria: FilterCriteria{
 				PropertyValues: []Property{
@@ -148,31 +128,6 @@ func TestFilter(t *testing.T) {
 			},
 			expectedDevices: map[string][]EOJ{},
 			expectedProps:   map[string]map[EOJ][]EPCType{},
-		},
-		{
-			name: "Filter by both EPCs and PropertyValues",
-			criteria: FilterCriteria{
-				EPCs: []EPCType{epc1, epc2},
-				PropertyValues: []Property{
-					{
-						EPC: epc1,
-						EDT: edtOn,
-					},
-				},
-			},
-			expectedDevices: map[string][]EOJ{
-				ip1Str: {eoj1, eoj3},
-				ip2Str: {eoj1},
-			},
-			expectedProps: map[string]map[EOJ][]EPCType{
-				ip1Str: {
-					eoj1: {epc1, epc2},
-					eoj3: {epc1, epc2},
-				},
-				ip2Str: {
-					eoj1: {epc1, epc2},
-				},
-			},
 		},
 		{
 			name: "Filter by IP address",
@@ -239,24 +194,6 @@ func TestFilter(t *testing.T) {
 			expectedProps: map[string]map[EOJ][]EPCType{
 				ip1Str: {
 					eoj3: {epc1, epc2, epc3},
-				},
-			},
-		},
-		{
-			name: "Complex filter: IP + Class + EPCs",
-			criteria: FilterCriteria{
-				Device: &DeviceSpecifier{
-					IP:        &ip1,
-					ClassCode: ptr(SingleFunctionLighting_ClassCode),
-				},
-				EPCs: []EPCType{epc1, epc4},
-			},
-			expectedDevices: map[string][]EOJ{
-				ip1Str: {eoj2},
-			},
-			expectedProps: map[string]map[EOJ][]EPCType{
-				ip1Str: {
-					eoj2: {epc1, epc4},
 				},
 			},
 		},

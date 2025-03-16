@@ -111,24 +111,15 @@ func (d *DeviceSpecifier) String() string {
 }
 
 // FilterCriteria defines filtering criteria for devices and their properties.
-// Device, and PropertyValues are used to filter devices.
-// EPCs is used to filter properties of the matched devices.
+// Device and PropertyValues are used to filter devices.
 type FilterCriteria struct {
 	Device         *DeviceSpecifier // Filters devices by IP address, ClassCode, and InstanceCode
-	EPCs           []EPCType        // Filters properties of matched devices (not devices themselves)
 	PropertyValues []Property       // Filters devices by property values (EPC and EDT)
 }
 
 func (c FilterCriteria) String() string {
 	var results []string
 	results = append(results, c.Device.String())
-	if len(c.EPCs) > 0 {
-		epcStrings := make([]string, len(c.EPCs))
-		for i, epc := range c.EPCs {
-			epcStrings[i] = epc.String()
-		}
-		results = append(results, fmt.Sprintf("EPCs:%v", epcStrings))
-	}
 	if len(c.PropertyValues) > 0 {
 		results = append(results, fmt.Sprintf("PropertyValues:%v", c.PropertyValues))
 	}
@@ -138,12 +129,12 @@ func (c FilterCriteria) String() string {
 // Filter returns a new Devices filtered by the given criteria.
 // The filtering process works as follows:
 // 1. Devices are filtered by Device and PropertyValues
-// 2. For matched devices, if EPCs is specified, only those properties are included in the result
+// 2. All properties of matched devices are included in the result
 func (d Devices) Filter(criteria FilterCriteria) Devices {
 	// ショートカット：フィルタ条件が無い場合は自身を返す
 	if (criteria.Device == nil ||
 		(criteria.Device.IP == nil && criteria.Device.ClassCode == nil && criteria.Device.InstanceCode == nil)) &&
-		len(criteria.EPCs) == 0 && len(criteria.PropertyValues) == 0 {
+		len(criteria.PropertyValues) == 0 {
 		return d
 	}
 	var deviceSpec DeviceSpecifier
@@ -191,38 +182,11 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 				}
 			}
 
-			// EPCフィルタがある場合
-			if len(criteria.EPCs) > 0 {
-				matchedProps := make(EPCPropertyMap)
-
-				epcMatched := false
-				// 指定されたEPCのいずれかにマッチするプロパティを探す
-				for _, epc := range criteria.EPCs {
-					if prop, ok := props[epc]; ok {
-						matchedProps[epc] = prop
-						epcMatched = true
-					}
-				}
-				// マッチしなかった場合はスキップ
-				if !epcMatched {
-					continue
-				}
-
-				// 初めて見つかったEOJの場合は、プロパティのマップを初期化
-				ipAddr := net.ParseIP(ip)
-				filtered.ensureDeviceExists(IPAndEOJ{ipAddr, eoj})
-
-				// マッチしたプロパティだけを結果に含める
-				for epc, prop := range matchedProps {
-					filtered.data[ip][eoj][epc] = prop
-				}
-			} else {
-				// EPCフィルタがなければ、全てのプロパティを結果に含める
-				if _, ok := filtered.data[ip]; !ok {
-					filtered.data[ip] = make(map[EOJ]EPCPropertyMap)
-				}
-				filtered.data[ip][eoj] = props
+			// 全てのプロパティを結果に含める
+			if _, ok := filtered.data[ip]; !ok {
+				filtered.data[ip] = make(map[EOJ]EPCPropertyMap)
 			}
+			filtered.data[ip][eoj] = props
 		}
 	}
 

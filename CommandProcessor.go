@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"golang.org/x/exp/slices"
 )
 
 // CommandProcessor は、コマンド処理を担当する構造体
@@ -177,11 +179,9 @@ func (p *CommandProcessor) getSingleDevice(deviceSpec *echonet_lite.DeviceSpecif
 }
 
 func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
-	fmt.Printf("DEBUG: cmd=%vvn", cmd)
 	// フィルタリング条件を作成
 	criteria := echonet_lite.FilterCriteria{
 		Device:         cmd.DeviceSpec,
-		EPCs:           cmd.EPCs,
 		PropertyValues: cmd.Properties,
 	}
 	result := p.handler.ListDevices(criteria)
@@ -200,6 +200,11 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 			case PropKnown:
 				// 既知のプロパティのみ表示
 				if _, ok := echonet_lite.GetPropertyInfo(classCode, epc); !ok {
+					continue
+				}
+			case PropEPC:
+				// cmd.EPCsにあるもののみ表示
+				if !slices.Contains(cmd.EPCs, epc) {
 					continue
 				}
 			}

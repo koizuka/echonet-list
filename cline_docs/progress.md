@@ -9,6 +9,10 @@
 - The DeviceAliases.go file has SaveToFile and LoadFromFile methods implemented
 - ECHONETLiteHandler.go calls SaveToFile after alias operations to persist aliases to disk
 - LoadFromFile is called at startup to load saved aliases
+- FilterCriteria has been improved by removing the EPCs field
+  - EPCs filtering is now handled in CommandProcessor.go using Command.EPCs
+  - "-all" and "-props" options now clear the EPCs filter
+  - PrintUsage documentation has been updated to clarify that the last specified option takes precedence
 
 ## What's Left to Build
 - All planned features for the current development cycle have been implemented
@@ -19,3 +23,10 @@
 - **Alias Command Persistence Implementation**: ✅ COMPLETED
   - SaveToFile is called after alias operations in ECHONETLiteHandler.go
   - LoadFromFile is called at startup in NewECHONETLiteHandler
+- **FilterCriteria Improvement**: ✅ COMPLETED
+  - Removed EPCs field from FilterCriteria
+  - Modified Filter method to not use EPCs field
+  - Updated CommandProcessor.go to filter using Command.EPCs
+  - Updated Command.go to clear EPCs when "-all" or "-props" is specified
+  - Updated PrintUsage documentation
+  - Updated Filter_test.go to remove EPCs-related test cases
