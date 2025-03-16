@@ -279,11 +279,11 @@ func (p CommandParser) parseGetCommand(parts []string) (*Command, error) {
 	cmd := newCommand(CmdGet)
 
 	// デバイス識別子のパース
-	deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
+	deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
 	if err != nil {
 		return nil, err
 	}
-	cmd.DeviceSpec = deviceID
+	cmd.DeviceSpec = deviceSpec
 
 	// EPCのパース
 	if argIndex >= len(parts) {
@@ -306,11 +306,11 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 	cmd := newCommand(CmdSet)
 
 	// デバイス識別子のパース
-	deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
+	deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
 	if err != nil {
 		return nil, err
 	}
-	cmd.DeviceSpec = deviceID
+	cmd.DeviceSpec = deviceSpec
 
 	// プロパティのパース
 	if argIndex >= len(parts) {
@@ -370,11 +370,11 @@ func (p CommandParser) parseDevicesCommand(parts []string) (*Command, error) {
 	cmd := newCommand(CmdDevices)
 
 	// デバイス識別子のパース
-	deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
+	deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
 	if err != nil {
 		return nil, err
 	}
-	cmd.DeviceSpec = deviceID
+	cmd.DeviceSpec = deviceSpec
 
 	// 残りの引数を解析
 	for i := argIndex; i < len(parts); i++ {
@@ -439,11 +439,11 @@ func (p CommandParser) parseUpdateCommand(parts []string) (*Command, error) {
 	cmd := newCommand(CmdUpdate)
 
 	// デバイス識別子のパース
-	deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
+	deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
 	if err != nil {
 		return nil, err
 	}
-	cmd.DeviceSpec = deviceID
+	cmd.DeviceSpec = deviceSpec
 
 	// 残りの引数がある場合はエラー
 	if argIndex < len(parts) {
@@ -495,11 +495,11 @@ func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
 		cmd.DeviceAlias = &alias
 
 		// デバイス識別子のパース
-		deviceID, argIndex, err := p.parseDeviceSpecifier(parts, 2, true)
+		deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 2, true)
 		if err != nil {
 			return nil, err
 		}
-		cmd.DeviceSpec = deviceID
+		cmd.DeviceSpec = deviceSpec
 
 		// 残りの引数がある場合はエラー
 		if argIndex < len(parts) {
