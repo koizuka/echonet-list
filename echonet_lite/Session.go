@@ -334,38 +334,47 @@ func (s *Session) Broadcast(SEOJ EOJ, ESV ESVType, property Properties) error {
 // GetPropertiesCallbackFunc はプロパティ取得のコールバック関数の型。
 type GetPropertiesCallbackFunc func(device IPAndEOJ, success bool, properties Properties, FailedEPCs []EPCType) (CallbackCompleteStatus, error)
 
-func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) error {
+func (s *Session) CreateGetPropertyMessage(device IPAndEOJ, EPCs []EPCType) *ECHONETLiteMessage {
 	props := make([]Property, 0, len(EPCs))
 	for _, epc := range EPCs {
 		props = append(props, *epc.PropertyForGet())
 	}
-	// TODO broadcastでない場合、タイムアウト時に再送する仕組みを追加したい
-	msg := &ECHONETLiteMessage{
+	return &ECHONETLiteMessage{
 		TID:        s.newTID(),
 		SEOJ:       s.eoj,
 		DEOJ:       device.EOJ,
 		ESV:        ESVGet,
 		Properties: props,
 	}
+}
+
+func responseHandlerForGetProperty(ip net.IP, msg *ECHONETLiteMessage, callback GetPropertiesCallbackFunc) (CallbackCompleteStatus, error) {
+	device := IPAndEOJ{ip, msg.SEOJ}
+	if msg.ESV == ESVGet_Res {
+		return callback(device, true, msg.Properties, nil)
+	}
+	// Getは EDT=nilが失敗
+	successProperties := make(Properties, 0, len(msg.Properties))
+	failedEPCs := make([]EPCType, 0, len(msg.Properties))
+	for _, p := range msg.Properties {
+		if p.EDT != nil {
+			successProperties = append(successProperties, p)
+		} else {
+			failedEPCs = append(failedEPCs, p.EPC)
+		}
+	}
+	return callback(device, false, successProperties, failedEPCs)
+}
+
+func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) error {
+	msg := s.CreateGetPropertyMessage(device, EPCs)
+
+	// TODO broadcastでない場合、タイムアウト時に再送する仕組みを追加したい
 	if err := s.sendMessage(device.IP, msg); err != nil {
 		return err
 	}
 	s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
-		device := IPAndEOJ{ip, msg.SEOJ}
-		if msg.ESV == ESVGet_Res {
-			return callback(device, true, msg.Properties, nil)
-		}
-		// Getは EDT=nilが失敗
-		successProperties := make(Properties, 0, len(msg.Properties))
-		failedEPCs := make([]EPCType, 0, len(msg.Properties))
-		for _, p := range msg.Properties {
-			if p.EDT != nil {
-				successProperties = append(successProperties, p)
-			} else {
-				failedEPCs = append(failedEPCs, p.EPC)
-			}
-		}
-		return callback(device, false, successProperties, failedEPCs)
+		return responseHandlerForGetProperty(ip, msg, callback)
 	})
 	return nil
 }
