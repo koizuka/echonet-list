@@ -76,6 +76,8 @@ type Session struct {
 	Debug           bool
 	ctx             context.Context    // コンテキスト
 	cancel          context.CancelFunc // コンテキストのキャンセル関数
+	MaxRetries      int                // 最大再送回数
+	RetryInterval   time.Duration      // 再送間隔
 }
 
 func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Session, error) {
@@ -95,6 +97,8 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Sessio
 		Debug:         debug,
 		ctx:           sessionCtx,
 		cancel:        cancel,
+		MaxRetries:    3,               // デフォルトの最大再送回数
+		RetryInterval: 3 * time.Second, // デフォルトの再送間隔
 	}, nil
 }
 
@@ -348,60 +352,23 @@ func (s *Session) CreateGetPropertyMessage(device IPAndEOJ, EPCs []EPCType) *ECH
 	}
 }
 
-func responseHandlerForGetProperty(ip net.IP, msg *ECHONETLiteMessage, callback GetPropertiesCallbackFunc) (CallbackCompleteStatus, error) {
-	device := IPAndEOJ{ip, msg.SEOJ}
-	if msg.ESV == ESVGet_Res {
-		return callback(device, true, msg.Properties, nil)
-	}
-	// Getは EDT=nilが失敗
-	successProperties := make(Properties, 0, len(msg.Properties))
-	failedEPCs := make([]EPCType, 0, len(msg.Properties))
-	for _, p := range msg.Properties {
-		if p.EDT != nil {
-			successProperties = append(successProperties, p)
-		} else {
-			failedEPCs = append(failedEPCs, p.EPC)
-		}
-	}
-	return callback(device, false, successProperties, failedEPCs)
-}
-
 func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) error {
 	msg := s.CreateGetPropertyMessage(device, EPCs)
 
-	// TODO broadcastでない場合、タイムアウト時に再送する仕組みを追加したい
-	if err := s.sendMessage(device.IP, msg); err != nil {
-		return err
-	}
-	s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
-		return responseHandlerForGetProperty(ip, msg, callback)
-	})
-	return nil
-}
-
-func (s *Session) SetProperties(device IPAndEOJ, properties Properties, callback GetPropertiesCallbackFunc) error {
-	msg := &ECHONETLiteMessage{
-		TID:        s.newTID(),
-		SEOJ:       s.eoj,
-		DEOJ:       device.EOJ,
-		ESV:        ESVSetC,
-		Properties: properties,
-	}
 	if err := s.sendMessage(device.IP, msg); err != nil {
 		return err
 	}
 	s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		device := IPAndEOJ{ip, msg.SEOJ}
-		if msg.ESV == ESVSet_Res {
+		if msg.ESV == ESVGet_Res {
 			return callback(device, true, msg.Properties, nil)
 		}
-		successProperties := make(Properties, 0, len(properties))
-		failedEPCs := make([]EPCType, 0)
-
-		// Setは EDT == nil が成功
-		for i, p := range msg.Properties {
-			if p.EDT == nil {
-				successProperties = append(successProperties, properties[i])
+		// Getは EDT=nilが失敗
+		successProperties := make(Properties, 0, len(msg.Properties))
+		failedEPCs := make([]EPCType, 0, len(msg.Properties))
+		for _, p := range msg.Properties {
+			if p.EDT != nil {
+				successProperties = append(successProperties, p)
 			} else {
 				failedEPCs = append(failedEPCs, p.EPC)
 			}
@@ -409,4 +376,199 @@ func (s *Session) SetProperties(device IPAndEOJ, properties Properties, callback
 		return callback(device, false, successProperties, failedEPCs)
 	})
 	return nil
+}
+
+func (s *Session) CreateSetPropertyMessage(device IPAndEOJ, properties Properties) *ECHONETLiteMessage {
+	return &ECHONETLiteMessage{
+		TID:        s.newTID(),
+		SEOJ:       s.eoj,
+		DEOJ:       device.EOJ,
+		ESV:        ESVSetC,
+		Properties: properties,
+	}
+}
+
+// コールバックを登録解除する関数
+func (s *Session) unregisterCallback(key Key) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.dispatchTable, key)
+}
+
+// 共通処理を行う内部関数
+func (s *Session) sendRequestWithContext(
+	ctx context.Context,
+	device IPAndEOJ,
+	msg *ECHONETLiteMessage,
+) (*ECHONETLiteMessage, error) {
+	// 結果を受け取るためのチャネル
+	responseCh := make(chan *ECHONETLiteMessage, 1)
+
+	// キーを取得
+	key := MakeKey(msg)
+
+	// コールバックを登録
+	s.mu.Lock()
+	s.dispatchTable.Register(key, msg.ESV.ResponseESVs(), func(ip net.IP, respMsg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+		// 応答メッセージをチャネルに送信
+		select {
+		case <-ctx.Done():
+			// コンテキストがキャンセルされた場合は何もしない
+		default:
+			responseCh <- respMsg
+		}
+
+		// 必ず登録解除する（ブロードキャストを想定しない）
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		delete(s.dispatchTable, key)
+
+		return CallbackFinished, nil
+	})
+	s.mu.Unlock()
+
+	// 関数終了時にコールバックを登録解除するための遅延処理
+	callbackUnregistered := false
+	defer func() {
+		if !callbackUnregistered {
+			s.unregisterCallback(key)
+		}
+	}()
+
+	// 最初のリクエスト送信
+	if err := s.sendMessage(device.IP, msg); err != nil {
+		return nil, err
+	}
+
+	// 再送カウンタ
+	retryCount := 0
+
+	// タイマーの作成
+	timer := time.NewTimer(s.RetryInterval)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// 親コンテキストがキャンセルされた場合
+			return nil, ctx.Err()
+
+		case respMsg := <-responseCh:
+			// 応答を受信した場合
+			callbackUnregistered = true // コールバックは既に登録解除されている
+			return respMsg, nil
+
+		case <-timer.C:
+			// タイムアウトした場合
+			retryCount++
+
+			if retryCount >= s.MaxRetries {
+				// 最大再送回数に達した場合
+				logger := log.GetLogger()
+				if logger != nil {
+					logger.Log("最大再送回数(%d)に達しました", s.MaxRetries)
+				}
+				return nil, fmt.Errorf("maximum retries reached (%d)", s.MaxRetries)
+			}
+
+			// ログ出力
+			logger := log.GetLogger()
+			if logger != nil {
+				logger.Log("タイムアウト: リクエストを再送します (試行 %d/%d)", retryCount+1, s.MaxRetries)
+			}
+
+			// 再送
+			if err := s.sendMessage(device.IP, msg); err != nil {
+				return nil, err
+			}
+
+			// タイマーをリセット
+			timer.Reset(s.RetryInterval)
+		}
+	}
+}
+
+// GetPropertiesWithContext - コンテキスト付きのプロパティ取得
+func (s *Session) GetPropertiesWithContext(
+	ctx context.Context,
+	device IPAndEOJ,
+	EPCs []EPCType,
+) (bool, Properties, []EPCType, error) {
+	// メッセージを作成
+	msg := s.CreateGetPropertyMessage(device, EPCs)
+
+	// 共通処理を呼び出し
+	respMsg, err := s.sendRequestWithContext(
+		ctx,
+		device,
+		msg,
+	)
+
+	// エラーチェック
+	if err != nil {
+		// タイムアウトやコンテキストキャンセルの場合
+		return false, nil, EPCs, err
+	}
+
+	// 応答を処理
+	success := respMsg.ESV == ESVGet_Res
+
+	// 成功/失敗のプロパティを分類
+	successProperties := make(Properties, 0, len(respMsg.Properties))
+	failedEPCs := make([]EPCType, 0, len(respMsg.Properties))
+
+	for _, p := range respMsg.Properties {
+		if p.EDT != nil {
+			successProperties = append(successProperties, p)
+		} else {
+			failedEPCs = append(failedEPCs, p.EPC)
+		}
+	}
+
+	return success, successProperties, failedEPCs, nil
+}
+
+// SetPropertiesWithContext - コンテキスト付きのプロパティ設定
+func (s *Session) SetPropertiesWithContext(
+	ctx context.Context,
+	device IPAndEOJ,
+	properties Properties,
+) (bool, Properties, []EPCType, error) {
+	// メッセージを作成
+	msg := s.CreateSetPropertyMessage(device, properties)
+
+	// 共通処理を呼び出し
+	respMsg, err := s.sendRequestWithContext(
+		ctx,
+		device,
+		msg,
+	)
+
+	// エラーチェック
+	if err != nil {
+		// タイムアウトやコンテキストキャンセルの場合
+		failedEPCs := make([]EPCType, 0, len(properties))
+		for _, p := range properties {
+			failedEPCs = append(failedEPCs, p.EPC)
+		}
+		return false, nil, failedEPCs, err
+	}
+
+	// 応答を処理
+	success := respMsg.ESV == ESVSet_Res
+
+	// 成功/失敗のプロパティを分類
+	successProperties := make(Properties, 0, len(properties))
+	failedEPCs := make([]EPCType, 0, len(properties))
+
+	// Setは EDT == nil が成功
+	for i, p := range respMsg.Properties {
+		if p.EDT == nil {
+			successProperties = append(successProperties, properties[i])
+		} else {
+			failedEPCs = append(failedEPCs, p.EPC)
+		}
+	}
+
+	return success, successProperties, failedEPCs, nil
 }

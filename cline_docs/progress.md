@@ -13,14 +13,16 @@
   - EPCs filtering is now handled in CommandProcessor.go using Command.EPCs
   - "-all" and "-props" options now clear the EPCs filter
   - PrintUsage documentation has been updated to clarify that the last specified option takes precedence
+- Message retransmission functionality has been implemented
+  - Session.go now has the ability to retry sending messages up to 3 times when a timeout occurs
+  - Added GetPropertiesWithContext and SetPropertiesWithContext methods that handle retransmission
+  - ECHONETLiteHandler now uses these new methods for more reliable communication
+  - Improved error handling for partial success cases
 
 ## What's Left to Build
 - All planned features for the current development cycle have been implemented
 
 ### 将来の計画 (Future Plans)
-- **メッセージ再送機能**: Session でメッセージを送信したあと、返信を必要としているものについて、返信タイムアウトになったときには同一メッセージを再送する仕組み
-  - 実装予定: Session.go の修正が必要
-  - 状態: 設計検討中
 - **アーキテクチャ分割**: ECHONET Liteに関する処理は web(WebSocket) サーバーにして、コンソールUIアプリはそれにアクセスするように分割する
   - 実装予定: 新しいパッケージ構造の設計と実装
   - 状態: 依存関係の整理中
@@ -41,6 +43,14 @@
   - Updated Command.go to clear EPCs when "-all" or "-props" is specified
   - Updated PrintUsage documentation
   - Updated Filter_test.go to remove EPCs-related test cases
-- **Message Retransmission**: 🔄 PLANNED
+- **Message Retransmission**: ✅ COMPLETED
+  - Added MaxRetries and RetryInterval fields to Session struct
+  - Implemented unregisterCallback function for proper cleanup
+  - Added CreateSetPropertyMessage function for consistency
+  - Implemented sendRequestWithContext for common retry logic
+  - Added GetPropertiesWithContext and SetPropertiesWithContext methods
+  - Modified ECHONETLiteHandler's GetProperties and SetProperties to use the new methods
+  - Updated ECHONETLiteHandler's UpdateProperties to use GetPropertiesWithContext with go routines for parallel processing
+  - Improved error handling for partial success cases
 - **Architecture Split**: 🔄 PLANNED
 - **Web UI Development**: 🔄 PLANNED

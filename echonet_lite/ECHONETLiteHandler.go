@@ -546,46 +546,43 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType) (Dev
 		return DeviceAndProperties{}, fmt.Errorf("以下のEPCはGetPropertyMapに含まれていません: %v", invalidEPCs)
 	}
 
-	// コマンドを実行
-	err = waitCallbackDone(h.ctx, func(callbackDone chan struct{}) error {
-		// コンテキストは親コンテキスト（h.ctx）を使用
-		err := h.session.GetProperties(device, EPCs, func(device IPAndEOJ, success bool, properties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
-			defer close(callbackDone) // 必ず完了を通知
+	// GetPropertiesWithContextを呼び出し
+	success, properties, failedEPCs, err := h.session.GetPropertiesWithContext(
+		h.ctx,
+		device,
+		EPCs,
+	)
 
-			if !success {
-				errMsg := fmt.Sprintf("プロパティ取得失敗: %v: %v", device, failedEPCs)
-				if logger != nil {
-					logger.Log("エラー: %s", errMsg)
-				}
-
-				return CallbackFinished, errors.New(errMsg)
-			}
-
-			// 成功した場合の処理
-			result.Device = device
-			result.Properties = properties
-
-			// プロパティの登録
-			h.registerProperties(device, properties)
-
-			// デバイス情報を保存
-			h.saveDeviceInfo()
-
-			return CallbackFinished, nil
-		})
-
-		if err != nil {
-			if logger != nil {
-				logger.Log("エラー: プロパティ取得リクエストの送信に失敗: %v", err)
-			}
-			err = fmt.Errorf("プロパティ取得リクエストの送信に失敗: %w", err)
-			close(callbackDone) // エラー時も完了を通知
+	if err != nil {
+		if logger != nil {
+			logger.Log("エラー: プロパティ取得に失敗: %v", err)
 		}
+		return DeviceAndProperties{}, fmt.Errorf("プロパティ取得に失敗: %w", err)
+	}
 
-		return err
-	}, "プロパティ取得がタイムアウトしました")
+	// 成功したプロパティを登録（部分的な成功の場合も含む）
+	if len(properties) > 0 {
+		// プロパティの登録
+		h.registerProperties(device, properties)
 
-	return result, err
+		// デバイス情報を保存
+		h.saveDeviceInfo()
+	}
+
+	// 結果を設定
+	result.Device = device
+	result.Properties = properties
+
+	// 全体の成功/失敗を判定
+	if !success {
+		errMsg := fmt.Sprintf("一部のプロパティ取得に失敗: %v: %v", device, failedEPCs)
+		if logger != nil {
+			logger.Log("警告: %s", errMsg)
+		}
+		return result, errors.New(errMsg)
+	}
+
+	return result, nil
 }
 
 // SetProperties は、プロパティ値を設定する
@@ -610,44 +607,43 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 		return DeviceAndProperties{}, fmt.Errorf("以下のEPCはSetPropertyMapに含まれていません: %v", invalidEPCs)
 	}
 
-	// コマンドを実行
-	err = waitCallbackDone(h.ctx, func(callbackDone chan struct{}) error {
-		// コンテキストは親コンテキスト（h.ctx）を使用
-		err := h.session.SetProperties(device, properties, func(device IPAndEOJ, success bool, returnedProperties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
-			defer close(callbackDone) // 必ず完了を通知
+	// SetPropertiesWithContextを呼び出し
+	success, successProperties, failedEPCs, err := h.session.SetPropertiesWithContext(
+		h.ctx,
+		device,
+		properties,
+	)
 
-			if !success {
-				errMsg := fmt.Sprintf("プロパティ設定失敗: %v: %v", device, failedEPCs)
-				if logger != nil {
-					logger.Log("エラー: %s", errMsg)
-				}
-				return CallbackFinished, errors.New(errMsg)
-			}
-
-			// 成功した場合の処理
-			result.Device = device
-			result.Properties = properties
-
-			h.registerProperties(device, properties)
-
-			// デバイス情報を保存
-			h.saveDeviceInfo()
-
-			return CallbackFinished, nil
-		})
-
-		if err != nil {
-			if logger != nil {
-				logger.Log("エラー: プロパティ設定リクエストの送信に失敗: %v", err)
-			}
-			err = fmt.Errorf("プロパティ設定リクエストの送信に失敗: %w", err)
-			close(callbackDone) // エラー時も完了を通知
+	if err != nil {
+		if logger != nil {
+			logger.Log("エラー: プロパティ設定に失敗: %v", err)
 		}
+		return DeviceAndProperties{}, fmt.Errorf("プロパティ設定に失敗: %w", err)
+	}
 
-		return err
-	}, "プロパティ設定がタイムアウトしました")
+	// 成功したプロパティを登録（部分的な成功の場合も含む）
+	if len(successProperties) > 0 {
+		// プロパティの登録
+		h.registerProperties(device, successProperties)
 
-	return result, err
+		// デバイス情報を保存
+		h.saveDeviceInfo()
+	}
+
+	// 結果を設定
+	result.Device = device
+	result.Properties = successProperties
+
+	// 全体の成功/失敗を判定
+	if !success {
+		errMsg := fmt.Sprintf("一部のプロパティ設定に失敗: %v: %v", device, failedEPCs)
+		if logger != nil {
+			logger.Log("警告: %s", errMsg)
+		}
+		return result, errors.New(errMsg)
+	}
+
+	return result, nil
 }
 
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
@@ -690,47 +686,45 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 			continue
 		}
 
-		// コールバック完了を待つためのチャネル
-		callbackDone := make(chan struct{})
+		// 各デバイスに対して並列処理を実行
+		go func(device IPAndEOJ, propMap PropertyMap) {
+			defer wg.Done()
 
-		err := h.session.GetProperties(device, propMap.EPCs(), func(device IPAndEOJ, success bool, properties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
-			defer close(callbackDone) // 必ず完了を通知
+			// GetPropertiesWithContextを呼び出し
+			success, properties, failedEPCs, err := h.session.GetPropertiesWithContext(
+				timeoutCtx,
+				device,
+				propMap.EPCs(),
+			)
 
-			h.registerProperties(device, properties)
-			// デバイス情報を保存
-			h.saveDeviceInfo()
+			if err != nil {
+				errMutex.Lock()
+				if firstErr == nil {
+					firstErr = fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err)
+				}
+				errMutex.Unlock()
+				return
+			}
+
+			// 成功したプロパティを登録（部分的な成功の場合も含む）
+			if len(properties) > 0 {
+				h.registerProperties(device, properties)
+				// デバイス情報を保存
+				h.saveDeviceInfo()
+			}
 
 			// 結果を記録
 			fmt.Printf("デバイス %v のプロパティを %v個 更新しました\n", device, len(properties))
-			return CallbackFinished, nil
-		})
 
-		if err != nil {
-			errMutex.Lock()
-			if firstErr == nil {
-				firstErr = fmt.Errorf("プロパティ取得リクエストの送信に失敗: %w", err)
-			}
-			errMutex.Unlock()
-			close(callbackDone) // エラー時も完了を通知
-			wg.Done()
-			continue
-		}
-
-		// 非同期でコールバックの完了またはタイムアウトを待つ
-		go func(device IPAndEOJ) {
-			defer wg.Done()
-			select {
-			case <-callbackDone:
-				// コールバックが呼ばれた
-			case <-timeoutCtx.Done():
-				// タイムアウトした
+			// 全体の成功/失敗を判定
+			if !success && len(failedEPCs) > 0 {
 				errMutex.Lock()
 				if firstErr == nil {
-					firstErr = fmt.Errorf("デバイス %v のプロパティ更新がタイムアウトしました", device)
+					firstErr = fmt.Errorf("デバイス %v の一部のプロパティ取得に失敗: %v", device, failedEPCs)
 				}
 				errMutex.Unlock()
 			}
-		}(device)
+		}(device, propMap)
 	}
 
 	// 全てのデバイスの更新が完了するまで待つ
@@ -796,33 +790,6 @@ func (h *ECHONETLiteHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
 		return nil, fmt.Errorf("エイリアス %s が見つかりません", *alias)
 	}
 	return &device, nil
-}
-
-// waitCallbackDone は、コールバック完了を待つ
-func waitCallbackDone(ctx context.Context, executeOperation func(callbackDone chan struct{}) error, timeoutMessage string) error {
-	// タイムアウト付きのコンテキストを作成（親コンテキストを使用）
-	timeoutCtx, cancel := context.WithTimeout(ctx, CommandTimeout)
-	defer cancel()
-
-	// コールバック完了を待つためのチャネル
-	callbackDone := make(chan struct{})
-
-	// 操作の実行
-	err := executeOperation(callbackDone)
-	if err != nil {
-		return fmt.Errorf("リクエスト送信エラー: %v", err)
-	}
-
-	// コールバックが呼ばれるか、タイムアウトするまで待つ
-	select {
-	case <-callbackDone:
-		// コールバックが呼ばれた
-	case <-timeoutCtx.Done():
-		// コンテキストがキャンセルまたはタイムアウトした
-		return errors.New(timeoutMessage)
-	}
-
-	return nil
 }
 
 func (h *ECHONETLiteHandler) GetDevices(deviceSpec *DeviceSpecifier) []IPAndEOJ {

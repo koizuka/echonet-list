@@ -1,25 +1,26 @@
 # Active Context
 
 ## Current Task
-最近の作業では、Devices.Filter の FilterCriteria から EPCs を廃止し、代わりに Command の PropertyMode に指定した EPCs を使用するように変更しました。この変更は完了し、すべてのテストが通過しています。
+最近の作業では、Session.goにメッセージ再送機能を実装し、タイムアウト時に最大3回まで再送する仕組みを追加しました。また、ECHONETLiteHandlerのGetPropertiesとSetPropertiesメソッドを修正して、この新しい機能を利用するようにしました。
 
 ## Recent Changes
-- `FilterCriteria` 構造体から `EPCs` フィールドを削除しました
-- `Filter` メソッドを修正して、EPCs フィールドを使わないようにしました
-- `CommandProcessor.go` の `processDevicesCommand` メソッドを修正して、Command の EPCs を使って結果をフィルタリングするようにしました
-- `Command.go` の `parseDevicesCommand` メソッドを修正して、"-all" または "-props" オプションが指定された場合に EPCs をクリアするようにしました
-- `PrintUsage` 関数の説明を更新して、"-all", "-props", "epc" は最後に指定されたものが有効になることを明記しました
-- `Filter_test.go` の EPCs フィールドを使用するテストケースを削除しました
+- `Session` 構造体に `MaxRetries` と `RetryInterval` フィールドを追加しました
+- `unregisterCallback` 関数を実装して、コールバックの登録解除を適切に行えるようにしました
+- `CreateSetPropertyMessage` 関数を追加して、`CreateGetPropertyMessage` との一貫性を持たせました
+- `sendRequestWithContext` 関数を実装して、タイムアウト検出と再送処理の共通ロジックを提供しました
+- `GetPropertiesWithContext` と `SetPropertiesWithContext` メソッドを追加しました
+- `ECHONETLiteHandler` の `GetProperties` と `SetProperties` メソッドを修正して、新しいWithContextメソッドを使用するようにしました
+- `ECHONETLiteHandler` の `UpdateProperties` メソッドを修正して、`GetPropertiesWithContext` を使用し、go routineによる並列処理を実装しました
+- 部分的な成功の場合のエラーハンドリングを改善しました
 
 ## Next Steps
 現在の開発サイクルで計画されていた機能はすべて実装されています。今後の計画は以下の通りです：
 
-1. **メッセージ再送機能の実装**: Session でメッセージを送信したあと、返信を必要としているものについて、返信タイムアウトになったときには同一メッセージを再送する仕組みを実装する
-2. **アーキテクチャ分割**: ECHONET Liteに関する処理は web(WebSocket) サーバーにして、コンソールUIアプリはそれにアクセスするように分割する
-3. **Web UI開発**: 上記分割が済んだら、web UIを作成する
+1. **アーキテクチャ分割**: ECHONET Liteに関する処理は web(WebSocket) サーバーにして、コンソールUIアプリはそれにアクセスするように分割する
+2. **Web UI開発**: 上記分割が済んだら、web UIを作成する
 
 ## 現在の作業状況
-現在は、将来の計画に向けた準備段階にあります。メッセージ再送機能の設計を検討中で、Session.go ファイルの修正が必要になります。また、WebSocketサーバーへの分割に向けて、現在のコードの依存関係を整理しています。
+メッセージ再送機能の実装が完了しました。次のステップとして、WebSocketサーバーへの分割に向けて、現在のコードの依存関係を整理しています。この分割が完了したら、Web UIの開発に着手する予定です。
 
 ## Cline Commands
 以下は、Clineに対して定義されたカスタムコマンドです：
