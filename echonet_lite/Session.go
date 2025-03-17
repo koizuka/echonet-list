@@ -52,19 +52,6 @@ func (dt DispatchTable) Unregister(key Key) {
 	delete(dt, key)
 }
 
-func (dt DispatchTable) Dispatch(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
-	key := MakeKey(msg)
-	entry, ok := dt[key]
-	if ok {
-		for _, esv := range entry.ESVs {
-			if esv == msg.ESV {
-				return entry.Callback(ip, msg)
-			}
-		}
-	}
-	return CallbackContinue, nil
-}
-
 type Session struct {
 	mu              sync.RWMutex
 	dispatchTable   DispatchTable
@@ -219,9 +206,7 @@ func (s *Session) MainLoop() {
 						var complete CallbackCompleteStatus
 						complete, err = entry.Callback(addr.IP, msg)
 						if complete == CallbackFinished {
-							s.mu.Lock()
-							delete(s.dispatchTable, key)
-							s.mu.Unlock()
+							s.unregisterCallback(key)
 						}
 						break
 					}
