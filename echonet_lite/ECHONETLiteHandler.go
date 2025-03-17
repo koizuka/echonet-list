@@ -449,7 +449,7 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 	}
 
 	// プロパティを取得
-	err := h.session.GetProperties(
+	_, err := h.session.GetProperties(
 		device,
 		forGet,
 		func(device IPAndEOJ, success bool, properties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
@@ -480,16 +480,47 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 
 // GetSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを取得する
 func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
-	return h.session.GetProperties(
+	isBroadcast := ip.Equal(BroadcastIP)
+	// broadcastの場合、1秒無通信で完了とする
+	// タイマーを作る
+	var timer *time.Timer
+	idleTimeout := time.Duration(1 * time.Second)
+	if isBroadcast {
+		timer = time.NewTimer(idleTimeout)
+		defer timer.Stop()
+	}
+	key, err := h.session.GetProperties(
 		IPAndEOJ{ip, NodeProfileObject}, []EPCType{EPC_NPO_SelfNodeInstanceListS},
 		func(ie IPAndEOJ, b bool, p Properties, f []EPCType) (CallbackCompleteStatus, error) {
-			return CallbackFinished, h.onSelfNodeInstanceListS(ie, b, p[0])
+			var completeStatus CallbackCompleteStatus
+			if isBroadcast {
+				completeStatus = CallbackContinue
+				timer.Reset(idleTimeout)
+			} else {
+				completeStatus = CallbackFinished
+			}
+			return completeStatus, h.onSelfNodeInstanceListS(ie, b, p[0])
 		})
+	if err != nil {
+		return err
+	}
+	if isBroadcast {
+		defer h.session.unregisterCallback(key)
+
+		select {
+		case <-timer.C:
+			return nil
+		case <-h.ctx.Done():
+			return h.ctx.Err()
+		}
+	}
+	return err
 }
 
 // GetGetPropertyMap は、GetPropertyMapプロパティを取得する
 func (h *ECHONETLiteHandler) GetGetPropertyMap(device IPAndEOJ) error {
-	return h.session.GetProperties(device, []EPCType{EPCGetPropertyMap}, h.onGetPropertyMap)
+	_, err := h.session.GetProperties(device, []EPCType{EPCGetPropertyMap}, h.onGetPropertyMap)
+	return err
 }
 
 // Discover は、ECHONET Liteデバイスを検出する

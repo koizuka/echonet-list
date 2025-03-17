@@ -279,8 +279,10 @@ func (s *Session) registerCallback(key Key, ESVs []ESVType, callback CallbackFun
 	s.dispatchTable.Register(key, ESVs, callback)
 }
 
-func (s *Session) registerCallbackFromMessage(msg *ECHONETLiteMessage, callback CallbackFunc) {
-	s.registerCallback(MakeKey(msg), msg.ESV.ResponseESVs(), callback)
+func (s *Session) registerCallbackFromMessage(msg *ECHONETLiteMessage, callback CallbackFunc) Key {
+	key := MakeKey(msg)
+	s.registerCallback(key, msg.ESV.ResponseESVs(), callback)
+	return key
 }
 
 func (s *Session) sendMessage(ip net.IP, msg *ECHONETLiteMessage) error {
@@ -337,13 +339,13 @@ func (s *Session) CreateGetPropertyMessage(device IPAndEOJ, EPCs []EPCType) *ECH
 	}
 }
 
-func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) error {
+func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) (Key, error) {
 	msg := s.CreateGetPropertyMessage(device, EPCs)
 
 	if err := s.sendMessage(device.IP, msg); err != nil {
-		return err
+		return Key{}, err
 	}
-	s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+	key := s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		device := IPAndEOJ{ip, msg.SEOJ}
 		if msg.ESV == ESVGet_Res {
 			return callback(device, true, msg.Properties, nil)
@@ -360,7 +362,7 @@ func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPro
 		}
 		return callback(device, false, successProperties, failedEPCs)
 	})
-	return nil
+	return key, nil
 }
 
 func (s *Session) CreateSetPropertyMessage(device IPAndEOJ, properties Properties) *ECHONETLiteMessage {
