@@ -7,7 +7,7 @@
   - golang.org/x/sys: For system-level operations
 - **Version Control**: Git (version 2.48.1)
 - **Package Management**: Go modules
-- **Operating System**: macOS
+- **Operating System**: macOS, Linux, Windows
 - **Package Manager**: Homebrew (used for updating Git)
 
 ## Development Setup

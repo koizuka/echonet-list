@@ -191,41 +191,11 @@ Exits the application.
 The application supports various ECHONET Lite device types, including:
 
 - Home Air Conditioner (0x0130)
-- Ventilation Fan (0x0133)
 - Floor Heating (0x027b)
 - Single-Function Lighting (0x0291)
 - Lighting System (0x02a3)
-- Refrigerator (0x03b7)
-- Switch (0x05fd)
-- Portable Terminal (0x05fe)
 - Controller (0x05ff)
 - Node Profile (0x0ef0)
-
-## Project Structure
-
-- `main.go`: Entry point and main application logic
-- `Command.go`: Command parsing and execution
-- `CommandProcessor.go`: Command processing and execution
-- `echonet_lite/`: Package containing ECHONET Lite protocol implementation
-  - `DeviceAliases.go`: Device alias management
-  - `Devices.go`: Device implementation and management
-  - `ECHONETLiteHandler.go`: ECHONET Lite communication handler
-  - `echonet_lite.go`: Core ECHONET Lite message handling
-  - `EOJ.go`: ECHONET Object implementation
-  - `IPAndEOJ.go`: IP address and EOJ handling
-  - `Property.go`: Property handling
-  - `Session.go`: Session management for ECHONET Lite communication
-  - `log/`: Logging utilities
-    - `logger.go`: Logging utilities
-  - `network/`: Network communication utilities
-    - `network.go`: Network communication utilities
-    - `UDPConnection.go`: UDP communication handling
-  - Device-specific implementations:
-    - `NodeProfileObject.go`: Node profile implementation
-    - `ProfileSuperClass.go`: Base class for profiles
-    - `HomeAirConditioner.go`
-    - `FloorHeating.go`
-    - `SingleFunctionLighting.go`
 
 ## Example Use Cases
 
