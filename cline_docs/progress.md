@@ -23,6 +23,7 @@
 - All planned features for the current development cycle have been implemented
 
 ### 将来の計画 (Future Plans)
+- ECHONETLiteHandlerから呼出元に対して、デバイスの追加通知とデバイスのリトライタイムアウト通知を送るチャンネルを作る。mainではそれを受けて表示する。
 - **アーキテクチャ分割**: ECHONET Liteに関する処理は web(WebSocket) サーバーにして、コンソールUIアプリはそれにアクセスするように分割する
   - 実装予定: 新しいパッケージ構造の設計と実装
   - 状態: 依存関係の整理中
