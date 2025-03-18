@@ -12,6 +12,20 @@ import (
 	"time"
 )
 
+// SessionTimeoutType はセッションタイムアウトの種類を表す型
+type SessionTimeoutType int
+
+const (
+	SessionTimeoutMaxRetries SessionTimeoutType = iota // 最大再送回数に達した
+)
+
+// SessionTimeoutEvent はセッションタイムアウトに関するイベントを表す構造体
+type SessionTimeoutEvent struct {
+	Device IPAndEOJ           // タイムアウトが発生したデバイス
+	Type   SessionTimeoutType // タイムアウトの種類
+	Error  error              // エラー情報
+}
+
 // ErrMaxRetriesReached は最大再送回数に達したことを示すエラー
 type ErrMaxRetriesReached struct {
 	MaxRetries int
@@ -71,10 +85,18 @@ type Session struct {
 	eoj             EOJ
 	conn            *network.UDPConnection
 	Debug           bool
-	ctx             context.Context    // コンテキスト
-	cancel          context.CancelFunc // コンテキストのキャンセル関数
-	MaxRetries      int                // 最大再送回数
-	RetryInterval   time.Duration      // 再送間隔
+	ctx             context.Context          // コンテキスト
+	cancel          context.CancelFunc       // コンテキストのキャンセル関数
+	MaxRetries      int                      // 最大再送回数
+	RetryInterval   time.Duration            // 再送間隔
+	TimeoutCh       chan SessionTimeoutEvent // タイムアウト通知用チャンネル
+}
+
+// SetTimeoutChannel はタイムアウト通知用チャンネルを設定する
+func (s *Session) SetTimeoutChannel(ch chan SessionTimeoutEvent) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.TimeoutCh = ch
 }
 
 func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Session, error) {
@@ -465,10 +487,30 @@ func (s *Session) sendRequestWithContext(
 				if logger != nil {
 					logger.Log("最大再送回数(%d)に達しました", s.MaxRetries)
 				}
-				return nil, ErrMaxRetriesReached{
+
+				// タイムアウト通知をチャンネルに送信
+				maxRetriesErr := ErrMaxRetriesReached{
 					MaxRetries: s.MaxRetries,
 					Device:     device,
 				}
+
+				if s.TimeoutCh != nil {
+					select {
+					case s.TimeoutCh <- SessionTimeoutEvent{
+						Device: device,
+						Type:   SessionTimeoutMaxRetries,
+						Error:  maxRetriesErr,
+					}:
+						// 送信成功
+					default:
+						// チャンネルがブロックされている場合は無視
+						if logger != nil {
+							logger.Log("警告: タイムアウト通知チャネルがブロックされています")
+						}
+					}
+				}
+
+				return nil, maxRetriesErr
 			}
 
 			// ログ出力

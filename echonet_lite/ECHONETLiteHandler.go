@@ -142,6 +142,12 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 	// 通知チャンネルを作成
 	notificationCh := make(chan DeviceNotification, 100) // バッファサイズは100に設定
 
+	// セッションのタイムアウト通知チャンネルを作成
+	sessionTimeoutCh := make(chan SessionTimeoutEvent, 100)
+
+	// セッションにタイムアウト通知チャンネルを設定
+	session.SetTimeoutChannel(sessionTimeoutCh)
+
 	handler := &ECHONETLiteHandler{
 		session:        session,
 		devices:        devices,
@@ -153,7 +159,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 		NotificationCh: notificationCh,
 	}
 
-	// デバイスイベントを通知チャンネルに中継するゴルーチンを起動
+	// デバイスイベントとセッションタイムアウトイベントを通知チャンネルに中継するゴルーチンを起動
 	go func() {
 		for {
 			select {
@@ -176,6 +182,25 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 						if logger := log.GetLogger(); logger != nil {
 							logger.Log("警告: 通知チャネルがブロックされています")
 						}
+					}
+				}
+			case event, ok := <-sessionTimeoutCh:
+				if !ok {
+					// チャンネルが閉じられた場合は終了
+					return
+				}
+				// SessionTimeoutEventをDeviceNotificationに変換して中継
+				select {
+				case notificationCh <- DeviceNotification{
+					Device: event.Device,
+					Type:   DeviceTimeout,
+					Error:  event.Error,
+				}:
+					// 送信成功
+				default:
+					// チャンネルがブロックされている場合は無視
+					if logger := log.GetLogger(); logger != nil {
+						logger.Log("警告: 通知チャネルがブロックされています")
 					}
 				}
 			case <-handlerCtx.Done():
@@ -647,24 +672,6 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType) (Dev
 		if logger != nil {
 			logger.Log("エラー: プロパティ取得に失敗: %v", err)
 		}
-
-		// タイムアウトエラーの場合は通知を送信
-		if maxRetriesErr, ok := err.(ErrMaxRetriesReached); ok {
-			select {
-			case h.NotificationCh <- DeviceNotification{
-				Device: device,
-				Type:   DeviceTimeout,
-				Error:  maxRetriesErr,
-			}:
-				// 送信成功
-			default:
-				// チャネルがブロックされている場合は無視
-				if logger != nil {
-					logger.Log("警告: タイムアウト通知チャネルがブロックされています")
-				}
-			}
-		}
-
 		return DeviceAndProperties{}, fmt.Errorf("プロパティ取得に失敗: %w", err)
 	}
 
@@ -726,24 +733,6 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 		if logger != nil {
 			logger.Log("エラー: プロパティ設定に失敗: %v", err)
 		}
-
-		// タイムアウトエラーの場合は通知を送信
-		if maxRetriesErr, ok := err.(ErrMaxRetriesReached); ok {
-			select {
-			case h.NotificationCh <- DeviceNotification{
-				Device: device,
-				Type:   DeviceTimeout,
-				Error:  maxRetriesErr,
-			}:
-				// 送信成功
-			default:
-				// チャネルがブロックされている場合は無視
-				if logger != nil {
-					logger.Log("警告: タイムアウト通知チャネルがブロックされています")
-				}
-			}
-		}
-
 		return DeviceAndProperties{}, fmt.Errorf("プロパティ設定に失敗: %w", err)
 	}
 
@@ -829,23 +818,6 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 					firstErr = fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err)
 				}
 				errMutex.Unlock()
-
-				// タイムアウトエラーの場合は通知を送信
-				if maxRetriesErr, ok := err.(ErrMaxRetriesReached); ok {
-					select {
-					case h.NotificationCh <- DeviceNotification{
-						Device: device,
-						Type:   DeviceTimeout,
-						Error:  maxRetriesErr,
-					}:
-						// 送信成功
-					default:
-						// チャネルがブロックされている場合は無視
-						if logger := log.GetLogger(); logger != nil {
-							logger.Log("警告: タイムアウト通知チャネルがブロックされています")
-						}
-					}
-				}
 
 				return
 			}
