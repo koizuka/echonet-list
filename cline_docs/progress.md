@@ -1,6 +1,7 @@
 # Progress
 
 ## What Works
+
 - The ECHONET Lite application is functional and can discover and control devices
 - The alias command functionality is fully implemented
   - Users can create, view, delete, and list aliases for devices in memory
@@ -20,9 +21,11 @@
   - Improved error handling for partial success cases
 
 ## What's Left to Build
+
 - All planned features for the current development cycle have been implemented
 
 ### 将来の計画 (Future Plans)
+
 - ECHONETLiteHandlerから呼出元に対して、デバイスの追加通知とデバイスのリトライタイムアウト通知を送るチャンネルを作る。mainではそれを受けて表示する。
 - **アーキテクチャ分割**: ECHONET Liteに関する処理は web(WebSocket) サーバーにして、コンソールUIアプリはそれにアクセスするように分割する
   - 実装予定: 新しいパッケージ構造の設計と実装
@@ -32,6 +35,7 @@
   - 状態: 未着手（アーキテクチャ分割後に開始）
 
 ## Progress Status
+
 - **Alias Command Documentation in PrintUsage**: ✅ COMPLETED
 - **Alias Command Documentation in README.md**: ✅ COMPLETED
 - **Alias Command Persistence Implementation**: ✅ COMPLETED
