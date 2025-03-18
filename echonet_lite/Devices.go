@@ -284,6 +284,10 @@ func (d Devices) LoadFromFile(filename string) error {
 
 	file, err := os.Open(filename)
 	if err != nil {
+		// If the file doesn't exist, return nil instead of the error
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	defer func() {

@@ -221,9 +221,10 @@ func TestDevices_LoadFromFile_Error(t *testing.T) {
 	devices := NewDevices()
 
 	// Try to load from a non-existent file
+	// After the modification, LoadFromFile should return nil for non-existent files
 	err := devices.LoadFromFile("non_existent_file.json")
-	if err == nil {
-		t.Error("Expected an error when loading from a non-existent file, but got nil")
+	if err != nil {
+		t.Errorf("Expected nil when loading from a non-existent file, but got error: %v", err)
 	}
 
 	// Create a temporary file with invalid JSON
