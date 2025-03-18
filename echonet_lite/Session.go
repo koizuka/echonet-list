@@ -12,6 +12,16 @@ import (
 	"time"
 )
 
+// ErrMaxRetriesReached は最大再送回数に達したことを示すエラー
+type ErrMaxRetriesReached struct {
+	MaxRetries int
+	Device     IPAndEOJ
+}
+
+func (e ErrMaxRetriesReached) Error() string {
+	return fmt.Sprintf("maximum retries reached (%d) for device %v", e.MaxRetries, e.Device)
+}
+
 var NodeProfileObject = MakeEOJ(NodeProfile_ClassCode, 1)
 var NodeProfileObject_SendOnly = MakeEOJ(NodeProfile_ClassCode, 2)
 
@@ -455,7 +465,10 @@ func (s *Session) sendRequestWithContext(
 				if logger != nil {
 					logger.Log("最大再送回数(%d)に達しました", s.MaxRetries)
 				}
-				return nil, fmt.Errorf("maximum retries reached (%d)", s.MaxRetries)
+				return nil, ErrMaxRetriesReached{
+					MaxRetries: s.MaxRetries,
+					Device:     device,
+				}
 			}
 
 			// ログ出力

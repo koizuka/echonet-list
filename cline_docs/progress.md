@@ -22,11 +22,14 @@
 
 ## What's Left to Build
 
-- All planned features for the current development cycle have been implemented
+- **通知機能の追加テスト**: 実装した通知機能が実際の環境で正しく動作するかテストする必要があります
+  - タイムアウト通知のテスト
+  - 通知チャネルの動作確認
+
 
 ### 将来の計画 (Future Plans)
 
-- ECHONETLiteHandlerから呼出元に対して、デバイスの追加通知とデバイスのリトライタイムアウト通知を送るチャンネルを作る。mainではそれを受けて表示する。
+- ✅ **デバイス通知機能**: ECHONETLiteHandlerから呼出元に対して、デバイスの追加通知とデバイスのリトライタイムアウト通知を送るチャンネルを作る。mainではそれを受けて表示する。
 - **アーキテクチャ分割**: ECHONET Liteに関する処理は web(WebSocket) サーバーにして、コンソールUIアプリはそれにアクセスするように分割する
   - 実装予定: 新しいパッケージ構造の設計と実装
   - 状態: 依存関係の整理中
@@ -57,5 +60,17 @@
   - Modified ECHONETLiteHandler's GetProperties and SetProperties to use the new methods
   - Updated ECHONETLiteHandler's UpdateProperties to use GetPropertiesWithContext with go routines for parallel processing
   - Improved error handling for partial success cases
+- **Device Notification**: ✅ COMPLETED
+  - ✅ Added NotificationType and DeviceNotification types
+  - ✅ Added NotificationCh to ECHONETLiteHandler struct
+  - ✅ Added ErrMaxRetriesReached error type for proper error handling
+  - ✅ Modified ECHONETLiteHandler to send notifications for new devices and timeouts
+  - ✅ Added notification listener in main.go to display notifications to the user
+  - ✅ Improved device addition notification by moving it to Devices.ensureDeviceExists
+  - ✅ Added DeviceEventType and DeviceEvent types in Devices.go
+  - ✅ Added EventCh to Devices struct for device event notifications
+  - ✅ Implemented event forwarding from Devices to ECHONETLiteHandler
+  - ✅ Tested device addition notification in real environment
+  - ❌ Testing timeout notification in real environment pending
 - **Architecture Split**: 🔄 PLANNED
 - **Web UI Development**: 🔄 PLANNED

@@ -17,15 +17,31 @@ const (
 	CommandTimeout = 3 * time.Second // コマンド実行のタイムアウト時間
 )
 
+// NotificationType は通知の種類を表す型
+type NotificationType int
+
+const (
+	DeviceAdded NotificationType = iota
+	DeviceTimeout
+)
+
+// DeviceNotification はデバイスに関する通知を表す構造体
+type DeviceNotification struct {
+	Device IPAndEOJ
+	Type   NotificationType
+	Error  error // タイムアウトの場合はエラー情報
+}
+
 // ECHONETLiteHandler は、ECHONET Lite の通信処理を担当する構造体
 type ECHONETLiteHandler struct {
-	session       *Session
-	devices       Devices
-	DeviceAliases *DeviceAliases
-	localDevices  DeviceProperties
-	Debug         bool
-	ctx           context.Context    // コンテキスト
-	cancel        context.CancelFunc // コンテキストのキャンセル関数
+	session        *Session
+	devices        Devices
+	DeviceAliases  *DeviceAliases
+	localDevices   DeviceProperties
+	Debug          bool
+	ctx            context.Context         // コンテキスト
+	cancel         context.CancelFunc      // コンテキストのキャンセル関数
+	NotificationCh chan DeviceNotification // デバイス通知用チャネル
 }
 
 // saveDeviceInfo は、デバイス情報をファイルに保存する共通処理
@@ -63,6 +79,11 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 
 	// デバイス情報を管理するオブジェクトを作成
 	devices := NewDevices()
+
+	// デバイスイベント用チャンネルを作成
+	deviceEventCh := make(chan DeviceEvent, 100)
+	// Devicesにイベントチャンネルを設定
+	devices.SetEventChannel(deviceEventCh)
 
 	// DeviceFileName のファイルが存在するなら読み込む
 	err = devices.LoadFromFile(DeviceFileName)
@@ -118,15 +139,51 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 	// 最後にやること
 	_ = localDevices.UpdateProfileObjectProperties()
 
+	// 通知チャンネルを作成
+	notificationCh := make(chan DeviceNotification, 100) // バッファサイズは100に設定
+
 	handler := &ECHONETLiteHandler{
-		session:       session,
-		devices:       devices,
-		DeviceAliases: aliases,
-		localDevices:  localDevices,
-		Debug:         debug,
-		ctx:           handlerCtx,
-		cancel:        cancel,
+		session:        session,
+		devices:        devices,
+		DeviceAliases:  aliases,
+		localDevices:   localDevices,
+		Debug:          debug,
+		ctx:            handlerCtx,
+		cancel:         cancel,
+		NotificationCh: notificationCh,
 	}
+
+	// デバイスイベントを通知チャンネルに中継するゴルーチンを起動
+	go func() {
+		for {
+			select {
+			case event, ok := <-deviceEventCh:
+				if !ok {
+					// チャンネルが閉じられた場合は終了
+					return
+				}
+				// DeviceEventをDeviceNotificationに変換して中継
+				switch event.Type {
+				case DeviceEventAdded:
+					select {
+					case notificationCh <- DeviceNotification{
+						Device: event.Device,
+						Type:   DeviceAdded,
+					}:
+						// 送信成功
+					default:
+						// チャンネルがブロックされている場合は無視
+						if logger := log.GetLogger(); logger != nil {
+							logger.Log("警告: 通知チャネルがブロックされています")
+						}
+					}
+				}
+			case <-handlerCtx.Done():
+				// コンテキストがキャンセルされた場合は終了
+				return
+			}
+		}
+	}()
 
 	// INFメッセージのコールバックを設定
 	session.OnInf(handler.onInfMessage)
@@ -141,6 +198,12 @@ func (h *ECHONETLiteHandler) Close() error {
 	if h.cancel != nil {
 		h.cancel()
 	}
+
+	// 通知チャネルを閉じる
+	if h.NotificationCh != nil {
+		close(h.NotificationCh)
+	}
+
 	return h.session.Close()
 }
 
@@ -337,10 +400,6 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) er
 
 		// 未知のデバイスの場合、プロパティマップを取得
 		if !h.devices.IsKnownDevice(device) {
-			if logger != nil {
-				logger.Log("情報: 新しいデバイスを検出: %v", device)
-			}
-			fmt.Printf("新しいデバイスが検出されました: %v\n", device)
 			err := h.GetGetPropertyMap(device)
 			if err != nil {
 				if logger != nil {
@@ -588,6 +647,24 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType) (Dev
 		if logger != nil {
 			logger.Log("エラー: プロパティ取得に失敗: %v", err)
 		}
+
+		// タイムアウトエラーの場合は通知を送信
+		if maxRetriesErr, ok := err.(ErrMaxRetriesReached); ok {
+			select {
+			case h.NotificationCh <- DeviceNotification{
+				Device: device,
+				Type:   DeviceTimeout,
+				Error:  maxRetriesErr,
+			}:
+				// 送信成功
+			default:
+				// チャネルがブロックされている場合は無視
+				if logger != nil {
+					logger.Log("警告: タイムアウト通知チャネルがブロックされています")
+				}
+			}
+		}
+
 		return DeviceAndProperties{}, fmt.Errorf("プロパティ取得に失敗: %w", err)
 	}
 
@@ -649,6 +726,24 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 		if logger != nil {
 			logger.Log("エラー: プロパティ設定に失敗: %v", err)
 		}
+
+		// タイムアウトエラーの場合は通知を送信
+		if maxRetriesErr, ok := err.(ErrMaxRetriesReached); ok {
+			select {
+			case h.NotificationCh <- DeviceNotification{
+				Device: device,
+				Type:   DeviceTimeout,
+				Error:  maxRetriesErr,
+			}:
+				// 送信成功
+			default:
+				// チャネルがブロックされている場合は無視
+				if logger != nil {
+					logger.Log("警告: タイムアウト通知チャネルがブロックされています")
+				}
+			}
+		}
+
 		return DeviceAndProperties{}, fmt.Errorf("プロパティ設定に失敗: %w", err)
 	}
 
@@ -734,6 +829,24 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 					firstErr = fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err)
 				}
 				errMutex.Unlock()
+
+				// タイムアウトエラーの場合は通知を送信
+				if maxRetriesErr, ok := err.(ErrMaxRetriesReached); ok {
+					select {
+					case h.NotificationCh <- DeviceNotification{
+						Device: device,
+						Type:   DeviceTimeout,
+						Error:  maxRetriesErr,
+					}:
+						// 送信成功
+					default:
+						// チャネルがブロックされている場合は無視
+						if logger := log.GetLogger(); logger != nil {
+							logger.Log("警告: タイムアウト通知チャネルがブロックされています")
+						}
+					}
+				}
+
 				return
 			}
 

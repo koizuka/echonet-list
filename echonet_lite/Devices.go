@@ -14,9 +14,23 @@ import (
 type EPCPropertyMap map[EPCType]Property
 type DeviceProperties map[EOJ]EPCPropertyMap
 
+// DeviceEventType はデバイスイベントの種類を表す型
+type DeviceEventType int
+
+const (
+	DeviceEventAdded DeviceEventType = iota // デバイスが追加された
+)
+
+// DeviceEvent はデバイスに関するイベントを表す構造体
+type DeviceEvent struct {
+	Device IPAndEOJ        // イベントが発生したデバイス
+	Type   DeviceEventType // イベントの種類
+}
+
 type DevicesImpl struct {
-	mu   sync.RWMutex
-	data map[string]DeviceProperties // key is IP address string
+	mu      sync.RWMutex
+	data    map[string]DeviceProperties // key is IP address string
+	EventCh chan DeviceEvent            // デバイスイベント通知用チャンネル
 }
 
 type Devices struct {
@@ -26,9 +40,17 @@ type Devices struct {
 func NewDevices() Devices {
 	return Devices{
 		DevicesImpl: &DevicesImpl{
-			data: make(map[string]DeviceProperties),
+			data:    make(map[string]DeviceProperties),
+			EventCh: nil, // 初期値はnil、後で設定する
 		},
 	}
+}
+
+// SetEventChannel はイベント通知用チャンネルを設定する
+func (d *Devices) SetEventChannel(ch chan DeviceEvent) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.EventCh = ch
 }
 
 func (d Devices) HasIP(ip net.IP) bool {
@@ -61,6 +83,19 @@ func (d *Devices) ensureDeviceExists(device IPAndEOJ) {
 	}
 	if _, ok := d.data[ipStr][device.EOJ]; !ok {
 		d.data[ipStr][device.EOJ] = make(EPCPropertyMap)
+
+		// デバイス追加イベントをチャンネルに送信
+		if d.EventCh != nil {
+			select {
+			case d.EventCh <- DeviceEvent{
+				Device: device,
+				Type:   DeviceEventAdded,
+			}:
+				// 送信成功
+			default:
+				// チャンネルがブロックされている場合は無視
+			}
+		}
 	}
 }
 

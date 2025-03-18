@@ -1,17 +1,16 @@
 # Active Context
 
 ## Current Task
-最近の作業では、Session.goにメッセージ再送機能を実装し、タイムアウト時に最大3回まで再送する仕組みを追加しました。また、ECHONETLiteHandlerのGetPropertiesとSetPropertiesメソッドを修正して、この新しい機能を利用するようにしました。
+最近の作業では、デバイスの追加通知の仕組みを改善しました。`Devices`構造体に独自のイベント通知チャネルを追加し、`ECHONETLiteHandler`との依存関係を解消しました。デバイスの追加検出は`Devices.ensureDeviceExists`メソッド内で行い、そこからイベントを送信するようにしました。`ECHONETLiteHandler`はそのイベントを受け取って`DeviceNotification`に変換し、中継するだけの役割になりました。
 
 ## Recent Changes
-- `Session` 構造体に `MaxRetries` と `RetryInterval` フィールドを追加しました
-- `unregisterCallback` 関数を実装して、コールバックの登録解除を適切に行えるようにしました
-- `CreateSetPropertyMessage` 関数を追加して、`CreateGetPropertyMessage` との一貫性を持たせました
-- `sendRequestWithContext` 関数を実装して、タイムアウト検出と再送処理の共通ロジックを提供しました
-- `GetPropertiesWithContext` と `SetPropertiesWithContext` メソッドを追加しました
-- `ECHONETLiteHandler` の `GetProperties` と `SetProperties` メソッドを修正して、新しいWithContextメソッドを使用するようにしました
-- `ECHONETLiteHandler` の `UpdateProperties` メソッドを修正して、`GetPropertiesWithContext` を使用し、go routineによる並列処理を実装しました
-- 部分的な成功の場合のエラーハンドリングを改善しました
+- `Devices.go`に`DeviceEventType`と`DeviceEvent`型を定義しました
+- `Devices`構造体に`EventCh`フィールドを追加しました
+- `SetEventChannel`メソッドを追加して、イベントチャネルを設定できるようにしました
+- `ensureDeviceExists`メソッド内でデバイス追加時にイベントチャネルに通知を送信するようにしました
+- `ECHONETLiteHandler`の`NewECHONETLiteHandler`関数内でデバイスイベント用チャンネルを作成し、`Devices`に設定するようにしました
+- デバイスイベントを受け取り、`DeviceNotification`に変換して中継するゴルーチンを実装しました
+- `onInfMessage`メソッド内のデバイス追加通知部分を削除し、代わりに`Devices.ensureDeviceExists`からの通知を使用するようにしました
 
 ## Next Steps
 現在の開発サイクルで計画されていた機能はすべて実装されています。今後の計画は以下の通りです：
@@ -20,7 +19,17 @@
 2. **Web UI開発**: 上記分割が済んだら、web UIを作成する
 
 ## 現在の作業状況
-メッセージ再送機能の実装が完了しました。次のステップとして、WebSocketサーバーへの分割に向けて、現在のコードの依存関係を整理しています。この分割が完了したら、Web UIの開発に着手する予定です。
+デバイス追加通知機能の改善が完了し、実際の環境でのテストも行いました。`devices.json`を削除してアプリケーションを起動することで、起動時のdiscover処理によって通知が正しく送信されることを確認しました。次のステップとして、以下の作業が必要です：
+
+1. **通知機能の追加テスト**
+   - タイムアウト通知が正しく送信されるかテストする
+   - 通知チャネルの動作を確認し、必要に応じて調整する
+
+2. **WebSocketサーバーへの分割準備**
+   - 現在のコードの依存関係を整理する
+   - 通知機能をWebSocketサーバーに統合するための設計を検討する
+
+この作業が完了したら、Web UIの開発に着手する予定です。
 
 ## Cline Commands
 以下は、Clineに対して定義されたカスタムコマンドです：
