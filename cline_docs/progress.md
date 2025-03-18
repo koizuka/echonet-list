@@ -22,9 +22,7 @@
 
 ## What's Left to Build
 
-- **通知機能の追加テスト**: 実装した通知機能が実際の環境で正しく動作するかテストする必要があります
-  - タイムアウト通知のテスト
-  - 通知チャネルの動作確認
+- **タイムアウト通知のテスト**: 実装したタイムアウト通知機能が実際の環境で正しく動作するかテストする必要があります
 
 
 ### 将来の計画 (Future Plans)
@@ -71,6 +69,7 @@
   - ✅ Added EventCh to Devices struct for device event notifications
   - ✅ Implemented event forwarding from Devices to ECHONETLiteHandler
   - ✅ Tested device addition notification in real environment
+  - ✅ Added unit tests for device notification in Devices_test.go
   - ❌ Testing timeout notification in real environment pending
 - **Architecture Split**: 🔄 PLANNED
 - **Web UI Development**: 🔄 PLANNED

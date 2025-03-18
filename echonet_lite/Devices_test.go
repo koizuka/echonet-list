@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 )
 
 // HasPropertyWithValue is a test helper function that checks if a property with the expected EPC and EDT exists for the given device
@@ -240,5 +241,85 @@ func TestDevices_LoadFromFile_Error(t *testing.T) {
 	err = devices.LoadFromFile(tempFile)
 	if err == nil {
 		t.Error("Expected an error when loading from a file with invalid JSON, but got nil")
+	}
+}
+
+func TestDevices_DeviceEvents(t *testing.T) {
+	// Devicesインスタンスの作成
+	devices := NewDevices()
+
+	// イベント受信用チャンネルの作成（バッファ付き）
+	eventCh := make(chan DeviceEvent, 10)
+
+	// イベントチャンネルの設定
+	devices.SetEventChannel(eventCh)
+
+	// テスト用のデバイス情報
+	ip1 := net.ParseIP("192.168.1.1")
+	eoj1 := EOJ(0x013001)
+	device1 := IPAndEOJ{IP: ip1, EOJ: eoj1}
+
+	// 1. 新規デバイス登録時にイベントが送信されることを確認
+	devices.RegisterDevice(device1)
+
+	// イベントチャンネルからイベントを受信
+	select {
+	case event := <-eventCh:
+		// イベントの内容を検証
+		if !event.Device.IP.Equal(ip1) || event.Device.EOJ != eoj1 || event.Type != DeviceEventAdded {
+			t.Errorf("Expected event for device %v with type %v, got %v with type %v",
+				device1, DeviceEventAdded, event.Device, event.Type)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timed out waiting for device event")
+	}
+
+	// 2. 同じデバイスを再登録してもイベントが送信されないことを確認
+	devices.RegisterDevice(device1)
+
+	// イベントが送信されないことを確認
+	select {
+	case event := <-eventCh:
+		t.Errorf("Unexpected event received: %v", event)
+	case <-time.After(100 * time.Millisecond):
+		// タイムアウトは期待通りの動作
+	}
+
+	// 3. プロパティ登録時に新しいデバイスが登録された場合のイベント送信を確認
+	ip2 := net.ParseIP("192.168.1.2")
+	eoj2 := EOJ(0x013002)
+	device2 := IPAndEOJ{IP: ip2, EOJ: eoj2}
+	property := Property{EPC: EPCType(0x80), EDT: []byte{0x30}}
+
+	devices.RegisterProperty(device2, property)
+
+	// イベントチャンネルからイベントを受信
+	select {
+	case event := <-eventCh:
+		// イベントの内容を検証
+		if !event.Device.IP.Equal(ip2) || event.Device.EOJ != eoj2 || event.Type != DeviceEventAdded {
+			t.Errorf("Expected event for device %v with type %v, got %v with type %v",
+				device2, DeviceEventAdded, event.Device, event.Type)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timed out waiting for device event")
+	}
+
+	// 4. バッファがいっぱいの場合のテスト
+	// バッファサイズ0のチャンネルを作成
+	blockingCh := make(chan DeviceEvent)
+	devices.SetEventChannel(blockingCh)
+
+	// 新しいデバイスを登録（チャンネルがブロックされているため送信されない）
+	ip3 := net.ParseIP("192.168.1.3")
+	eoj3 := EOJ(0x013003)
+	device3 := IPAndEOJ{IP: ip3, EOJ: eoj3}
+
+	// ブロックされたチャンネルでもデバイス登録が成功することを確認
+	devices.RegisterDevice(device3)
+
+	// デバイスが正しく登録されていることを確認
+	if !devices.IsKnownDevice(device3) {
+		t.Errorf("Device %v was not registered", device3)
 	}
 }
