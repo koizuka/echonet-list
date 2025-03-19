@@ -129,7 +129,7 @@ type DeviceSpecifier struct {
 	InstanceCode *EOJInstanceCode // インスタンスコード
 }
 
-func (d *DeviceSpecifier) String() string {
+func (d DeviceSpecifier) String() string {
 	var results []string
 
 	if d.IP != nil {
@@ -148,8 +148,8 @@ func (d *DeviceSpecifier) String() string {
 // FilterCriteria defines filtering criteria for devices and their properties.
 // Device and PropertyValues are used to filter devices.
 type FilterCriteria struct {
-	Device         *DeviceSpecifier // Filters devices by IP address, ClassCode, and InstanceCode
-	PropertyValues []Property       // Filters devices by property values (EPC and EDT)
+	Device         DeviceSpecifier // Filters devices by IP address, ClassCode, and InstanceCode
+	PropertyValues []Property      // Filters devices by property values (EPC and EDT)
 }
 
 func (c FilterCriteria) String() string {
@@ -167,15 +167,11 @@ func (c FilterCriteria) String() string {
 // 2. All properties of matched devices are included in the result
 func (d Devices) Filter(criteria FilterCriteria) Devices {
 	// ショートカット：フィルタ条件が無い場合は自身を返す
-	if (criteria.Device == nil ||
-		(criteria.Device.IP == nil && criteria.Device.ClassCode == nil && criteria.Device.InstanceCode == nil)) &&
+	if (criteria.Device.IP == nil && criteria.Device.ClassCode == nil && criteria.Device.InstanceCode == nil) &&
 		len(criteria.PropertyValues) == 0 {
 		return d
 	}
-	var deviceSpec DeviceSpecifier
-	if criteria.Device != nil {
-		deviceSpec = *criteria.Device
-	}
+	deviceSpec := criteria.Device
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()

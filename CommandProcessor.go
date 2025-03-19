@@ -158,7 +158,7 @@ func (e TooManyDevicesError) Error() string {
 	return strings.Join(errMsg, "\n")
 }
 
-func (p *CommandProcessor) getSingleDevice(deviceSpec *echonet_lite.DeviceSpecifier) (*echonet_lite.IPAndEOJ, error) {
+func (p *CommandProcessor) getSingleDevice(deviceSpec echonet_lite.DeviceSpecifier) (*echonet_lite.IPAndEOJ, error) {
 	// フィルタリング
 	filtered := p.handler.GetDevices(deviceSpec)
 

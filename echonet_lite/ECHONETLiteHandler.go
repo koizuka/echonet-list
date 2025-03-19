@@ -908,7 +908,7 @@ func (h *ECHONETLiteHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
 	return &device, nil
 }
 
-func (h *ECHONETLiteHandler) GetDevices(deviceSpec *DeviceSpecifier) []IPAndEOJ {
+func (h *ECHONETLiteHandler) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
 	// フィルタリング条件を作成
 	criteria := FilterCriteria{
 		Device: deviceSpec,

@@ -12,7 +12,7 @@ func HasPropertyWithValue(d Devices, device IPAndEOJ, epc EPCType, expectedEDT [
 	classCode := device.EOJ.ClassCode()
 	instanceCode := device.EOJ.InstanceCode()
 	criteria := FilterCriteria{
-		Device:         &DeviceSpecifier{IP: &device.IP, ClassCode: &classCode, InstanceCode: &instanceCode},
+		Device:         DeviceSpecifier{IP: &device.IP, ClassCode: &classCode, InstanceCode: &instanceCode},
 		PropertyValues: []Property{{EPC: epc, EDT: expectedEDT}},
 	}
 

@@ -132,7 +132,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Filter by IP address",
 			criteria: FilterCriteria{
-				Device: &DeviceSpecifier{IP: &ip1},
+				Device: DeviceSpecifier{IP: &ip1},
 			},
 			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj1, eoj2, eoj3},
@@ -148,7 +148,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Filter by class code",
 			criteria: FilterCriteria{
-				Device: &DeviceSpecifier{ClassCode: ptr(HomeAirConditioner_ClassCode)},
+				Device: DeviceSpecifier{ClassCode: ptr(HomeAirConditioner_ClassCode)},
 			},
 			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj1, eoj3},
@@ -167,7 +167,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Filter by instance code",
 			criteria: FilterCriteria{
-				Device: &DeviceSpecifier{InstanceCode: ptr(EOJInstanceCode(instanceCode1))},
+				Device: DeviceSpecifier{InstanceCode: ptr(EOJInstanceCode(instanceCode1))},
 			},
 			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj1, eoj2}, // eoj3はinstanceCode2なので含まれない
@@ -186,7 +186,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Filter by instance code 2",
 			criteria: FilterCriteria{
-				Device: &DeviceSpecifier{InstanceCode: ptr(EOJInstanceCode(instanceCode2))},
+				Device: DeviceSpecifier{InstanceCode: ptr(EOJInstanceCode(instanceCode2))},
 			},
 			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj3}, // instanceCode2のデバイスのみ

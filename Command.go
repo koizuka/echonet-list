@@ -41,37 +41,28 @@ const (
 // コマンドを表す構造体
 type Command struct {
 	Type        CommandType
-	DeviceSpec  *echonet_lite.DeviceSpecifier // デバイス指定子
-	DeviceAlias *string                       // エイリアス
-	EPCs        []echonet_lite.EPCType        // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
-	PropMode    PropertyMode                  // プロパティ表示モード
-	Properties  []echonet_lite.Property       // set/devicesコマンドのプロパティリスト
-	DebugMode   *string                       // debugコマンドのモード ("on" または "off")
-	Done        chan struct{}                 // コマンド実行完了を通知するチャネル
-	Error       error                         // コマンド実行中に発生したエラー
+	DeviceSpec  echonet_lite.DeviceSpecifier // デバイス指定子
+	DeviceAlias *string                      // エイリアス
+	EPCs        []echonet_lite.EPCType       // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
+	PropMode    PropertyMode                 // プロパティ表示モード
+	Properties  []echonet_lite.Property      // set/devicesコマンドのプロパティリスト
+	DebugMode   *string                      // debugコマンドのモード ("on" または "off")
+	Done        chan struct{}                // コマンド実行完了を通知するチャネル
+	Error       error                        // コマンド実行中に発生したエラー
 }
 
 // GetIPAddress は、コマンドのIPアドレスを取得する
 func (c *Command) GetIPAddress() *net.IP {
-	if c.DeviceSpec == nil {
-		return nil
-	}
 	return c.DeviceSpec.IP
 }
 
 // GetClassCode は、コマンドのクラスコードを取得する
 func (c *Command) GetClassCode() *echonet_lite.EOJClassCode {
-	if c.DeviceSpec == nil {
-		return nil
-	}
 	return c.DeviceSpec.ClassCode
 }
 
 // GetInstanceCode は、コマンドのインスタンスコードを取得する
 func (c *Command) GetInstanceCode() *echonet_lite.EOJInstanceCode {
-	if c.DeviceSpec == nil {
-		return nil
-	}
 	return c.DeviceSpec.InstanceCode
 }
 
@@ -213,12 +204,13 @@ func parsePropertyString(propertyStr string, classCode echonet_lite.EOJClassCode
 //	deviceSpecifier: パースされた DeviceSpecifier
 //	nextArgIndex: 次の引数のインデックス
 //	error: エラー
-func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requireClassCode bool) (*echonet_lite.DeviceSpecifier, int, error) {
+func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requireClassCode bool) (echonet_lite.DeviceSpecifier, int, error) {
+	var deviceSpec echonet_lite.DeviceSpecifier
 	if argIndex >= len(parts) {
 		if requireClassCode {
-			return nil, argIndex, fmt.Errorf("デバイス識別子が必要です")
+			return deviceSpec, argIndex, fmt.Errorf("デバイス識別子が必要です")
 		}
-		return nil, argIndex, nil
+		return deviceSpec, argIndex, nil
 	}
 
 	// エイリアスの取得
@@ -231,11 +223,9 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 				ClassCode:    &classCode,
 				InstanceCode: &instanceCode,
 			}
-			return &deviceSpec, argIndex + 1, nil
+			return deviceSpec, argIndex + 1, nil
 		}
 	}
-
-	deviceSpec := &echonet_lite.DeviceSpecifier{}
 
 	// IPアドレスのパース（省略可能）- IPv4/IPv6に対応
 	if ipAddr := tryParseIPAddress(parts[argIndex]); ipAddr != nil {
@@ -243,7 +233,7 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 		argIndex++
 
 		if argIndex >= len(parts) && requireClassCode {
-			return nil, argIndex, fmt.Errorf("クラスコードが必要です")
+			return deviceSpec, argIndex, fmt.Errorf("クラスコードが必要です")
 		} else if argIndex >= len(parts) {
 			return deviceSpec, argIndex, nil
 		}
@@ -253,7 +243,7 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 	classCode, instanceCode, err := parseClassAndInstanceCode(parts[argIndex])
 	if err != nil {
 		if requireClassCode {
-			return nil, argIndex, err
+			return deviceSpec, argIndex, err
 		}
 		// クラスコードが必須でない場合は、パースエラーを無視して現在の引数を処理せずに返す
 		return deviceSpec, argIndex, nil
