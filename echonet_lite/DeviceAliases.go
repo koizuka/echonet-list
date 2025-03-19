@@ -93,8 +93,8 @@ func (da *DeviceAliases) RegisterDeviceIdentification(device IPAndEOJ, identific
 // 16進数の正規表現パターン
 var hexPattern = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
 
-// 先頭文字が数字と記号の場合にマッチする正規表現パターン
-var invalidFirstChar = regexp.MustCompile(`^[0-9\!"#\$%&'\(\)\*\+,\./:;<=>\?@\[\\\]\^_\{\|\}~\-]`)
+// 先頭文字が記号の場合にマッチする正規表現パターン
+var invalidFirstChar = regexp.MustCompile(`^[\!"#\$%&'\(\)\*\+,\./:;<=>\?@\[\\\]\^_\{\|\}~\-]`)
 
 // ValidateDeviceAlias はエイリアスが有効かどうかを検証します
 func ValidateDeviceAlias(alias string) error {
@@ -108,9 +108,9 @@ func ValidateDeviceAlias(alias string) error {
 		return &InvalidAliasError{Alias: alias, Reason: "alias that can be read as hexadecimal with even number of digits is not allowed"}
 	}
 
-	// 数字や記号で始まるエイリアスは禁止
+	// 記号で始まるエイリアスは禁止
 	if invalidFirstChar.MatchString(alias) {
-		return &InvalidAliasError{Alias: alias, Reason: "alias that starts with a number or symbol is not allowed"}
+		return &InvalidAliasError{Alias: alias, Reason: "alias that starts with a symbol is not allowed"}
 	}
 
 	return nil
