@@ -1,6 +1,7 @@
 # System Patterns
 
 ## Architecture
+
 - The application is built in Go with a modular architecture
 - Main components:
   - Command-line interface for user interaction
@@ -11,14 +12,20 @@
   - Device alias management
 
 ## Key Technical Decisions
+
 - Go language for cross-platform compatibility and performance
 - UDP for network communication with ECHONET Lite devices
 - JSON for persistent storage of discovered devices
 - Command-line interface for simplicity and scriptability
 - Modular design with separate packages for protocol implementation
 - Alias system for easier device reference in commands
+- Notification system for loose coupling, allowing frontend components to receive state changes:
+  - Device addition notifications inform when new devices are discovered
+  - Timeout notifications alert when device communication fails
+  - Property change notifications (planned) will enable real-time state updates
 
 ## Code Organization
+
 - `main.go`: Entry point and main application logic
 - `Command.go`: Command parsing and execution
 - `CommandProcessor.go`: Command processing and execution

@@ -73,3 +73,5 @@ When user says "update memory bank":
 4. Complete current task
 
 Remember: After every memory reset, you begin completely fresh. Your only link to previous work is the Memory Bank. Maintain it as if your functionality depends on it - because it does.
+
+注意: Markdownを書く時は、ヘッダ行( '#', '##'など)や、箇条書きブロックの前後には1つの空行を入れてください。2つ以上あけないでください。
