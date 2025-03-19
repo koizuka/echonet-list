@@ -101,6 +101,12 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 		return nil, fmt.Errorf("エイリアス情報の読み込みに失敗: %w", err)
 	}
 
+	if err := aliases.UpdateIndex(&devices); err != nil {
+		if logger := log.GetLogger(); logger != nil {
+			logger.Log("警告: デバイスのインデックス更新に失敗: %v", err)
+		}
+	}
+
 	localDevices := make(DeviceProperties)
 	operationStatusOn := OperationStatus(true)
 	manufacturerCode := ManufacturerCodeExperimental
@@ -130,14 +136,12 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 		return nil, err
 	}
 
+	// 最後にやること
 	err = localDevices.UpdateProfileObjectProperties()
 	if err != nil {
 		cancel()
 		return nil, err
 	}
-
-	// 最後にやること
-	_ = localDevices.UpdateProfileObjectProperties()
 
 	// 通知チャンネルを作成
 	notificationCh := make(chan DeviceNotification, 100) // バッファサイズは100に設定

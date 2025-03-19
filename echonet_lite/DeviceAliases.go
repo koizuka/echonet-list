@@ -67,7 +67,8 @@ func (da *DeviceAliases) RegisterDeviceIdentification(device IPAndEOJ, identific
 		return fmt.Errorf("identificationNumber cannot be nil")
 	}
 
-	idStr := identificationNumber.String()
+	// 同一IP:ClassCodeで複数のInstanceCodeで同一のIdentificationNumberを持つものがあるため、EOJも含めて一意にする
+	idStr := fmt.Sprintf("%v:%v", device.EOJ.IDString(), identificationNumber)
 	deviceKey := deviceToKey(device)
 
 	da.mu.Lock()
@@ -87,6 +88,23 @@ func (da *DeviceAliases) RegisterDeviceIdentification(device IPAndEOJ, identific
 	da.deviceToIdentification[deviceKey] = idStr
 	da.identificationToDevice[idStr] = device
 
+	return nil
+}
+
+func (da *DeviceAliases) UpdateIndex(devices *Devices) error {
+	var failedDevices []IPAndEOJ
+	for _, dp := range devices.ListDevicePropertyData() {
+		device := dp.Device
+		if p, ok := dp.Properties[EPCIdentificationNumber]; ok {
+			id := DecodeIdentificationNumber(p.EDT)
+			if err := da.RegisterDeviceIdentification(device, id); err != nil {
+				failedDevices = append(failedDevices, device)
+			}
+		}
+	}
+	if len(failedDevices) > 0 {
+		return fmt.Errorf("failed to register IdentificationNumber for devices: %v", failedDevices)
+	}
 	return nil
 }
 

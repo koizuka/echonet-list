@@ -124,3 +124,7 @@ func (c EOJClassCode) String() string {
 func (e EOJ) String() string {
 	return fmt.Sprintf("%s:%v", e.ClassCode(), e.InstanceCode())
 }
+
+func (e EOJ) IDString() string {
+	return fmt.Sprintf("%06X", uint32(e))
+}
