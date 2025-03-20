@@ -4,6 +4,11 @@ aliases.json
 echonet-list
 echonet-list.exe
 echonet-list.log
+client/client
+client/client.exe
+server/server
+server/server.exe
+server/server.log
 echonet-client
 echonet-client.exe
 echonet-server
