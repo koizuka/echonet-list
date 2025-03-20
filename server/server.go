@@ -351,9 +351,15 @@ func (s *ECHONETLiteServer) handleDevicesCommand(cmd protocol.CommandMessage) (b
 		aliases := s.handler.GetAliases(deviceResult.Device)
 		deviceInfo := protocol.ConvertIPAndEOJToDeviceInfo(deviceResult.Device, aliases)
 
-		propInfos := make([]protocol.PropertyInfo, len(deviceResult.Properties))
-		for j, prop := range deviceResult.Properties {
-			propInfos[j] = protocol.ConvertPropertyToPropertyInfo(prop, deviceResult.Device.EOJ.ClassCode())
+		// パニックが発生しないように防御的にプロパティをコピー
+		propInfos := make([]protocol.PropertyInfo, 0, len(deviceResult.Properties))
+		for _, prop := range deviceResult.Properties {
+			// 無効なプロパティをスキップ
+			if prop.EPC == 0 && len(prop.EDT) == 0 {
+				continue
+			}
+			propInfo := protocol.ConvertPropertyToPropertyInfo(prop, deviceResult.Device.EOJ.ClassCode())
+			propInfos = append(propInfos, propInfo)
 		}
 
 		deviceResults[i] = protocol.DevicePropertyResult{
@@ -448,9 +454,15 @@ func (s *ECHONETLiteServer) handleGetCommand(cmd protocol.CommandMessage) (bool,
 	aliases := s.handler.GetAliases(result.Device)
 	deviceInfo := protocol.ConvertIPAndEOJToDeviceInfo(result.Device, aliases)
 
-	propInfos := make([]protocol.PropertyInfo, len(result.Properties))
-	for i, prop := range result.Properties {
-		propInfos[i] = protocol.ConvertPropertyToPropertyInfo(prop, result.Device.EOJ.ClassCode())
+	// パニックが発生しないように防御的にプロパティをコピー
+	propInfos := make([]protocol.PropertyInfo, 0, len(result.Properties))
+	for _, prop := range result.Properties {
+		// 無効なプロパティをスキップ
+		if prop.EPC == 0 && len(prop.EDT) == 0 {
+			continue
+		}
+		propInfo := protocol.ConvertPropertyToPropertyInfo(prop, result.Device.EOJ.ClassCode())
+		propInfos = append(propInfos, propInfo)
 	}
 
 	deviceResult := protocol.DevicePropertyResult{
@@ -538,9 +550,15 @@ func (s *ECHONETLiteServer) handleSetCommand(cmd protocol.CommandMessage) (bool,
 	aliases := s.handler.GetAliases(result.Device)
 	deviceInfo := protocol.ConvertIPAndEOJToDeviceInfo(result.Device, aliases)
 
-	propInfos := make([]protocol.PropertyInfo, len(result.Properties))
-	for i, prop := range result.Properties {
-		propInfos[i] = protocol.ConvertPropertyToPropertyInfo(prop, result.Device.EOJ.ClassCode())
+	// パニックが発生しないように防御的にプロパティをコピー
+	propInfos := make([]protocol.PropertyInfo, 0, len(result.Properties))
+	for _, prop := range result.Properties {
+		// 無効なプロパティをスキップ
+		if prop.EPC == 0 && len(prop.EDT) == 0 {
+			continue
+		}
+		propInfo := protocol.ConvertPropertyToPropertyInfo(prop, result.Device.EOJ.ClassCode())
+		propInfos = append(propInfos, propInfo)
 	}
 
 	deviceResult := protocol.DevicePropertyResult{
