@@ -212,9 +212,9 @@ func (p *CommandProcessor) processCommands() {
 func DisplayDeviceList(results []protocol.DevicePropertyResult) {
 	for _, result := range results {
 		// デバイス名を表示
-		names := append(result.Device.Aliases, fmt.Sprintf("%s %s:%d", 
+		names := append(result.Device.Aliases, fmt.Sprintf("%s %04X:%d", 
 			result.Device.IP, 
-			result.Device.EOJ.ClassCode, 
+			uint16(result.Device.EOJ.ClassCode), 
 			result.Device.EOJ.InstanceCode))
 		
 		fmt.Println(names[0])
@@ -225,7 +225,7 @@ func DisplayDeviceList(results []protocol.DevicePropertyResult) {
 			if prop.Name != "" {
 				name = fmt.Sprintf(" (%s)", prop.Name)
 			}
-			fmt.Printf("  %s%s: %s\n", prop.EPC, name, prop.EDT)
+			fmt.Printf("  %02X%s: %s\n", uint8(prop.EPC), name, prop.EDT)
 			
 			// 変換された値がある場合は表示
 			if prop.Value != nil {
@@ -238,9 +238,9 @@ func DisplayDeviceList(results []protocol.DevicePropertyResult) {
 // DisplayDeviceProperties はデバイスプロパティを表示する
 func DisplayDeviceProperties(result protocol.DevicePropertyResult) {
 	// デバイス情報を表示
-	fmt.Printf("デバイス: %s %s:%d\n", 
+	fmt.Printf("デバイス: %s %04X:%d\n", 
 		result.Device.IP, 
-		result.Device.EOJ.ClassCode, 
+		uint16(result.Device.EOJ.ClassCode), 
 		result.Device.EOJ.InstanceCode)
 	
 	// エイリアスがあれば表示
@@ -254,7 +254,7 @@ func DisplayDeviceProperties(result protocol.DevicePropertyResult) {
 		if prop.Name != "" {
 			name = fmt.Sprintf(" (%s)", prop.Name)
 		}
-		fmt.Printf("  %s%s: %s\n", prop.EPC, name, prop.EDT)
+		fmt.Printf("  %02X%s: %s\n", uint8(prop.EPC), name, prop.EDT)
 		
 		// 変換された値がある場合は表示
 		if prop.Value != nil {
