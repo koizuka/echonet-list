@@ -1,247 +1,127 @@
-# ECHONET Lite Device Discovery and Control Tool
+# ECHONET Lite デバイス検出プログラム
 
-This is a Go application for discovering and controlling ECHONET Lite devices on a local network. ECHONET Lite is a communication protocol for smart home devices, primarily used in Japan.
+WebSocketを使用したECHONET Liteデバイス制御システム
 
-## Features
+## 概要
 
-- Automatic discovery of ECHONET Lite devices on the local network
-- List all discovered devices with their properties
-- Get property values from specific devices
-- Set property values on specific devices
-- Persistent storage of discovered devices in a JSON file
-- Support for various device types (air conditioners, lighting, floor heating, etc.)
+このプロジェクトは、ECHONET Liteプロトコルを使用してホームネットワーク内のデバイスを発見し、デバイスの状態を取得・制御するためのツールです。WebSocketを使用してクライアント・サーバーアーキテクチャを採用しており、コマンドラインクライアントとサーバーコンポーネントに分かれています。
 
-## Installation
+## 構成
 
-### Prerequisites
+- `server/` - WebSocketサーバー（ECHONET Lite通信を担当）
+- `client/` - コマンドラインクライアント
+- `protocol/` - クライアントとサーバー間で使用される共通プロトコル定義
+- `echonet_lite/` - ECHONET Liteプロトコルの実装
 
-- Go 1.20 or later
+## ビルド方法
 
-### Building from Source
+### 依存関係
 
-1. Clone the repository
-2. Build the application:
+- Go 1.18以上
 
-```bash
-go build
+### サーバーのビルド
+
+```shell
+go build -o echonet-server ./server
 ```
 
-## Usage
+### クライアントのビルド
 
-Run the application:
-
-```bash
-./echonet-list [options]
+```shell
+go build -o echonet-client ./client
 ```
 
-### Command Line Options
+## 使い方
 
-- `-debug`: Enable debug mode to display detailed communication logs (packet contents, hex dumps, etc.)
-- `-log`: Specify a log file name
+### サーバーの起動
 
-Example with debug mode:
-
-```bash
-./echonet-list -debug
+```shell
+./echonet-server -port 8080 -debug
 ```
 
-### Commands
+オプション:
+- `-port`: WebSocketサーバーのポート番号（デフォルト: 8080）
+- `-debug`: デバッグモードを有効にする
+- `-log`: ログファイル名を指定する（デフォルト: echonet-server.log）
 
-The application provides a command-line interface with the following commands:
+### クライアントの使用
 
-#### Discover Devices
-
-```bash
-> discover
+```shell
+./echonet-client -server ws://localhost:8080/ws
 ```
 
-This command broadcasts a discovery message to find all ECHONET Lite devices on the network.
+オプション:
+- `-server`: WebSocketサーバーのURL（デフォルト: ws://localhost:8080/ws）
+- `-debug`: デバッグモードを有効にする
 
-#### List Devices
+クライアントを起動すると、以下のようなコマンドが使用できます:
 
-```bash
-> devices
-> list
-```
+- `discover`: ECHONET Liteデバイスの発見
+- `devices` or `list`: 検出されたデバイスの一覧表示
+- `get`: デバイスのプロパティ値を取得
+- `set`: デバイスのプロパティ値を設定
+- `update`: デバイスのプロパティキャッシュを更新
+- `debug`: デバッグモードの表示/切り替え
+- `help`: ヘルプを表示
+- `quit`: プログラムを終了
 
-Lists all discovered devices. You can filter the results:
+詳細なコマンドの使い方については、`help`コマンドを実行してください。
 
-```bash
-> devices [ipAddress] [classCode[:instanceCode]] [-all|-props] [EPC1 EPC2 ...]
-```
+## サポートされているデバイスタイプ
 
-Options:
+このアプリケーションは、以下のECHONET Liteデバイスタイプをサポートしています:
 
-- `ipAddress`: Filter by IP address (e.g., 192.168.0.212)
-- `classCode`: Filter by class code (4 hexadecimal digits, e.g., 0130)
-- `instanceCode`: Filter by instance code (1-255, e.g., 0130:1)
-- `-all`: Show all properties
-- `-props`: Show only known properties
-- `EPC`: Show only specific properties (2 hexadecimal digits, e.g., 80)
+- ホームエアコン (0x0130)
+- 床暖房 (0x027b)
+- 単機能照明 (0x0291)
+- 照明システム (0x02a3)
+- コントローラー (0x05ff)
+- ノードプロファイル (0x0ef0)
 
-#### Get Property Values
+## 使用例
 
-```bash
-> get [ipAddress] classCode[:instanceCode] epc1 [epc2...] [-skip-validation]
-```
+### エアコンの発見と制御
 
-Gets property values from a specific device:
+1. アプリケーションを起動する
+2. デバイスを発見する: `discover`
+3. すべてのデバイスを一覧表示する: `devices`
+4. エアコンの動作状態を取得する: `get 0130 80`
+5. エアコンをオンにする: `set 0130 on`
+6. 温度を25°Cに設定する: `set 0130 b3:19` （25°Cの16進数は0x19）
 
-- `ipAddress`: Target device IP address (optional if only one device matches the class code)
-- `classCode`: Class code (4 hexadecimal digits, required)
-- `instanceCode`: Instance code (1-255, defaults to 1 if omitted)
-- `epc`: Property code to get (2 hexadecimal digits, e.g., 80)
-- `-skip-validation`: Skip device existence validation (useful for testing timeout behavior)
+### 照明の制御
 
-#### Set Property Values
+1. デバイスを発見する: `discover`
+2. すべての照明デバイスを一覧表示する: `devices 0291`
+3. 照明をオンにする: `set 0291 on`
+4. 照明をオフにする: `set 0291 off`
 
-```bash
-> set [ipAddress] classCode[:instanceCode] property1 [property2...]
-```
+### デバイスプロパティの更新
 
-Sets property values on a specific device:
+1. デバイスを発見する: `discover`
+2. すべてのエアコンのすべてのプロパティを更新する: `update 0130`
+3. 特定のデバイスのすべてのプロパティを更新する: `update 192.168.0.5 0130:1`
+4. 更新されたプロパティを確認する: `devices 0130 -all`
 
-- `ipAddress`: Target device IP address (optional if only one device matches the class code)
-- `classCode`: Class code (4 hexadecimal digits, required)
-- `instanceCode`: Instance code (1-255, defaults to 1 if omitted)
-- `property`: Property to set, in one of these formats:
-  - `EPC:EDT` (e.g., 80:30)
-  - `EPC` (e.g., 80) - displays available aliases for this EPC
-  - Alias name (e.g., `on`) - automatically expanded to the corresponding EPC:EDT
-  - Examples:
-    - `on` (equivalent to setting operation status to ON)
-    - `off` (equivalent to setting operation status to OFF)
-    - `80:on` (equivalent to setting operation status to ON)
-    - `b0:auto` (equivalent to setting air conditioner to auto mode)
+## トラブルシューティング
 
-#### Update Device Properties
+### 一般的なエラー
 
-```bash
-> update [ipAddress] [classCode[:instanceCode]]
-```
+#### ポートが既に使用されている
 
-Updates all properties of devices that match the specified criteria:
-
-- `ipAddress`: Filter by IP address (e.g., 192.168.0.212)
-- `classCode`: Filter by class code (4 hexadecimal digits, e.g., 0130)
-- `instanceCode`: Filter by instance code (1-255, e.g., 0130:1)
-
-This command retrieves all properties listed in the device's GetPropertyMap and updates the local cache. It can be used to refresh the property values of one or multiple devices.
-
-#### Device Aliases
-
-```bash
-> alias
-> alias <aliasName>
-> alias <aliasName> [ipAddress] classCode[:instanceCode]
-> alias -delete <aliasName>
-```
-
-Manages device aliases for easier reference:
-
-- No arguments: Lists all registered aliases
-- `<aliasName>`: Shows information about the specified alias
-- `<aliasName> [ipAddress] classCode[:instanceCode]`: Creates or updates an alias for a device
-- `-delete <aliasName>`: Deletes the specified alias
-
-Examples:
-```bash
-> alias ac 192.168.0.3 0130:1  # Create alias 'ac' for air conditioner at 192.168.0.3
-> alias ac 0130                # Create alias 'ac' for the only air conditioner (if only one exists)
-> alias ac                     # Show information about alias 'ac'
-> alias -delete ac             # Delete alias 'ac'
-> alias                        # List all aliases
-```
-
-Using aliases with other commands:
-```bash
-> get ac 80                    # Get operation status of device with alias 'ac'
-> set ac on                    # Turn on device with alias 'ac'
-```
-
-#### Debug Mode
-
-```bash
-> debug [on|off]
-```
-
-Displays or changes the debug mode:
-
-- No arguments: Display current debug mode
-- `on`: Enable debug mode
-- `off`: Disable debug mode
-
-#### Help
-
-```bash
-> help
-```
-
-Displays help information about available commands.
-
-#### Quit
-
-```bash
-> quit
-```
-
-Exits the application.
-
-## Supported Device Types
-
-The application supports various ECHONET Lite device types, including:
-
-- Home Air Conditioner (0x0130)
-- Floor Heating (0x027b)
-- Single-Function Lighting (0x0291)
-- Lighting System (0x02a3)
-- Controller (0x05ff)
-- Node Profile (0x0ef0)
-
-## Example Use Cases
-
-### Discovering and Controlling an Air Conditioner
-
-1. Start the application
-2. Discover devices: `discover`
-3. List all devices: `devices`
-4. Get the operation status of an air conditioner: `get 0130 80`
-5. Turn on the air conditioner: `set 0130 on`
-6. Set the temperature to 25°C: `set 0130 b3:19` (25°C in hexadecimal is 0x19)
-
-### Controlling Lights
-
-1. Discover devices: `discover`
-2. List all lighting devices: `devices 0291`
-3. Turn on a light: `set 0291 on`
-4. Turn off a light: `set 0291 off`
-
-### Updating Device Properties
-
-1. Discover devices: `discover`
-2. Update all properties of all air conditioners: `update 0130`
-3. Update all properties of a specific device: `update 192.168.0.5 0130:1`
-4. Check the updated properties: `devices 0130 -all`
-
-## Troubleshooting
-
-### Common Errors
-
-#### Port Already in Use
-
-If you encounter the error message:
+以下のエラーメッセージが表示される場合:
 ```
 listen udp :3610: bind: address already in use
 ```
-This indicates that another instance of the application is already running and using UDP port 3610. 
+これは、別のインスタンスのアプリケーションがすでに実行されていて、UDPポート3610を使用していることを示しています。
 
-**Resolution:**
-1. Find and terminate the other running instance of the application
-   - On Linux/macOS: `ps aux | grep echonet-list` to find the process, then `kill <PID>` to terminate it
-   - On Windows: Use Task Manager to end the process
-2. After stopping the other instance, try running the application again
+**解決方法:**
+1. 他のアプリケーションインスタンスを見つけて終了させる:
+   - Linux/macOS: `ps aux | grep echonet-server` でプロセスを見つけ、`kill <PID>` で終了させる
+   - Windows: タスクマネージャーを使用してプロセスを終了させる
+2. 他のインスタンスを停止した後、アプリケーションを再実行する
 
-## References
+## 参考文献
 
-- [ECHONET Lite Specification](https://echonet.jp/spec_v114_lite/)
-- [ECHONET Lite Object Specification](https://echonet.jp/spec_object_rr2/)
+- [ECHONET Lite仕様](https://echonet.jp/spec_v114_lite/)
+- [ECHONET Liteオブジェクト仕様](https://echonet.jp/spec_object_rr2/)
