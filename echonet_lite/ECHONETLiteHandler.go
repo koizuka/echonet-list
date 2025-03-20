@@ -650,19 +650,21 @@ type DeviceAndProperties struct {
 
 // GetProperties は、プロパティ値を取得する
 // 成功時には ip, eoj と properties を返す
-func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType) (DeviceAndProperties, error) {
+func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error) {
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
 	logger := log.GetLogger()
 
-	// 指定されたEPCがGetPropertyMapに含まれているか確認
-	valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, EPCs, GetPropertyMap)
-	if err != nil {
-		return DeviceAndProperties{}, err
-	}
-	if !valid {
-		return DeviceAndProperties{}, fmt.Errorf("以下のEPCはGetPropertyMapに含まれていません: %v", invalidEPCs)
+	if !skipValidation {
+		// 指定されたEPCがGetPropertyMapに含まれているか確認
+		valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, EPCs, GetPropertyMap)
+		if err != nil {
+			return DeviceAndProperties{}, err
+		}
+		if !valid {
+			return DeviceAndProperties{}, fmt.Errorf("以下のEPCはGetPropertyMapに含まれていません: %v", invalidEPCs)
+		}
 	}
 
 	// GetPropertiesWithContextを呼び出し

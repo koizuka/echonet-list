@@ -102,8 +102,8 @@ func main() {
 			case echonet_lite.DeviceAdded:
 				fmt.Printf("新しいデバイスが検出されました: %v\n", notification.Device)
 			case echonet_lite.DeviceTimeout:
-				fmt.Printf("デバイス %v へのリクエストがタイムアウトしました: %v\n",
-					notification.Device, notification.Error)
+				// fmt.Printf("デバイス %v へのリクエストがタイムアウトしました: %v\n",
+				// 	notification.Device, notification.Error)
 			}
 		}
 	}()

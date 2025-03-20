@@ -82,7 +82,7 @@ Options:
 #### Get Property Values
 
 ```bash
-> get [ipAddress] classCode[:instanceCode] epc1 [epc2...]
+> get [ipAddress] classCode[:instanceCode] epc1 [epc2...] [-skip-validation]
 ```
 
 Gets property values from a specific device:
@@ -91,6 +91,7 @@ Gets property values from a specific device:
 - `classCode`: Class code (4 hexadecimal digits, required)
 - `instanceCode`: Instance code (1-255, defaults to 1 if omitted)
 - `epc`: Property code to get (2 hexadecimal digits, e.g., 80)
+- `-skip-validation`: Skip device existence validation (useful for testing timeout behavior)
 
 #### Set Property Values
 

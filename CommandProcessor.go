@@ -227,14 +227,34 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 }
 
 func (p *CommandProcessor) processGetCommand(cmd *Command) error {
+	skipValidation := false
+	if cmd.DebugMode != nil && *cmd.DebugMode == "-skip-validation" {
+		skipValidation = true
+	}
+
 	device, err := p.getSingleDevice(cmd.DeviceSpec)
 	if err != nil {
-		return err
+		// -skip-validation が付いている場合、 IPアドレスとclassCodeさえあればデバイスを作成して処理を続行する。タイムアウト動作確認用
+		if skipValidation {
+			if cmd.DeviceSpec.IP == nil || cmd.DeviceSpec.ClassCode == nil {
+				return errors.New("get コマンドにはIPアドレスとクラスコードが必要です")
+			}
+			instanceCode := echonet_lite.EOJInstanceCode(0)
+			if cmd.DeviceSpec.InstanceCode != nil {
+				instanceCode = *cmd.DeviceSpec.InstanceCode
+			}
+			device = &echonet_lite.IPAndEOJ{
+				IP:  *cmd.DeviceSpec.IP,
+				EOJ: echonet_lite.MakeEOJ(*cmd.DeviceSpec.ClassCode, instanceCode),
+			}
+		} else {
+			return err
+		}
 	}
 	if len(cmd.EPCs) == 0 {
 		return errors.New("get コマンドには少なくとも1つのEPCが必要です")
 	}
-	result, err := p.handler.GetProperties(*device, cmd.EPCs)
+	result, err := p.handler.GetProperties(*device, cmd.EPCs, skipValidation)
 	if err == nil {
 		fmt.Printf("プロパティ取得成功: %v\n", result.Device)
 		classCode := result.Device.EOJ.ClassCode()

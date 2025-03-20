@@ -324,6 +324,10 @@ func (p CommandParser) parseGetCommand(parts []string) (*Command, error) {
 	}
 
 	for i := argIndex; i < len(parts); i++ {
+		if parts[i] == "-skip-validation" {
+			cmd.DebugMode = &parts[i]
+			continue
+		}
 		epc, err := parseEPC(parts[i])
 		if err != nil {
 			return nil, err
@@ -581,11 +585,12 @@ func PrintUsage() {
 	fmt.Println("    -props: 既知のEPCのみを表示")
 	fmt.Println("    epc: 2桁の16進数で指定（例: 80）。複数指定可能")
 	fmt.Println("    ※-all, -props, epc は最後に指定されたものが有効になります")
-	fmt.Println("  get [ipAddress] classCode[:instanceCode] epc1 [epc2...]: プロパティ値の取得")
+	fmt.Println("  get [ipAddress] classCode[:instanceCode] epc1 [epc2...] [-skip-validation]: プロパティ値の取得")
 	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）")
 	fmt.Println("    classCode: クラスコード（4桁の16進数、必須）")
 	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、省略時は1）")
 	fmt.Println("    epc: 取得するプロパティのEPC（2桁の16進数、例: 80）。複数指定可能")
+	fmt.Println("    -skip-validation: デバイスの存在チェックをスキップ（タイムアウト動作確認用）")
 	fmt.Println("  set [ipAddress] classCode[:instanceCode] property1 [property2...]: プロパティ値の設定")
 	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）")
 	fmt.Println("    classCode: クラスコード（4桁の16進数、必須）")
