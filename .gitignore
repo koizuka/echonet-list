@@ -4,6 +4,10 @@ aliases.json
 echonet-list
 echonet-list.exe
 echonet-list.log
+client/client
+client/client.exe
+server/server
+server/server.exe
 
 ### Go template
 # If you prefer the allow list template instead of the deny list, see community template:

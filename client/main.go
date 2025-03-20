@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"echonet-list/client"
+	"echonet-list/clientlib"
 	"echonet-list/protocol"
 	"encoding/hex"
 	"flag"
@@ -52,7 +52,7 @@ func main() {
 	}()
 
 	// WebSocketクライアントの作成
-	echonetClient, err := client.NewECHONETLiteClient(ctx, serverURL)
+	echonetClient, err := clientlib.NewECHONETLiteClient(ctx, serverURL)
 	if err != nil {
 		fmt.Printf("WebSocketクライアントの作成に失敗: %v\n", err)
 		return
@@ -73,7 +73,7 @@ func main() {
 	}()
 
 	// コマンドプロセッサの作成と開始
-	processor := client.NewCommandProcessor(ctx, echonetClient)
+	processor := clientlib.NewCommandProcessor(ctx, echonetClient)
 	processor.Start()
 	// defer processor.Stop() は不要。明示的に呼び出すため
 
@@ -155,7 +155,7 @@ func main() {
 			continue
 		}
 
-		if cmd.Type == client.CmdQuit {
+		if cmd.Type == clientlib.CmdQuit {
 			// quitコマンドの場合は、コマンドチャネル経由で送信せず、直接終了処理を行う
 			close(cmd.Done) // 完了を通知
 			processor.Stop()
@@ -178,21 +178,21 @@ func NewCommandParser() *CommandParser {
 }
 
 // ParseCommand はコマンド文字列をパースする
-func (p *CommandParser) ParseCommand(input string, debug bool) (*client.Command, error) {
+func (p *CommandParser) ParseCommand(input string, debug bool) (*clientlib.Command, error) {
 	parts := strings.Fields(input)
 	if len(parts) == 0 {
 		return nil, nil
 	}
 
-	var cmd *client.Command
+	var cmd *clientlib.Command
 	var err error
 	switch parts[0] {
 	case "quit":
-		cmd = newCommand(client.CmdQuit)
+		cmd = newCommand(clientlib.CmdQuit)
 	case "discover":
-		cmd = newCommand(client.CmdDiscover)
+		cmd = newCommand(clientlib.CmdDiscover)
 	case "help":
-		cmd = newCommand(client.CmdHelp)
+		cmd = newCommand(clientlib.CmdHelp)
 	case "get":
 		cmd, err = p.parseGetCommand(parts)
 	case "set":
@@ -216,8 +216,8 @@ func (p *CommandParser) ParseCommand(input string, debug bool) (*client.Command,
 }
 
 // 基本的なコマンドオブジェクトを作成するヘルパー関数
-func newCommand(cmdType client.CommandType) *client.Command {
-	return &client.Command{
+func newCommand(cmdType clientlib.CommandType) *clientlib.Command {
+	return &clientlib.Command{
 		Done: make(chan struct{}),
 		Type: cmdType,
 	}
@@ -294,8 +294,8 @@ func parseEPC(epcStr string) (protocol.EPCType, error) {
 }
 
 // devicesコマンドまたはlistコマンドをパースする
-func (p *CommandParser) parseDevicesCommand(parts []string) (*client.Command, error) {
-	cmd := newCommand(client.CmdDevices)
+func (p *CommandParser) parseDevicesCommand(parts []string) (*clientlib.Command, error) {
+	cmd := newCommand(clientlib.CmdDevices)
 	cmd.PropMode = protocol.PropDefault
 
 	// デバイス指定子と残りの引数を解析
@@ -349,8 +349,8 @@ func (p *CommandParser) parseDevicesCommand(parts []string) (*client.Command, er
 }
 
 // getコマンドをパースする
-func (p *CommandParser) parseGetCommand(parts []string) (*client.Command, error) {
-	cmd := newCommand(client.CmdGet)
+func (p *CommandParser) parseGetCommand(parts []string) (*clientlib.Command, error) {
+	cmd := newCommand(clientlib.CmdGet)
 
 	// デバイス指定子と残りの引数を解析
 	argIndex := 1
@@ -400,8 +400,8 @@ func (p *CommandParser) parseGetCommand(parts []string) (*client.Command, error)
 }
 
 // setコマンドをパースする
-func (p *CommandParser) parseSetCommand(parts []string, debug bool) (*client.Command, error) {
-	cmd := newCommand(client.CmdSet)
+func (p *CommandParser) parseSetCommand(parts []string, debug bool) (*clientlib.Command, error) {
+	cmd := newCommand(clientlib.CmdSet)
 
 	// デバイス指定子と残りの引数を解析
 	argIndex := 1
@@ -461,8 +461,8 @@ func (p *CommandParser) parseSetCommand(parts []string, debug bool) (*client.Com
 }
 
 // debugコマンドをパースする
-func (p *CommandParser) parseDebugCommand(parts []string) (*client.Command, error) {
-	cmd := newCommand(client.CmdDebug)
+func (p *CommandParser) parseDebugCommand(parts []string) (*clientlib.Command, error) {
+	cmd := newCommand(clientlib.CmdDebug)
 
 	// 引数がない場合は現在のデバッグモードを表示するためにnilのままにする
 	if len(parts) == 1 {
@@ -481,8 +481,8 @@ func (p *CommandParser) parseDebugCommand(parts []string) (*client.Command, erro
 }
 
 // updateコマンドをパースする
-func (p *CommandParser) parseUpdateCommand(parts []string) (*client.Command, error) {
-	cmd := newCommand(client.CmdUpdate)
+func (p *CommandParser) parseUpdateCommand(parts []string) (*clientlib.Command, error) {
+	cmd := newCommand(clientlib.CmdUpdate)
 
 	// デバイス指定子の解析
 	argIndex := 1
@@ -514,8 +514,8 @@ func (p *CommandParser) parseUpdateCommand(parts []string) (*client.Command, err
 }
 
 // aliasコマンドをパースする
-func (p *CommandParser) parseAliasCommand(parts []string) (*client.Command, error) {
-	cmd := newCommand(client.CmdAliasList)
+func (p *CommandParser) parseAliasCommand(parts []string) (*clientlib.Command, error) {
+	cmd := newCommand(clientlib.CmdAliasList)
 
 	// エイリアスコマンドは現在未実装
 	return cmd, fmt.Errorf("エイリアス関連コマンドは現在実装中です")

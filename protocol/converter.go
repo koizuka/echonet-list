@@ -47,13 +47,14 @@ func ConvertPropertyToPropertyInfo(property echonet_lite.Property, classCode ech
 
 	// プロパティ情報が存在する場合、名前と説明を追加
 	if info, ok := echonet_lite.GetPropertyInfo(classCode, property.EPC); ok {
-		propInfo.Name = info.Name
-		propInfo.Description = info.Description
-
-		// 値の変換（特定のプロパティタイプに対して）
-		if info.Converter != nil {
-			propInfo.Value = info.Converter(property.EDT)
+		// PropertyInfoにはDecoderがあるので、それを使って値を設定
+		if info.Decoder != nil {
+			decodedValue := info.Decoder(property.EDT)
+			propInfo.Value = decodedValue.String()
 		}
+
+		// EPCs（名前）を設定
+		propInfo.Name = info.EPCs
 	}
 
 	return propInfo

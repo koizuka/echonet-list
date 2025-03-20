@@ -127,7 +127,7 @@ func (p *CommandProcessor) processCommands() {
 				results, err := p.client.ListDevices(cmd.DeviceSpec, cmd.PropMode, cmd.EPCs, cmd.Properties)
 				cmd.Error = err
 				if err == nil {
-					displayDeviceList(results)
+					DisplayDeviceList(results)
 				}
 				close(cmd.Done)
 			}()
@@ -141,7 +141,7 @@ func (p *CommandProcessor) processCommands() {
 				result, err := p.client.GetProperties(cmd.DeviceSpec, cmd.EPCs, cmd.DebugMode != nil && *cmd.DebugMode == "-skip-validation")
 				cmd.Error = err
 				if err == nil && result != nil {
-					displayDeviceProperties(*result)
+					DisplayDeviceProperties(*result)
 				}
 				close(cmd.Done)
 			}()
@@ -153,7 +153,7 @@ func (p *CommandProcessor) processCommands() {
 				result, err := p.client.SetProperties(cmd.DeviceSpec, cmd.Properties)
 				cmd.Error = err
 				if err == nil && result != nil {
-					displayDeviceProperties(*result)
+					DisplayDeviceProperties(*result)
 				}
 				close(cmd.Done)
 			}()
@@ -208,8 +208,8 @@ func (p *CommandProcessor) processCommands() {
 	p.waitGroup.Wait()
 }
 
-// displayDeviceList は取得したデバイス情報を表示する
-func displayDeviceList(results []protocol.DevicePropertyResult) {
+// DisplayDeviceList は取得したデバイス情報を表示する
+func DisplayDeviceList(results []protocol.DevicePropertyResult) {
 	for _, result := range results {
 		// デバイス名を表示
 		names := append(result.Device.Aliases, fmt.Sprintf("%s %s:%d", 
@@ -235,8 +235,8 @@ func displayDeviceList(results []protocol.DevicePropertyResult) {
 	}
 }
 
-// displayDeviceProperties はデバイスプロパティを表示する
-func displayDeviceProperties(result protocol.DevicePropertyResult) {
+// DisplayDeviceProperties はデバイスプロパティを表示する
+func DisplayDeviceProperties(result protocol.DevicePropertyResult) {
 	// デバイス情報を表示
 	fmt.Printf("デバイス: %s %s:%d\n", 
 		result.Device.IP, 

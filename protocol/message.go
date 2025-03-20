@@ -144,7 +144,6 @@ type PropertyInfo struct {
 	EPC         EPCType    `json:"epc"`                  // EPC
 	EDT         ByteArray  `json:"edt"`                  // EDT
 	Name        string     `json:"name,omitempty"`       // プロパティ名（存在する場合）
-	Description string     `json:"description,omitempty"`// プロパティの説明（存在する場合）
 	Value       interface{}`json:"value,omitempty"`      // 変換された値（存在する場合）
 }
 

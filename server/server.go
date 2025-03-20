@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"context"
@@ -286,7 +286,6 @@ func (s *ECHONETLiteServer) handleDiscoverCommand(cmd protocol.CommandMessage) (
 
 func (s *ECHONETLiteServer) handleDevicesCommand(cmd protocol.CommandMessage) (bool, interface{}, error) {
 	// オプションからプロパティモードを取得
-	var propMode echonet_lite.PropertyDisplayMode
 	var deviceSpec echonet_lite.DeviceSpecifier
 	var properties []echonet_lite.Property
 
@@ -317,9 +316,7 @@ func (s *ECHONETLiteServer) handleDevicesCommand(cmd protocol.CommandMessage) (b
 			return false, nil, fmt.Errorf("オプションのデコードに失敗: %w", err)
 		}
 
-		if options.PropMode != nil {
-			propMode = echonet_lite.PropertyDisplayMode(*options.PropMode)
-		}
+		// 注意: プロパティモードはクライアント側で処理するため、サーバー側では無視する
 	}
 
 	// プロパティの処理（フィルタリング条件）
