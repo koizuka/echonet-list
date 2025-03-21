@@ -27,7 +27,7 @@
 
 ## What's Left to Build
 
-- **タイムアウト通知のテスト**: 実装したタイムアウト通知機能が実際の環境で正しく動作するかテストする必要があります
+No immediate tasks remaining.
 
 ### 将来の計画 (Future Plans)
 
@@ -77,7 +77,7 @@
   - ✅ Implemented event forwarding from Devices to ECHONETLiteHandler
   - ✅ Tested device addition notification in real environment
   - ✅ Added unit tests for device notification in Devices_test.go
-  - ❌ Testing timeout notification in real environment pending
+  - ✅ Testing timeout notification in real environment completed
 - **Help Command Enhancement**: ✅ COMPLETED
   - ✅ Created CommandDefinition struct to hold command information
   - ✅ Implemented CommandTable to store all command definitions
