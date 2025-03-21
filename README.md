@@ -133,7 +133,7 @@ This command retrieves all properties listed in the device's GetPropertyMap and 
 ```bash
 > alias
 > alias <aliasName>
-> alias <aliasName> [ipAddress] classCode[:instanceCode]
+> alias <aliasName> [ipAddress] classCode[:instanceCode] [property1 property2...]
 > alias -delete <aliasName>
 ```
 
@@ -141,16 +141,18 @@ Manages device aliases for easier reference:
 
 - No arguments: Lists all registered aliases
 - `<aliasName>`: Shows information about the specified alias
-- `<aliasName> [ipAddress] classCode[:instanceCode]`: Creates or updates an alias for a device
+- `<aliasName> [ipAddress] classCode[:instanceCode] [property1 property2...]`: Creates or updates an alias for a device
 - `-delete <aliasName>`: Deletes the specified alias
 
 Examples:
 ```bash
-> alias ac 192.168.0.3 0130:1  # Create alias 'ac' for air conditioner at 192.168.0.3
-> alias ac 0130                # Create alias 'ac' for the only air conditioner (if only one exists)
-> alias ac                     # Show information about alias 'ac'
-> alias -delete ac             # Delete alias 'ac'
-> alias                        # List all aliases
+> alias ac 192.168.0.3 0130:1           # Create alias 'ac' for air conditioner at 192.168.0.3
+> alias ac 0130                          # Create alias 'ac' for the only air conditioner (if only one exists)
+> alias aircon1 0130 living1             # Create alias 'aircon1' for air conditioner with installation location 'living1'
+> alias aircon2 0130 on kitchen1         # Create alias 'aircon2' for powered-on air conditioner in the kitchen1
+> alias ac                               # Show information about alias 'ac'
+> alias -delete ac                       # Delete alias 'ac'
+> alias                                  # List all aliases
 ```
 
 Using aliases with other commands:

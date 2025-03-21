@@ -116,7 +116,8 @@ func (p *CommandProcessor) processCommands() {
 			}
 		case CmdAliasSet:
 			criteria := client.FilterCriteria{
-				Device: cmd.DeviceSpec,
+				Device:         cmd.DeviceSpec,
+				PropertyValues: cmd.Properties,
 			}
 			cmd.Error = p.handler.AliasSet(cmd.DeviceAlias, criteria)
 		case CmdAliasDelete:

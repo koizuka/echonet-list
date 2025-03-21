@@ -279,3 +279,17 @@ func (m *ECHONETLiteMessage) Encode() []byte {
 	}
 	return encode(EHD, m.TID, m.SEOJ, m.DEOJ, m.ESV, m.Properties)
 }
+
+type TooManyDevicesError struct {
+	Devices []IPAndEOJ
+}
+
+func (e TooManyDevicesError) Error() string {
+	errMsg := []string{
+		"デバイスが複数見つかりました。1つに絞ってください",
+	}
+	for _, device := range e.Devices {
+		errMsg = append(errMsg, fmt.Sprintf("  %v", device))
+	}
+	return strings.Join(errMsg, "\n")
+}

@@ -903,7 +903,7 @@ func (h *ECHONETLiteHandler) AliasSet(alias *string, criteria FilterCriteria) er
 		return fmt.Errorf("デバイスが見つかりません: %v", criteria)
 	}
 	if devices.Len() > 1 {
-		return fmt.Errorf("デバイスが複数見つかりました: %v", devices)
+		return TooManyDevicesError{devices.ListIPAndEOJ()}
 	}
 	found := devices.ListIPAndEOJ()[0]
 

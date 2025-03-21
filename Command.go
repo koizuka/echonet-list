@@ -536,6 +536,20 @@ func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
 		}
 		cmd.DeviceSpec = deviceSpec
 
+		// 絞り込みプロパティ値のパース
+		var classCode client.EOJClassCode
+		if deviceSpec.ClassCode != nil {
+			classCode = *deviceSpec.ClassCode
+		}
+		for {
+			props, err := p.parsePropertyString(parts[argIndex], classCode, false)
+			if err != nil {
+				break
+			}
+			cmd.Properties = append(cmd.Properties, props)
+			argIndex++
+		}
+
 		// 残りの引数がある場合はエラー
 		if argIndex < len(parts) {
 			return nil, &InvalidArgument{Argument: parts[argIndex]}
@@ -584,6 +598,7 @@ func (p CommandParser) ParseCommand(input string, debug bool) (*Command, error) 
 }
 
 // コマンドの使用方法を表示する
+// コマンドの使用法に変化があったときは、この関数と README.md も更新すること
 func PrintUsage() {
 	fmt.Println("ECHONET Lite デバイス検出プログラム")
 	fmt.Println("コマンド:")
@@ -626,8 +641,10 @@ func PrintUsage() {
 	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）")
 	fmt.Println("    classCode: クラスコード（4桁の16進数）")
 	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、省略時は1）")
+	fmt.Println("    property: プロパティ値による絞り込み（例: living1 - 設置場所が'living1'のデバイスを指定）")
 	fmt.Println("    例: alias ac 192.168.0.3 0130:1 - IPアドレス192.168.0.3、クラスコード0130、インスタンスコード1のデバイスに「ac」というエイリアスを設定")
 	fmt.Println("    例: alias ac 0130 - クラスコード0130のデバイスに「ac」というエイリアスを設定（デバイスが1つだけの場合）")
+	fmt.Println("    例: alias aircon1 0130 living1 - クラスコード0130で設置場所が'living1'のデバイスに「aircon1」というエイリアスを設定")
 	fmt.Println("    例: alias ac - 「ac」というエイリアスの情報を表示")
 	fmt.Println("    例: alias -delete ac - 「ac」というエイリアスを削除")
 	fmt.Println("  debug [on|off]: デバッグモードの表示または切り替え")
