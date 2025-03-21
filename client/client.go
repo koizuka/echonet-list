@@ -24,29 +24,9 @@ type DeviceAndProperties = echonet_lite.DeviceAndProperties
 type PropertyInfo = echonet_lite.PropertyInfo
 
 type ECHONETListClient interface {
+	Debugger
+	AliasManager
+	DeviceManager
+	PropertyInfoProvider
 	Close() error
-	IsDebug() bool
-	SetDebug(debug bool)
-
-	AliasList() []AliasDevicePair
-	AliasSet(alias *string, criteria FilterCriteria) error
-	AliasDelete(alias *string) error
-	AliasGet(alias *string) (*IPAndEOJ, error)
-	GetAliases(device IPAndEOJ) []string
-
-	Discover() error
-	UpdateProperties(criteria FilterCriteria) error
-	GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ
-	ListDevices(criteria FilterCriteria) []DeviceAndProperties
-	GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error)
-	SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error)
-
-	GetDeviceByAlias(alias string) (IPAndEOJ, bool)
-	ValidateDeviceAlias(alias string) error
-
-	GetAllPropertyAliases() []string
-	GetPropertyInfo(classCode EOJClassCode, e EPCType) (*PropertyInfo, bool)
-	IsPropertyDefaultEPC(classCode EOJClassCode, epc EPCType) bool
-	FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool)
-	AvailablePropertyAliases(classCode EOJClassCode) map[string]string
 }

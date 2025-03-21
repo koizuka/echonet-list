@@ -67,11 +67,15 @@ func (c *Command) GetInstanceCode() *client.EOJInstanceCode {
 }
 
 type CommandParser struct {
-	handler client.ECHONETListClient
+	propertyInfoProvider client.PropertyInfoProvider
+	aliasManager         client.AliasManager
 }
 
-func NewCommandParser(handler client.ECHONETListClient) *CommandParser {
-	return &CommandParser{handler: handler}
+func NewCommandParser(propertyInfoProvider client.PropertyInfoProvider, aliasManager client.AliasManager) *CommandParser {
+	return &CommandParser{
+		propertyInfoProvider: propertyInfoProvider,
+		aliasManager:         aliasManager,
+	}
 }
 
 // IPアドレスをパースして、有効なIPアドレスならそのポインタを返す
@@ -145,7 +149,7 @@ func parseHexBytes(hexStr string) ([]byte, error) {
 }
 
 func (p CommandParser) GetEDTFromAlias(c client.EOJClassCode, e client.EPCType, alias string) ([]byte, bool) {
-	if info, ok := p.handler.GetPropertyInfo(c, e); ok && info.Aliases != nil {
+	if info, ok := p.propertyInfoProvider.GetPropertyInfo(c, e); ok && info.Aliases != nil {
 		if aliases, ok := info.Aliases[alias]; ok {
 			return aliases, true
 		}
@@ -190,7 +194,7 @@ func (p CommandParser) parsePropertyString(propertyStr string, classCode client.
 		// エイリアスのみの場合（例: "on"）
 		alias := propertyStr
 
-		if p, ok := p.handler.FindPropertyAlias(classCode, alias); ok {
+		if p, ok := p.propertyInfoProvider.FindPropertyAlias(classCode, alias); ok {
 			if debug {
 				fmt.Printf("エイリアス '%s' を EPC:%s, EDT:%X に展開します\n", alias, p.EPC, p.EDT)
 			}
@@ -223,17 +227,15 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 	}
 
 	// エイリアスの取得
-	if p.handler != nil {
-		if alias, ok := p.handler.GetDeviceByAlias(parts[argIndex]); ok {
-			classCode := alias.EOJ.ClassCode()
-			instanceCode := alias.EOJ.InstanceCode()
-			deviceSpec := client.DeviceSpecifier{
-				IP:           &alias.IP,
-				ClassCode:    &classCode,
-				InstanceCode: &instanceCode,
-			}
-			return deviceSpec, argIndex + 1, nil
+	if alias, ok := p.aliasManager.GetDeviceByAlias(parts[argIndex]); ok {
+		classCode := alias.EOJ.ClassCode()
+		instanceCode := alias.EOJ.InstanceCode()
+		deviceSpec := client.DeviceSpecifier{
+			IP:           &alias.IP,
+			ClassCode:    &classCode,
+			InstanceCode: &instanceCode,
 		}
+		return deviceSpec, argIndex + 1, nil
 	}
 
 	// IPアドレスのパース（省略可能）- IPv4/IPv6に対応
@@ -361,7 +363,7 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 	// プロパティのパース
 	if argIndex >= len(parts) {
 		// 可能なエイリアス一覧
-		aliases := p.handler.AvailablePropertyAliases(*cmd.GetClassCode())
+		aliases := p.propertyInfoProvider.AvailablePropertyAliases(*cmd.GetClassCode())
 		return nil, &AvailableAliasesForAll{Aliases: aliases}
 	}
 
@@ -370,7 +372,7 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 		epc, err := parseEPC(parts[i])
 		if err == nil {
 			// クラスコードからPropertyInfoを取得
-			if propInfo, ok := p.handler.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
+			if propInfo, ok := p.propertyInfoProvider.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
 				return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
 			} else {
 				return nil, &AvailableAliasesForEPC{EPC: epc}
@@ -513,7 +515,7 @@ func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
 
 		// エイリアス名のパース
 		alias := parts[1]
-		if err := p.handler.ValidateDeviceAlias(alias); err != nil {
+		if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
 			return nil, err
 		}
 		cmd.DeviceAlias = &alias
@@ -522,7 +524,7 @@ func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
 
 		// エイリアス名のパース
 		alias := parts[1]
-		if err := p.handler.ValidateDeviceAlias(alias); err != nil {
+		if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
 			return nil, err
 		}
 		cmd.DeviceAlias = &alias
