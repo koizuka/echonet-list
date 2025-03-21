@@ -181,11 +181,6 @@ func (p *CommandProcessor) getSingleDevice(deviceSpec client.DeviceSpecifier) (*
 
 func sortProperties(p client.Properties) client.Properties {
 	// プロパティをEPCでソート
-	epcsToShow := make([]client.EPCType, 0, len(p))
-	for _, prop := range p {
-		epc := prop.EPC
-		epcsToShow = append(epcsToShow, epc)
-	}
 	sort.Slice(p, func(i, j int) bool {
 		return p[i].EPC < p[j].EPC
 	})
@@ -211,12 +206,12 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 			switch cmd.PropMode {
 			case PropDefault:
 				// デフォルトのプロパティのみ表示
-				if !client.IsPropertyDefaultEPC(classCode, epc) {
+				if !p.handler.IsPropertyDefaultEPC(classCode, epc) {
 					continue
 				}
 			case PropKnown:
 				// 既知のプロパティのみ表示
-				if _, ok := client.GetPropertyInfo(classCode, epc); !ok {
+				if _, ok := p.handler.GetPropertyInfo(classCode, epc); !ok {
 					continue
 				}
 			case PropEPC:

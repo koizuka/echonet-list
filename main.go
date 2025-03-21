@@ -136,7 +136,7 @@ func main() {
 		_ = rl.Close()
 	}(rl)
 
-	p := NewCommandParser(c.GetDeviceAliasManager())
+	p := NewCommandParser(c)
 
 	for {
 		line, err := rl.Readline()

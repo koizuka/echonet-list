@@ -67,11 +67,11 @@ func (c *Command) GetInstanceCode() *client.EOJInstanceCode {
 }
 
 type CommandParser struct {
-	DeviceAliases client.DeviceAliasManager
+	handler client.ECHONETListClient
 }
 
-func NewCommandParser(deviceAliases client.DeviceAliasManager) *CommandParser {
-	return &CommandParser{DeviceAliases: deviceAliases}
+func NewCommandParser(handler client.ECHONETListClient) *CommandParser {
+	return &CommandParser{handler: handler}
 }
 
 // IPアドレスをパースして、有効なIPアドレスならそのポインタを返す
@@ -144,8 +144,8 @@ func parseHexBytes(hexStr string) ([]byte, error) {
 	return bytes, nil
 }
 
-func GetEDTFromAlias(c client.EOJClassCode, e client.EPCType, alias string) ([]byte, bool) {
-	if info, ok := client.GetPropertyInfo(c, e); ok && info.Aliases != nil {
+func (p CommandParser) GetEDTFromAlias(c client.EOJClassCode, e client.EPCType, alias string) ([]byte, bool) {
+	if info, ok := p.handler.GetPropertyInfo(c, e); ok && info.Aliases != nil {
 		if aliases, ok := info.Aliases[alias]; ok {
 			return aliases, true
 		}
@@ -158,7 +158,7 @@ func GetEDTFromAlias(c client.EOJClassCode, e client.EPCType, alias string) ([]b
 // classCode: クラスコード
 // debug: デバッグフラグ
 // 戻り値: パースされたプロパティとエラー
-func parsePropertyString(propertyStr string, classCode client.EOJClassCode, debug bool) (client.Property, error) {
+func (p CommandParser) parsePropertyString(propertyStr string, classCode client.EOJClassCode, debug bool) (client.Property, error) {
 	// EPC:EDT の形式をパース
 	propParts := strings.Split(propertyStr, ":")
 	if len(propParts) == 2 {
@@ -170,7 +170,7 @@ func parsePropertyString(propertyStr string, classCode client.EOJClassCode, debu
 
 		var edt []byte
 
-		if aliasEDT, ok := GetEDTFromAlias(classCode, epc, propParts[1]); ok {
+		if aliasEDT, ok := p.GetEDTFromAlias(classCode, epc, propParts[1]); ok {
 			if debug {
 				fmt.Printf("エイリアス '%s' を EDT:%X に展開します\n", propParts[1], aliasEDT)
 			}
@@ -190,7 +190,7 @@ func parsePropertyString(propertyStr string, classCode client.EOJClassCode, debu
 		// エイリアスのみの場合（例: "on"）
 		alias := propertyStr
 
-		if p, ok := client.FindPropertyAlias(classCode, alias); ok {
+		if p, ok := p.handler.FindPropertyAlias(classCode, alias); ok {
 			if debug {
 				fmt.Printf("エイリアス '%s' を EPC:%s, EDT:%X に展開します\n", alias, p.EPC, p.EDT)
 			}
@@ -223,8 +223,8 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 	}
 
 	// エイリアスの取得
-	if p.DeviceAliases != nil {
-		if alias, ok := p.DeviceAliases.GetDeviceByAlias(parts[argIndex]); ok {
+	if p.handler != nil {
+		if alias, ok := p.handler.GetDeviceByAlias(parts[argIndex]); ok {
 			classCode := alias.EOJ.ClassCode()
 			instanceCode := alias.EOJ.InstanceCode()
 			deviceSpec := client.DeviceSpecifier{
@@ -361,7 +361,7 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 	// プロパティのパース
 	if argIndex >= len(parts) {
 		// 可能なエイリアス一覧
-		aliases := client.AvailablePropertyAliases(*cmd.GetClassCode())
+		aliases := p.handler.AvailablePropertyAliases(*cmd.GetClassCode())
 		return nil, &AvailableAliasesForAll{Aliases: aliases}
 	}
 
@@ -370,7 +370,7 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 		epc, err := parseEPC(parts[i])
 		if err == nil {
 			// クラスコードからPropertyInfoを取得
-			if propInfo, ok := client.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
+			if propInfo, ok := p.handler.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
 				return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
 			} else {
 				return nil, &AvailableAliasesForEPC{EPC: epc}
@@ -378,7 +378,7 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 		}
 
 		// プロパティ文字列をパース
-		prop, err := parsePropertyString(parts[i], *cmd.GetClassCode(), debug)
+		prop, err := p.parsePropertyString(parts[i], *cmd.GetClassCode(), debug)
 		if err != nil {
 			return nil, err
 		}
@@ -426,7 +426,7 @@ func (p CommandParser) parseDevicesCommand(parts []string) (*Command, error) {
 		if pClassCode == nil {
 			pClassCode = new(client.EOJClassCode)
 		}
-		props, err := parsePropertyString(parts[i], *pClassCode, false) // corrected from classCode to *pClassCode
+		props, err := p.parsePropertyString(parts[i], *pClassCode, false) // corrected from classCode to *pClassCode
 		if err == nil {
 			cmd.Properties = append(cmd.Properties, props)
 			continue
@@ -513,7 +513,7 @@ func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
 
 		// エイリアス名のパース
 		alias := parts[1]
-		if err := client.ValidateDeviceAlias(alias); err != nil {
+		if err := p.handler.ValidateDeviceAlias(alias); err != nil {
 			return nil, err
 		}
 		cmd.DeviceAlias = &alias
@@ -522,7 +522,7 @@ func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
 
 		// エイリアス名のパース
 		alias := parts[1]
-		if err := client.ValidateDeviceAlias(alias); err != nil {
+		if err := p.handler.ValidateDeviceAlias(alias); err != nil {
 			return nil, err
 		}
 		cmd.DeviceAlias = &alias
