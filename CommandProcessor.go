@@ -96,7 +96,7 @@ func (p *CommandProcessor) processCommands() {
 			cmd.Error = p.processDevicesCommand(cmd)
 
 		case CmdHelp:
-			PrintUsage()
+			PrintUsage(cmd.DeviceAlias)
 		case CmdGet:
 			cmd.Error = p.processGetCommand(cmd)
 		case CmdSet:

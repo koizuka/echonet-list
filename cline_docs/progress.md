@@ -19,6 +19,11 @@
   - Added GetPropertiesWithContext and SetPropertiesWithContext methods that handle retransmission
   - ECHONETLiteHandler now uses these new methods for more reliable communication
   - Improved error handling for partial success cases
+- Help command has been enhanced
+  - When given a command name as an argument, it shows detailed information for that command only
+  - Without arguments, it shows a summary of all commands
+  - Command information is now stored in a table-driven approach using CommandDefinition structs
+  - This makes the help system more maintainable and user-friendly
 
 ## What's Left to Build
 
@@ -73,5 +78,13 @@
   - ✅ Tested device addition notification in real environment
   - ✅ Added unit tests for device notification in Devices_test.go
   - ❌ Testing timeout notification in real environment pending
+- **Help Command Enhancement**: ✅ COMPLETED
+  - ✅ Created CommandDefinition struct to hold command information
+  - ✅ Implemented CommandTable to store all command definitions
+  - ✅ Added parseHelpCommand function to handle help command with arguments
+  - ✅ Modified PrintUsage to show detailed information for a specific command
+  - ✅ Added PrintCommandSummary and PrintCommandDetail functions
+  - ✅ Converted ParseCommand to use table-driven approach
+  - ✅ Replaced custom contains function with slices.Contains from standard library
 - **Architecture Split**: 🔄 PLANNED
 - **Web UI Development**: 🔄 PLANNED

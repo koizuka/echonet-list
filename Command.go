@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"golang.org/x/exp/slices"
 )
 
 // コマンドの種類を表す型
@@ -469,6 +471,18 @@ func (p CommandParser) parseDebugCommand(parts []string) (*Command, error) {
 	return cmd, nil
 }
 
+// "help" コマンドをパースする
+func (p CommandParser) parseHelpCommand(parts []string) (*Command, error) {
+	cmd := newCommand(CmdHelp)
+
+	// 引数がある場合は、その特定のコマンドについてのヘルプを表示する
+	if len(parts) > 1 {
+		cmd.DeviceAlias = &parts[1] // コマンド名を DeviceAlias に格納
+	}
+
+	return cmd, nil
+}
+
 // "update" コマンドをパースする
 func (p CommandParser) parseUpdateCommand(parts []string) (*Command, error) {
 	cmd := newCommand(CmdUpdate)
@@ -566,91 +580,222 @@ func (p CommandParser) ParseCommand(input string, debug bool) (*Command, error) 
 		return nil, nil
 	}
 
-	var cmd *Command
-	var err error
-	switch parts[0] {
-	case "quit":
-		cmd = newCommand(CmdQuit)
-	case "discover":
-		cmd = newCommand(CmdDiscover)
-	case "help":
-		cmd = newCommand(CmdHelp)
-	case "get":
-		cmd, err = p.parseGetCommand(parts)
-	case "set":
-		cmd, err = p.parseSetCommand(parts, debug)
-	case "devices", "list":
-		cmd, err = p.parseDevicesCommand(parts)
-	case "debug":
-		cmd, err = p.parseDebugCommand(parts)
-	case "update":
-		cmd, err = p.parseUpdateCommand(parts)
-	case "alias":
-		cmd, err = p.parseAliasCommand(parts)
-	default:
-		return nil, fmt.Errorf("unknown command: %s", parts[0])
+	commandName := parts[0]
+
+	// テーブルから一致するコマンドを探す
+	for _, cmdDef := range CommandTable {
+		if cmdDef.Name == commandName || slices.Contains(cmdDef.Aliases, commandName) {
+			if cmdDef.ParseFunc != nil {
+				return cmdDef.ParseFunc(p, parts, debug)
+			}
+			// ParseFuncが定義されていない場合はデフォルトのコマンドを返す
+			return newCommand(CmdUnknown), nil
+		}
 	}
 
-	if err != nil {
-		return nil, err
+	return nil, fmt.Errorf("unknown command: %s", commandName)
+}
+
+// CommandDefinition はコマンドの定義を保持する構造体
+type CommandDefinition struct {
+	Name        string                                                              // コマンド名
+	Aliases     []string                                                            // 別名（例: devicesとlistなど）
+	Summary     string                                                              // 概要（短い説明）
+	Syntax      string                                                              // 構文
+	Description []string                                                            // 詳細説明（各行が1つの要素）
+	ParseFunc   func(p CommandParser, parts []string, debug bool) (*Command, error) // パース関数
+}
+
+// CommandTable はコマンドの定義を格納するテーブル
+var CommandTable = []CommandDefinition{
+	{
+		Name:    "discover",
+		Summary: "ECHONET Lite デバイスの検出",
+		Syntax:  "discover",
+		Description: []string{
+			"ネットワーク上のECHONET Liteデバイスを検出します。",
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			return newCommand(CmdDiscover), nil
+		},
+	},
+	{
+		Name:    "devices",
+		Aliases: []string{"list"},
+		Summary: "検出されたECHONET Liteデバイスの一覧表示",
+		Syntax:  "devices, list [ipAddress] [classCode[:instanceCode]] [-all|-props] [epc1 epc2...]",
+		Description: []string{
+			"ipAddress: IPアドレスでフィルター（例: 192.168.0.212 または IPv6アドレス）",
+			"classCode: クラスコード（4桁の16進数、例: 0130）",
+			"instanceCode: インスタンスコード（1-255の数字、例: 0130:1）",
+			"-all: 全てのEPCを表示",
+			"-props: 既知のEPCのみを表示",
+			"epc: 2桁の16進数で指定（例: 80）。複数指定可能",
+			"※-all, -props, epc は最後に指定されたものが有効になります",
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			return p.parseDevicesCommand(parts)
+		},
+	},
+	{
+		Name:    "get",
+		Summary: "プロパティ値の取得",
+		Syntax:  "get [ipAddress] classCode[:instanceCode] epc1 [epc2...] [-skip-validation]",
+		Description: []string{
+			"ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）",
+			"classCode: クラスコード（4桁の16進数、必須）",
+			"instanceCode: インスタンスコード（1-255の数字、省略時は1）",
+			"epc: 取得するプロパティのEPC（2桁の16進数、例: 80）。複数指定可能",
+			"-skip-validation: デバイスの存在チェックをスキップ（タイムアウト動作確認用）",
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			return p.parseGetCommand(parts)
+		},
+	},
+	{
+		Name:    "set",
+		Summary: "プロパティ値の設定",
+		Syntax:  "set [ipAddress] classCode[:instanceCode] property1 [property2...]",
+		Description: []string{
+			"ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）",
+			"classCode: クラスコード（4桁の16進数、必須）",
+			"instanceCode: インスタンスコード（1-255の数字、省略時は1）",
+			"property: 以下のいずれかの形式",
+			"  - EPC:EDT（例: 80:30）",
+			"    EPC: 2桁の16進数",
+			"    EDT: 2桁の16進数の倍数またはエイリアス名",
+			"  - EPC（例: 80）- 利用可能なエイリアスを表示",
+			"  - エイリアス名（例: on）- 対応するEPC:EDTに自動展開",
+			"  - 80:on（OperationStatus{true}と同等）",
+			"  - 80:off（OperationStatus{false}と同等）",
+			"  - b0:auto（エアコンの自動モードと同等）",
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			return p.parseSetCommand(parts, debug)
+		},
+	},
+	{
+		Name:    "update",
+		Summary: "デバイスのプロパティキャッシュを更新",
+		Syntax:  "update [ipAddress] [classCode[:instanceCode]]",
+		Description: []string{
+			"ipAddress: 対象デバイスのIPアドレス（省略可能、省略時は全デバイスが対象）",
+			"classCode: クラスコード（4桁の16進数、省略時は全クラスが対象）",
+			"instanceCode: インスタンスコード（1-255の数字、省略時は指定クラスの全インスタンスが対象）",
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			return p.parseUpdateCommand(parts)
+		},
+	},
+	{
+		Name:    "alias",
+		Summary: "デバイスエイリアスの管理",
+		Syntax:  "alias [alias] [ipAddress] [classCode[:instanceCode]] [property...] | alias -delete alias",
+		Description: []string{
+			"引数なし: 登録済みのエイリアス一覧を表示",
+			"alias: エイリアス名（例: ac）",
+			"-delete: エイリアスを削除（例: alias -delete ac）",
+			"ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）",
+			"classCode: クラスコード（4桁の16進数）",
+			"instanceCode: インスタンスコード（1-255の数字、省略時は1）",
+			"property: プロパティ値による絞り込み（例: living1 - 設置場所が'living1'のデバイスを指定）",
+			"例: alias ac 192.168.0.3 0130:1 - IPアドレス192.168.0.3、クラスコード0130、インスタンスコード1のデバイスに「ac」というエイリアスを設定",
+			"例: alias ac 0130 - クラスコード0130のデバイスに「ac」というエイリアスを設定（デバイスが1つだけの場合）",
+			"例: alias aircon1 0130 living1 - クラスコード0130で設置場所が'living1'のデバイスに「aircon1」というエイリアスを設定",
+			"例: alias ac - 「ac」というエイリアスの情報を表示",
+			"例: alias -delete ac - 「ac」というエイリアスを削除",
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			return p.parseAliasCommand(parts)
+		},
+	},
+	{
+		Name:    "debug",
+		Summary: "デバッグモードの表示または切り替え",
+		Syntax:  "debug [on|off]",
+		Description: []string{
+			"引数なし: 現在のデバッグモードを表示",
+			"on: デバッグモードを有効にする",
+			"off: デバッグモードを無効にする",
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			return p.parseDebugCommand(parts)
+		},
+	},
+	{
+		Name:    "help",
+		Summary: "ヘルプを表示",
+		Syntax:  "help [command]",
+		Description: []string{
+			"引数なし: 全コマンドの概要を表示",
+			"command: 指定したコマンドの詳細を表示",
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			return p.parseHelpCommand(parts)
+		},
+	},
+	{
+		Name:    "quit",
+		Summary: "終了",
+		Syntax:  "quit",
+		Description: []string{
+			"プログラムを終了します。",
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			return newCommand(CmdQuit), nil
+		},
+	},
+}
+
+// PrintCommandSummary は、全コマンドの簡単なサマリーを表示する
+func PrintCommandSummary() {
+	fmt.Println("コマンド:")
+
+	// テーブルからサマリーを表示
+	for _, cmd := range CommandTable {
+		aliases := ""
+		if len(cmd.Aliases) > 0 {
+			aliases = fmt.Sprintf(", %s", strings.Join(cmd.Aliases, ", "))
+		}
+		fmt.Printf("  %-10s: %s\n", cmd.Name+aliases, cmd.Summary)
 	}
-	return cmd, nil
+
+	fmt.Println("")
+	fmt.Println("詳細は 'help <コマンド名>' で確認できます。例: 'help get'")
+}
+
+// PrintCommandDetail は、特定のコマンドの詳細情報を表示する
+func PrintCommandDetail(commandName string) {
+	// テーブルから指定されたコマンドを検索
+	for _, cmd := range CommandTable {
+		if cmd.Name == commandName || slices.Contains(cmd.Aliases, commandName) {
+			fmt.Printf("  %s: %s\n", cmd.Name, cmd.Summary)
+			fmt.Printf("  構文: %s\n", cmd.Syntax)
+
+			if len(cmd.Description) > 0 {
+				fmt.Println("  詳細:")
+				for _, line := range cmd.Description {
+					fmt.Printf("    %s\n", line)
+				}
+			}
+			return
+		}
+	}
+
+	// コマンドが見つからなかった場合
+	fmt.Printf("不明なコマンド: %s\n", commandName)
+	fmt.Println("利用可能なコマンドを確認するには 'help' を入力してください")
 }
 
 // コマンドの使用方法を表示する
 // コマンドの使用法に変化があったときは、この関数と README.md も更新すること
-func PrintUsage() {
-	fmt.Println("ECHONET Lite デバイス検出プログラム")
-	fmt.Println("コマンド:")
-	fmt.Println("  discover: ECHONET Lite デバイスの検出")
-	fmt.Println("  devices, list [ipAddress] [classCode[:instanceCode]] [-all|-props] [epc1 epc2...]: 検出されたECHONET Liteデバイスの一覧表示")
-	fmt.Println("    ipAddress: IPアドレスでフィルター（例: 192.168.0.212 または IPv6アドレス）")
-	fmt.Println("    classCode: クラスコード（4桁の16進数、例: 0130）")
-	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、例: 0130:1）")
-	fmt.Println("    -all: 全てのEPCを表示")
-	fmt.Println("    -props: 既知のEPCのみを表示")
-	fmt.Println("    epc: 2桁の16進数で指定（例: 80）。複数指定可能")
-	fmt.Println("    ※-all, -props, epc は最後に指定されたものが有効になります")
-	fmt.Println("  get [ipAddress] classCode[:instanceCode] epc1 [epc2...] [-skip-validation]: プロパティ値の取得")
-	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）")
-	fmt.Println("    classCode: クラスコード（4桁の16進数、必須）")
-	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、省略時は1）")
-	fmt.Println("    epc: 取得するプロパティのEPC（2桁の16進数、例: 80）。複数指定可能")
-	fmt.Println("    -skip-validation: デバイスの存在チェックをスキップ（タイムアウト動作確認用）")
-	fmt.Println("  set [ipAddress] classCode[:instanceCode] property1 [property2...]: プロパティ値の設定")
-	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）")
-	fmt.Println("    classCode: クラスコード（4桁の16進数、必須）")
-	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、省略時は1）")
-	fmt.Println("    property: 以下のいずれかの形式")
-	fmt.Println("      - EPC:EDT（例: 80:30）")
-	fmt.Println("        EPC: 2桁の16進数")
-	fmt.Println("        EDT: 2桁の16進数の倍数またはエイリアス名")
-	fmt.Println("      - EPC（例: 80）- 利用可能なエイリアスを表示")
-	fmt.Println("      - エイリアス名（例: on）- 対応するEPC:EDTに自動展開")
-	fmt.Println("      - 80:on（OperationStatus{true}と同等）")
-	fmt.Println("      - 80:off（OperationStatus{false}と同等）")
-	fmt.Println("      - b0:auto（エアコンの自動モードと同等）")
-	fmt.Println("  update [ipAddress] [classCode[:instanceCode]]: デバイスのプロパティキャッシュを更新")
-	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時は全デバイスが対象）")
-	fmt.Println("    classCode: クラスコード（4桁の16進数、省略時は全クラスが対象）")
-	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、省略時は指定クラスの全インスタンスが対象）")
-	fmt.Println("  alias: デバイスエイリアスの管理")
-	fmt.Println("    引数なし: 登録済みのエイリアス一覧を表示")
-	fmt.Println("    alias: エイリアス名（例: ac）")
-	fmt.Println("    -delete: エイリアスを削除（例: alias -delete ac）")
-	fmt.Println("    ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）")
-	fmt.Println("    classCode: クラスコード（4桁の16進数）")
-	fmt.Println("    instanceCode: インスタンスコード（1-255の数字、省略時は1）")
-	fmt.Println("    property: プロパティ値による絞り込み（例: living1 - 設置場所が'living1'のデバイスを指定）")
-	fmt.Println("    例: alias ac 192.168.0.3 0130:1 - IPアドレス192.168.0.3、クラスコード0130、インスタンスコード1のデバイスに「ac」というエイリアスを設定")
-	fmt.Println("    例: alias ac 0130 - クラスコード0130のデバイスに「ac」というエイリアスを設定（デバイスが1つだけの場合）")
-	fmt.Println("    例: alias aircon1 0130 living1 - クラスコード0130で設置場所が'living1'のデバイスに「aircon1」というエイリアスを設定")
-	fmt.Println("    例: alias ac - 「ac」というエイリアスの情報を表示")
-	fmt.Println("    例: alias -delete ac - 「ac」というエイリアスを削除")
-	fmt.Println("  debug [on|off]: デバッグモードの表示または切り替え")
-	fmt.Println("    引数なし: 現在のデバッグモードを表示")
-	fmt.Println("    on: デバッグモードを有効にする")
-	fmt.Println("    off: デバッグモードを無効にする")
-	fmt.Println("  help: このヘルプを表示")
-	fmt.Println("  quit: 終了")
+func PrintUsage(commandName *string) {
+	if commandName == nil {
+		// 引数無しの場合はタイトルとサマリーを表示
+		fmt.Println("ECHONET Lite デバイス検出プログラム")
+		PrintCommandSummary()
+	} else {
+		// 特定のコマンドの詳細を表示（タイトルなし）
+		PrintCommandDetail(*commandName)
+	}
 }
