@@ -320,257 +320,12 @@ func (e *AvailableAliasesForEPC) Error() string {
 	return strings.Join(messages, "\n")
 }
 
-// "get" コマンドをパースする
-func (p CommandParser) parseGetCommand(parts []string) (*Command, error) {
-	cmd := newCommand(CmdGet)
-
-	// デバイス識別子のパース
-	deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
-	if err != nil {
-		return nil, err
-	}
-	cmd.DeviceSpec = deviceSpec
-
-	// EPCのパース
-	if argIndex >= len(parts) {
-		return nil, fmt.Errorf("get コマンドには少なくとも1つのEPCが必要です")
-	}
-
-	for i := argIndex; i < len(parts); i++ {
-		if parts[i] == "-skip-validation" {
-			cmd.DebugMode = &parts[i]
-			continue
-		}
-		epc, err := parseEPC(parts[i])
-		if err != nil {
-			return nil, err
-		}
-		cmd.EPCs = append(cmd.EPCs, epc)
-	}
-
-	return cmd, nil
-}
-
-// "set" コマンドをパースする
-func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, error) {
-	cmd := newCommand(CmdSet)
-
-	// デバイス識別子のパース
-	deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
-	if err != nil {
-		return nil, err
-	}
-	cmd.DeviceSpec = deviceSpec
-
-	// プロパティのパース
-	if argIndex >= len(parts) {
-		// 可能なエイリアス一覧
-		aliases := p.propertyInfoProvider.AvailablePropertyAliases(*cmd.GetClassCode())
-		return nil, &AvailableAliasesForAll{Aliases: aliases}
-	}
-
-	for i := argIndex; i < len(parts); i++ {
-		// EPCのみの場合（エイリアス一覧表示）
-		epc, err := parseEPC(parts[i])
-		if err == nil {
-			// クラスコードからPropertyInfoを取得
-			if propInfo, ok := p.propertyInfoProvider.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
-				return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
-			} else {
-				return nil, &AvailableAliasesForEPC{EPC: epc}
-			}
-		}
-
-		// プロパティ文字列をパース
-		prop, err := p.parsePropertyString(parts[i], *cmd.GetClassCode(), debug)
-		if err != nil {
-			return nil, err
-		}
-
-		// プロパティを追加
-		cmd.Properties = append(cmd.Properties, prop)
-	}
-
-	return cmd, nil
-}
-
 type InvalidArgument struct {
 	Argument string
 }
 
 func (e *InvalidArgument) Error() string {
 	return fmt.Sprintf("無効な引数: %s", e.Argument)
-}
-
-// "devices" または "list" コマンドをパースする
-func (p CommandParser) parseDevicesCommand(parts []string) (*Command, error) {
-	cmd := newCommand(CmdDevices)
-
-	// デバイス識別子のパース
-	deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
-	if err != nil {
-		return nil, err
-	}
-	cmd.DeviceSpec = deviceSpec
-
-	// 残りの引数を解析
-	for i := argIndex; i < len(parts); i++ {
-		switch parts[i] {
-		case "-all":
-			cmd.PropMode = PropAll
-			cmd.EPCs = nil // EPCsをクリア
-			continue
-		case "-props":
-			cmd.PropMode = PropKnown
-			cmd.EPCs = nil // EPCsをクリア
-			continue
-		}
-
-		pClassCode := cmd.GetClassCode()
-		if pClassCode == nil {
-			pClassCode = new(client.EOJClassCode)
-		}
-		props, err := p.parsePropertyString(parts[i], *pClassCode, false) // corrected from classCode to *pClassCode
-		if err == nil {
-			cmd.Properties = append(cmd.Properties, props)
-			continue
-		}
-
-		// EPCのパース（2桁の16進数）
-		epc, err := parseEPC(parts[i])
-		if err == nil {
-			cmd.EPCs = append(cmd.EPCs, epc)
-			cmd.PropMode = PropEPC
-			continue
-		}
-
-		// 上記のいずれにも該当しない場合はエラー
-		return nil, &InvalidArgument{Argument: parts[i]}
-	}
-
-	return cmd, nil
-}
-
-// "debug" コマンドをパースする
-func (p CommandParser) parseDebugCommand(parts []string) (*Command, error) {
-	cmd := newCommand(CmdDebug)
-
-	// 引数がない場合は現在のデバッグモードを表示するためにnilのままにする
-	if len(parts) == 1 {
-		return cmd, nil
-	}
-
-	// 引数を解析
-	if len(parts) != 2 || (parts[1] != "on" && parts[1] != "off") {
-		return nil, fmt.Errorf("debug コマンドの引数は on または off のみ有効です")
-	}
-	// on/off の値を DebugMode フィールドに格納する
-	value := parts[1]
-	cmd.DebugMode = &value
-
-	return cmd, nil
-}
-
-// "help" コマンドをパースする
-func (p CommandParser) parseHelpCommand(parts []string) (*Command, error) {
-	cmd := newCommand(CmdHelp)
-
-	// 引数がある場合は、その特定のコマンドについてのヘルプを表示する
-	if len(parts) > 1 {
-		cmd.DeviceAlias = &parts[1] // コマンド名を DeviceAlias に格納
-	}
-
-	return cmd, nil
-}
-
-// "update" コマンドをパースする
-func (p CommandParser) parseUpdateCommand(parts []string) (*Command, error) {
-	cmd := newCommand(CmdUpdate)
-
-	// デバイス識別子のパース
-	deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
-	if err != nil {
-		return nil, err
-	}
-	cmd.DeviceSpec = deviceSpec
-
-	// 残りの引数がある場合はエラー
-	if argIndex < len(parts) {
-		return nil, &InvalidArgument{Argument: parts[argIndex]}
-	}
-
-	return cmd, nil
-}
-
-// "alias" コマンドをパースする
-// 登録する場合:
-// syntax: alias _alias_ [_ipAddress_] _classCode_[:_instanceCode_]
-// 削除する場合:
-// syntax: alias -delete _alias_
-// 表示する場合:
-// syntax: alias _alias_
-// 一覧する場合:
-// syntax: alias
-func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
-	cmd := newCommand(CmdAliasList)
-
-	// 引数がない場合はエイリアス一覧を表示する
-	if len(parts) == 1 {
-		cmd.Type = CmdAliasList
-	} else if parts[1] == "-delete" {
-		if len(parts) != 3 {
-			return nil, fmt.Errorf("エイリアスの削除にはエイリアス名が必要です")
-		}
-		cmd.Type = CmdAliasDelete
-		cmd.DeviceAlias = &parts[2]
-		return cmd, nil
-	} else if len(parts) == 2 {
-		cmd.Type = CmdAliasGet
-
-		// エイリアス名のパース
-		alias := parts[1]
-		if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
-			return nil, err
-		}
-		cmd.DeviceAlias = &alias
-	} else {
-		cmd.Type = CmdAliasSet
-
-		// エイリアス名のパース
-		alias := parts[1]
-		if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
-			return nil, err
-		}
-		cmd.DeviceAlias = &alias
-
-		// デバイス識別子のパース
-		deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 2, true)
-		if err != nil {
-			return nil, err
-		}
-		cmd.DeviceSpec = deviceSpec
-
-		// 絞り込みプロパティ値のパース
-		var classCode client.EOJClassCode
-		if deviceSpec.ClassCode != nil {
-			classCode = *deviceSpec.ClassCode
-		}
-		for {
-			props, err := p.parsePropertyString(parts[argIndex], classCode, false)
-			if err != nil {
-				break
-			}
-			cmd.Properties = append(cmd.Properties, props)
-			argIndex++
-		}
-
-		// 残りの引数がある場合はエラー
-		if argIndex < len(parts) {
-			return nil, &InvalidArgument{Argument: parts[argIndex]}
-		}
-	}
-
-	return cmd, nil
 }
 
 // コマンドをパースする
@@ -635,7 +390,51 @@ var CommandTable = []CommandDefinition{
 			"※-all, -props, epc は最後に指定されたものが有効になります",
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
-			return p.parseDevicesCommand(parts)
+			cmd := newCommand(CmdDevices)
+
+			// デバイス識別子のパース
+			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
+			if err != nil {
+				return nil, err
+			}
+			cmd.DeviceSpec = deviceSpec
+
+			// 残りの引数を解析
+			for i := argIndex; i < len(parts); i++ {
+				switch parts[i] {
+				case "-all":
+					cmd.PropMode = PropAll
+					cmd.EPCs = nil // EPCsをクリア
+					continue
+				case "-props":
+					cmd.PropMode = PropKnown
+					cmd.EPCs = nil // EPCsをクリア
+					continue
+				}
+
+				pClassCode := cmd.GetClassCode()
+				if pClassCode == nil {
+					pClassCode = new(client.EOJClassCode)
+				}
+				props, err := p.parsePropertyString(parts[i], *pClassCode, false)
+				if err == nil {
+					cmd.Properties = append(cmd.Properties, props)
+					continue
+				}
+
+				// EPCのパース（2桁の16進数）
+				epc, err := parseEPC(parts[i])
+				if err == nil {
+					cmd.EPCs = append(cmd.EPCs, epc)
+					cmd.PropMode = PropEPC
+					continue
+				}
+
+				// 上記のいずれにも該当しない場合はエラー
+				return nil, &InvalidArgument{Argument: parts[i]}
+			}
+
+			return cmd, nil
 		},
 	},
 	{
@@ -650,7 +449,33 @@ var CommandTable = []CommandDefinition{
 			"-skip-validation: デバイスの存在チェックをスキップ（タイムアウト動作確認用）",
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
-			return p.parseGetCommand(parts)
+			cmd := newCommand(CmdGet)
+
+			// デバイス識別子のパース
+			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
+			if err != nil {
+				return nil, err
+			}
+			cmd.DeviceSpec = deviceSpec
+
+			// EPCのパース
+			if argIndex >= len(parts) {
+				return nil, fmt.Errorf("get コマンドには少なくとも1つのEPCが必要です")
+			}
+
+			for i := argIndex; i < len(parts); i++ {
+				if parts[i] == "-skip-validation" {
+					cmd.DebugMode = &parts[i]
+					continue
+				}
+				epc, err := parseEPC(parts[i])
+				if err != nil {
+					return nil, err
+				}
+				cmd.EPCs = append(cmd.EPCs, epc)
+			}
+
+			return cmd, nil
 		},
 	},
 	{
@@ -672,7 +497,45 @@ var CommandTable = []CommandDefinition{
 			"  - b0:auto（エアコンの自動モードと同等）",
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
-			return p.parseSetCommand(parts, debug)
+			cmd := newCommand(CmdSet)
+
+			// デバイス識別子のパース
+			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
+			if err != nil {
+				return nil, err
+			}
+			cmd.DeviceSpec = deviceSpec
+
+			// プロパティのパース
+			if argIndex >= len(parts) {
+				// 可能なエイリアス一覧
+				aliases := p.propertyInfoProvider.AvailablePropertyAliases(*cmd.GetClassCode())
+				return nil, &AvailableAliasesForAll{Aliases: aliases}
+			}
+
+			for i := argIndex; i < len(parts); i++ {
+				// EPCのみの場合（エイリアス一覧表示）
+				epc, err := parseEPC(parts[i])
+				if err == nil {
+					// クラスコードからPropertyInfoを取得
+					if propInfo, ok := p.propertyInfoProvider.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
+						return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
+					} else {
+						return nil, &AvailableAliasesForEPC{EPC: epc}
+					}
+				}
+
+				// プロパティ文字列をパース
+				prop, err := p.parsePropertyString(parts[i], *cmd.GetClassCode(), debug)
+				if err != nil {
+					return nil, err
+				}
+
+				// プロパティを追加
+				cmd.Properties = append(cmd.Properties, prop)
+			}
+
+			return cmd, nil
 		},
 	},
 	{
@@ -685,7 +548,21 @@ var CommandTable = []CommandDefinition{
 			"instanceCode: インスタンスコード（1-255の数字、省略時は指定クラスの全インスタンスが対象）",
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
-			return p.parseUpdateCommand(parts)
+			cmd := newCommand(CmdUpdate)
+
+			// デバイス識別子のパース
+			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
+			if err != nil {
+				return nil, err
+			}
+			cmd.DeviceSpec = deviceSpec
+
+			// 残りの引数がある場合はエラー
+			if argIndex < len(parts) {
+				return nil, &InvalidArgument{Argument: parts[argIndex]}
+			}
+
+			return cmd, nil
 		},
 	},
 	{
@@ -707,7 +584,68 @@ var CommandTable = []CommandDefinition{
 			"例: alias -delete ac - 「ac」というエイリアスを削除",
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
-			return p.parseAliasCommand(parts)
+			cmd := newCommand(CmdAliasList)
+
+			// 引数がない場合はエイリアス一覧を表示する
+			if len(parts) == 1 {
+				cmd.Type = CmdAliasList
+			} else if parts[1] == "-delete" {
+				if len(parts) != 3 {
+					return nil, fmt.Errorf("エイリアスの削除にはエイリアス名が必要です")
+				}
+				cmd.Type = CmdAliasDelete
+				cmd.DeviceAlias = &parts[2]
+				return cmd, nil
+			} else if len(parts) == 2 {
+				cmd.Type = CmdAliasGet
+
+				// エイリアス名のパース
+				alias := parts[1]
+				if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
+					return nil, err
+				}
+				cmd.DeviceAlias = &alias
+			} else {
+				cmd.Type = CmdAliasSet
+
+				// エイリアス名のパース
+				alias := parts[1]
+				if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
+					return nil, err
+				}
+				cmd.DeviceAlias = &alias
+
+				// デバイス識別子のパース
+				deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 2, true)
+				if err != nil {
+					return nil, err
+				}
+				cmd.DeviceSpec = deviceSpec
+
+				// 絞り込みプロパティ値のパース
+				var classCode client.EOJClassCode
+				if deviceSpec.ClassCode != nil {
+					classCode = *deviceSpec.ClassCode
+				}
+				for {
+					if argIndex >= len(parts) {
+						break
+					}
+					props, err := p.parsePropertyString(parts[argIndex], classCode, false)
+					if err != nil {
+						break
+					}
+					cmd.Properties = append(cmd.Properties, props)
+					argIndex++
+				}
+
+				// 残りの引数がある場合はエラー
+				if argIndex < len(parts) {
+					return nil, &InvalidArgument{Argument: parts[argIndex]}
+				}
+			}
+
+			return cmd, nil
 		},
 	},
 	{
@@ -720,7 +658,22 @@ var CommandTable = []CommandDefinition{
 			"off: デバッグモードを無効にする",
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
-			return p.parseDebugCommand(parts)
+			cmd := newCommand(CmdDebug)
+
+			// 引数がない場合は現在のデバッグモードを表示するためにnilのままにする
+			if len(parts) == 1 {
+				return cmd, nil
+			}
+
+			// 引数を解析
+			if len(parts) != 2 || (parts[1] != "on" && parts[1] != "off") {
+				return nil, fmt.Errorf("debug コマンドの引数は on または off のみ有効です")
+			}
+			// on/off の値を DebugMode フィールドに格納する
+			value := parts[1]
+			cmd.DebugMode = &value
+
+			return cmd, nil
 		},
 	},
 	{
@@ -732,7 +685,14 @@ var CommandTable = []CommandDefinition{
 			"command: 指定したコマンドの詳細を表示",
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
-			return p.parseHelpCommand(parts)
+			cmd := newCommand(CmdHelp)
+
+			// 引数がある場合は、その特定のコマンドについてのヘルプを表示する
+			if len(parts) > 1 {
+				cmd.DeviceAlias = &parts[1] // コマンド名を DeviceAlias に格納
+			}
+
+			return cmd, nil
 		},
 	},
 	{
