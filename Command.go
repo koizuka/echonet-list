@@ -1,8 +1,7 @@
 package main
 
 import (
-	"echonet-list/echonet_lite"
-	"echonet-list/protocol"
+	"echonet-list/client"
 	"fmt"
 	"net"
 	"sort"
@@ -42,14 +41,14 @@ const (
 // コマンドを表す構造体
 type Command struct {
 	Type        CommandType
-	DeviceSpec  echonet_lite.DeviceSpecifier // デバイス指定子
-	DeviceAlias *string                      // エイリアス
-	EPCs        []echonet_lite.EPCType       // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
-	PropMode    PropertyMode                 // プロパティ表示モード
-	Properties  []echonet_lite.Property      // set/devicesコマンドのプロパティリスト
-	DebugMode   *string                      // debugコマンドのモード ("on" または "off")
-	Done        chan struct{}                // コマンド実行完了を通知するチャネル
-	Error       error                        // コマンド実行中に発生したエラー
+	DeviceSpec  client.DeviceSpecifier // デバイス指定子
+	DeviceAlias *string                // エイリアス
+	EPCs        []client.EPCType       // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
+	PropMode    PropertyMode           // プロパティ表示モード
+	Properties  client.Properties      // set/devicesコマンドのプロパティリスト
+	DebugMode   *string                // debugコマンドのモード ("on" または "off")
+	Done        chan struct{}          // コマンド実行完了を通知するチャネル
+	Error       error                  // コマンド実行中に発生したエラー
 }
 
 // GetIPAddress は、コマンドのIPアドレスを取得する
@@ -58,20 +57,20 @@ func (c *Command) GetIPAddress() *net.IP {
 }
 
 // GetClassCode は、コマンドのクラスコードを取得する
-func (c *Command) GetClassCode() *echonet_lite.EOJClassCode {
+func (c *Command) GetClassCode() *client.EOJClassCode {
 	return c.DeviceSpec.ClassCode
 }
 
 // GetInstanceCode は、コマンドのインスタンスコードを取得する
-func (c *Command) GetInstanceCode() *echonet_lite.EOJInstanceCode {
+func (c *Command) GetInstanceCode() *client.EOJInstanceCode {
 	return c.DeviceSpec.InstanceCode
 }
 
 type CommandParser struct {
-	DeviceAliases protocol.DeviceAliasManager
+	DeviceAliases client.DeviceAliasManager
 }
 
-func NewCommandParser(deviceAliases protocol.DeviceAliasManager) *CommandParser {
+func NewCommandParser(deviceAliases client.DeviceAliasManager) *CommandParser {
 	return &CommandParser{DeviceAliases: deviceAliases}
 }
 
@@ -85,7 +84,7 @@ func tryParseIPAddress(ipStr string) *net.IP {
 }
 
 // クラスコードとインスタンスコードをパースする
-func parseClassAndInstanceCode(codeStr string) (*echonet_lite.EOJClassCode, *echonet_lite.EOJInstanceCode, error) {
+func parseClassAndInstanceCode(codeStr string) (*client.EOJClassCode, *client.EOJInstanceCode, error) {
 	codeParts := strings.Split(codeStr, ":")
 	if len(codeParts) > 2 {
 		return nil, nil, fmt.Errorf("invalid format: %s (use classCode or classCode:instanceCode)", codeStr)
@@ -99,10 +98,10 @@ func parseClassAndInstanceCode(codeStr string) (*echonet_lite.EOJClassCode, *ech
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid class code: %s (must be 4 hexadecimal digits)", codeParts[0])
 	}
-	classCode := echonet_lite.EOJClassCode(classCode64)
+	classCode := client.EOJClassCode(classCode64)
 
 	// インスタンスコードのパース（存在する場合）
-	var instanceCode *echonet_lite.EOJInstanceCode
+	var instanceCode *client.EOJInstanceCode
 	if len(codeParts) == 2 {
 		instanceCode64, err := strconv.ParseUint(codeParts[1], 10, 8)
 		if err != nil {
@@ -111,7 +110,7 @@ func parseClassAndInstanceCode(codeStr string) (*echonet_lite.EOJClassCode, *ech
 		if instanceCode64 == 0 || instanceCode64 > 255 {
 			return nil, nil, fmt.Errorf("instance code must be between 1 and 255")
 		}
-		code := echonet_lite.EOJInstanceCode(instanceCode64)
+		code := client.EOJInstanceCode(instanceCode64)
 		instanceCode = &code
 	}
 
@@ -119,7 +118,7 @@ func parseClassAndInstanceCode(codeStr string) (*echonet_lite.EOJClassCode, *ech
 }
 
 // 単一のEPCをパースする
-func parseEPC(epcStr string) (echonet_lite.EPCType, error) {
+func parseEPC(epcStr string) (client.EPCType, error) {
 	if len(epcStr) != 2 {
 		return 0, fmt.Errorf("EPC must be 2 hexadecimal digits: %s", epcStr)
 	}
@@ -127,7 +126,7 @@ func parseEPC(epcStr string) (echonet_lite.EPCType, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid EPC: %s (must be 2 hexadecimal digits)", epcStr)
 	}
-	return echonet_lite.EPCType(epc64), nil
+	return client.EPCType(epc64), nil
 }
 
 func parseHexBytes(hexStr string) ([]byte, error) {
@@ -145,24 +144,33 @@ func parseHexBytes(hexStr string) ([]byte, error) {
 	return bytes, nil
 }
 
+func GetEDTFromAlias(c client.EOJClassCode, e client.EPCType, alias string) ([]byte, bool) {
+	if info, ok := client.GetPropertyInfo(c, e); ok && info.Aliases != nil {
+		if aliases, ok := info.Aliases[alias]; ok {
+			return aliases, true
+		}
+	}
+	return nil, false
+}
+
 // プロパティ文字列をパースする
 // propertyStr: プロパティ文字列（"EPC:EDT" 形式または "alias" 形式）
 // classCode: クラスコード
 // debug: デバッグフラグ
 // 戻り値: パースされたプロパティとエラー
-func parsePropertyString(propertyStr string, classCode echonet_lite.EOJClassCode, debug bool) (echonet_lite.Property, error) {
+func parsePropertyString(propertyStr string, classCode client.EOJClassCode, debug bool) (client.Property, error) {
 	// EPC:EDT の形式をパース
 	propParts := strings.Split(propertyStr, ":")
 	if len(propParts) == 2 {
 		// EPCのパース
 		epc, err := parseEPC(propParts[0])
 		if err != nil {
-			return echonet_lite.Property{}, err
+			return client.Property{}, err
 		}
 
 		var edt []byte
 
-		if aliasEDT, ok := echonet_lite.GetEDTFromAlias(classCode, epc, propParts[1]); ok {
+		if aliasEDT, ok := GetEDTFromAlias(classCode, epc, propParts[1]); ok {
 			if debug {
 				fmt.Printf("エイリアス '%s' を EDT:%X に展開します\n", propParts[1], aliasEDT)
 			}
@@ -173,22 +181,22 @@ func parsePropertyString(propertyStr string, classCode echonet_lite.EOJClassCode
 		if edt == nil {
 			edt, err = parseHexBytes(propParts[1])
 			if err != nil {
-				return echonet_lite.Property{}, fmt.Errorf("EPC:%s: %v", propParts[0], err)
+				return client.Property{}, fmt.Errorf("EPC:%s: %v", propParts[0], err)
 			}
 		}
 
-		return echonet_lite.Property{EPC: epc, EDT: edt}, nil
+		return client.Property{EPC: epc, EDT: edt}, nil
 	} else {
 		// エイリアスのみの場合（例: "on"）
 		alias := propertyStr
 
-		if p, ok := echonet_lite.PropertyTables.FindAlias(classCode, alias); ok {
+		if p, ok := client.FindPropertyAlias(classCode, alias); ok {
 			if debug {
 				fmt.Printf("エイリアス '%s' を EPC:%s, EDT:%X に展開します\n", alias, p.EPC, p.EDT)
 			}
 			return p, nil
 		} else {
-			return echonet_lite.Property{}, fmt.Errorf("エイリアス '%s' が見つかりません。EPC:EDT 形式を使用してください", alias)
+			return client.Property{}, fmt.Errorf("エイリアス '%s' が見つかりません。EPC:EDT 形式を使用してください", alias)
 		}
 	}
 }
@@ -205,8 +213,8 @@ func parsePropertyString(propertyStr string, classCode echonet_lite.EOJClassCode
 //	deviceSpecifier: パースされた DeviceSpecifier
 //	nextArgIndex: 次の引数のインデックス
 //	error: エラー
-func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requireClassCode bool) (echonet_lite.DeviceSpecifier, int, error) {
-	var deviceSpec echonet_lite.DeviceSpecifier
+func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requireClassCode bool) (client.DeviceSpecifier, int, error) {
+	var deviceSpec client.DeviceSpecifier
 	if argIndex >= len(parts) {
 		if requireClassCode {
 			return deviceSpec, argIndex, fmt.Errorf("デバイス識別子が必要です")
@@ -219,7 +227,7 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 		if alias, ok := p.DeviceAliases.GetDeviceByAlias(parts[argIndex]); ok {
 			classCode := alias.EOJ.ClassCode()
 			instanceCode := alias.EOJ.InstanceCode()
-			deviceSpec := echonet_lite.DeviceSpecifier{
+			deviceSpec := client.DeviceSpecifier{
 				IP:           &alias.IP,
 				ClassCode:    &classCode,
 				InstanceCode: &instanceCode,
@@ -287,7 +295,7 @@ func (e *AvailableAliasesForAll) Error() string {
 }
 
 type AvailableAliasesForEPC struct {
-	EPC     echonet_lite.EPCType
+	EPC     client.EPCType
 	Aliases map[string][]byte
 }
 
@@ -353,7 +361,7 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 	// プロパティのパース
 	if argIndex >= len(parts) {
 		// 可能なエイリアス一覧
-		aliases := echonet_lite.PropertyTables.AvailableAliases(*cmd.GetClassCode())
+		aliases := client.AvailablePropertyAliases(*cmd.GetClassCode())
 		return nil, &AvailableAliasesForAll{Aliases: aliases}
 	}
 
@@ -362,7 +370,7 @@ func (p CommandParser) parseSetCommand(parts []string, debug bool) (*Command, er
 		epc, err := parseEPC(parts[i])
 		if err == nil {
 			// クラスコードからPropertyInfoを取得
-			if propInfo, ok := echonet_lite.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
+			if propInfo, ok := client.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
 				return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
 			} else {
 				return nil, &AvailableAliasesForEPC{EPC: epc}
@@ -416,7 +424,7 @@ func (p CommandParser) parseDevicesCommand(parts []string) (*Command, error) {
 
 		pClassCode := cmd.GetClassCode()
 		if pClassCode == nil {
-			pClassCode = new(echonet_lite.EOJClassCode)
+			pClassCode = new(client.EOJClassCode)
 		}
 		props, err := parsePropertyString(parts[i], *pClassCode, false) // corrected from classCode to *pClassCode
 		if err == nil {
@@ -505,7 +513,7 @@ func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
 
 		// エイリアス名のパース
 		alias := parts[1]
-		if err := echonet_lite.ValidateDeviceAlias(alias); err != nil {
+		if err := client.ValidateDeviceAlias(alias); err != nil {
 			return nil, err
 		}
 		cmd.DeviceAlias = &alias
@@ -514,7 +522,7 @@ func (p CommandParser) parseAliasCommand(parts []string) (*Command, error) {
 
 		// エイリアス名のパース
 		alias := parts[1]
-		if err := echonet_lite.ValidateDeviceAlias(alias); err != nil {
+		if err := client.ValidateDeviceAlias(alias); err != nil {
 			return nil, err
 		}
 		cmd.DeviceAlias = &alias

@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"echonet-list/client"
-	"echonet-list/echonet_lite"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"golang.org/x/exp/slices"
@@ -105,7 +105,7 @@ func (p *CommandProcessor) processCommands() {
 			cmd.Error = p.processDebugCommand(cmd)
 		case CmdUpdate:
 			// フィルタリング条件を作成
-			criteria := echonet_lite.FilterCriteria{
+			criteria := client.FilterCriteria{
 				Device: cmd.DeviceSpec,
 			}
 			cmd.Error = p.handler.UpdateProperties(criteria)
@@ -115,7 +115,7 @@ func (p *CommandProcessor) processCommands() {
 				fmt.Println(alias)
 			}
 		case CmdAliasSet:
-			criteria := echonet_lite.FilterCriteria{
+			criteria := client.FilterCriteria{
 				Device: cmd.DeviceSpec,
 			}
 			cmd.Error = p.handler.AliasSet(cmd.DeviceAlias, criteria)
@@ -137,7 +137,7 @@ func (p *CommandProcessor) processCommands() {
 }
 
 type DeviceClassNotFoundError struct {
-	ClassCode echonet_lite.EOJClassCode
+	ClassCode client.EOJClassCode
 }
 
 func (e DeviceClassNotFoundError) Error() string {
@@ -145,8 +145,8 @@ func (e DeviceClassNotFoundError) Error() string {
 }
 
 type TooManyDevicesError struct {
-	ClassCode echonet_lite.EOJClassCode
-	Devices   []echonet_lite.IPAndEOJ
+	ClassCode client.EOJClassCode
+	Devices   []client.IPAndEOJ
 }
 
 func (e TooManyDevicesError) Error() string {
@@ -159,13 +159,13 @@ func (e TooManyDevicesError) Error() string {
 	return strings.Join(errMsg, "\n")
 }
 
-func (p *CommandProcessor) getSingleDevice(deviceSpec echonet_lite.DeviceSpecifier) (*echonet_lite.IPAndEOJ, error) {
+func (p *CommandProcessor) getSingleDevice(deviceSpec client.DeviceSpecifier) (*client.IPAndEOJ, error) {
 	// フィルタリング
 	filtered := p.handler.GetDevices(deviceSpec)
 
 	// マッチするデバイスが1つだけでない場合はエラー
 	if len(filtered) != 1 {
-		var classCode echonet_lite.EOJClassCode
+		var classCode client.EOJClassCode
 		if deviceSpec.ClassCode != nil {
 			classCode = *deviceSpec.ClassCode
 		}
@@ -179,28 +179,44 @@ func (p *CommandProcessor) getSingleDevice(deviceSpec echonet_lite.DeviceSpecifi
 	return &filtered[0], nil
 }
 
+func sortProperties(p client.Properties) client.Properties {
+	// プロパティをEPCでソート
+	epcsToShow := make([]client.EPCType, 0, len(p))
+	for _, prop := range p {
+		epc := prop.EPC
+		epcsToShow = append(epcsToShow, epc)
+	}
+	sort.Slice(p, func(i, j int) bool {
+		return p[i].EPC < p[j].EPC
+	})
+	return p
+}
+
 func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 	// フィルタリング条件を作成
-	criteria := echonet_lite.FilterCriteria{
+	criteria := client.FilterCriteria{
 		Device:         cmd.DeviceSpec,
 		PropertyValues: cmd.Properties,
 	}
 	result := p.handler.ListDevices(criteria)
-	for _, device := range result {
-		classCode := device.Device.EOJ.ClassCode()
+	for _, d := range result {
+		device := d.Device
+		properties := d.Properties
+		classCode := device.EOJ.ClassCode()
 
 		// プロパティ表示モードに応じてフィルタリング
-		filteredProps := make(echonet_lite.EPCPropertyMap)
-		for epc, prop := range device.Properties {
+		filteredProps := make(client.Properties, 0, len(properties))
+		for _, prop := range properties {
+			epc := prop.EPC
 			switch cmd.PropMode {
 			case PropDefault:
 				// デフォルトのプロパティのみ表示
-				if !echonet_lite.IsPropertyDefaultEPC(classCode, epc) {
+				if !client.IsPropertyDefaultEPC(classCode, epc) {
 					continue
 				}
 			case PropKnown:
 				// 既知のプロパティのみ表示
-				if _, ok := echonet_lite.GetPropertyInfo(classCode, epc); !ok {
+				if _, ok := client.GetPropertyInfo(classCode, epc); !ok {
 					continue
 				}
 			case PropEPC:
@@ -209,18 +225,18 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 					continue
 				}
 			}
-			filteredProps[epc] = prop
+			filteredProps = append(filteredProps, prop)
 		}
 
 		if len(filteredProps) == 0 {
 			continue
 		}
 
-		names := p.handler.GetAliases(device.Device)
-		names = append(names, device.Device.String())
+		names := p.handler.GetAliases(device)
+		names = append(names, device.String())
 		fmt.Println(strings.Join(names, " "))
 
-		for _, prop := range echonet_lite.EPCPropertyMap(filteredProps).SortedProperties() {
+		for _, prop := range sortProperties(filteredProps) {
 			fmt.Printf("  %v\n", prop.String(classCode))
 		}
 	}
@@ -240,13 +256,13 @@ func (p *CommandProcessor) processGetCommand(cmd *Command) error {
 			if cmd.DeviceSpec.IP == nil || cmd.DeviceSpec.ClassCode == nil {
 				return errors.New("get コマンドにはIPアドレスとクラスコードが必要です")
 			}
-			instanceCode := echonet_lite.EOJInstanceCode(0)
+			instanceCode := client.EOJInstanceCode(0)
 			if cmd.DeviceSpec.InstanceCode != nil {
 				instanceCode = *cmd.DeviceSpec.InstanceCode
 			}
-			device = &echonet_lite.IPAndEOJ{
+			device = &client.IPAndEOJ{
 				IP:  *cmd.DeviceSpec.IP,
-				EOJ: echonet_lite.MakeEOJ(*cmd.DeviceSpec.ClassCode, instanceCode),
+				EOJ: client.MakeEOJ(*cmd.DeviceSpec.ClassCode, instanceCode),
 			}
 		} else {
 			return err

@@ -4,24 +4,43 @@ import (
 	"echonet-list/protocol"
 )
 
+type IPAndEOJ = protocol.IPAndEOJ
+type EOJClassCode = protocol.EOJClassCode
+type EOJInstanceCode = protocol.EOJInstanceCode
+type EOJ = protocol.EOJ
+
+func MakeEOJ(class EOJClassCode, instance EOJInstanceCode) EOJ {
+	return protocol.MakeEOJ(class, instance)
+}
+
+type DeviceAliasManager = protocol.DeviceAliasManager
+
+type FilterCriteria = protocol.FilterCriteria
+type AliasDevicePair = protocol.AliasDevicePair
+type DeviceSpecifier = protocol.DeviceSpecifier
+type EPCType = protocol.EPCType
+type Property = protocol.Property
+type Properties = protocol.Properties
+type DeviceAndProperties = protocol.DeviceAndProperties
+
 type ECHONETListClient interface {
 	Close() error
 	IsDebug() bool
 	SetDebug(debug bool)
 
 	GetDeviceAliasManager() protocol.DeviceAliasManager
-	AliasList() []protocol.AliasDevicePair
-	AliasSet(alias *string, criteria protocol.FilterCriteria) error
+	AliasList() []AliasDevicePair
+	AliasSet(alias *string, criteria FilterCriteria) error
 	AliasDelete(alias *string) error
-	AliasGet(alias *string) (*protocol.IPAndEOJ, error)
-	GetAliases(device protocol.IPAndEOJ) []string
+	AliasGet(alias *string) (*IPAndEOJ, error)
+	GetAliases(device IPAndEOJ) []string
 
 	Discover() error
-	UpdateProperties(criteria protocol.FilterCriteria) error
-	GetDevices(deviceSpec protocol.DeviceSpecifier) []protocol.IPAndEOJ
-	ListDevices(criteria protocol.FilterCriteria) []protocol.DevicePropertyData
-	GetProperties(device protocol.IPAndEOJ, EPCs []protocol.EPCType, skipValidation bool) (protocol.DeviceAndProperties, error)
-	SetProperties(device protocol.IPAndEOJ, properties protocol.Properties) (protocol.DeviceAndProperties, error)
+	UpdateProperties(criteria FilterCriteria) error
+	GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ
+	ListDevices(criteria FilterCriteria) []DeviceAndProperties
+	GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error)
+	SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error)
 	GetAllPropertyAliases() []string
 }
 
@@ -56,15 +75,15 @@ func (c *ECHONETListClientProxy) SetDebug(debug bool) {
 	c.handler.SetDebug(debug)
 }
 
-func (c *ECHONETListClientProxy) UpdateProperties(criteria protocol.FilterCriteria) error {
+func (c *ECHONETListClientProxy) UpdateProperties(criteria FilterCriteria) error {
 	return c.handler.UpdateProperties(criteria)
 }
 
-func (c *ECHONETListClientProxy) AliasList() []protocol.AliasDevicePair {
+func (c *ECHONETListClientProxy) AliasList() []AliasDevicePair {
 	return c.handler.AliasList()
 }
 
-func (c *ECHONETListClientProxy) AliasSet(alias *string, criteria protocol.FilterCriteria) error {
+func (c *ECHONETListClientProxy) AliasSet(alias *string, criteria FilterCriteria) error {
 	return c.handler.AliasSet(alias, criteria)
 }
 
@@ -72,30 +91,52 @@ func (c *ECHONETListClientProxy) AliasDelete(alias *string) error {
 	return c.handler.AliasDelete(alias)
 }
 
-func (c *ECHONETListClientProxy) AliasGet(alias *string) (*protocol.IPAndEOJ, error) {
+func (c *ECHONETListClientProxy) AliasGet(alias *string) (*IPAndEOJ, error) {
 	return c.handler.AliasGet(alias)
 }
 
-func (c *ECHONETListClientProxy) GetAliases(device protocol.IPAndEOJ) []string {
+func (c *ECHONETListClientProxy) GetAliases(device IPAndEOJ) []string {
 	return c.handler.DeviceAliases.GetAliases(device)
 }
 
-func (c *ECHONETListClientProxy) GetDevices(deviceSpec protocol.DeviceSpecifier) []protocol.IPAndEOJ {
+func (c *ECHONETListClientProxy) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
 	return c.handler.GetDevices(deviceSpec)
 }
 
-func (c *ECHONETListClientProxy) ListDevices(criteria protocol.FilterCriteria) []protocol.DevicePropertyData {
+func (c *ECHONETListClientProxy) ListDevices(criteria FilterCriteria) []DeviceAndProperties {
 	return c.handler.ListDevices(criteria)
 }
 
-func (c *ECHONETListClientProxy) GetProperties(device protocol.IPAndEOJ, EPCs []protocol.EPCType, skipValidation bool) (protocol.DeviceAndProperties, error) {
+func (c *ECHONETListClientProxy) GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error) {
 	return c.handler.GetProperties(device, EPCs, skipValidation)
 }
 
-func (c *ECHONETListClientProxy) SetProperties(device protocol.IPAndEOJ, properties protocol.Properties) (protocol.DeviceAndProperties, error) {
+func (c *ECHONETListClientProxy) SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error) {
 	return c.handler.SetProperties(device, properties)
 }
 
 func (c *ECHONETListClientProxy) GetAllPropertyAliases() []string {
 	return protocol.GetAllPropertyAliases()
+}
+
+func ValidateDeviceAlias(alias string) error {
+	return protocol.ValidateDeviceAlias(alias)
+}
+
+type PropertyInfo = protocol.PropertyInfo
+
+func GetPropertyInfo(c EOJClassCode, e EPCType) (*PropertyInfo, bool) {
+	return protocol.GetPropertyInfo(c, e)
+}
+
+func IsPropertyDefaultEPC(c EOJClassCode, epc EPCType) bool {
+	return protocol.IsPropertyDefaultEPC(c, epc)
+}
+
+func FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool) {
+	return protocol.FindPropertyAlias(classCode, alias)
+}
+
+func AvailablePropertyAliases(classCode EOJClassCode) map[string]string {
+	return protocol.AvailablePropertyAliases(classCode)
 }

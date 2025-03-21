@@ -617,11 +617,23 @@ func (h *ECHONETLiteHandler) Discover() error {
 }
 
 // ListDevices は、検出されたデバイスの一覧を表示する
-func (h *ECHONETLiteHandler) ListDevices(criteria FilterCriteria) []DevicePropertyData {
+func (h *ECHONETLiteHandler) ListDevices(criteria FilterCriteria) []DeviceAndProperties {
 	// フィルタリングを実行
 	filtered := h.devices.Filter(criteria)
 
-	return filtered.ListDevicePropertyData()
+	temp := filtered.ListDevicePropertyData()
+	result := make([]DeviceAndProperties, 0, len(temp))
+	for _, d := range temp {
+		p := make(Properties, 0, len(d.Properties))
+		for _, prop := range d.Properties {
+			p = append(p, prop)
+		}
+		result = append(result, DeviceAndProperties{
+			Device:     d.Device,
+			Properties: p,
+		})
+	}
+	return result
 }
 
 // validateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する

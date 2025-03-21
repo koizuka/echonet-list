@@ -272,23 +272,6 @@ func (d Devices) ListDevicePropertyData() []DevicePropertyData {
 	return result
 }
 
-func (m EPCPropertyMap) SortedProperties() Properties {
-	// プロパティのEPCをソート
-	epcsToShow := make([]EPCType, 0, len(m))
-	for epc := range m {
-		epcsToShow = append(epcsToShow, epc)
-	}
-	sort.Slice(epcsToShow, func(i, j int) bool {
-		return epcsToShow[i] < epcsToShow[j]
-	})
-
-	properties := make(Properties, 0, len(m))
-	for _, epc := range epcsToShow {
-		properties = append(properties, m[epc])
-	}
-	return properties
-}
-
 // SaveToFile saves the Devices data to a file in JSON format.
 func (d Devices) SaveToFile(filename string) error {
 	d.mu.RLock()
