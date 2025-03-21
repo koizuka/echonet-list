@@ -2,6 +2,7 @@ package main
 
 import (
 	"echonet-list/echonet_lite"
+	"echonet-list/protocol"
 	"fmt"
 	"net"
 	"sort"
@@ -67,10 +68,10 @@ func (c *Command) GetInstanceCode() *echonet_lite.EOJInstanceCode {
 }
 
 type CommandParser struct {
-	DeviceAliases *echonet_lite.DeviceAliases
+	DeviceAliases protocol.DeviceAliasManager
 }
 
-func NewCommandParser(deviceAliases *echonet_lite.DeviceAliases) *CommandParser {
+func NewCommandParser(deviceAliases protocol.DeviceAliasManager) *CommandParser {
 	return &CommandParser{DeviceAliases: deviceAliases}
 }
 

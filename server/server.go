@@ -1,0 +1,62 @@
+package server
+
+import (
+	"context"
+	"echonet-list/echonet_lite"
+	"fmt"
+	"net"
+)
+
+type Server struct {
+	ctx     context.Context
+	handler *echonet_lite.ECHONETLiteHandler
+}
+
+func NewServer(ctx context.Context, debug bool) (*Server, error) {
+	// Controller Object
+	SEOJ := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
+
+	// local address （ECHONET Liteの既定ポートを使用）
+	var localIP net.IP = nil // nilはすべてのインターフェースをリッスンする
+
+	// ECHONETLiteHandlerの作成
+	handler, err := echonet_lite.NewECHONETLiteHandler(ctx, localIP, SEOJ, debug)
+	if err != nil {
+		return nil, err
+	}
+
+	// メインループの開始
+	handler.StartMainLoop()
+
+	// 通知を監視するゴルーチン
+	go func() {
+		for notification := range handler.NotificationCh {
+			switch notification.Type {
+			case echonet_lite.DeviceAdded:
+				fmt.Printf("新しいデバイスが検出されました: %v\n", notification.Device)
+			case echonet_lite.DeviceTimeout:
+				// fmt.Printf("デバイス %v へのリクエストがタイムアウトしました: %v\n",
+				// 	notification.Device, notification.Error)
+			}
+		}
+	}()
+
+	// ノードリストの通知
+	_ = handler.NotifyNodeList()
+
+	// デバイスの発見
+	_ = handler.Discover()
+
+	return &Server{
+		ctx:     ctx,
+		handler: handler,
+	}, nil
+}
+
+func (s *Server) Close() error {
+	return s.handler.Close()
+}
+
+func (s *Server) GetHandler() *echonet_lite.ECHONETLiteHandler {
+	return s.handler
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"echonet-list/client"
 	"echonet-list/echonet_lite"
 	"errors"
 	"fmt"
@@ -12,7 +13,7 @@ import (
 
 // CommandProcessor は、コマンド処理を担当する構造体
 type CommandProcessor struct {
-	handler *echonet_lite.ECHONETLiteHandler
+	handler client.ECHONETListClient
 	cmdChan chan *Command
 	done    chan struct{}
 	ctx     context.Context    // コンテキスト
@@ -20,7 +21,7 @@ type CommandProcessor struct {
 }
 
 // NewCommandProcessor は、CommandProcessor の新しいインスタンスを作成する
-func NewCommandProcessor(ctx context.Context, handler *echonet_lite.ECHONETLiteHandler) *CommandProcessor {
+func NewCommandProcessor(ctx context.Context, handler client.ECHONETListClient) *CommandProcessor {
 	// コマンドプロセッサ用のコンテキストを作成
 	processorCtx, cancel := context.WithCancel(ctx)
 

@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"echonet-list/echonet_lite"
-	"echonet-list/echonet_lite/log"
+	"echonet-list/client"
+	"echonet-list/server"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -37,15 +36,16 @@ func main() {
 	logFilename := *logFilenameFlag
 
 	// ロガーのセットアップ
-	logger, err := log.NewLogger(logFilename)
+	logger, err := server.NewLogManager(logFilename)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "ログ設定エラー: %v\n", err)
 		return
 	}
-	log.SetLogger(logger)
 
 	// ログファイルを閉じる
-	defer log.SetLogger(nil)
+	defer func() {
+		_ = logger.Close()
+	}()
 
 	// ルートコンテキストの作成
 	ctx, cancel := context.WithCancel(context.Background())
@@ -60,62 +60,22 @@ func main() {
 		cancel() // シグナル受信時にコンテキストをキャンセル
 	}()
 
-	// ログローテーション用のシグナルハンドリング (SIGHUP)
-	rotateSignalCh := make(chan os.Signal, 1)
-	signal.Notify(rotateSignalCh, syscall.SIGHUP)
-	go func() {
-		for {
-			<-rotateSignalCh
-			fmt.Println("SIGHUPを受信しました。ログファイルをローテーションします...")
-			logger := log.GetLogger()
-			if err := logger.Rotate(); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "ログローテーションエラー: %v\n", err)
-			}
-		}
-	}()
-
-	// Controller Object
-	SEOJ := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
-
-	// local address （ECHONET Liteの既定ポートを使用）
-	var localIP net.IP = nil // nilはすべてのインターフェースをリッスンする
-
 	// ECHONETLiteHandlerの作成
-	handler, err := echonet_lite.NewECHONETLiteHandler(ctx, localIP, SEOJ, debug)
+	s, err := server.NewServer(ctx, debug)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer func() {
-		if err := handler.Close(); err != nil {
+		if err := s.Close(); err != nil {
 			fmt.Printf("セッションのクローズ中にエラーが発生しました: %v\n", err)
 		}
 	}()
 
-	// メインループの開始
-	handler.StartMainLoop()
-
-	// 通知を監視するゴルーチン
-	go func() {
-		for notification := range handler.NotificationCh {
-			switch notification.Type {
-			case echonet_lite.DeviceAdded:
-				fmt.Printf("新しいデバイスが検出されました: %v\n", notification.Device)
-			case echonet_lite.DeviceTimeout:
-				// fmt.Printf("デバイス %v へのリクエストがタイムアウトしました: %v\n",
-				// 	notification.Device, notification.Error)
-			}
-		}
-	}()
-
-	// ノードリストの通知
-	_ = handler.NotifyNodeList()
-
-	// デバイスの発見
-	_ = handler.Discover()
+	c := client.NewECHONETListClientProxy(s.GetHandler())
 
 	// コマンドプロセッサの作成と開始
-	processor := NewCommandProcessor(ctx, handler)
+	processor := NewCommandProcessor(ctx, c)
 	processor.Start()
 	// defer processor.Stop() は不要。明示的に呼び出すため
 
@@ -132,7 +92,7 @@ func main() {
 	// コマンド補完用の関数を定義
 
 	aliases := []readline.PrefixCompleterInterface{}
-	for _, alias := range echonet_lite.GetAllAliases() {
+	for _, alias := range c.GetAllPropertyAliases() {
 		aliases = append(aliases, readline.PcItem(alias))
 	}
 
@@ -176,7 +136,7 @@ func main() {
 		_ = rl.Close()
 	}(rl)
 
-	p := NewCommandParser(handler.DeviceAliases)
+	p := NewCommandParser(c.GetDeviceAliasManager())
 
 	for {
 		line, err := rl.Readline()
@@ -184,7 +144,7 @@ func main() {
 			break
 		}
 
-		cmd, err := p.ParseCommand(line, handler.Debug)
+		cmd, err := p.ParseCommand(line, c.IsDebug())
 		if err != nil {
 			fmt.Printf("エラー: %v\n", err)
 			continue
