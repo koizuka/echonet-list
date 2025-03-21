@@ -13,6 +13,66 @@ import (
 	"github.com/chzyer/readline"
 )
 
+// カスタム補完機能を実装する構造体
+type dynamicCompleter struct {
+	client client.ECHONETListClient
+}
+
+// Do メソッドを実装して readline.AutoCompleter インターフェースを満たす
+func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length int) {
+	// プロパティエイリアスを取得
+	propertyAliases := dc.client.GetAllPropertyAliases()
+
+	// デバイスエイリアスを取得
+	deviceAliases := []string{}
+	for _, pair := range dc.client.AliasList() {
+		deviceAliases = append(deviceAliases, pair.Alias)
+	}
+
+	// コマンド補完用の候補を構築
+	propertyAliasPcItems := []readline.PrefixCompleterInterface{}
+	for _, alias := range propertyAliases {
+		propertyAliasPcItems = append(propertyAliasPcItems, readline.PcItem(alias))
+	}
+
+	deviceAliasPcItems := []readline.PrefixCompleterInterface{}
+	for _, alias := range deviceAliases {
+		deviceAliasPcItems = append(deviceAliasPcItems, readline.PcItem(alias))
+	}
+
+	// devicesとlistコマンド用のオプション
+	deviceListOptions := []readline.PrefixCompleterInterface{
+		readline.PcItem("-all"),
+		readline.PcItem("-props"),
+	}
+	deviceListOptions = append(deviceListOptions, propertyAliasPcItems...)
+	deviceListOptions = append(deviceListOptions, deviceAliasPcItems...)
+
+	commonAliasPcItems := append(propertyAliasPcItems, deviceAliasPcItems...)
+
+	// 全コマンドの補完候補を構築
+	completer := readline.NewPrefixCompleter(
+		readline.PcItem("quit"),
+		readline.PcItem("discover"),
+		readline.PcItem("help"),
+		readline.PcItem("get", commonAliasPcItems...),
+		readline.PcItem("set", commonAliasPcItems...),
+		readline.PcItem("devices", deviceListOptions...),
+		readline.PcItem("list", deviceListOptions...),
+		readline.PcItem("update", commonAliasPcItems...),
+		readline.PcItem("debug",
+			readline.PcItem("on"),
+			readline.PcItem("off"),
+		),
+		readline.PcItem("alias",
+			append(deviceAliasPcItems, readline.PcItem("-delete", deviceAliasPcItems...))...,
+		),
+	)
+
+	// PrefixCompleter の Do メソッドを呼び出して補完候補を取得
+	return completer.Do(line, pos)
+}
+
 const (
 	defaultLog = "echonet-list.log" // デフォルトのログファイル名
 )
@@ -89,34 +149,8 @@ func main() {
 		historyFile = fmt.Sprintf("%s/.echonet_history", home)
 	}
 
-	// コマンド補完用の関数を定義
-
-	aliases := []readline.PrefixCompleterInterface{}
-	for _, alias := range c.GetAllPropertyAliases() {
-		aliases = append(aliases, readline.PcItem(alias))
-	}
-
-	// devicesとlistコマンド用のオプション
-	deviceListOptions := []readline.PrefixCompleterInterface{
-		readline.PcItem("-all"),
-		readline.PcItem("-props"),
-	}
-	deviceListOptions = append(deviceListOptions, aliases...)
-
-	completer := readline.NewPrefixCompleter(
-		readline.PcItem("quit"),
-		readline.PcItem("discover"),
-		readline.PcItem("help"),
-		readline.PcItem("get", aliases...),
-		readline.PcItem("set", aliases...),
-		readline.PcItem("devices", deviceListOptions...),
-		readline.PcItem("list", deviceListOptions...),
-		readline.PcItem("update"),
-		readline.PcItem("debug",
-			readline.PcItem("on"),
-			readline.PcItem("off"),
-		),
-	)
+	// 動的補完機能を使用
+	completer := &dynamicCompleter{client: c}
 
 	// readline の設定
 	rlConfig := &readline.Config{
