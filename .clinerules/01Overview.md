@@ -3,22 +3,22 @@
 
 ## Project Overview
 
-プロジェクトの概要については [cline_docs/productContext.md](../cline_docs/productContext.md) を参照してください。
+プロジェクトの概要については [memory-bank/productContext.md](../memory-bank/productContext.md) を参照してください。
 
 ## Key Features
 
-主要機能については [cline_docs/productContext.md](../cline_docs/productContext.md) を参照してください。
+主要機能については [memory-bank/productContext.md](../memory-bank/productContext.md) を参照してください。
 
 ## Development Environment
 
-開発環境の詳細については [cline_docs/techContext.md](../cline_docs/techContext.md) を参照してください。
+開発環境の詳細については [memory-bank/techContext.md](../memory-bank/techContext.md) を参照してください。
 追加情報:
 
 - Project Structure: (Project Root)/README.md を参照し、変更があったら随時更新すること。
 
 ## Build Commands
 
-ビルドコマンドについては [cline_docs/techContext.md](../cline_docs/techContext.md) も参照してください。
+ビルドコマンドについては [memory-bank/techContext.md](../memory-bank/techContext.md) も参照してください。
 
 - Build: `go build`
 - Run: `./echonet-list [-debug]`
@@ -29,7 +29,7 @@
 
 ## Code Style Guidelines
 
-コードの構成とスタイルについては [cline_docs/systemPatterns.md](../cline_docs/systemPatterns.md) も参照してください。
+コードの構成とスタイルについては [memory-bank/systemPatterns.md](../memory-bank/systemPatterns.md) も参照してください。
 
 - **File Organization**: Package main in root, echonet_lite package for protocol implementation
 - **Imports**: Group standard library, then external packages, then local packages
@@ -43,7 +43,7 @@
 
 ## Development Workflow
 
-開発ワークフローについては [cline_docs/techContext.md](../cline_docs/techContext.md) も参照してください。
+開発ワークフローについては [memory-bank/techContext.md](../memory-bank/techContext.md) も参照してください。
 
 1. Make changes to Go files
 2. Always run `go fmt ./...` after making changes
@@ -74,7 +74,7 @@ This indicates that another instance of the application is already running and u
 
 ## Common Tasks
 
-コードの構成と一般的なタスクについては [cline_docs/systemPatterns.md](../cline_docs/systemPatterns.md) も参照してください。
+コードの構成と一般的なタスクについては [memory-bank/systemPatterns.md](../memory-bank/systemPatterns.md) も参照してください。
 
 - **Adding support for a new device type**: Create a new file in the `echonet_lite/` package
 - **Modifying command behavior**: Update the relevant functions in `Command.go`
@@ -82,7 +82,7 @@ This indicates that another instance of the application is already running and u
 
 ## Supported Device Types
 
-サポートされているデバイスタイプについては [cline_docs/productContext.md](../cline_docs/productContext.md) を参照してください。
+サポートされているデバイスタイプについては [memory-bank/productContext.md](../memory-bank/productContext.md) を参照してください。
 
 ## AI Assistant Guidelines
 

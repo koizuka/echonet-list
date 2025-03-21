@@ -1,5 +1,7 @@
 # System Patterns
 
+This file describes the system architecture and code organization patterns used in the project, building on the foundation defined in [projectbrief.md](./projectbrief.md).
+
 ## Architecture
 
 - The application is built in Go with a modular architecture

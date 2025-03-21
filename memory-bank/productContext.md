@@ -1,5 +1,7 @@
 # Product Context
 
+This file expands on the core project definition in [projectbrief.md](./projectbrief.md) to provide detailed context about the product's purpose and functionality.
+
 ## Project Purpose
 
 This is a Go application for discovering and controlling ECHONET Lite devices on a local network. ECHONET Lite is a communication protocol for smart home devices, primarily used in Japan.

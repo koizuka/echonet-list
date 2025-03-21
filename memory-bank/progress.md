@@ -1,5 +1,7 @@
 # Progress
 
+This file tracks the implementation progress of the project features defined in [projectbrief.md](./projectbrief.md) and planned in [activeContext.md](./activeContext.md).
+
 ## What Works
 
 - The ECHONET Lite application is functional and can discover and control devices

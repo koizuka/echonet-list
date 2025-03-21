@@ -1,5 +1,7 @@
 # Active Context
 
+This file focuses on the current work and recent changes in the project, building on the foundation defined in [projectbrief.md](./projectbrief.md) and the architectural patterns in [systemPatterns.md](./systemPatterns.md).
+
 ## Current Task
 
 最近の作業では、helpコマンドの機能を拡張しました。コマンドの使用方法の表示がだいぶ長くなってきたため、helpコマンドの引数にコマンド名を与えると、そのコマンドの情報だけ絞り込んで表示し、引数無しだと概要と全コマンドのサマリーだけが出るように改善しました。

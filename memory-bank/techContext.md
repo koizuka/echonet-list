@@ -1,5 +1,7 @@
 # Technical Context
 
+This file provides details about the technical environment and constraints of the project, complementing the core project definition in [projectbrief.md](./projectbrief.md).
+
 ## Technologies Used
 - **Programming Language**: Go (version 1.20 as specified in go.mod)
 - **Dependencies**:
