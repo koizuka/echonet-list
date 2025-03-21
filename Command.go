@@ -607,6 +607,7 @@ type CommandDefinition struct {
 }
 
 // CommandTable はコマンドの定義を格納するテーブル
+// コマンドの使用法に変化があったときは、README.md も更新すること
 var CommandTable = []CommandDefinition{
 	{
 		Name:    "discover",
@@ -788,7 +789,6 @@ func PrintCommandDetail(commandName string) {
 }
 
 // コマンドの使用方法を表示する
-// コマンドの使用法に変化があったときは、この関数と README.md も更新すること
 func PrintUsage(commandName *string) {
 	if commandName == nil {
 		// 引数無しの場合はタイトルとサマリーを表示
