@@ -389,6 +389,10 @@ func (m PropertyMap) Set(epc EPCType) {
 	m[epc] = struct{}{}
 }
 
+func (m PropertyMap) Delete(epc EPCType) {
+	delete(m, epc)
+}
+
 func (m PropertyMap) EPCs() []EPCType {
 	epcs := make([]EPCType, 0, len(m))
 	for epc := range m {

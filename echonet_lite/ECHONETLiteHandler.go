@@ -550,6 +550,15 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 			// プロパティを登録
 			h.registerProperties(device, properties)
 
+			// failedEPCs は GetPropertyMap から取り除くことで、次回以降取得しないようにする
+			for _, epc := range failedEPCs {
+				props.Delete(epc)
+			}
+			h.registerProperties(device, []Property{{
+				EPC: EPCGetPropertyMap,
+				EDT: props.Encode(),
+			}})
+
 			// デバイス情報を保存
 			h.saveDeviceInfo()
 
