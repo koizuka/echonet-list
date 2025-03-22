@@ -35,154 +35,145 @@ func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length i
 		lastWord = words[wordCount-1]
 	}
 
-	// 補完候補を格納するスライス
-	candidates := [][]rune{}
-
-	// 1単語目（コマンド名）の補完
+	// 候補を取得
+	var candidates []string
 	if wordCount <= 1 {
-		// コマンド名の一覧
-		for _, cmdDef := range GetCommandTable() {
-			if strings.HasPrefix(cmdDef.Name, lastWord) {
-				candidates = append(candidates, []rune(cmdDef.Name[len(lastWord):]))
-			}
-			for _, alias := range cmdDef.Aliases {
-				if strings.HasPrefix(alias, lastWord) {
-					candidates = append(candidates, []rune(alias[len(lastWord):]))
-				}
-			}
-		}
-		return candidates, len(lastWord)
+		// コマンド名の補完
+		candidates = dc.getCommandCandidates()
+	} else {
+		// コマンド引数の補完
+		cmd := words[0]
+		candidates = dc.getCandidatesForCommand(cmd, wordCount, words)
 	}
 
-	// 2単語目以降の補完
-	cmd := words[0]
+	// fmt.Printf("DEBUG: lastWord=%v, candidates=%v\n", lastWord, candidates)
+
+	// 最後の単語でフィルタリングして返す
+	result := [][]rune{}
+	for _, candidate := range candidates {
+		if strings.HasPrefix(candidate, lastWord) {
+			result = append(result, []rune(candidate[len(lastWord):]))
+		}
+	}
+	return result, len(lastWord)
+}
+
+// コマンド名の候補を返す
+func (dc *dynamicCompleter) getCommandCandidates() []string {
+	var candidates []string
+	for _, cmdDef := range GetCommandTable() {
+		candidates = append(candidates, cmdDef.Name)
+		candidates = append(candidates, cmdDef.Aliases...)
+	}
+	return candidates
+}
+
+// デバイスエイリアスの候補を返す
+func (dc *dynamicCompleter) getDeviceAliasCandidates() []string {
+	var aliases []string
+	for _, pair := range dc.client.AliasList() {
+		aliases = append(aliases, pair.Alias)
+	}
+	return aliases
+}
+
+// プロパティエイリアスの候補を返す
+func (dc *dynamicCompleter) getPropertyAliasCandidates() []string {
+	return dc.client.GetAllPropertyAliases()
+}
+
+// コマンドと引数位置に応じた候補を返す
+func (dc *dynamicCompleter) getCandidatesForCommand(cmd string, wordCount int, words []string) []string {
 	switch cmd {
 	case "get", "set":
 		if wordCount == 2 {
 			// デバイスエイリアスのみを表示
-			for _, pair := range dc.client.AliasList() {
-				alias := pair.Alias
-				if strings.HasPrefix(alias, lastWord) {
-					candidates = append(candidates, []rune(alias[len(lastWord):]))
-				}
-			}
+			return dc.getDeviceAliasCandidates()
 		} else if wordCount >= 3 {
 			// プロパティエイリアスのみを表示
-			for _, alias := range dc.client.GetAllPropertyAliases() {
-				if strings.HasPrefix(alias, lastWord) {
-					candidates = append(candidates, []rune(alias[len(lastWord):]))
-				}
-			}
+			return dc.getPropertyAliasCandidates()
 		}
+
 	case "devices", "list":
 		// オプションとエイリアスを表示
 		options := []string{"-all", "-props"}
-		for _, opt := range options {
-			if strings.HasPrefix(opt, lastWord) {
-				candidates = append(candidates, []rune(opt[len(lastWord):]))
-			}
-		}
-		// デバイスエイリアスも表示
-		for _, pair := range dc.client.AliasList() {
-			alias := pair.Alias
-			if strings.HasPrefix(alias, lastWord) {
-				candidates = append(candidates, []rune(alias[len(lastWord):]))
-			}
-		}
+		return append(options, dc.getDeviceAliasCandidates()...)
+
 	case "update":
 		if wordCount == 2 {
 			// デバイスエイリアスのみを表示
-			for _, pair := range dc.client.AliasList() {
-				alias := pair.Alias
-				if strings.HasPrefix(alias, lastWord) {
-					candidates = append(candidates, []rune(alias[len(lastWord):]))
-				}
-			}
+			return dc.getDeviceAliasCandidates()
 		}
+
 	case "debug":
 		if wordCount == 2 {
 			// on/off オプションを表示
-			options := []string{"on", "off"}
-			for _, opt := range options {
-				if strings.HasPrefix(opt, lastWord) {
-					candidates = append(candidates, []rune(opt[len(lastWord):]))
-				}
-			}
+			return []string{"on", "off"}
 		}
+
 	case "help":
 		if wordCount == 2 {
 			// コマンド名を表示
-			for _, cmdDef := range GetCommandTable() {
-				if strings.HasPrefix(cmdDef.Name, lastWord) {
-					candidates = append(candidates, []rune(cmdDef.Name[len(lastWord):]))
-				}
-				for _, alias := range cmdDef.Aliases {
-					if strings.HasPrefix(alias, lastWord) {
-						candidates = append(candidates, []rune(alias[len(lastWord):]))
-					}
-				}
-			}
+			return dc.getCommandCandidates()
 		}
+
 	case "alias":
 		if wordCount == 2 {
 			// -delete オプションとエイリアス名を表示
-			if strings.HasPrefix("-delete", lastWord) {
-				candidates = append(candidates, []rune("-delete"[len(lastWord):]))
-			}
-			// デバイスエイリアスも表示
-			for _, pair := range dc.client.AliasList() {
-				alias := pair.Alias
-				if strings.HasPrefix(alias, lastWord) {
-					candidates = append(candidates, []rune(alias[len(lastWord):]))
-				}
-			}
+			return append([]string{"-delete"}, dc.getDeviceAliasCandidates()...)
 		} else if wordCount == 3 && words[1] == "-delete" {
 			// alias -delete の後にはエイリアス名
-			for _, pair := range dc.client.AliasList() {
-				alias := pair.Alias
-				if strings.HasPrefix(alias, lastWord) {
-					candidates = append(candidates, []rune(alias[len(lastWord):]))
-				}
-			}
+			return dc.getDeviceAliasCandidates()
 		} else if wordCount >= 3 {
 			// alias <name> の後にはデバイス指定子（IPアドレスやクラスコード）
 			// ここではIPアドレスの補完は難しいので、デバイスエイリアスのみ提供
-			for _, pair := range dc.client.AliasList() {
-				alias := pair.Alias
-				if strings.HasPrefix(alias, lastWord) {
-					candidates = append(candidates, []rune(alias[len(lastWord):]))
-				}
-			}
+			return dc.getDeviceAliasCandidates()
 		}
 	}
 
-	return candidates, len(lastWord)
+	return []string{} // デフォルトは空リスト
 }
 
 // 入力行を単語に分割する補助関数
 func splitWords(line string) []string {
+	// 空の入力の場合は空のスライスを返す
+	if line == "" {
+		return []string{}
+	}
+
 	var words []string
 	var word string
 	inQuote := false
+	lastWasSpace := false
 
 	for _, r := range line {
 		switch r {
 		case ' ', '\t':
-			if !inQuote && word != "" {
-				words = append(words, word)
-				word = ""
+			if !inQuote {
+				if word != "" {
+					words = append(words, word)
+					word = ""
+				}
+				lastWasSpace = true
 			} else if inQuote {
 				word += string(r)
 			}
 		case '"', '\'':
 			inQuote = !inQuote
+			lastWasSpace = false
 		default:
 			word += string(r)
+			lastWasSpace = false
 		}
 	}
 
 	if word != "" {
 		words = append(words, word)
+	}
+
+	// 末尾が空白だった場合、空の単語を1つだけ追加
+	if lastWasSpace {
+		words = append(words, "")
 	}
 
 	return words
