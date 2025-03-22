@@ -41,11 +41,11 @@ func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length i
 	// 1単語目（コマンド名）の補完
 	if wordCount <= 1 {
 		// コマンド名の一覧
-		for _, cmdDef := range getCommandTable() {
-			if strings.HasPrefix(cmdDef.name, lastWord) {
-				candidates = append(candidates, []rune(cmdDef.name[len(lastWord):]))
+		for _, cmdDef := range GetCommandTable() {
+			if strings.HasPrefix(cmdDef.Name, lastWord) {
+				candidates = append(candidates, []rune(cmdDef.Name[len(lastWord):]))
 			}
-			for _, alias := range cmdDef.aliases {
+			for _, alias := range cmdDef.Aliases {
 				if strings.HasPrefix(alias, lastWord) {
 					candidates = append(candidates, []rune(alias[len(lastWord):]))
 				}
@@ -112,11 +112,11 @@ func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length i
 	case "help":
 		if wordCount == 2 {
 			// コマンド名を表示
-			for _, cmdDef := range getCommandTable() {
-				if strings.HasPrefix(cmdDef.name, lastWord) {
-					candidates = append(candidates, []rune(cmdDef.name[len(lastWord):]))
+			for _, cmdDef := range GetCommandTable() {
+				if strings.HasPrefix(cmdDef.Name, lastWord) {
+					candidates = append(candidates, []rune(cmdDef.Name[len(lastWord):]))
 				}
-				for _, alias := range cmdDef.aliases {
+				for _, alias := range cmdDef.Aliases {
 					if strings.HasPrefix(alias, lastWord) {
 						candidates = append(candidates, []rune(alias[len(lastWord):]))
 					}
@@ -157,27 +157,6 @@ func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length i
 	}
 
 	return candidates, len(lastWord)
-}
-
-// コマンドテーブル情報を取得する補助関数
-type commandInfo struct {
-	name    string
-	aliases []string
-}
-
-func getCommandTable() []commandInfo {
-	return []commandInfo{
-		{name: "quit", aliases: []string{}},
-		{name: "discover", aliases: []string{}},
-		{name: "help", aliases: []string{}},
-		{name: "get", aliases: []string{}},
-		{name: "set", aliases: []string{}},
-		{name: "devices", aliases: []string{"list"}},
-		{name: "list", aliases: []string{}},
-		{name: "update", aliases: []string{}},
-		{name: "debug", aliases: []string{}},
-		{name: "alias", aliases: []string{}},
-	}
 }
 
 // 入力行を単語に分割する補助関数

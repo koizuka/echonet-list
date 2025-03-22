@@ -30,6 +30,7 @@ This file describes the system architecture and code organization patterns used 
 
 - `main.go`: Entry point and main application logic
 - `Command.go`: Command parsing and execution
+- `CommandTable.go`: Command definition table and help display functionality
 - `CommandProcessor.go`: Command processing and execution
 - `echonet_lite/`: Package containing ECHONET Lite protocol implementation
   - `DeviceAliases.go`: Device alias management and storage

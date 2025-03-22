@@ -14,6 +14,7 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Recent Changes
 
+- `Command.go`を`Command.go`（コマンドの基本構造と解析処理）と`CommandTable.go`（コマンド定義テーブルとヘルプ表示機能）に分割し、コードの責務をより明確に分離しました
 - `Devices.go`に`DeviceEventType`と`DeviceEvent`型を定義しました
 - `Devices`構造体に`EventCh`フィールドを追加しました
 - `SetEventChannel`メソッドを追加して、イベントチャネルを設定できるようにしました
