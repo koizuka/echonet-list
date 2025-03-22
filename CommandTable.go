@@ -3,18 +3,27 @@ package main
 import (
 	"echonet-list/client"
 	"fmt"
-	"golang.org/x/exp/slices"
 	"strings"
+
+	"golang.org/x/exp/slices"
 )
+
+// CompleterInterface は補完機能を提供するインターフェース
+type CompleterInterface interface {
+	getDeviceAliasCandidates() []string
+	getPropertyAliasCandidates() []string
+	getCommandCandidates() []string
+}
 
 // CommandDefinition はコマンドの定義を保持する構造体
 type CommandDefinition struct {
-	Name        string                                                              // コマンド名
-	Aliases     []string                                                            // 別名（例: devicesとlistなど）
-	Summary     string                                                              // 概要（短い説明）
-	Syntax      string                                                              // 構文
-	Description []string                                                            // 詳細説明（各行が1つの要素）
-	ParseFunc   func(p CommandParser, parts []string, debug bool) (*Command, error) // パース関数
+	Name              string                                                              // コマンド名
+	Aliases           []string                                                            // 別名（例: devicesとlistなど）
+	Summary           string                                                              // 概要（短い説明）
+	Syntax            string                                                              // 構文
+	Description       []string                                                            // 詳細説明（各行が1つの要素）
+	ParseFunc         func(p CommandParser, parts []string, debug bool) (*Command, error) // パース関数
+	GetCandidatesFunc func(dc CompleterInterface, wordCount int, words []string) []string // 補完候補生成関数
 }
 
 // CommandTable はコマンドの定義を格納するテーブル
@@ -44,6 +53,11 @@ var CommandTable = []CommandDefinition{
 			"-props: 既知のEPCのみを表示",
 			"epc: 2桁の16進数で指定（例: 80）。複数指定可能",
 			"※-all, -props, epc は最後に指定されたものが有効になります",
+		},
+		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+			// オプションとエイリアスを表示
+			options := []string{"-all", "-props"}
+			return append(options, dc.getDeviceAliasCandidates()...)
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdDevices)
@@ -104,6 +118,16 @@ var CommandTable = []CommandDefinition{
 			"epc: 取得するプロパティのEPC（2桁の16進数、例: 80）。複数指定可能",
 			"-skip-validation: デバイスの存在チェックをスキップ（タイムアウト動作確認用）",
 		},
+		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+			if wordCount == 2 {
+				// デバイスエイリアスのみを表示
+				return dc.getDeviceAliasCandidates()
+			} else if wordCount >= 3 {
+				// プロパティエイリアスのみを表示
+				return dc.getPropertyAliasCandidates()
+			}
+			return []string{}
+		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdGet)
 
@@ -151,6 +175,16 @@ var CommandTable = []CommandDefinition{
 			"  - 80:on（OperationStatus{true}と同等）",
 			"  - 80:off（OperationStatus{false}と同等）",
 			"  - b0:auto（エアコンの自動モードと同等）",
+		},
+		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+			if wordCount == 2 {
+				// デバイスエイリアスのみを表示
+				return dc.getDeviceAliasCandidates()
+			} else if wordCount >= 3 {
+				// プロパティエイリアスのみを表示
+				return dc.getPropertyAliasCandidates()
+			}
+			return []string{}
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdSet)
@@ -203,6 +237,13 @@ var CommandTable = []CommandDefinition{
 			"classCode: クラスコード（4桁の16進数、省略時は全クラスが対象）",
 			"instanceCode: インスタンスコード（1-255の数字、省略時は指定クラスの全インスタンスが対象）",
 		},
+		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+			if wordCount == 2 {
+				// デバイスエイリアスのみを表示
+				return dc.getDeviceAliasCandidates()
+			}
+			return []string{}
+		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdUpdate)
 
@@ -238,6 +279,20 @@ var CommandTable = []CommandDefinition{
 			"例: alias aircon1 0130 living1 - クラスコード0130で設置場所が'living1'のデバイスに「aircon1」というエイリアスを設定",
 			"例: alias ac - 「ac」というエイリアスの情報を表示",
 			"例: alias -delete ac - 「ac」というエイリアスを削除",
+		},
+		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+			if wordCount == 2 {
+				// -delete オプションとエイリアス名を表示
+				return append([]string{"-delete"}, dc.getDeviceAliasCandidates()...)
+			} else if wordCount == 3 && words[1] == "-delete" {
+				// alias -delete の後にはエイリアス名
+				return dc.getDeviceAliasCandidates()
+			} else if wordCount >= 3 {
+				// alias <name> の後にはデバイス指定子（IPアドレスやクラスコード）
+				// ここではIPアドレスの補完は難しいので、デバイスエイリアスのみ提供
+				return dc.getDeviceAliasCandidates()
+			}
+			return []string{}
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdAliasList)
@@ -313,6 +368,13 @@ var CommandTable = []CommandDefinition{
 			"on: デバッグモードを有効にする",
 			"off: デバッグモードを無効にする",
 		},
+		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+			if wordCount == 2 {
+				// on/off オプションを表示
+				return []string{"on", "off"}
+			}
+			return []string{}
+		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdDebug)
 
@@ -339,6 +401,13 @@ var CommandTable = []CommandDefinition{
 		Description: []string{
 			"引数なし: 全コマンドの概要を表示",
 			"command: 指定したコマンドの詳細を表示",
+		},
+		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+			if wordCount == 2 {
+				// コマンド名を表示
+				return dc.getCommandCandidates()
+			}
+			return []string{}
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdHelp)
@@ -414,23 +483,4 @@ func PrintUsage(commandName *string) {
 		// 特定のコマンドの詳細を表示（タイトルなし）
 		PrintCommandDetail(*commandName)
 	}
-}
-
-// CommandInfo はコマンド名とエイリアスの情報を保持する構造体
-type CommandInfo struct {
-	Name    string
-	Aliases []string
-}
-
-// GetCommandTable はコマンドテーブル情報を取得する関数
-// main.goのgetCommandTable()から呼び出される
-func GetCommandTable() []CommandInfo {
-	result := make([]CommandInfo, 0, len(CommandTable))
-	for _, cmdDef := range CommandTable {
-		result = append(result, CommandInfo{
-			Name:    cmdDef.Name,
-			Aliases: cmdDef.Aliases,
-		})
-	}
-	return result
 }
