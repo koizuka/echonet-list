@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/chzyer/readline"
@@ -20,57 +21,192 @@ type dynamicCompleter struct {
 
 // Do メソッドを実装して readline.AutoCompleter インターフェースを満たす
 func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length int) {
-	// プロパティエイリアスを取得
-	propertyAliases := dc.client.GetAllPropertyAliases()
+	// 現在の入力行を解析して、入力段階を判断する
+	lineStr := string(line[:pos])
+	words := splitWords(lineStr)
+	wordCount := len(words)
 
-	// デバイスエイリアスを取得
-	deviceAliases := []string{}
-	for _, pair := range dc.client.AliasList() {
-		deviceAliases = append(deviceAliases, pair.Alias)
+	// デバッグ出力
+	// fmt.Fprintf(os.Stderr, "DEBUG: line=%q, pos=%d, words=%v, wordCount=%d\n", lineStr, pos, words, wordCount)
+
+	// 最後の単語を取得
+	lastWord := ""
+	if wordCount > 0 {
+		lastWord = words[wordCount-1]
 	}
 
-	// コマンド補完用の候補を構築
-	propertyAliasPcItems := []readline.PrefixCompleterInterface{}
-	for _, alias := range propertyAliases {
-		propertyAliasPcItems = append(propertyAliasPcItems, readline.PcItem(alias))
+	// 補完候補を格納するスライス
+	candidates := [][]rune{}
+
+	// 1単語目（コマンド名）の補完
+	if wordCount <= 1 {
+		// コマンド名の一覧
+		for _, cmdDef := range getCommandTable() {
+			if strings.HasPrefix(cmdDef.name, lastWord) {
+				candidates = append(candidates, []rune(cmdDef.name[len(lastWord):]))
+			}
+			for _, alias := range cmdDef.aliases {
+				if strings.HasPrefix(alias, lastWord) {
+					candidates = append(candidates, []rune(alias[len(lastWord):]))
+				}
+			}
+		}
+		return candidates, len(lastWord)
 	}
 
-	deviceAliasPcItems := []readline.PrefixCompleterInterface{}
-	for _, alias := range deviceAliases {
-		deviceAliasPcItems = append(deviceAliasPcItems, readline.PcItem(alias))
+	// 2単語目以降の補完
+	cmd := words[0]
+	switch cmd {
+	case "get", "set":
+		if wordCount == 2 {
+			// デバイスエイリアスのみを表示
+			for _, pair := range dc.client.AliasList() {
+				alias := pair.Alias
+				if strings.HasPrefix(alias, lastWord) {
+					candidates = append(candidates, []rune(alias[len(lastWord):]))
+				}
+			}
+		} else if wordCount >= 3 {
+			// プロパティエイリアスのみを表示
+			for _, alias := range dc.client.GetAllPropertyAliases() {
+				if strings.HasPrefix(alias, lastWord) {
+					candidates = append(candidates, []rune(alias[len(lastWord):]))
+				}
+			}
+		}
+	case "devices", "list":
+		// オプションとエイリアスを表示
+		options := []string{"-all", "-props"}
+		for _, opt := range options {
+			if strings.HasPrefix(opt, lastWord) {
+				candidates = append(candidates, []rune(opt[len(lastWord):]))
+			}
+		}
+		// デバイスエイリアスも表示
+		for _, pair := range dc.client.AliasList() {
+			alias := pair.Alias
+			if strings.HasPrefix(alias, lastWord) {
+				candidates = append(candidates, []rune(alias[len(lastWord):]))
+			}
+		}
+	case "update":
+		if wordCount == 2 {
+			// デバイスエイリアスのみを表示
+			for _, pair := range dc.client.AliasList() {
+				alias := pair.Alias
+				if strings.HasPrefix(alias, lastWord) {
+					candidates = append(candidates, []rune(alias[len(lastWord):]))
+				}
+			}
+		}
+	case "debug":
+		if wordCount == 2 {
+			// on/off オプションを表示
+			options := []string{"on", "off"}
+			for _, opt := range options {
+				if strings.HasPrefix(opt, lastWord) {
+					candidates = append(candidates, []rune(opt[len(lastWord):]))
+				}
+			}
+		}
+	case "help":
+		if wordCount == 2 {
+			// コマンド名を表示
+			for _, cmdDef := range getCommandTable() {
+				if strings.HasPrefix(cmdDef.name, lastWord) {
+					candidates = append(candidates, []rune(cmdDef.name[len(lastWord):]))
+				}
+				for _, alias := range cmdDef.aliases {
+					if strings.HasPrefix(alias, lastWord) {
+						candidates = append(candidates, []rune(alias[len(lastWord):]))
+					}
+				}
+			}
+		}
+	case "alias":
+		if wordCount == 2 {
+			// -delete オプションとエイリアス名を表示
+			if strings.HasPrefix("-delete", lastWord) {
+				candidates = append(candidates, []rune("-delete"[len(lastWord):]))
+			}
+			// デバイスエイリアスも表示
+			for _, pair := range dc.client.AliasList() {
+				alias := pair.Alias
+				if strings.HasPrefix(alias, lastWord) {
+					candidates = append(candidates, []rune(alias[len(lastWord):]))
+				}
+			}
+		} else if wordCount == 3 && words[1] == "-delete" {
+			// alias -delete の後にはエイリアス名
+			for _, pair := range dc.client.AliasList() {
+				alias := pair.Alias
+				if strings.HasPrefix(alias, lastWord) {
+					candidates = append(candidates, []rune(alias[len(lastWord):]))
+				}
+			}
+		} else if wordCount >= 3 {
+			// alias <name> の後にはデバイス指定子（IPアドレスやクラスコード）
+			// ここではIPアドレスの補完は難しいので、デバイスエイリアスのみ提供
+			for _, pair := range dc.client.AliasList() {
+				alias := pair.Alias
+				if strings.HasPrefix(alias, lastWord) {
+					candidates = append(candidates, []rune(alias[len(lastWord):]))
+				}
+			}
+		}
 	}
 
-	// devicesとlistコマンド用のオプション
-	deviceListOptions := []readline.PrefixCompleterInterface{
-		readline.PcItem("-all"),
-		readline.PcItem("-props"),
+	return candidates, len(lastWord)
+}
+
+// コマンドテーブル情報を取得する補助関数
+type commandInfo struct {
+	name    string
+	aliases []string
+}
+
+func getCommandTable() []commandInfo {
+	return []commandInfo{
+		{name: "quit", aliases: []string{}},
+		{name: "discover", aliases: []string{}},
+		{name: "help", aliases: []string{}},
+		{name: "get", aliases: []string{}},
+		{name: "set", aliases: []string{}},
+		{name: "devices", aliases: []string{"list"}},
+		{name: "list", aliases: []string{}},
+		{name: "update", aliases: []string{}},
+		{name: "debug", aliases: []string{}},
+		{name: "alias", aliases: []string{}},
 	}
-	deviceListOptions = append(deviceListOptions, propertyAliasPcItems...)
-	deviceListOptions = append(deviceListOptions, deviceAliasPcItems...)
+}
 
-	commonAliasPcItems := append(propertyAliasPcItems, deviceAliasPcItems...)
+// 入力行を単語に分割する補助関数
+func splitWords(line string) []string {
+	var words []string
+	var word string
+	inQuote := false
 
-	// 全コマンドの補完候補を構築
-	completer := readline.NewPrefixCompleter(
-		readline.PcItem("quit"),
-		readline.PcItem("discover"),
-		readline.PcItem("help"),
-		readline.PcItem("get", commonAliasPcItems...),
-		readline.PcItem("set", commonAliasPcItems...),
-		readline.PcItem("devices", deviceListOptions...),
-		readline.PcItem("list", deviceListOptions...),
-		readline.PcItem("update", commonAliasPcItems...),
-		readline.PcItem("debug",
-			readline.PcItem("on"),
-			readline.PcItem("off"),
-		),
-		readline.PcItem("alias",
-			append(deviceAliasPcItems, readline.PcItem("-delete", deviceAliasPcItems...))...,
-		),
-	)
+	for _, r := range line {
+		switch r {
+		case ' ', '\t':
+			if !inQuote && word != "" {
+				words = append(words, word)
+				word = ""
+			} else if inQuote {
+				word += string(r)
+			}
+		case '"', '\'':
+			inQuote = !inQuote
+		default:
+			word += string(r)
+		}
+	}
 
-	// PrefixCompleter の Do メソッドを呼び出して補完候補を取得
-	return completer.Do(line, pos)
+	if word != "" {
+		words = append(words, word)
+	}
+
+	return words
 }
 
 const (
