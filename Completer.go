@@ -43,7 +43,7 @@ func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length i
 	result := [][]rune{}
 	for _, candidate := range candidates {
 		if strings.HasPrefix(candidate, lastWord) {
-			result = append(result, []rune(candidate[len(lastWord):]))
+			result = append(result, []rune(candidate[len(lastWord):]+" "))
 		}
 	}
 	return result, len(lastWord)

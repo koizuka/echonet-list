@@ -62,15 +62,20 @@ func (pt PropertyTableMap) AvailableAliases(classCode EOJClassCode) map[string]s
 }
 
 func GetAllAliases() []string {
+	exists := map[string]bool{}
 	aliases := []string{}
-	for _, table := range PropertyTables {
-		for alias := range table.AvailableAliases() {
-			aliases = append(aliases, alias)
+	set := func(available map[string]string) {
+		for alias := range available {
+			if !exists[alias] {
+				aliases = append(aliases, alias)
+				exists[alias] = true
+			}
 		}
 	}
-	for alias := range ProfileSuperClass_PropertyTable.AvailableAliases() {
-		aliases = append(aliases, alias)
+	for _, table := range PropertyTables {
+		set(table.AvailableAliases())
 	}
+	set(ProfileSuperClass_PropertyTable.AvailableAliases())
 	return aliases
 }
 
