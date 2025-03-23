@@ -59,13 +59,41 @@ func (dc *dynamicCompleter) getCommandCandidates() []string {
 	return candidates
 }
 
-// デバイスエイリアスの候補を返す
-func (dc *dynamicCompleter) getDeviceAliasCandidates() []string {
-	var aliases []string
-	for _, pair := range dc.client.AliasList() {
+// デバイスの候補を返す
+func (dc *dynamicCompleter) getDeviceCandidates() []string {
+	// aliasList からエイリアスを取得
+	aliasList := dc.client.AliasList()
+	aliases := make([]string, 0, len(aliasList))
+	for _, pair := range aliasList {
 		aliases = append(aliases, pair.Alias)
 	}
-	return aliases
+
+	// IPアドレスを取得
+	deviceSpec := client.DeviceSpecifier{}
+	devices := dc.client.GetDevices(deviceSpec)
+	ips := make([]string, 0, len(devices))
+	for _, device := range devices {
+		ip := device.IP.String()
+		if !slices.Contains(ips, ip) {
+			ips = append(ips, ip)
+		}
+	}
+
+	// EOJを取得
+	eojs := make([]string, 0, len(devices))
+	for _, device := range devices {
+		eoj := device.EOJ.Specifier()
+		if !slices.Contains(eojs, eoj) {
+			eojs = append(eojs, eoj)
+		}
+	}
+
+	candidates := make([]string, 0, len(aliases)+len(ips)+len(eojs))
+	candidates = append(candidates, aliases...)
+	candidates = append(candidates, ips...)
+	candidates = append(candidates, eojs...)
+
+	return candidates
 }
 
 // プロパティエイリアスの候補を返す

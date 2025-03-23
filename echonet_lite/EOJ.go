@@ -128,3 +128,10 @@ func (e EOJ) String() string {
 func (e EOJ) IDString() string {
 	return fmt.Sprintf("%06X", uint32(e))
 }
+
+func (e EOJ) Specifier() string {
+	if e.InstanceCode() == 0 {
+		return fmt.Sprintf("%04X", uint16(e.ClassCode()))
+	}
+	return fmt.Sprintf("%04X:%d", uint16(e.ClassCode()), e.InstanceCode())
+}

@@ -10,7 +10,7 @@ import (
 
 // CompleterInterface は補完機能を提供するインターフェース
 type CompleterInterface interface {
-	getDeviceAliasCandidates() []string
+	getDeviceCandidates() []string
 	getPropertyAliasCandidates() []string
 	getCommandCandidates() []string
 }
@@ -57,7 +57,7 @@ var CommandTable = []CommandDefinition{
 		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
 			// オプションとエイリアスを表示
 			options := []string{"-all", "-props"}
-			return append(options, dc.getDeviceAliasCandidates()...)
+			return append(options, dc.getDeviceCandidates()...)
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdDevices)
@@ -121,7 +121,7 @@ var CommandTable = []CommandDefinition{
 		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
 			if wordCount == 2 {
 				// デバイスエイリアスのみを表示
-				return dc.getDeviceAliasCandidates()
+				return dc.getDeviceCandidates()
 			} else if wordCount >= 3 {
 				// プロパティエイリアスのみを表示
 				return dc.getPropertyAliasCandidates()
@@ -179,7 +179,7 @@ var CommandTable = []CommandDefinition{
 		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
 			if wordCount == 2 {
 				// デバイスエイリアスのみを表示
-				return dc.getDeviceAliasCandidates()
+				return dc.getDeviceCandidates()
 			} else if wordCount >= 3 {
 				// プロパティエイリアスのみを表示
 				return dc.getPropertyAliasCandidates()
@@ -240,7 +240,7 @@ var CommandTable = []CommandDefinition{
 		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
 			if wordCount == 2 {
 				// デバイスエイリアスのみを表示
-				return dc.getDeviceAliasCandidates()
+				return dc.getDeviceCandidates()
 			}
 			return []string{}
 		},
@@ -283,14 +283,14 @@ var CommandTable = []CommandDefinition{
 		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
 			if wordCount == 2 {
 				// -delete オプションとエイリアス名を表示
-				return append([]string{"-delete"}, dc.getDeviceAliasCandidates()...)
+				return append([]string{"-delete"}, dc.getDeviceCandidates()...)
 			} else if wordCount == 3 && words[1] == "-delete" {
 				// alias -delete の後にはエイリアス名
-				return dc.getDeviceAliasCandidates()
+				return dc.getDeviceCandidates()
 			} else if wordCount >= 3 {
 				// alias <name> の後にはデバイス指定子（IPアドレスやクラスコード）
 				// ここではIPアドレスの補完は難しいので、デバイスエイリアスのみ提供
-				return dc.getDeviceAliasCandidates()
+				return dc.getDeviceCandidates()
 			}
 			return []string{}
 		},
