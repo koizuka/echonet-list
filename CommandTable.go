@@ -11,6 +11,7 @@ import (
 // CompleterInterface は補完機能を提供するインターフェース
 type CompleterInterface interface {
 	getDeviceCandidates() []string
+	getDeviceAliasCandidates() []string
 	getPropertyAliasCandidates() []string
 	getCommandCandidates() []string
 }
@@ -283,10 +284,10 @@ var CommandTable = []CommandDefinition{
 		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
 			if wordCount == 2 {
 				// -delete オプションとエイリアス名を表示
-				return append([]string{"-delete"}, dc.getDeviceCandidates()...)
+				return append([]string{"-delete"}, dc.getDeviceAliasCandidates()...)
 			} else if wordCount == 3 && words[1] == "-delete" {
 				// alias -delete の後にはエイリアス名
-				return dc.getDeviceCandidates()
+				return dc.getDeviceAliasCandidates()
 			} else if wordCount >= 3 {
 				// alias <name> の後にはデバイス指定子（IPアドレスやクラスコード）
 				// ここではIPアドレスの補完は難しいので、デバイスエイリアスのみ提供

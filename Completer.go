@@ -59,14 +59,21 @@ func (dc *dynamicCompleter) getCommandCandidates() []string {
 	return candidates
 }
 
-// デバイスの候補を返す
-func (dc *dynamicCompleter) getDeviceCandidates() []string {
+// デバイスエイリアスの候補を返す
+func (dc *dynamicCompleter) getDeviceAliasCandidates() []string {
 	// aliasList からエイリアスを取得
 	aliasList := dc.client.AliasList()
 	aliases := make([]string, 0, len(aliasList))
 	for _, pair := range aliasList {
 		aliases = append(aliases, pair.Alias)
 	}
+	return aliases
+}
+
+// デバイスの候補を返す
+func (dc *dynamicCompleter) getDeviceCandidates() []string {
+	// aliasList からエイリアスを取得
+	aliases := dc.getDeviceAliasCandidates()
 
 	// IPアドレスを取得
 	deviceSpec := client.DeviceSpecifier{}
