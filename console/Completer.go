@@ -2,6 +2,7 @@ package console
 
 import (
 	"echonet-list/client"
+	"fmt"
 	"strings"
 
 	"golang.org/x/exp/slices"
@@ -16,6 +17,60 @@ type dynamicCompleter struct {
 var _ CompleterInterface = (*dynamicCompleter)(nil)
 
 // Do メソッドを実装して readline.AutoCompleter インターフェースを満たす
+func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length int) {
+	lineStr := string(line[:pos])
+	candidates := []string{}
+
+	tokens := Tokenize(lineStr)
+	var lastWord string
+	tokens, lastWord = SplitLastWord(tokens)
+
+	// TODO "get 192.168.0.218 "TAB で 0130:1 が候補に挙がってほしい。つまり、DeviceSpecifierの途中断片で絞り込みたい
+
+	_, nodeIds := CommandSyntax.Candidates(tokens)
+	nodeIds = removeDuplicates(nodeIds)
+	fmt.Printf("nodeIds: %v\n", nodeIds) // DEBUG
+	for _, nodeId := range nodeIds {
+		switch nodeId {
+		case NodeCommand:
+			candidates = append(candidates, dc.getCommandCandidates()...)
+		case NodeIPAddress:
+			candidates = append(candidates, dc.getIPAddressCandidates()...)
+		case NodeClassCode:
+			candidates = append(candidates, dc.getClassCodeCandidates()...)
+		case NodeEPC:
+			candidates = append(candidates, "EPC") // TODO
+		case NodeDeviceAlias:
+			// 最後の単語は除去してから候補を作るか...?
+			// このaliasリストをsyntax側に渡すほうがいいのかな
+			candidates = append(candidates, dc.getDeviceAliasCandidates()...)
+		case NodeDeviceSpecifier:
+			// TODO "get " でここにきてほしい
+			candidates = append(candidates, dc.getDeviceCandidates()...)
+		case NodeGetOptions, NodeOnOff, NodeDeleteOption, NodeListOptions:
+			options, err := CollectStrings(CommandSyntax, nodeId)
+			if err != nil {
+				break
+			}
+			candidates = append(candidates, options...)
+		default:
+			// TODO
+		}
+	}
+
+	fmt.Printf("lastWord: %#v\n", lastWord) // DEBUG
+
+	// 最後の単語でフィルタリングして返す
+	result := [][]rune{}
+	for _, candidate := range candidates {
+		if strings.HasPrefix(candidate, lastWord) {
+			result = append(result, []rune(candidate[len(lastWord):]+" "))
+		}
+	}
+	return result, len(lastWord)
+}
+
+/*
 func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length int) {
 	// 現在の入力行を解析して、入力段階を判断する
 	lineStr := string(line[:pos])
@@ -48,13 +103,13 @@ func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length i
 	}
 	return result, len(lastWord)
 }
+*/
 
 // コマンド名の候補を返す
 func (dc *dynamicCompleter) getCommandCandidates() []string {
-	var candidates []string
-	for _, cmdDef := range CommandTable {
-		candidates = append(candidates, cmdDef.Name)
-		candidates = append(candidates, cmdDef.Aliases...)
+	candidates, err := CollectStrings(CommandSyntax, NodeCommand)
+	if err != nil {
+		return []string{}
 	}
 	return candidates
 }
@@ -70,11 +125,7 @@ func (dc *dynamicCompleter) getDeviceAliasCandidates() []string {
 	return aliases
 }
 
-// デバイスの候補を返す
-func (dc *dynamicCompleter) getDeviceCandidates() []string {
-	// aliasList からエイリアスを取得
-	aliases := dc.getDeviceAliasCandidates()
-
+func (dc *dynamicCompleter) getIPAddressCandidates() []string {
 	// IPアドレスを取得
 	deviceSpec := client.DeviceSpecifier{}
 	devices := dc.client.GetDevices(deviceSpec)
@@ -85,8 +136,13 @@ func (dc *dynamicCompleter) getDeviceCandidates() []string {
 			ips = append(ips, ip)
 		}
 	}
+	return ips
+}
 
+func (dc *dynamicCompleter) getClassCodeCandidates() []string {
 	// EOJを取得
+	deviceSpec := client.DeviceSpecifier{}
+	devices := dc.client.GetDevices(deviceSpec)
 	eojs := make([]string, 0, len(devices))
 	for _, device := range devices {
 		eoj := device.EOJ.Specifier()
@@ -94,6 +150,19 @@ func (dc *dynamicCompleter) getDeviceCandidates() []string {
 			eojs = append(eojs, eoj)
 		}
 	}
+	return eojs
+}
+
+// デバイスの候補を返す
+func (dc *dynamicCompleter) getDeviceCandidates() []string {
+	// aliasList からエイリアスを取得
+	aliases := dc.getDeviceAliasCandidates()
+
+	// IPアドレスを取得
+	ips := dc.getIPAddressCandidates()
+
+	// EOJを取得
+	eojs := dc.getClassCodeCandidates()
 
 	candidates := make([]string, 0, len(aliases)+len(ips)+len(eojs))
 	candidates = append(candidates, aliases...)
@@ -153,6 +222,7 @@ func splitWords(line string) []string {
 	return words
 }
 
+/*
 // getCandidatesForCommand はコマンドと引数位置に応じた候補を返す
 func getCandidatesForCommand(dc CompleterInterface, cmd string, wordCount int, words []string) []string {
 	// コマンド名に一致するCommandDefinitionを検索
@@ -167,3 +237,4 @@ func getCandidatesForCommand(dc CompleterInterface, cmd string, wordCount int, w
 	}
 	return []string{} // デフォルトは空リスト
 }
+*/
