@@ -88,5 +88,11 @@ No immediate tasks remaining.
   - ✅ Added PrintCommandSummary and PrintCommandDetail functions
   - ✅ Converted ParseCommand to use table-driven approach
   - ✅ Replaced custom contains function with slices.Contains from standard library
-- **Architecture Split**: 🔄 PLANNED
+- **Console UI Separation**: ✅ COMPLETED
+  - ✅ Moved console UI related files to `console/` directory
+  - ✅ Organized code into client, server, and protocol packages
+  - ✅ Updated imports and dependencies
+  - ✅ Tested functionality after reorganization
+- **Architecture Split**: 🔄 IN PROGRESS
+  - 🔄 Preparing for WebSocket server implementation
 - **Web UI Development**: 🔄 PLANNED

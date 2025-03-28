@@ -29,9 +29,22 @@ This file describes the system architecture and code organization patterns used 
 ## Code Organization
 
 - `main.go`: Entry point and main application logic
-- `Command.go`: Command parsing and execution
-- `CommandTable.go`: Command definition table and help display functionality
-- `CommandProcessor.go`: Command processing and execution
+- `console/`: Package containing console UI implementation
+  - `Command.go`: Command parsing and execution
+  - `CommandTable.go`: Command definition table and help display functionality
+  - `CommandProcessor.go`: Command processing and execution
+  - `Completer.go`: Command line completion functionality
+  - `Completer_test.go`: Tests for command line completion
+  - `ConsoleProcess.go`: Main console UI process
+- `client/`: Package containing client implementation
+  - `client.go`: Client interface definitions
+  - `ECHONETListClientProxy.go`: Client proxy implementation
+  - `interfaces.go`: Interface definitions
+- `server/`: Package containing server implementation
+  - `server.go`: Server implementation
+  - `LogManager.go`: Log management functionality
+- `protocol/`: Package containing protocol definitions
+  - `protocol.go`: Protocol interface definitions
 - `echonet_lite/`: Package containing ECHONET Lite protocol implementation
   - `DeviceAliases.go`: Device alias management and storage
   - `Devices.go`: Device management and storage
