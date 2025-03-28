@@ -134,6 +134,45 @@ func TestSeq_Match(t *testing.T) {
 	}
 }
 
+type TestNode struct {
+	Id     NodeId
+	String string
+}
+
+func toTestNode(node Node) TestNode {
+	switch v := node.(type) {
+	case CompositeNode:
+		return TestNode{node.Id(), v.String}
+	default:
+		return TestNode{node.Id(), ""}
+	}
+}
+
+func toTestNodes(nodes []Node) []TestNode {
+	var testNodes []TestNode
+	for _, node := range nodes {
+		testNodes = append(testNodes, toTestNode(node))
+	}
+	return testNodes
+}
+
+// DummyCompleter は、テスト用のダミーコンプリータ。 implements CompleterInterface
+type DummyCompleter struct {
+}
+
+func (d DummyCompleter) getDeviceCandidates() []string {
+	return []string{"device1", "device2"}
+}
+func (d DummyCompleter) getDeviceAliasCandidates() []string {
+	return []string{"alias1", "alias2"}
+}
+func (d DummyCompleter) getPropertyAliasCandidates() []string {
+	return []string{"property1", "property2"}
+}
+func (d DummyCompleter) getCommandCandidates() []string {
+	return []string{"command1", "command2"}
+}
+
 func TestSeq_Candidates(t *testing.T) {
 	target := Seq{LiteralNode("abc"), LiteralNode("def")}
 
@@ -141,30 +180,34 @@ func TestSeq_Candidates(t *testing.T) {
 		name           string
 		input          []Token
 		expectedPos    int
-		expectedResult []NodeId
+		expectedResult []Node
 	}{
 		{
 			name:           "シーケンスと一致",
 			input:          Tokenize("abc def"),
 			expectedPos:    7,
-			expectedResult: []NodeId{},
+			expectedResult: []Node{},
 		},
 		{
 			name:           "シーケンスと不一致",
 			input:          Tokenize("abc ghi"),
 			expectedPos:    4,
-			expectedResult: []NodeId{NodeLiteral},
+			expectedResult: []Node{LiteralNode("def")},
 		},
 	}
 
+	dc := DummyCompleter{}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pos, nodeIds := Candidates(target, tt.input)
+			pos, nodes := Candidates(dc, target, tt.input)
 			if pos != tt.expectedPos {
 				t.Errorf("Candidates(%v) = %v, want %v", tt.input, pos, tt.expectedPos)
 			}
-			if !cmp.Equal(nodeIds, tt.expectedResult) {
-				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, nodeIds, tt.expectedResult, cmp.Diff(nodeIds, tt.expectedResult))
+			testNodes := toTestNodes(nodes)
+			expectedTestNodes := toTestNodes(tt.expectedResult)
+			if !cmp.Equal(testNodes, expectedTestNodes) {
+				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, testNodes, expectedTestNodes, cmp.Diff(testNodes, expectedTestNodes))
 			}
 		})
 	}
@@ -213,30 +256,34 @@ func TestOption_Candidates(t *testing.T) {
 		name           string
 		input          []Token
 		expectedPos    int
-		expectedResult []NodeId
+		expectedResult []Node
 	}{
 		{
 			name:           "オプションあり",
 			input:          Tokenize("abc"),
 			expectedPos:    3,
-			expectedResult: []NodeId{},
+			expectedResult: []Node{},
 		},
 		{
 			name:           "オプションなし",
-			input:          []Token{word(0, "def")},
+			input:          Tokenize("def"),
 			expectedPos:    0,
-			expectedResult: []NodeId{NodeLiteral},
+			expectedResult: []Node{LiteralNode("abc")},
 		},
 	}
 
+	dc := DummyCompleter{}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pos, nodeIds := Candidates(target, tt.input)
+			pos, nodes := Candidates(dc, target, tt.input)
 			if pos != tt.expectedPos {
 				t.Errorf("Candidates(%v) = %v, want %v", tt.input, pos, tt.expectedPos)
 			}
-			if !cmp.Equal(nodeIds, tt.expectedResult) {
-				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, nodeIds, tt.expectedResult, cmp.Diff(nodeIds, tt.expectedResult))
+			testNodes := toTestNodes(nodes)
+			expectedTestNodes := toTestNodes(tt.expectedResult)
+			if !cmp.Equal(testNodes, expectedTestNodes) {
+				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, testNodes, expectedTestNodes, cmp.Diff(testNodes, expectedTestNodes))
 			}
 		})
 	}
@@ -297,36 +344,40 @@ func TestOr_Candidates(t *testing.T) {
 		name           string
 		input          []Token
 		expectedPos    int
-		expectedResult []NodeId
+		expectedResult []Node
 	}{
 		{
 			name:           "選択肢1",
 			input:          Tokenize("abc"),
 			expectedPos:    3,
-			expectedResult: []NodeId{},
+			expectedResult: []Node{},
 		},
 		{
 			name:           "選択肢2",
 			input:          Tokenize("def"),
 			expectedPos:    3,
-			expectedResult: []NodeId{},
+			expectedResult: []Node{},
 		},
 		{
 			name:           "不一致",
 			input:          Tokenize("ghi"),
 			expectedPos:    0,
-			expectedResult: []NodeId{NodeLiteral, NodeLiteral},
+			expectedResult: []Node{LiteralNode("abc"), LiteralNode("def")},
 		},
 	}
 
+	dc := DummyCompleter{}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pos, nodeIds := Candidates(target, tt.input)
+			pos, nodes := Candidates(dc, target, tt.input)
 			if pos != tt.expectedPos {
 				t.Errorf("Candidates(%v) = %v, want %v", tt.input, pos, tt.expectedPos)
 			}
-			if !cmp.Equal(nodeIds, tt.expectedResult) {
-				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, nodeIds, tt.expectedResult, cmp.Diff(nodeIds, tt.expectedResult))
+			testNodes := toTestNodes(nodes)
+			expectedTestNodes := toTestNodes(tt.expectedResult)
+			if !cmp.Equal(testNodes, expectedTestNodes) {
+				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, testNodes, expectedTestNodes, cmp.Diff(testNodes, expectedTestNodes))
 			}
 		})
 	}
@@ -443,42 +494,46 @@ func TestCandidates(t *testing.T) {
 		name           string
 		input          []Token
 		expectedInt    int
-		expectedResult []NodeId
+		expectedResult []Node
 	}{
 		{
 			name:           "最後までマッチする場合",
 			input:          Tokenize("xyz uvw"),
 			expectedInt:    7,
-			expectedResult: []NodeId{},
+			expectedResult: []Node{},
 		},
 		{
 			name:           "Optionがマッチしない場合",
 			input:          Tokenize("uvw"),
 			expectedInt:    3,
-			expectedResult: []NodeId{},
+			expectedResult: []Node{},
 		},
 		{
 			name:           "オプションだけマッチした場合",
 			input:          Tokenize("xyz"),
 			expectedInt:    3,
-			expectedResult: []NodeId{NodeLiteral, NodeColon},
+			expectedResult: []Node{LiteralNode("uvw"), ColonNode{}},
 		},
 		{
 			name:           "入力が空の場合",
 			input:          Tokenize(""),
 			expectedInt:    0,
-			expectedResult: []NodeId{NodeLiteral, NodeLiteral, NodeColon},
+			expectedResult: []Node{LiteralNode("xyz"), LiteralNode("uvw"), ColonNode{}},
 		},
 	}
 
+	dc := DummyCompleter{}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pos, nodeIds := Candidates(target, tt.input)
+			pos, nodes := Candidates(dc, target, tt.input)
 			if pos != tt.expectedInt {
 				t.Errorf("Candidates(%v) = %v, want %v", tt.input, pos, tt.expectedInt)
 			}
-			if !cmp.Equal(nodeIds, tt.expectedResult) {
-				t.Errorf("CandidatesResults() = %v, want %v, diff %v", nodeIds, tt.expectedResult, cmp.Diff(nodeIds, tt.expectedResult))
+			testNodes := toTestNodes(nodes)
+			expectedTestNodes := toTestNodes(tt.expectedResult)
+			if !cmp.Equal(testNodes, expectedTestNodes) {
+				t.Errorf("CandidatesResults() = %v, want %v, diff %v", testNodes, expectedTestNodes, cmp.Diff(testNodes, expectedTestNodes))
 			}
 		})
 	}
@@ -501,7 +556,7 @@ func TestSimpleNode(t *testing.T) {
 		input                 []Token
 		expectedMatchResult   MatchResult
 		expectedMatchPos      int
-		expectedCandidates    []NodeId
+		expectedCandidates    []Node
 		expectedCandidatesPos int
 	}{
 		{
@@ -509,7 +564,7 @@ func TestSimpleNode(t *testing.T) {
 			input:                 Tokenize("abc"),
 			expectedMatchResult:   LiteralResult("abc"),
 			expectedMatchPos:      1,
-			expectedCandidates:    []NodeId{},
+			expectedCandidates:    []Node{},
 			expectedCandidatesPos: 3,
 		},
 		{
@@ -517,10 +572,12 @@ func TestSimpleNode(t *testing.T) {
 			input:                 Tokenize("def"),
 			expectedMatchResult:   nil,
 			expectedMatchPos:      0,
-			expectedCandidates:    []NodeId{NodeLiteral},
+			expectedCandidates:    []Node{LiteralNode("abc")},
 			expectedCandidatesPos: 0,
 		},
 	}
+
+	dc := DummyCompleter{}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -532,12 +589,14 @@ func TestSimpleNode(t *testing.T) {
 				t.Errorf("Match(%v).Pos() = %v, want %v", tt.input, pos, tt.expectedMatchPos)
 			}
 
-			candidatesPos, candidates := Candidates(target, tt.input)
+			candidatesPos, candidates := Candidates(dc, target, tt.input)
 			if candidatesPos != tt.expectedCandidatesPos {
 				t.Errorf("Candidates(%v) = %v, want %v", tt.input, candidatesPos, tt.expectedCandidatesPos)
 			}
-			if !cmp.Equal(candidates, tt.expectedCandidates) {
-				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, candidates, tt.expectedCandidates, cmp.Diff(candidates, tt.expectedCandidates))
+			testCandidates := toTestNodes(candidates)
+			expectedTestCandidates := toTestNodes(tt.expectedCandidates)
+			if !cmp.Equal(testCandidates, expectedTestCandidates) {
+				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, testCandidates, expectedTestCandidates, cmp.Diff(testCandidates, expectedTestCandidates))
 			}
 		})
 	}
@@ -591,46 +650,126 @@ func TestIPAddressNode(t *testing.T) {
 	}
 }
 
+func TestDeviceAliasNode(t *testing.T) {
+	target := DeviceAliasNode
+
+	tests := []struct {
+		name           string
+		input          []Token
+		expectedResult MatchResult
+		expectedPos    int
+	}{
+		{
+			name:           "デバイスエイリアス",
+			input:          Tokenize("abc"),
+			expectedResult: DeviceAliasResult("abc"),
+			expectedPos:    1,
+		},
+		{
+			name:           "空文字列",
+			input:          Tokenize(""),
+			expectedResult: nil,
+			expectedPos:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, pos := target.Match(tt.input)
+			if !cmp.Equal(result, tt.expectedResult) {
+				t.Errorf("Match(%v) = %v, want %v, diff = %v", tt.input, result, tt.expectedResult, cmp.Diff(result, tt.expectedResult))
+			}
+			if pos != tt.expectedPos {
+				t.Errorf("Match(%v).Pos() = %v, want %v", tt.input, pos, tt.expectedPos)
+			}
+		})
+	}
+}
+
+func TestDeviceAliasNode_Candidates(t *testing.T) {
+	target := DeviceAliasNode
+
+	tests := []struct {
+		name           string
+		input          []Token
+		expectedPos    int
+		expectedResult []Node
+	}{
+		{
+			name:           "デバイスエイリアス",
+			input:          Tokenize("abc"),
+			expectedPos:    3,
+			expectedResult: []Node{},
+		},
+		{
+			name:           "空文字列",
+			input:          Tokenize(""),
+			expectedPos:    0,
+			expectedResult: []Node{DeviceAliasNode},
+		},
+	}
+
+	dc := DummyCompleter{}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pos, nodes := Candidates(dc, target, tt.input)
+			if pos != tt.expectedPos {
+				t.Errorf("Candidates(%v) = %v, want %v", tt.input, pos, tt.expectedPos)
+			}
+			testNodes := toTestNodes(nodes)
+			expectedTestNodes := toTestNodes(tt.expectedResult)
+			if !cmp.Equal(testNodes, expectedTestNodes) {
+				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, testNodes, expectedTestNodes, cmp.Diff(testNodes, expectedTestNodes))
+			}
+		})
+	}
+}
+
 func TestCommandNode_Candidates(t *testing.T) {
 	tests := []struct {
 		name           string
 		command        string
 		input          []Token
 		expectedPos    int
-		expectedResult []NodeId
+		expectedResult []Node
 	}{
 		{
 			name:           "コマンド名が一致",
 			command:        "abc",
 			input:          Tokenize("abc"),
 			expectedPos:    3,
-			expectedResult: []NodeId{},
+			expectedResult: []Node{},
 		},
 		{
 			name:           "コマンド名が不一致",
 			command:        "abc",
 			input:          Tokenize("def"),
 			expectedPos:    0,
-			expectedResult: []NodeId{NodeCommand},
+			expectedResult: []Node{CommandNode("abc")},
 		},
 		{
 			name:           "コマンド名が空文字列のときは常に候補とする",
 			command:        "",
 			input:          Tokenize("abc"),
 			expectedPos:    0,
-			expectedResult: []NodeId{NodeCommand},
+			expectedResult: []Node{CommandNode("")},
 		},
 	}
+
+	dc := DummyCompleter{}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			target := CommandNode(tt.command)
-			pos, nodeIds := Candidates(target, tt.input)
+			pos, nodes := Candidates(dc, target, tt.input)
 			if pos != tt.expectedPos {
 				t.Errorf("Candidates(%v) = %v, want %v", tt.input, pos, tt.expectedPos)
 			}
-			if !cmp.Equal(nodeIds, tt.expectedResult) {
-				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, nodeIds, tt.expectedResult, cmp.Diff(nodeIds, tt.expectedResult))
+			testNodes := toTestNodes(nodes)
+			expectedTestNodes := toTestNodes(tt.expectedResult)
+			if !cmp.Equal(testNodes, expectedTestNodes) {
+				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, testNodes, expectedTestNodes, cmp.Diff(testNodes, expectedTestNodes))
 			}
 		})
 	}
@@ -641,19 +780,19 @@ func TestSeqOption_Candidates(t *testing.T) {
 		name     string
 		node     Node
 		input    string
-		expected []NodeId
+		expected []Node
 	}{
 		{
 			name:     "Option(CommandNode)",
 			node:     Option{CommandNode("")}, // 任意のコマンド(オプション)
 			input:    "",
-			expected: []NodeId{NodeCommand},
+			expected: []Node{CommandNode("")},
 		},
 		{
 			name:     "LiteralNode",
 			node:     LiteralNode("test"),
 			input:    "",
-			expected: []NodeId{NodeLiteral},
+			expected: []Node{LiteralNode("test")},
 		},
 		{
 			name: "Seq{Option(CommandNode), LiteralNode}",
@@ -662,16 +801,20 @@ func TestSeqOption_Candidates(t *testing.T) {
 				LiteralNode("test"),
 			},
 			input:    "",
-			expected: []NodeId{NodeCommand, NodeLiteral},
+			expected: []Node{CommandNode(""), LiteralNode("test")},
 		},
 	}
+
+	dc := DummyCompleter{}
 
 	for _, tt := range tests {
 		input := Tokenize(tt.input)
 		t.Run(tt.name, func(t *testing.T) {
-			_, nodeIds := Candidates(tt.node, input)
-			if !cmp.Equal(nodeIds, tt.expected) {
-				t.Errorf("SeqOption_Candidates(%v) = %v, want %v diff %v", tt.name, nodeIds, tt.expected, cmp.Diff(nodeIds, tt.expected))
+			_, nodes := Candidates(dc, tt.node, input)
+			testNodes := toTestNodes(nodes)
+			expectedTestNodes := toTestNodes(tt.expected)
+			if !cmp.Equal(testNodes, expectedTestNodes) {
+				t.Errorf("SeqOption_Candidates(%v) = %v, want %v, diff %v", tt.name, testNodes, expectedTestNodes, cmp.Diff(testNodes, expectedTestNodes))
 			}
 		})
 	}
@@ -684,100 +827,53 @@ func TestDeviceSpecifier_Candidates(t *testing.T) {
 		name           string
 		input          []Token
 		expectedPos    int
-		expectedResult []NodeId
+		expectedResult []Node
 	}{
 		{
-			name:           "デバイス指定子",
+			name:           "デバイスエイリアス",
 			input:          Tokenize("abc"),
 			expectedPos:    3,
-			expectedResult: []NodeId{},
+			expectedResult: []Node{},
 		},
 		{
 			name:           "空文字列",
 			input:          Tokenize(""),
 			expectedPos:    0,
-			expectedResult: []NodeId{NodeIPAddress, NodeClassCode, NodeDeviceAlias},
+			expectedResult: []Node{DeviceSpecifierNode},
 		},
 		{
 			name:           "IPアドレス",
 			input:          Tokenize("192.168.1.1"),
 			expectedPos:    11,
-			expectedResult: []NodeId{NodeClassCode},
+			expectedResult: []Node{DeviceSpecifierNode}, // Optionが残ってるからまだ足せる
 		},
 		{
 			name:           "クラスコード",
 			input:          Tokenize("0130"),
 			expectedPos:    4,
-			expectedResult: []NodeId{},
+			expectedResult: []Node{},
 		},
-	}
+		{
+			name:           "IP クラスコード",
+			input:          Tokenize("192.168.1.1 0130"),
+			expectedPos:    16,
+			expectedResult: []Node{},
+		}}
+
+	dc := DummyCompleter{}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pos, nodeIds := Candidates(target, tt.input)
+			pos, nodes := Candidates(dc, target, tt.input)
 			if pos != tt.expectedPos {
-				t.Errorf("Candidates(%v) = %v, want %v", tt.input, pos, tt.expectedPos)
+				t.Errorf("Candidates pos(%v) = %v, want %v", tt.input, pos, tt.expectedPos)
 			}
-			if !cmp.Equal(nodeIds, tt.expectedResult) {
-				t.Errorf("Candidates(%v) = %v, want %v, diff %v", tt.input, nodeIds, tt.expectedResult, cmp.Diff(nodeIds, tt.expectedResult))
+			testNodes := toTestNodes(nodes)
+			expectedTestNodes := toTestNodes(tt.expectedResult)
+			if !cmp.Equal(testNodes, expectedTestNodes) {
+				t.Errorf("Candidates nodes(%v) = %v, want %v, diff %v", tt.input, testNodes, expectedTestNodes, cmp.Diff(testNodes, expectedTestNodes))
 			}
 		})
-	}
-}
-
-func TestTraverse(t *testing.T) {
-	target := Seq{
-		Option{CommandNode("")}, // 任意のコマンド(オプション)
-		LiteralNode("test"),
-		Or{
-			LiteralNode("abc"),
-			LiteralNode("def"),
-		},
-		Repeat{LiteralNode("ghi")},
-	}
-	var nodeIds []NodeId
-	_ = Traverse(target, func(node Node) error {
-		nodeIds = append(nodeIds, node.Id())
-		return nil
-	})
-
-	expected := []NodeId{
-		NodeSeq,
-		NodeOption,
-		NodeCommand,
-		NodeLiteral,
-		NodeOr,
-		NodeLiteral,
-		NodeLiteral,
-		NodeRepeat,
-		NodeLiteral,
-	}
-	if !cmp.Equal(nodeIds, expected) {
-		t.Errorf("Traverse() = %v, want %v, diff %v", nodeIds, expected, cmp.Diff(nodeIds, expected))
-	}
-}
-
-func TestCollectStrings(t *testing.T) {
-	target := Or{
-		CommandNode("save"),
-		CommandNode("load"),
-		ColonNode{},
-		CommandNode("list"),
-		CommandNode("run"),
-	}
-	strs, err := CollectStrings(target, NodeCommand)
-	if err != nil {
-		t.Errorf("CollectStrings() returned an error: %v", err)
-	}
-
-	expected := []string{"save", "load", "list", "run"}
-	if !cmp.Equal(strs, expected) {
-		t.Errorf("CollectStrings() = %v, want %v, diff %v", strs, expected, cmp.Diff(strs, expected))
-	}
-
-	_, err = CollectStrings(target, NodeColon)
-	if err == nil {
-		t.Error("CollectStrings() did not return an error")
 	}
 }
 

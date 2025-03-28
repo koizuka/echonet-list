@@ -18,6 +18,18 @@ const (
 	TokenEOF                    // 末尾。末尾に空白がある場合、それがStringに入る
 )
 
+func (t TokenType) String() string {
+	switch t {
+	case TokenWord:
+		return "Word"
+	case TokenColon:
+		return "Colon"
+	case TokenEOF:
+		return "EOF"
+	}
+	return fmt.Sprintf("TokenType(%d)", t)
+}
+
 type Token struct {
 	Type   TokenType
 	Pos    int // トークンの開始位置(Rune単位)
@@ -118,21 +130,6 @@ func (i NodeId) String() string {
 type MatchResult interface {
 }
 
-type Traversable interface {
-	TraverseInside(func(Node) error) error
-}
-
-func Traverse(node Node, f func(Node) error) error {
-	err := f(node)
-	if err != nil {
-		return err
-	}
-	if t, ok := node.(Traversable); ok {
-		return t.TraverseInside(f)
-	}
-	return nil
-}
-
 // Node は、コマンドの構文を表す非終端文字列を表すインターフェース
 type Node interface {
 	Id() NodeId
@@ -143,24 +140,34 @@ type Node interface {
 
 type CandidatesNode interface {
 	// 現在の入力トークン状況から、最後の単語についての候補列を返す
-	Candidates(input []Token) (int, []NodeId)
+	Candidates(ci CompleterInterface, input []Token) (int, []Node)
 }
 
-func Candidates(node Node, input []Token) (int, []NodeId) {
+func Candidates(ci CompleterInterface, node Node, input []Token) (int, []Node) {
 	inner := node
 	if comp, ok := node.(CompositeNode); ok { // TODO
+		if comp.Candidates != nil {
+			return comp.Candidates(ci, input)
+		}
+		if comp.TerminateCandidate {
+			pos, nodes := Candidates(ci, comp.Node, input)
+			if nodes == nil {
+				return pos, nodes
+			}
+			return 0, []Node{node}
+		}
 		inner = comp.Node
 	}
 
 	if c, ok := inner.(CandidatesNode); ok {
-		return c.Candidates(input)
+		return c.Candidates(ci, input)
 	}
 
 	r, i := node.Match(input)
 	if r != nil {
-		return input[i].Pos, []NodeId{}
+		return input[i].Pos, []Node{}
 	}
-	return 0, []NodeId{node.Id()}
+	return 0, []Node{node}
 }
 
 // Or は Node の集合を表す。Or にマッチするとき、その中のどれか一つにマッチする
@@ -180,11 +187,11 @@ func (b Or) Match(input []Token) (MatchResult, int) {
 	return nil, 0
 }
 
-func (b Or) Candidates(input []Token) (int, []NodeId) {
-	resultCandidates := make([]NodeId, 0, len(b))
+func (b Or) Candidates(ci CompleterInterface, input []Token) (int, []Node) {
+	resultCandidates := make([]Node, 0, len(b))
 	resultPos := 0 // トークンの位置が最も遠いものを選ぶ
 	for _, node := range b {
-		pos, candidates := Candidates(node, input)
+		pos, candidates := Candidates(ci, node, input)
 		if pos > resultPos {
 			resultCandidates = candidates
 			resultPos = pos
@@ -195,15 +202,6 @@ func (b Or) Candidates(input []Token) (int, []NodeId) {
 	return resultPos, resultCandidates
 }
 
-func (b Or) TraverseInside(f func(Node) error) error {
-	for _, node := range b {
-		if err := Traverse(node, f); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Option は、Node がマッチしなくてもよいことを表すNode
 type Option struct {
 	Node Node
@@ -211,10 +209,6 @@ type Option struct {
 
 func (o Option) Id() NodeId {
 	return NodeOption
-}
-
-func (o Option) TraverseInside(f func(Node) error) error {
-	return Traverse(o.Node, f)
 }
 
 // OptionResult は、OptionNode にマッチしなかったときの結果。処理するときはスキップする
@@ -227,8 +221,8 @@ func (o Option) Match(input []Token) (MatchResult, int) {
 	return OptionResult{}, 0
 }
 
-func (o Option) Candidates(input []Token) (int, []NodeId) {
-	return Candidates(o.Node, input)
+func (o Option) Candidates(ci CompleterInterface, input []Token) (int, []Node) {
+	return Candidates(ci, o.Node, input)
 }
 
 // Seq は、Node のリストを表す。
@@ -256,8 +250,8 @@ func (l Seq) Match(input []Token) (MatchResult, int) {
 
 // Candidates は、入力トークン列の先頭からこのノードにマッチするときに、次に続くトークンの候補を返す
 // この場合、最初のノードにマッチするトークンの位置と、次に続くノードの候補を返す
-func (l Seq) Candidates(input []Token) (int, []NodeId) {
-	var candidates []NodeId
+func (l Seq) Candidates(ci CompleterInterface, input []Token) (int, []Node) {
+	var candidates []Node
 
 	i := 0 // index の要素番号(トークンの位置)
 	n := 0 // l の要素番号(ノードの位置)
@@ -265,7 +259,7 @@ func (l Seq) Candidates(input []Token) (int, []NodeId) {
 	// 先頭から　Match 成功する分は Matchの返したtoken数分スキップする
 	for i < len(input) && n < len(l) {
 		r, m := l[n].Match(input[i:])
-		_, c := Candidates(l[n], input[i:])
+		_, c := Candidates(ci, l[n], input[i:])
 		if r == nil {
 			candidates = append(candidates, c...)
 			break
@@ -274,22 +268,13 @@ func (l Seq) Candidates(input []Token) (int, []NodeId) {
 			// マッチしたのに長さが0なら、Optionでマッチしなかったケースなので、候補に加えて続行する
 			candidates = append(candidates, c...)
 		} else {
-			candidates = []NodeId{}
+			candidates = []Node{}
 		}
 		i += m
 		n++
 	}
 
 	return input[i].Pos, candidates
-}
-
-func (l Seq) TraverseInside(f func(Node) error) error {
-	for _, node := range l {
-		if err := Traverse(node, f); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // Repeat は、1個以上のNode の列にマッチする。
@@ -324,19 +309,19 @@ func (a Repeat) Match(input []Token) (MatchResult, int) {
 	return results, len
 }
 
-func (a Repeat) Candidates(input []Token) (int, []NodeId) {
-	return Candidates(a.Node, input)
+func (a Repeat) Candidates(ci CompleterInterface, input []Token) (int, []Node) {
+	return Candidates(ci, a.Node, input)
 }
 
-func (a Repeat) TraverseInside(f func(Node) error) error {
-	return Traverse(a.Node, f)
-}
+type CandidatesFunc func(ci CompleterInterface, input []Token) (int, []Node)
 
 type CompositeNode struct {
-	NodeId      NodeId
-	Node        Node
-	BuildResult func(MatchResult) MatchResult
-	String      string
+	NodeId             NodeId
+	Node               Node
+	BuildResult        func(MatchResult) MatchResult
+	String             string
+	TerminateCandidate bool
+	Candidates         CandidatesFunc
 }
 
 func (h CompositeNode) Id() NodeId {
@@ -352,31 +337,9 @@ func (h CompositeNode) Match(input []Token) (MatchResult, int) {
 	return nil, 0
 }
 
-// CompositeNode は TraverseInside に対して内側を隠蔽する
-func (h CompositeNode) TraverseInside(func(Node) error) error {
-	return nil
-}
-
-// CollectStrings は、指定したNodeId にマッチするCompositeNode のStringを収集する
-func CollectStrings(root Node, id NodeId) ([]string, error) {
-	strings := []string{}
-	err := Traverse(root, func(node Node) error {
-		if node.Id() == id {
-			switch v := node.(type) {
-			case CompositeNode:
-				if v.String != "" {
-					strings = append(strings, v.String)
-				}
-			default:
-				return fmt.Errorf("unexpected node type: %T", node)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return strings, nil
+func (h CompositeNode) WithCandidates(candidatesFunc func(ci CompleterInterface, input []Token) (int, []Node)) CompositeNode {
+	h.Candidates = candidatesFunc
+	return h
 }
 
 type WordNode struct{}
@@ -410,7 +373,7 @@ func (c ColonNode) Match(input []Token) (MatchResult, int) {
 }
 
 // SimpleNodeWithFunc は、WordNode にマッチした文字列を関数に渡して、その結果を返すNode
-func SimpleNodeWithFunc(id NodeId, s string, f func(string) MatchResult) Node {
+func SimpleNodeWithFunc(id NodeId, s string, f func(string) MatchResult) CompositeNode {
 	return CompositeNode{
 		NodeId: id,
 		Node:   WordNode{},
@@ -424,7 +387,7 @@ func SimpleNodeWithFunc(id NodeId, s string, f func(string) MatchResult) Node {
 func SimpleNode[T interface {
 	~string
 	MatchResult
-}](id NodeId, s string) Node {
+}](id NodeId, s string) CompositeNode {
 	return SimpleNodeWithFunc(id, s, func(t string) MatchResult {
 		if t == s {
 			return T(s)
@@ -437,7 +400,7 @@ func SimpleNode[T interface {
 func NameNode[T interface {
 	~string
 	MatchResult
-}](id NodeId) Node {
+}](id NodeId) CompositeNode {
 	return SimpleNodeWithFunc(id, "", func(s string) MatchResult {
 		return T(s)
 	})
@@ -576,6 +539,7 @@ var DeviceSpecifierNode = CompositeNode{
 		}
 		return result
 	},
+	TerminateCandidate: true,
 }
 
 type DeviceSpecifierResult struct {
@@ -853,4 +817,35 @@ func SplitLastWord(tokens []Token) ([]Token, string) {
 		}
 	}
 	return tokens, ""
+}
+
+// 木構造を平坦化する
+func SerializeMatchResult(r MatchResult) []MatchResult {
+	if r == nil {
+		return nil
+	}
+
+	var result []MatchResult
+
+	switch v := r.(type) {
+	case SeqResult:
+		for _, m := range v {
+			s := SerializeMatchResult(m)
+			if s != nil {
+				result = append(result, s...)
+			}
+		}
+	case RepeatResult:
+		for _, m := range v {
+			s := SerializeMatchResult(m)
+			if s != nil {
+				result = append(result, s...)
+			}
+		}
+	case OptionResult:
+		// skip
+	default:
+		result = append(result, v)
+	}
+	return result
 }

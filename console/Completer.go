@@ -24,16 +24,28 @@ func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length i
 	tokens := Tokenize(lineStr)
 	var lastWord string
 	tokens, lastWord = SplitLastWord(tokens)
+	fmt.Println()                      // DEBUG
+	fmt.Printf("tokens: %v\n", tokens) // DEBUG
+
+	m, _ := CommandSyntax.Match(tokens)
+	if m != nil {
+		ser := SerializeMatchResult(m)
+		fmt.Printf("ser: %v\n", ser) // DEBUG
+	}
 
 	// TODO "get 192.168.0.218 "TAB で 0130:1 が候補に挙がってほしい。つまり、DeviceSpecifierの途中断片で絞り込みたい
 
-	_, nodeIds := CommandSyntax.Candidates(tokens)
-	nodeIds = removeDuplicates(nodeIds)
-	fmt.Printf("nodeIds: %v\n", nodeIds) // DEBUG
-	for _, nodeId := range nodeIds {
-		switch nodeId {
+	_, nodes := CommandSyntax.Candidates(dc, tokens)
+	fmt.Printf("nodes: %v\n", nodes) // DEBUG
+	for _, node := range nodes {
+		switch node.Id() {
 		case NodeCommand:
-			candidates = append(candidates, dc.getCommandCandidates()...)
+			s := node.(CompositeNode).String
+			if s != "" {
+				candidates = append(candidates, node.(CompositeNode).String)
+			} else {
+				candidates = dc.getCommandCandidates()
+			}
 		case NodeIPAddress:
 			candidates = append(candidates, dc.getIPAddressCandidates()...)
 		case NodeClassCode:
@@ -48,11 +60,7 @@ func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length i
 			// TODO "get " でここにきてほしい
 			candidates = append(candidates, dc.getDeviceCandidates()...)
 		case NodeGetOptions, NodeOnOff, NodeDeleteOption, NodeListOptions:
-			options, err := CollectStrings(CommandSyntax, nodeId)
-			if err != nil {
-				break
-			}
-			candidates = append(candidates, options...)
+			candidates = append(candidates, node.(CompositeNode).String)
 		default:
 			// TODO
 		}
@@ -105,11 +113,17 @@ func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length i
 }
 */
 
-// コマンド名の候補を返す
+// コマンド名の候補
 func (dc *dynamicCompleter) getCommandCandidates() []string {
-	candidates, err := CollectStrings(CommandSyntax, NodeCommand)
-	if err != nil {
-		return []string{}
+	_, nodes := CommandSyntax.Candidates(dc, Tokenize(""))
+	candidates := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		switch v := node.(type) {
+		case CompositeNode:
+			if v.Id() == NodeCommand {
+				candidates = append(candidates, v.String)
+			}
+		}
 	}
 	return candidates
 }
