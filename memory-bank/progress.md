@@ -101,11 +101,18 @@ No immediate tasks remaining.
   - ✅ Added helper functions in `echonet_lite` package for parsing hex strings to `EOJClassCode`, `EOJInstanceCode`, `EPCType`
   - ✅ Implemented client URL validation using `net/url.Parse`
   - ✅ Added synchronization for `-ws-both` mode
+  - ✅ Implemented Base64 encoding/decoding for property values in WebSocket protocol
+    - ✅ Modified `DeviceToProtocol` and `DeviceFromProtocol` functions to use Base64 encoding
+    - ✅ Updated WebSocket server to use `DeviceToProtocol` function
+    - ✅ Updated WebSocket client to properly decode Base64-encoded property values
+    - ✅ Removed debug output code for cleaner implementation
   - **Issues Fixed**:
     - ✅ Fixed the `quit` command issue that was causing the application to freeze
     - ✅ Improved error handling and logging in the WebSocket client
     - ✅ Added proper cleanup of WebSocket connections when the application exits
+    - ✅ Fixed binary data handling in JSON by implementing Base64 encoding/decoding
+    - ✅ Fixed the `list` command in WebSocket client mode
   - **Issues Remaining**:
-    - ⚠️ The WebSocket client is not properly handling commands like `list` and `discover`
+    - ⚠️ Some WebSocket client commands still need implementation or fixes
     - ⚠️ Need to add more tests for the WebSocket client and server
 - **Web UI Development**: 🔄 PLANNED

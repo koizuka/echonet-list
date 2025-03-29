@@ -5,6 +5,7 @@ import (
 	"echonet-list/client"
 	"echonet-list/echonet_lite"
 	"echonet-list/protocol"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -128,30 +129,29 @@ func (ws *WebSocketServer) sendInitialState(conn *websocket.Conn) error {
 	// Convert devices to protocol format
 	protoDevices := make(map[string]protocol.Device)
 	for _, device := range devices {
-		// Convert properties to map[string]string
-		protoProps := make(map[string]string)
-		for epc, edt := range device.Properties {
-			protoProps[fmt.Sprintf("%02X", byte(epc))] = fmt.Sprintf("%X", edt)
+		// Convert properties to map
+		properties := make(map[echonet_lite.EPCType][]byte)
+		for _, prop := range device.Properties {
+			properties[prop.EPC] = prop.EDT
 		}
 
-		// Create protocol device
-		protoDevice := protocol.Device{
-			IP:         device.Device.IP.String(),
-			EOJ:        device.Device.EOJ.Specifier(),
-			Name:       device.Device.EOJ.ClassCode().String(),
-			Properties: protoProps,
-			LastSeen:   time.Now(), // Use current time as last seen
-		}
+		// Use DeviceToProtocol to convert to protocol format
+		protoDevice := protocol.DeviceToProtocol(
+			device.Device.IP.String(),
+			device.Device.EOJ,
+			properties,
+			time.Now(), // Use current time as last seen
+		)
 
 		// Add to map with device identifier as key
-		protoDevices[device.Device.String()] = protoDevice
+		protoDevices[device.Device.Specifier()] = protoDevice
 	}
 
 	// Get all aliases
 	aliasList := ws.echonetClient.AliasList()
 	aliases := make(map[string]string)
 	for _, alias := range aliasList {
-		aliases[alias.Alias] = alias.Device.String()
+		aliases[alias.Alias] = alias.Device.Specifier()
 	}
 
 	// Create initial state payload
@@ -227,19 +227,19 @@ func (ws *WebSocketServer) handleGetProperties(conn *websocket.Conn, msg *protoc
 			return fmt.Errorf("error getting properties: %v", err)
 		}
 
-		// Convert to protocol format
-		protoProps := make(map[string]string)
-		for epc, edt := range deviceAndProps.Properties {
-			protoProps[fmt.Sprintf("%02X", byte(epc))] = fmt.Sprintf("%X", edt)
+		// Convert properties to map
+		properties := make(map[echonet_lite.EPCType][]byte)
+		for _, prop := range deviceAndProps.Properties {
+			properties[prop.EPC] = prop.EDT
 		}
 
-		protoDevice := protocol.Device{
-			IP:         deviceAndProps.Device.IP.String(),
-			EOJ:        deviceAndProps.Device.EOJ.Specifier(),
-			Name:       deviceAndProps.Device.EOJ.ClassCode().String(),
-			Properties: protoProps,
-			LastSeen:   time.Now(), // Use current time as last seen
-		}
+		// Use DeviceToProtocol to convert to protocol format
+		protoDevice := protocol.DeviceToProtocol(
+			deviceAndProps.Device.IP.String(),
+			deviceAndProps.Device.EOJ,
+			properties,
+			time.Now(), // Use current time as last seen
+		)
 
 		results = append(results, protoDevice)
 	}
@@ -293,7 +293,7 @@ func (ws *WebSocketServer) handleSetProperties(conn *websocket.Conn, msg *protoc
 			return fmt.Errorf("invalid EPC: %v", err)
 		}
 
-		edt, err := echonet_lite.ParseHexString(edtStr)
+		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
 			return fmt.Errorf("invalid EDT: %v", err)
 		}
@@ -310,20 +310,19 @@ func (ws *WebSocketServer) handleSetProperties(conn *websocket.Conn, msg *protoc
 		return fmt.Errorf("error setting properties: %v", err)
 	}
 
-	// Convert to protocol format and include in response data
-	protoProps := make(map[string]string)
-	for epc, edt := range deviceAndProps.Properties {
-		protoProps[fmt.Sprintf("%02X", byte(epc))] = fmt.Sprintf("%X", edt)
+	// Convert properties to map
+	propsMap := make(map[echonet_lite.EPCType][]byte)
+	for _, prop := range deviceAndProps.Properties {
+		propsMap[prop.EPC] = prop.EDT
 	}
 
-	// Create device data to include in response
-	deviceData := protocol.Device{
-		IP:         deviceAndProps.Device.IP.String(),
-		EOJ:        deviceAndProps.Device.EOJ.Specifier(),
-		Name:       deviceAndProps.Device.EOJ.ClassCode().String(),
-		Properties: protoProps,
-		LastSeen:   time.Now(), // Use current time as last seen
-	}
+	// Use DeviceToProtocol to convert to protocol format
+	deviceData := protocol.DeviceToProtocol(
+		deviceAndProps.Device.IP.String(),
+		deviceAndProps.Device.EOJ,
+		propsMap,
+		time.Now(), // Use current time as last seen
+	)
 
 	// Marshal the device data
 	deviceDataJSON, err := json.Marshal(deviceData)
@@ -521,14 +520,17 @@ func (ws *WebSocketServer) listenForNotifications() {
 			case echonet_lite.DeviceAdded:
 				// Create device added payload
 				device := notification.Device
+
+				// Use DeviceToProtocol to convert to protocol format
+				protoDevice := protocol.DeviceToProtocol(
+					device.IP.String(),
+					device.EOJ,
+					make(map[echonet_lite.EPCType][]byte), // Empty properties, will be updated later
+					time.Now(),                            // Use current time as last seen
+				)
+
 				payload := protocol.DeviceAddedPayload{
-					Device: protocol.Device{
-						IP:         device.IP.String(),
-						EOJ:        device.EOJ.Specifier(),
-						Name:       device.EOJ.ClassCode().String(),
-						Properties: make(map[string]string), // Empty properties, will be updated later
-						LastSeen:   time.Now(),              // Use current time as last seen
-					},
+					Device: protoDevice,
 				}
 
 				// Broadcast the message

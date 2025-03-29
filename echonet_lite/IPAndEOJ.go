@@ -14,3 +14,7 @@ type IPAndEOJ struct {
 func (d IPAndEOJ) String() string {
 	return fmt.Sprintf("%v %v", d.IP, d.EOJ)
 }
+
+func (d IPAndEOJ) Specifier() string {
+	return fmt.Sprintf("%v %v", d.IP, d.EOJ.Specifier())
+}

@@ -99,7 +99,7 @@ func ParseHexString(hexStr string) ([]byte, error) {
 func ParseDeviceIdentifier(deviceIdStr string) (IPAndEOJ, error) {
 	parts := strings.Fields(deviceIdStr)
 	if len(parts) != 2 {
-		return IPAndEOJ{}, fmt.Errorf("invalid device identifier format: %s (expected format: IP EOJ)", deviceIdStr)
+		return IPAndEOJ{}, fmt.Errorf("invalid device identifier format: %#v (expected format: IP EOJ)", deviceIdStr)
 	}
 
 	ip := net.ParseIP(parts[0])

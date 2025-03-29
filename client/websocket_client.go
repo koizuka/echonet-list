@@ -4,6 +4,7 @@ import (
 	"context"
 	"echonet-list/echonet_lite"
 	"echonet-list/protocol"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -111,7 +112,7 @@ func (c *WebSocketClient) UpdateProperties(criteria FilterCriteria) error {
 	// Create the payload
 	targets := make([]string, 0, len(devices))
 	for _, device := range devices {
-		targets = append(targets, device.String())
+		targets = append(targets, device.Specifier())
 	}
 
 	payload := protocol.UpdatePropertiesPayload{
@@ -169,7 +170,7 @@ func (c *WebSocketClient) ListDevices(criteria FilterCriteria) []DeviceAndProper
 
 	// Filter by property values if specified
 	for _, ipAndEOJ := range devices {
-		deviceAndProps, ok := c.devices[ipAndEOJ.String()]
+		deviceAndProps, ok := c.devices[ipAndEOJ.Specifier()]
 		if !ok {
 			continue
 		}
@@ -195,7 +196,7 @@ func (c *WebSocketClient) GetProperties(device IPAndEOJ, EPCs []EPCType, skipVal
 	// Check if the device exists
 	if !skipValidation {
 		c.devicesMutex.RLock()
-		_, ok := c.devices[device.String()]
+		_, ok := c.devices[device.Specifier()]
 		c.devicesMutex.RUnlock()
 		if !ok {
 			return DeviceAndProperties{}, fmt.Errorf("device not found: %v", device)
@@ -209,7 +210,7 @@ func (c *WebSocketClient) GetProperties(device IPAndEOJ, EPCs []EPCType, skipVal
 	}
 
 	payload := protocol.GetPropertiesPayload{
-		Targets: []string{device.String()},
+		Targets: []string{device.Specifier()},
 		EPCs:    epcs,
 	}
 
@@ -248,9 +249,9 @@ func (c *WebSocketClient) GetProperties(device IPAndEOJ, EPCs []EPCType, skipVal
 			return DeviceAndProperties{}, fmt.Errorf("error parsing EPC: %v", err)
 		}
 
-		edt, err := echonet_lite.ParseHexString(edtStr)
+		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
-			return DeviceAndProperties{}, fmt.Errorf("error parsing EDT: %v", err)
+			return DeviceAndProperties{}, fmt.Errorf("error decoding EDT: %v", err)
 		}
 
 		props = append(props, echonet_lite.Property{
@@ -276,11 +277,11 @@ func (c *WebSocketClient) SetProperties(device IPAndEOJ, properties Properties) 
 	// Create the payload
 	propsMap := make(map[string]string)
 	for _, prop := range properties {
-		propsMap[fmt.Sprintf("%02X", byte(prop.EPC))] = fmt.Sprintf("%X", prop.EDT)
+		propsMap[fmt.Sprintf("%02X", byte(prop.EPC))] = base64.StdEncoding.EncodeToString(prop.EDT)
 	}
 
 	payload := protocol.SetPropertiesPayload{
-		Target:     device.String(),
+		Target:     device.Specifier(),
 		Properties: propsMap,
 	}
 
@@ -319,9 +320,9 @@ func (c *WebSocketClient) SetProperties(device IPAndEOJ, properties Properties) 
 			return DeviceAndProperties{}, fmt.Errorf("error parsing EPC: %v", err)
 		}
 
-		edt, err := echonet_lite.ParseHexString(edtStr)
+		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
-			return DeviceAndProperties{}, fmt.Errorf("error parsing EDT: %v", err)
+			return DeviceAndProperties{}, fmt.Errorf("error decoding EDT: %v", err)
 		}
 
 		props = append(props, echonet_lite.Property{
@@ -573,10 +574,10 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 				continue
 			}
 
-			edt, err := echonet_lite.ParseHexString(edtStr)
+			edt, err := base64.StdEncoding.DecodeString(edtStr)
 			if err != nil {
 				if c.debug {
-					fmt.Printf("Error parsing EDT: %v\n", err)
+					fmt.Printf("Error decoding EDT: %v\n", err)
 				}
 				continue
 			}
@@ -644,10 +645,10 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 			continue
 		}
 
-		edt, err := echonet_lite.ParseHexString(edtStr)
+		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
 			if c.debug {
-				fmt.Printf("Error parsing EDT: %v\n", err)
+				fmt.Printf("Error decoding EDT: %v\n", err)
 			}
 			continue
 		}
@@ -697,10 +698,10 @@ func (c *WebSocketClient) handleDeviceUpdated(msg *protocol.Message) {
 			continue
 		}
 
-		edt, err := echonet_lite.ParseHexString(edtStr)
+		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
 			if c.debug {
-				fmt.Printf("Error parsing EDT: %v\n", err)
+				fmt.Printf("Error decoding EDT: %v\n", err)
 			}
 			continue
 		}
@@ -807,10 +808,10 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 	}
 
 	// Parse the EDT
-	edt, err := echonet_lite.ParseHexString(payload.Value)
+	edt, err := base64.StdEncoding.DecodeString(payload.Value)
 	if err != nil {
 		if c.debug {
-			fmt.Printf("Error parsing EDT: %v\n", err)
+			fmt.Printf("Error decoding EDT: %v\n", err)
 		}
 		return
 	}

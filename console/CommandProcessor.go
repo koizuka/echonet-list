@@ -195,6 +195,7 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 		PropertyValues: cmd.Properties,
 	}
 	result := p.handler.ListDevices(criteria)
+
 	for _, d := range result {
 		device := d.Device
 		properties := d.Properties
@@ -202,8 +203,10 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 
 		// プロパティ表示モードに応じてフィルタリング
 		filteredProps := make(client.Properties, 0, len(properties))
+
 		for _, prop := range properties {
 			epc := prop.EPC
+
 			switch cmd.PropMode {
 			case PropDefault:
 				// デフォルトのプロパティのみ表示

@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"echonet-list/echonet_lite"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -182,7 +183,7 @@ type DiscoverDevicesPayload struct {
 func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties map[echonet_lite.EPCType][]byte, lastSeen time.Time) Device {
 	protoProps := make(map[string]string)
 	for epc, edt := range properties {
-		protoProps[fmt.Sprintf("%02X", byte(epc))] = fmt.Sprintf("%X", edt)
+		protoProps[fmt.Sprintf("%02X", byte(epc))] = base64.StdEncoding.EncodeToString(edt)
 	}
 
 	return Device{
@@ -208,7 +209,7 @@ func DeviceFromProtocol(device Device) (string, echonet_lite.EOJ, map[echonet_li
 			return "", 0, nil, err
 		}
 
-		edt, err := echonet_lite.ParseHexString(edtStr)
+		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
 			return "", 0, nil, err
 		}
