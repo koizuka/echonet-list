@@ -93,12 +93,19 @@ No immediate tasks remaining.
   - ✅ Organized code into client, server, and protocol packages
   - ✅ Updated imports and dependencies
   - ✅ Tested functionality after reorganization
-- **Architecture Split (WebSocket Implementation)**: ⏸️ PAUSED
-  - ⏸️ WebSocket server/client implementation was started but paused. The implemented code (`protocol/protocol.go`, `server/websocket_server.go`, `client/WebSocketClient.go`) will be discarded.
-  - **Issues Encountered / Considerations for Restarting**:
-    - **Helper Functions Needed in `echonet_lite`**: Functions for parsing hex strings to `EOJClassCode`, `EOJInstanceCode`, `EPCType` are required. Also, functions like `IsPropertyDefaultEPC`, `AvailablePropertyAliases`, `FindPropertyAlias` are needed for client-side logic (or need to be exposed via WebSocket if handled server-side). These should ideally reside in the `echonet_lite` package.
-    - **Server Handling of `initial_state`**: Ensure the server correctly handles the `MessageTypeInitialState` request from the client upon connection.
-    - **Client URL Validation**: Use `net/url.Parse` for URL validation in the WebSocket client.
-    - **`-ws-both` Startup Timing**: Ensure proper synchronization if implementing the `-ws-both` mode again, so the client waits for the server to be ready.
-    - **`quit` Command Handling**: Ensure the WebSocket client connection is explicitly closed when the `quit` command is issued in client mode.
+- **Architecture Split (WebSocket Implementation)**: 🔄 IN PROGRESS
+  - ✅ WebSocket server/client implementation has been started. The implemented code (`protocol/protocol.go`, `server/websocket_server.go`, `client/websocket_client.go`) provides a basic WebSocket-based client-server architecture.
+  - ✅ Added command-line flags for WebSocket mode: `-websocket`, `-ws-addr`, `-ws-client`, `-ws-client-addr`, `-ws-both`
+  - ✅ Implemented WebSocket client that implements the ECHONETListClient interface
+  - ✅ Implemented WebSocket server that handles client requests and notifications
+  - ✅ Added helper functions in `echonet_lite` package for parsing hex strings to `EOJClassCode`, `EOJInstanceCode`, `EPCType`
+  - ✅ Implemented client URL validation using `net/url.Parse`
+  - ✅ Added synchronization for `-ws-both` mode
+  - **Issues Fixed**:
+    - ✅ Fixed the `quit` command issue that was causing the application to freeze
+    - ✅ Improved error handling and logging in the WebSocket client
+    - ✅ Added proper cleanup of WebSocket connections when the application exits
+  - **Issues Remaining**:
+    - ⚠️ The WebSocket client is not properly handling commands like `list` and `discover`
+    - ⚠️ Need to add more tests for the WebSocket client and server
 - **Web UI Development**: 🔄 PLANNED

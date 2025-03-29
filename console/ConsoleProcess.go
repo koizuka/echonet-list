@@ -68,7 +68,7 @@ func ConsoleProcess(ctx context.Context, c client.ECHONETListClient) {
 			close(cmd.Done) // 完了を通知
 			processor.Stop()
 			// handler.Close() は defer で呼ばれるので、ここでは呼ばない
-			break
+			return // 即座に関数を終了
 		}
 
 		// コマンドを送信し、エラーをチェック

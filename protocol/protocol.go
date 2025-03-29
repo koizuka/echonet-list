@@ -1,3 +1,250 @@
 package protocol
 
-// TODO server - client 間の通信を定義する
+import (
+	"echonet-list/echonet_lite"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// MessageType defines the type of message being sent between client and server
+type MessageType string
+
+const (
+	// Server -> Client message types
+	MessageTypeInitialState        MessageType = "initial_state"
+	MessageTypeDeviceAdded         MessageType = "device_added"
+	MessageTypeDeviceUpdated       MessageType = "device_updated"
+	MessageTypeDeviceRemoved       MessageType = "device_removed"
+	MessageTypeAliasChanged        MessageType = "alias_changed"
+	MessageTypePropertyChanged     MessageType = "property_changed"
+	MessageTypeTimeoutNotification MessageType = "timeout_notification"
+	MessageTypeErrorNotification   MessageType = "error_notification"
+	MessageTypeCommandResult       MessageType = "command_result"
+
+	// Client -> Server message types
+	MessageTypeGetProperties    MessageType = "get_properties"
+	MessageTypeSetProperties    MessageType = "set_properties"
+	MessageTypeUpdateProperties MessageType = "update_properties"
+	MessageTypeManageAlias      MessageType = "manage_alias"
+	MessageTypeDiscoverDevices  MessageType = "discover_devices"
+)
+
+// AliasChangeType defines the type of alias change
+type AliasChangeType string
+
+const (
+	AliasChangeTypeAdded   AliasChangeType = "added"
+	AliasChangeTypeUpdated AliasChangeType = "updated"
+	AliasChangeTypeDeleted AliasChangeType = "deleted"
+)
+
+// AliasAction defines the action to perform on an alias
+type AliasAction string
+
+const (
+	AliasActionAdd    AliasAction = "add"
+	AliasActionDelete AliasAction = "delete"
+)
+
+// ErrorCode defines error codes for error messages
+type ErrorCode string
+
+const (
+	// Client Request Related
+	ErrorCodeInvalidRequestFormat ErrorCode = "INVALID_REQUEST_FORMAT"
+	ErrorCodeInvalidParameters    ErrorCode = "INVALID_PARAMETERS"
+	ErrorCodeTargetNotFound       ErrorCode = "TARGET_NOT_FOUND"
+	ErrorCodeAliasOperationFailed ErrorCode = "ALIAS_OPERATION_FAILED"
+	ErrorCodeAliasAlreadyExists   ErrorCode = "ALIAS_ALREADY_EXISTS"
+	ErrorCodeInvalidAliasName     ErrorCode = "INVALID_ALIAS_NAME"
+	ErrorCodeAliasNotFound        ErrorCode = "ALIAS_NOT_FOUND"
+
+	// Server/Communication Related
+	ErrorCodeEchonetTimeout            ErrorCode = "ECHONET_TIMEOUT"
+	ErrorCodeEchonetDeviceError        ErrorCode = "ECHONET_DEVICE_ERROR"
+	ErrorCodeEchonetCommunicationError ErrorCode = "ECHONET_COMMUNICATION_ERROR"
+	ErrorCodeInternalServerError       ErrorCode = "INTERNAL_SERVER_ERROR"
+)
+
+// Message is the base structure for all WebSocket messages
+type Message struct {
+	Type      MessageType     `json:"type"`
+	Payload   json.RawMessage `json:"payload"`
+	RequestID string          `json:"requestId,omitempty"`
+}
+
+// Device represents an ECHONET Lite device
+type Device struct {
+	IP         string            `json:"ip"`
+	EOJ        string            `json:"eoj"`
+	Name       string            `json:"name"`
+	Properties map[string]string `json:"properties"`
+	LastSeen   time.Time         `json:"lastSeen"`
+}
+
+// Error represents an error in the WebSocket protocol
+type Error struct {
+	Code    ErrorCode `json:"code"`
+	Message string    `json:"message"`
+}
+
+// InitialStatePayload is the payload for the initial_state message
+type InitialStatePayload struct {
+	Devices map[string]Device `json:"devices"`
+	Aliases map[string]string `json:"aliases"`
+}
+
+// DeviceAddedPayload is the payload for the device_added message
+type DeviceAddedPayload struct {
+	Device Device `json:"device"`
+}
+
+// DeviceUpdatedPayload is the payload for the device_updated message
+type DeviceUpdatedPayload struct {
+	Device Device `json:"device"`
+}
+
+// DeviceRemovedPayload is the payload for the device_removed message
+type DeviceRemovedPayload struct {
+	IP  string `json:"ip"`
+	EOJ string `json:"eoj"`
+}
+
+// AliasChangedPayload is the payload for the alias_changed message
+type AliasChangedPayload struct {
+	ChangeType AliasChangeType `json:"change_type"`
+	Alias      string          `json:"alias"`
+	Target     string          `json:"target"`
+}
+
+// PropertyChangedPayload is the payload for the property_changed message
+type PropertyChangedPayload struct {
+	IP    string `json:"ip"`
+	EOJ   string `json:"eoj"`
+	EPC   string `json:"epc"`
+	Value string `json:"value"`
+}
+
+// TimeoutNotificationPayload is the payload for the timeout_notification message
+type TimeoutNotificationPayload struct {
+	IP      string    `json:"ip"`
+	EOJ     string    `json:"eoj"`
+	Code    ErrorCode `json:"code"`
+	Message string    `json:"message"`
+}
+
+// ErrorNotificationPayload is the payload for the error_notification message
+type ErrorNotificationPayload struct {
+	Code    ErrorCode `json:"code"`
+	Message string    `json:"message"`
+}
+
+// CommandResultPayload is the payload for the command_result message
+type CommandResultPayload struct {
+	Success bool            `json:"success"`
+	Data    json.RawMessage `json:"data,omitempty"`
+	Error   *Error          `json:"error,omitempty"`
+}
+
+// GetPropertiesPayload is the payload for the get_properties message
+type GetPropertiesPayload struct {
+	Targets []string `json:"targets"`
+	EPCs    []string `json:"epcs"`
+}
+
+// SetPropertiesPayload is the payload for the set_properties message
+type SetPropertiesPayload struct {
+	Target     string            `json:"target"`
+	Properties map[string]string `json:"properties"`
+}
+
+// UpdatePropertiesPayload is the payload for the update_properties message
+type UpdatePropertiesPayload struct {
+	Targets []string `json:"targets"`
+}
+
+// ManageAliasPayload is the payload for the manage_alias message
+type ManageAliasPayload struct {
+	Action AliasAction `json:"action"`
+	Alias  string      `json:"alias"`
+	Target string      `json:"target,omitempty"`
+}
+
+// DiscoverDevicesPayload is the payload for the discover_devices message
+type DiscoverDevicesPayload struct {
+	// Empty payload
+}
+
+// Helper functions for converting between ECHONET Lite types and protocol types
+
+// DeviceToProtocol converts an ECHONET Lite device to a protocol Device
+func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties map[echonet_lite.EPCType][]byte, lastSeen time.Time) Device {
+	protoProps := make(map[string]string)
+	for epc, edt := range properties {
+		protoProps[fmt.Sprintf("%02X", byte(epc))] = fmt.Sprintf("%X", edt)
+	}
+
+	return Device{
+		IP:         ip,
+		EOJ:        eoj.Specifier(),
+		Name:       eoj.ClassCode().String(),
+		Properties: protoProps,
+		LastSeen:   lastSeen,
+	}
+}
+
+// DeviceFromProtocol converts a protocol Device to ECHONET Lite types
+func DeviceFromProtocol(device Device) (string, echonet_lite.EOJ, map[echonet_lite.EPCType][]byte, error) {
+	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(device.IP + " " + device.EOJ)
+	if err != nil {
+		return "", 0, nil, err
+	}
+
+	properties := make(map[echonet_lite.EPCType][]byte)
+	for epcStr, edtStr := range device.Properties {
+		epc, err := echonet_lite.ParseEPCString(epcStr)
+		if err != nil {
+			return "", 0, nil, err
+		}
+
+		edt, err := echonet_lite.ParseHexString(edtStr)
+		if err != nil {
+			return "", 0, nil, err
+		}
+
+		properties[epc] = edt
+	}
+
+	return ipAndEOJ.IP.String(), ipAndEOJ.EOJ, properties, nil
+}
+
+// CreateMessage creates a new Message with the given type and payload
+func CreateMessage(msgType MessageType, payload interface{}, requestID string) ([]byte, error) {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := Message{
+		Type:      msgType,
+		Payload:   payloadBytes,
+		RequestID: requestID,
+	}
+
+	return json.Marshal(msg)
+}
+
+// ParseMessage parses a JSON message into a Message struct
+func ParseMessage(data []byte) (*Message, error) {
+	var msg Message
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+// ParsePayload parses the payload of a message into the given struct
+func ParsePayload(msg *Message, payload interface{}) error {
+	return json.Unmarshal(msg.Payload, payload)
+}
