@@ -25,6 +25,11 @@ This file describes the system architecture and code organization patterns used 
   - Device addition notifications inform when new devices are discovered
   - Timeout notifications alert when device communication fails
   - Property change notifications (planned) will enable real-time state updates
+- **WebSocket Client/Server Architecture (Planned)**:
+  - The application can be split into a server and a client communicating via WebSocket.
+  - **Server**: Handles ECHONET Lite communication (discovery, property get/set) and manages device state. It exposes a WebSocket endpoint.
+  - **Client**: Connects to the WebSocket server to interact with devices. The console UI can act as a WebSocket client.
+  - This architecture allows for separating the core ECHONET Lite logic from the user interface, enabling different types of clients (e.g., console, web UI).
 
 ## Code Organization
 
