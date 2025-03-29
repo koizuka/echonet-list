@@ -263,7 +263,7 @@ func (c *WebSocketClient) GetProperties(device IPAndEOJ, EPCs []EPCType, skipVal
 	// Parse the device identifier
 	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceData.IP + " " + deviceData.EOJ)
 	if err != nil {
-		return DeviceAndProperties{}, fmt.Errorf("error parsing device identifier: %v", err)
+		return DeviceAndProperties{}, fmt.Errorf("error parsing device identifier(GetProperties): %v deviceData: %#v", err, deviceData)
 	}
 
 	return DeviceAndProperties{

@@ -112,6 +112,10 @@ No immediate tasks remaining.
     - ✅ Added proper cleanup of WebSocket connections when the application exits
     - ✅ Fixed binary data handling in JSON by implementing Base64 encoding/decoding
     - ✅ Fixed the `list` command in WebSocket client mode
+    - ✅ Fixed the `get` command response format issue in WebSocket server
+      - Problem: Server was sending an array of devices (`[]protocol.Device`) but client expected a single device object (`protocol.Device`)
+      - Solution: Modified `handleGetProperties` to marshal only the first device in the results array
+      - This fixed the "json: cannot unmarshal array into Go value of type protocol.Device" error
   - **Issues Remaining**:
     - ⚠️ Some WebSocket client commands still need implementation or fixes
     - ⚠️ Need to add more tests for the WebSocket client and server

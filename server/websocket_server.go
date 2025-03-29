@@ -201,12 +201,13 @@ func (ws *WebSocketServer) handleGetProperties(conn *websocket.Conn, msg *protoc
 	if len(payload.Targets) == 0 {
 		return fmt.Errorf("no targets specified")
 	}
-
 	// Process each target
 	results := make([]protocol.Device, 0, len(payload.Targets))
 	for _, target := range payload.Targets {
 		// Parse the target
 		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
+		fmt.Printf("target: %v, ipAndEOJ: %v\n", target, ipAndEOJ) // DEBUG
+
 		if err != nil {
 			return fmt.Errorf("invalid target: %v", err)
 		}
@@ -240,27 +241,30 @@ func (ws *WebSocketServer) handleGetProperties(conn *websocket.Conn, msg *protoc
 			properties,
 			time.Now(), // Use current time as last seen
 		)
-
 		results = append(results, protoDevice)
 	}
 
-	// Send the response
+	// The client expects a single device, not an array
+	// Since we're processing a single target at a time in the client's GetProperties method,
+	// we should return just the first device if available
+	var resultJSON json.RawMessage
+	if len(results) > 0 {
+		// Marshal just the first device
+		deviceJSON, err := json.Marshal(results[0])
+		if err != nil {
+			return fmt.Errorf("error marshaling device: %v", err)
+		}
+		resultJSON = deviceJSON
+	}
+
+	// Send the response with the device data
 	resultPayload := protocol.CommandResultPayload{
 		Success: true,
+		Data:    resultJSON, // Include the marshaled device (not the array)
 	}
 
-	// Marshal the results
-	resultData, err := protocol.CreateMessage(protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
-	if err != nil {
-		return fmt.Errorf("error creating command result message: %v", err)
-	}
-
-	// Send the message
-	if err := conn.WriteMessage(websocket.TextMessage, resultData); err != nil {
-		return fmt.Errorf("error sending command result: %v", err)
-	}
-
-	return nil
+	// Send the message using the helper function
+	return ws.sendMessage(conn, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
 }
 
 // handleSetProperties handles a set_properties message

@@ -42,6 +42,10 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Recent Changes
 
+- WebSocketサーバーの`handleGetProperties`関数を修正し、クライアントが期待する形式（配列ではなく単一のデバイスオブジェクト）でレスポンスを返すようにしました
+  - 問題：クライアントは単一の`protocol.Device`オブジェクトを期待していましたが、サーバーは`[]protocol.Device`配列を返していました
+  - 修正：サーバーが結果の最初のデバイスだけをJSONにシリアライズして返すようにしました
+  - これにより、`get`コマンド実行時の「json: cannot unmarshal array into Go value of type protocol.Device」エラーが解消されました
 - WebSocketプロトコルでのプロパティ値のBase64エンコード/デコード実装を行いました
 - `protocol/protocol.go`の`DeviceToProtocol`関数と`DeviceFromProtocol`関数を修正し、プロパティ値をBase64エンコード/デコードするようにしました
 - WebSocketサーバーとクライアントのコードを修正し、Base64エンコードされたプロパティ値を正しく処理するようにしました
