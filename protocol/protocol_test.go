@@ -1,0 +1,265 @@
+package protocol
+
+import (
+	"echonet-list/echonet_lite"
+	"encoding/base64"
+	"fmt"
+	"reflect"
+	"testing"
+	"time"
+)
+
+func TestDeviceToProtocol(t *testing.T) {
+	// Test cases
+	tests := []struct {
+		name       string
+		ip         string
+		eoj        echonet_lite.EOJ
+		properties map[echonet_lite.EPCType][]byte
+		lastSeen   time.Time
+		want       Device
+	}{
+		{
+			name: "Basic device conversion",
+			ip:   "192.168.1.10",
+			eoj:  echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+			properties: map[echonet_lite.EPCType][]byte{
+				0x80: {0x30},
+				0x81: {0x01, 0x02},
+			},
+			lastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			want: Device{
+				IP:   "192.168.1.10",
+				EOJ:  "0130:1",
+				Name: "0130[Home air conditioner]",
+				Properties: map[string]string{
+					"80": base64.StdEncoding.EncodeToString([]byte{0x30}),
+					"81": base64.StdEncoding.EncodeToString([]byte{0x01, 0x02}),
+				},
+				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+		},
+		{
+			name:       "Empty properties",
+			ip:         "192.168.1.20",
+			eoj:        echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1),
+			properties: map[echonet_lite.EPCType][]byte{},
+			lastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			want: Device{
+				IP:         "192.168.1.20",
+				EOJ:        "0EF0:1",
+				Name:       "0EF0[Node profile]",
+				Properties: map[string]string{},
+				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	// Run tests
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DeviceToProtocol(tt.ip, tt.eoj, tt.properties, tt.lastSeen)
+
+			// Check IP
+			if got.IP != tt.want.IP {
+				t.Errorf("DeviceToProtocol() IP = %v, want %v", got.IP, tt.want.IP)
+			}
+
+			// Check EOJ
+			if got.EOJ != tt.want.EOJ {
+				t.Errorf("DeviceToProtocol() EOJ = %v, want %v", got.EOJ, tt.want.EOJ)
+			}
+
+			// Check Name
+			if got.Name != tt.want.Name {
+				t.Errorf("DeviceToProtocol() Name = %v, want %v", got.Name, tt.want.Name)
+			}
+
+			// Check Properties
+			if !reflect.DeepEqual(got.Properties, tt.want.Properties) {
+				t.Errorf("DeviceToProtocol() Properties = %v, want %v", got.Properties, tt.want.Properties)
+			}
+
+			// Check LastSeen
+			if !got.LastSeen.Equal(tt.want.LastSeen) {
+				t.Errorf("DeviceToProtocol() LastSeen = %v, want %v", got.LastSeen, tt.want.LastSeen)
+			}
+		})
+	}
+}
+
+func TestDeviceFromProtocol(t *testing.T) {
+	// Test cases
+	tests := []struct {
+		name    string
+		device  Device
+		wantIP  string
+		wantEOJ echonet_lite.EOJ
+		wantErr bool
+	}{
+		{
+			name: "Basic device conversion",
+			device: Device{
+				IP:   "192.168.1.10",
+				EOJ:  "0130:1",
+				Name: "Home air conditioner",
+				Properties: map[string]string{
+					"80": base64.StdEncoding.EncodeToString([]byte{0x30}),
+					"81": base64.StdEncoding.EncodeToString([]byte{0x01, 0x02}),
+				},
+				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+			wantIP:  "192.168.1.10",
+			wantEOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+			wantErr: false,
+		},
+		{
+			name: "Empty properties",
+			device: Device{
+				IP:         "192.168.1.20",
+				EOJ:        "0EF0:1",
+				Name:       "Node profile",
+				Properties: map[string]string{},
+				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+			wantIP:  "192.168.1.20",
+			wantEOJ: echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1),
+			wantErr: false,
+		},
+		{
+			name: "Invalid IP",
+			device: Device{
+				IP:         "invalid-ip",
+				EOJ:        "0130:1",
+				Name:       "Home air conditioner",
+				Properties: map[string]string{},
+				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+			wantIP:  "",
+			wantEOJ: 0,
+			wantErr: true,
+		},
+		{
+			name: "Invalid EOJ",
+			device: Device{
+				IP:         "192.168.1.10",
+				EOJ:        "invalid-eoj",
+				Name:       "Home air conditioner",
+				Properties: map[string]string{},
+				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+			wantIP:  "",
+			wantEOJ: 0,
+			wantErr: true,
+		},
+		{
+			name: "Invalid property EPC",
+			device: Device{
+				IP:   "192.168.1.10",
+				EOJ:  "0130:1",
+				Name: "Home air conditioner",
+				Properties: map[string]string{
+					"invalid-epc": base64.StdEncoding.EncodeToString([]byte{0x30}),
+				},
+				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+			wantIP:  "",
+			wantEOJ: 0,
+			wantErr: true,
+		},
+		{
+			name: "Invalid property EDT",
+			device: Device{
+				IP:   "192.168.1.10",
+				EOJ:  "0130:1",
+				Name: "Home air conditioner",
+				Properties: map[string]string{
+					"80": "invalid-base64",
+				},
+				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+			wantIP:  "",
+			wantEOJ: 0,
+			wantErr: true,
+		},
+	}
+
+	// Run tests
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIP, gotEOJ, gotProps, err := DeviceFromProtocol(tt.device)
+
+			// Check error
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DeviceFromProtocol() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr {
+				return
+			}
+
+			// Check IP
+			if gotIP != tt.wantIP {
+				t.Errorf("DeviceFromProtocol() IP = %v, want %v", gotIP, tt.wantIP)
+			}
+
+			// Check EOJ
+			if gotEOJ != tt.wantEOJ {
+				t.Errorf("DeviceFromProtocol() EOJ = %v, want %v", gotEOJ, tt.wantEOJ)
+			}
+
+			// Check Properties
+			for _, prop := range gotProps {
+				epcStr := fmt.Sprintf("%02X", byte(prop.EPC))
+				wantEDTBase64 := tt.device.Properties[epcStr]
+				wantEDT, _ := base64.StdEncoding.DecodeString(wantEDTBase64)
+
+				if !reflect.DeepEqual(prop.EDT, wantEDT) {
+					t.Errorf("DeviceFromProtocol() Properties[%s] = %v, want %v", epcStr, prop.EDT, wantEDT)
+				}
+			}
+		})
+	}
+}
+
+// Test round-trip conversion
+func TestDeviceRoundTrip(t *testing.T) {
+	// Create a test device
+	ip := "192.168.1.10"
+	eoj := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+	properties := map[echonet_lite.EPCType][]byte{
+		0x80: {0x30},
+		0x81: {0x01, 0x02},
+	}
+	lastSeen := time.Now()
+
+	// Convert to protocol Device
+	protoDevice := DeviceToProtocol(ip, eoj, properties, lastSeen)
+
+	// Convert back to ECHONET Lite types
+	gotIP, gotEOJ, gotProps, err := DeviceFromProtocol(protoDevice)
+
+	// Check for errors
+	if err != nil {
+		t.Errorf("Round-trip conversion failed with error: %v", err)
+		return
+	}
+
+	// Check IP
+	if gotIP != ip {
+		t.Errorf("Round-trip IP = %v, want %v", gotIP, ip)
+	}
+
+	// Check EOJ
+	if gotEOJ != eoj {
+		t.Errorf("Round-trip EOJ = %v, want %v", gotEOJ, eoj)
+	}
+
+	// Check Properties
+	for _, prop := range gotProps {
+		if !reflect.DeepEqual(prop.EDT, properties[prop.EPC]) {
+			t.Errorf("Round-trip Properties[%X] = %v, want %v", prop.EPC, prop.EDT, properties[prop.EPC])
+		}
+	}
+}

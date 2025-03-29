@@ -196,25 +196,32 @@ func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties map[echonet_li
 }
 
 // DeviceFromProtocol converts a protocol Device to ECHONET Lite types
-func DeviceFromProtocol(device Device) (string, echonet_lite.EOJ, map[echonet_lite.EPCType][]byte, error) {
+func DeviceFromProtocol(device Device) (string, echonet_lite.EOJ, echonet_lite.Properties, error) {
 	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(device.IP + " " + device.EOJ)
 	if err != nil {
 		return "", 0, nil, err
 	}
 
-	properties := make(map[echonet_lite.EPCType][]byte)
+	// Convert properties map to Properties slice
+	var properties echonet_lite.Properties
 	for epcStr, edtStr := range device.Properties {
+		// Parse EPC string to EPCType
 		epc, err := echonet_lite.ParseEPCString(epcStr)
 		if err != nil {
-			return "", 0, nil, err
+			return "", 0, nil, fmt.Errorf("error parsing EPC: %v", err)
 		}
 
+		// Decode EDT string from base64
 		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
-			return "", 0, nil, err
+			return "", 0, nil, fmt.Errorf("error decoding EDT: %v", err)
 		}
 
-		properties[epc] = edt
+		// Add property to properties slice
+		properties = append(properties, echonet_lite.Property{
+			EPC: epc,
+			EDT: edt,
+		})
 	}
 
 	return ipAndEOJ.IP.String(), ipAndEOJ.EOJ, properties, nil

@@ -4,7 +4,16 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Current Task
 
-最近の作業では、WebSocketプロトコルでのプロパティ値のBase64エンコード/デコード実装を行いました。ECHONET Liteのプロパティ値（EDT）はバイナリデータであり、JSONでそのまま送受信することができないため、Base64エンコードを使用してテキスト形式に変換する必要がありました。
+最近の作業では、`DeviceFromProtocol` 関数の改善を行いました。この関数は、WebSocketプロトコルで使用される `protocol.Device` 型から ECHONET Lite の型に変換する役割を持っています。
+
+具体的には以下の変更を行いました：
+1. 戻り値の型を `map[string]string` から `echonet_lite.Properties` に変更しました
+2. 関数内部で、プロパティの変換処理を修正し、文字列形式のプロパティを `echonet_lite.Property` 型に直接変換するようにしました
+3. クライアントコードを修正し、新しい戻り値の型を使用するようにしました
+
+これらの変更により、プロパティの処理が簡素化され、型変換のコードが削減されました。また、WebSocketクライアントとサーバー間の通信がより効率的になりました。
+
+以前の作業では、WebSocketプロトコルでのプロパティ値のBase64エンコード/デコード実装を行いました。ECHONET Liteのプロパティ値（EDT）はバイナリデータであり、JSONでそのまま送受信することができないため、Base64エンコードを使用してテキスト形式に変換する必要がありました。
 
 具体的には以下の変更を行いました：
 1. `protocol/protocol.go`の`DeviceToProtocol`関数を修正し、プロパティ値をBase64エンコードするようにしました
@@ -42,6 +51,11 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Recent Changes
 
+- `protocol/protocol.go` の `DeviceFromProtocol` 関数を改善しました
+  - 戻り値の型を `map[string]string` から `echonet_lite.Properties` に変更しました
+  - 関数内部で、プロパティの変換処理を修正し、文字列形式のプロパティを `echonet_lite.Property` 型に直接変換するようにしました
+  - クライアントコードを修正し、新しい戻り値の型を使用するようにしました
+  - これにより、プロパティの処理が簡素化され、型変換のコードが削減されました
 - WebSocketサーバーの`handleGetProperties`関数を修正し、クライアントが期待する形式（配列ではなく単一のデバイスオブジェクト）でレスポンスを返すようにしました
   - 問題：クライアントは単一の`protocol.Device`オブジェクトを期待していましたが、サーバーは`[]protocol.Device`配列を返していました
   - 修正：サーバーが結果の最初のデバイスだけをJSONにシリアライズして返すようにしました

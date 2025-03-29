@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"sync"
 	"time"
@@ -241,29 +242,16 @@ func (c *WebSocketClient) GetProperties(device IPAndEOJ, EPCs []EPCType, skipVal
 		}
 	}
 
-	// Convert to DeviceAndProperties
-	var props echonet_lite.Properties
-	for epcStr, edtStr := range deviceData.Properties {
-		epc, err := echonet_lite.ParseEPCString(epcStr)
-		if err != nil {
-			return DeviceAndProperties{}, fmt.Errorf("error parsing EPC: %v", err)
-		}
-
-		edt, err := base64.StdEncoding.DecodeString(edtStr)
-		if err != nil {
-			return DeviceAndProperties{}, fmt.Errorf("error decoding EDT: %v", err)
-		}
-
-		props = append(props, echonet_lite.Property{
-			EPC: epc,
-			EDT: edt,
-		})
+	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
+	ip, eoj, props, err := protocol.DeviceFromProtocol(deviceData)
+	if err != nil {
+		return DeviceAndProperties{}, fmt.Errorf("error converting device: %v", err)
 	}
 
-	// Parse the device identifier
-	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceData.IP + " " + deviceData.EOJ)
-	if err != nil {
-		return DeviceAndProperties{}, fmt.Errorf("error parsing device identifier(GetProperties): %v deviceData: %#v", err, deviceData)
+	// Create IPAndEOJ
+	ipAndEOJ := echonet_lite.IPAndEOJ{
+		IP:  net.ParseIP(ip),
+		EOJ: eoj,
 	}
 
 	return DeviceAndProperties{
@@ -312,29 +300,16 @@ func (c *WebSocketClient) SetProperties(device IPAndEOJ, properties Properties) 
 		}
 	}
 
-	// Convert to DeviceAndProperties
-	var props echonet_lite.Properties
-	for epcStr, edtStr := range deviceData.Properties {
-		epc, err := echonet_lite.ParseEPCString(epcStr)
-		if err != nil {
-			return DeviceAndProperties{}, fmt.Errorf("error parsing EPC: %v", err)
-		}
-
-		edt, err := base64.StdEncoding.DecodeString(edtStr)
-		if err != nil {
-			return DeviceAndProperties{}, fmt.Errorf("error decoding EDT: %v", err)
-		}
-
-		props = append(props, echonet_lite.Property{
-			EPC: epc,
-			EDT: edt,
-		})
+	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
+	ip, eoj, props, err := protocol.DeviceFromProtocol(deviceData)
+	if err != nil {
+		return DeviceAndProperties{}, fmt.Errorf("error converting device: %v", err)
 	}
 
-	// Parse the device identifier
-	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceData.IP + " " + deviceData.EOJ)
-	if err != nil {
-		return DeviceAndProperties{}, fmt.Errorf("error parsing device identifier: %v", err)
+	// Create IPAndEOJ
+	ipAndEOJ := echonet_lite.IPAndEOJ{
+		IP:  net.ParseIP(ip),
+		EOJ: eoj,
 	}
 
 	return DeviceAndProperties{
@@ -554,41 +529,23 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 	c.devicesMutex.Lock()
 	c.devices = make(map[string]echonet_lite.DeviceAndProperties)
 	for deviceID, device := range payload.Devices {
-		// Parse the device identifier
-		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(device.IP + " " + device.EOJ)
+		// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
+		ip, eoj, properties, err := protocol.DeviceFromProtocol(device)
 		if err != nil {
 			if c.debug {
-				fmt.Printf("Error parsing device identifier: %v\n", err)
+				fmt.Printf("Error converting device: %v\n", err)
 			}
 			continue
 		}
 
-		// Convert properties to Properties slice
-		var props echonet_lite.Properties
-		for epcStr, edtStr := range device.Properties {
-			epc, err := echonet_lite.ParseEPCString(epcStr)
-			if err != nil {
-				if c.debug {
-					fmt.Printf("Error parsing EPC: %v\n", err)
-				}
-				continue
-			}
-
-			edt, err := base64.StdEncoding.DecodeString(edtStr)
-			if err != nil {
-				if c.debug {
-					fmt.Printf("Error decoding EDT: %v\n", err)
-				}
-				continue
-			}
-
-			props = append(props, echonet_lite.Property{
-				EPC: epc,
-				EDT: edt,
-			})
-		}
+		// Properties are already in the correct format
+		props := properties
 
 		// Add to devices
+		ipAndEOJ := echonet_lite.IPAndEOJ{
+			IP:  net.ParseIP(ip),
+			EOJ: eoj,
+		}
 		c.devices[deviceID] = echonet_lite.DeviceAndProperties{
 			Device:     ipAndEOJ,
 			Properties: props,
@@ -625,38 +582,19 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 		return
 	}
 
-	// Parse the device identifier
-	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.Device.IP + " " + payload.Device.EOJ)
+	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
+	ip, eoj, props, err := protocol.DeviceFromProtocol(payload.Device)
 	if err != nil {
 		if c.debug {
-			fmt.Printf("Error parsing device identifier: %v\n", err)
+			fmt.Printf("Error converting device: %v\n", err)
 		}
 		return
 	}
 
-	// Convert properties to Properties slice
-	var props echonet_lite.Properties
-	for epcStr, edtStr := range payload.Device.Properties {
-		epc, err := echonet_lite.ParseEPCString(epcStr)
-		if err != nil {
-			if c.debug {
-				fmt.Printf("Error parsing EPC: %v\n", err)
-			}
-			continue
-		}
-
-		edt, err := base64.StdEncoding.DecodeString(edtStr)
-		if err != nil {
-			if c.debug {
-				fmt.Printf("Error decoding EDT: %v\n", err)
-			}
-			continue
-		}
-
-		props = append(props, echonet_lite.Property{
-			EPC: epc,
-			EDT: edt,
-		})
+	// Create IPAndEOJ
+	ipAndEOJ := echonet_lite.IPAndEOJ{
+		IP:  net.ParseIP(ip),
+		EOJ: eoj,
 	}
 
 	// Add to devices
@@ -678,38 +616,19 @@ func (c *WebSocketClient) handleDeviceUpdated(msg *protocol.Message) {
 		return
 	}
 
-	// Parse the device identifier
-	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.Device.IP + " " + payload.Device.EOJ)
+	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
+	ip, eoj, props, err := protocol.DeviceFromProtocol(payload.Device)
 	if err != nil {
 		if c.debug {
-			fmt.Printf("Error parsing device identifier: %v\n", err)
+			fmt.Printf("Error converting device: %v\n", err)
 		}
 		return
 	}
 
-	// Convert properties to Properties slice
-	var props echonet_lite.Properties
-	for epcStr, edtStr := range payload.Device.Properties {
-		epc, err := echonet_lite.ParseEPCString(epcStr)
-		if err != nil {
-			if c.debug {
-				fmt.Printf("Error parsing EPC: %v\n", err)
-			}
-			continue
-		}
-
-		edt, err := base64.StdEncoding.DecodeString(edtStr)
-		if err != nil {
-			if c.debug {
-				fmt.Printf("Error decoding EDT: %v\n", err)
-			}
-			continue
-		}
-
-		props = append(props, echonet_lite.Property{
-			EPC: epc,
-			EDT: edt,
-		})
+	// Create IPAndEOJ
+	ipAndEOJ := echonet_lite.IPAndEOJ{
+		IP:  net.ParseIP(ip),
+		EOJ: eoj,
 	}
 
 	// Update devices
