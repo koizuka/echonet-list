@@ -129,17 +129,11 @@ func (ws *WebSocketServer) sendInitialState(conn *websocket.Conn) error {
 	// Convert devices to protocol format
 	protoDevices := make(map[string]protocol.Device)
 	for _, device := range devices {
-		// Convert properties to map
-		properties := make(map[echonet_lite.EPCType][]byte)
-		for _, prop := range device.Properties {
-			properties[prop.EPC] = prop.EDT
-		}
-
 		// Use DeviceToProtocol to convert to protocol format
 		protoDevice := protocol.DeviceToProtocol(
 			device.Device.IP.String(),
 			device.Device.EOJ,
-			properties,
+			device.Properties,
 			time.Now(), // Use current time as last seen
 		)
 
@@ -228,17 +222,11 @@ func (ws *WebSocketServer) handleGetProperties(conn *websocket.Conn, msg *protoc
 			return fmt.Errorf("error getting properties: %v", err)
 		}
 
-		// Convert properties to map
-		properties := make(map[echonet_lite.EPCType][]byte)
-		for _, prop := range deviceAndProps.Properties {
-			properties[prop.EPC] = prop.EDT
-		}
-
 		// Use DeviceToProtocol to convert to protocol format
 		protoDevice := protocol.DeviceToProtocol(
 			deviceAndProps.Device.IP.String(),
 			deviceAndProps.Device.EOJ,
-			properties,
+			deviceAndProps.Properties,
 			time.Now(), // Use current time as last seen
 		)
 		results = append(results, protoDevice)
@@ -314,17 +302,11 @@ func (ws *WebSocketServer) handleSetProperties(conn *websocket.Conn, msg *protoc
 		return fmt.Errorf("error setting properties: %v", err)
 	}
 
-	// Convert properties to map
-	propsMap := make(map[echonet_lite.EPCType][]byte)
-	for _, prop := range deviceAndProps.Properties {
-		propsMap[prop.EPC] = prop.EDT
-	}
-
 	// Use DeviceToProtocol to convert to protocol format
 	deviceData := protocol.DeviceToProtocol(
 		deviceAndProps.Device.IP.String(),
 		deviceAndProps.Device.EOJ,
-		propsMap,
+		deviceAndProps.Properties,
 		time.Now(), // Use current time as last seen
 	)
 
@@ -529,8 +511,8 @@ func (ws *WebSocketServer) listenForNotifications() {
 				protoDevice := protocol.DeviceToProtocol(
 					device.IP.String(),
 					device.EOJ,
-					make(map[echonet_lite.EPCType][]byte), // Empty properties, will be updated later
-					time.Now(),                            // Use current time as last seen
+					echonet_lite.Properties{}, // Empty properties, will be updated later
+					time.Now(),                // Use current time as last seen
 				)
 
 				payload := protocol.DeviceAddedPayload{

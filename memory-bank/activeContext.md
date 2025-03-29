@@ -51,6 +51,12 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Recent Changes
 
+- `protocol/protocol.go` の `DeviceToProtocol` 関数を改善しました
+  - 引数の型を `map[echonet_lite.EPCType][]byte` から `echonet_lite.Properties` に変更しました
+  - 関数内部で、プロパティの処理ロジックを `echonet_lite.Properties` スライスをループするように修正しました
+  - `server/websocket_server.go` と `protocol/protocol_test.go` も修正し、新しい引数型に対応させました
+  - これにより、プロパティの処理が一貫性を持ち、型変換のコードがさらに削減されました
+
 - `protocol/protocol.go` の `DeviceFromProtocol` 関数を改善しました
   - 戻り値の型を `map[string]string` から `echonet_lite.Properties` に変更しました
   - 関数内部で、プロパティの変換処理を修正し、文字列形式のプロパティを `echonet_lite.Property` 型に直接変換するようにしました

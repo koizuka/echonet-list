@@ -116,11 +116,12 @@ No immediate tasks remaining.
       - Problem: Server was sending an array of devices (`[]protocol.Device`) but client expected a single device object (`protocol.Device`)
       - Solution: Modified `handleGetProperties` to marshal only the first device in the results array
       - This fixed the "json: cannot unmarshal array into Go value of type protocol.Device" error
-    - ✅ Improved `DeviceFromProtocol` function in `protocol/protocol.go`
-      - Changed return type from `map[string]string` to `echonet_lite.Properties`
-      - Modified function to directly convert properties to `echonet_lite.Property` objects
-      - Updated client code to use the new return type
-      - This simplifies property handling and reduces type conversion code
+    - ✅ Improved `DeviceToProtocol` and `DeviceFromProtocol` functions in `protocol/protocol.go`
+      - Changed `DeviceToProtocol` parameter type from `map[echonet_lite.EPCType][]byte` to `echonet_lite.Properties`
+      - Changed `DeviceFromProtocol` return type from `map[string]string` to `echonet_lite.Properties`
+      - Modified functions to directly work with `echonet_lite.Properties` type
+      - Updated server and client code to use the new parameter and return types
+      - This simplifies property handling and reduces type conversion code throughout the codebase
   - **Issues Remaining**:
     - ⚠️ Some WebSocket client commands still need implementation or fixes
     - ⚠️ Need to add more tests for the WebSocket client and server

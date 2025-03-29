@@ -180,10 +180,10 @@ type DiscoverDevicesPayload struct {
 // Helper functions for converting between ECHONET Lite types and protocol types
 
 // DeviceToProtocol converts an ECHONET Lite device to a protocol Device
-func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties map[echonet_lite.EPCType][]byte, lastSeen time.Time) Device {
+func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties echonet_lite.Properties, lastSeen time.Time) Device {
 	protoProps := make(map[string]string)
-	for epc, edt := range properties {
-		protoProps[fmt.Sprintf("%02X", byte(epc))] = base64.StdEncoding.EncodeToString(edt)
+	for _, prop := range properties {
+		protoProps[fmt.Sprintf("%02X", byte(prop.EPC))] = base64.StdEncoding.EncodeToString(prop.EDT)
 	}
 
 	return Device{

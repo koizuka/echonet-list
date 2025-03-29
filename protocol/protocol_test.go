@@ -15,7 +15,7 @@ func TestDeviceToProtocol(t *testing.T) {
 		name       string
 		ip         string
 		eoj        echonet_lite.EOJ
-		properties map[echonet_lite.EPCType][]byte
+		properties echonet_lite.Properties
 		lastSeen   time.Time
 		want       Device
 	}{
@@ -23,9 +23,9 @@ func TestDeviceToProtocol(t *testing.T) {
 			name: "Basic device conversion",
 			ip:   "192.168.1.10",
 			eoj:  echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
-			properties: map[echonet_lite.EPCType][]byte{
-				0x80: {0x30},
-				0x81: {0x01, 0x02},
+			properties: echonet_lite.Properties{
+				{EPC: 0x80, EDT: []byte{0x30}},
+				{EPC: 0x81, EDT: []byte{0x01, 0x02}},
 			},
 			lastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			want: Device{
@@ -43,7 +43,7 @@ func TestDeviceToProtocol(t *testing.T) {
 			name:       "Empty properties",
 			ip:         "192.168.1.20",
 			eoj:        echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1),
-			properties: map[echonet_lite.EPCType][]byte{},
+			properties: echonet_lite.Properties{},
 			lastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			want: Device{
 				IP:         "192.168.1.20",
@@ -228,9 +228,9 @@ func TestDeviceRoundTrip(t *testing.T) {
 	// Create a test device
 	ip := "192.168.1.10"
 	eoj := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
-	properties := map[echonet_lite.EPCType][]byte{
-		0x80: {0x30},
-		0x81: {0x01, 0x02},
+	properties := echonet_lite.Properties{
+		{EPC: 0x80, EDT: []byte{0x30}},
+		{EPC: 0x81, EDT: []byte{0x01, 0x02}},
 	}
 	lastSeen := time.Now()
 
@@ -258,8 +258,14 @@ func TestDeviceRoundTrip(t *testing.T) {
 
 	// Check Properties
 	for _, prop := range gotProps {
-		if !reflect.DeepEqual(prop.EDT, properties[prop.EPC]) {
-			t.Errorf("Round-trip Properties[%X] = %v, want %v", prop.EPC, prop.EDT, properties[prop.EPC])
+		originalProp, found := properties.FindEPC(prop.EPC)
+		if !found {
+			t.Errorf("Round-trip Properties contains unexpected EPC: %X", prop.EPC)
+			continue
+		}
+
+		if !reflect.DeepEqual(prop.EDT, originalProp.EDT) {
+			t.Errorf("Round-trip Properties[%X] = %v, want %v", prop.EPC, prop.EDT, originalProp.EDT)
 		}
 	}
 }
