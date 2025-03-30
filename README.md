@@ -107,6 +107,20 @@ Command line options take precedence over configuration file settings.
 
 The application can run in WebSocket server mode, allowing web browsers and other clients to connect and interact with ECHONET Lite devices. It can also run in WebSocket client mode, connecting to another instance of the application running in server mode.
 
+#### WebSocket Protocol Documentation
+
+Detailed documentation for the WebSocket protocol is available in [docs/websocket_client_protocol.md](docs/websocket_client_protocol.md). This document provides comprehensive information for developers who want to implement their own WebSocket clients in various programming languages (JavaScript/TypeScript, Python, Java, C#, etc.) to communicate with the ECHONET Lite WebSocket server.
+
+The documentation includes:
+- Protocol overview and communication flow
+- Message formats and data types
+- Server-to-client notifications
+- Client-to-server requests
+- Server responses
+- Implementation guidelines
+- Error handling
+- TypeScript example implementation
+
 #### Secure WebSocket (WSS) with TLS
 
 For secure WebSocket connections (WSS), you need to provide a TLS certificate and private key. You can generate these using tools like `mkcert` for development:

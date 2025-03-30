@@ -106,6 +106,7 @@ This file provides details about the technical environment and constraints of th
 
 ## WebSocket Communication
 
+- **Documentation**: Detailed client developer documentation available in `docs/websocket_client_protocol.md`
 - **Protocol**: Custom JSON-based protocol over WebSocket (defined in `protocol/protocol.go`)
   - **Message Types**: `initial_state`, `device_added`, `device_updated`, `device_removed`, `alias_changed`, `property_changed`, `timeout_notification`, `error_notification`, `command_result`, `get_properties`, `set_properties`, `update_properties`, `manage_alias`, `discover_devices`
   - **Payloads**: Defined for each message type (e.g., `InitialStatePayload`, `DeviceAddedPayload`)

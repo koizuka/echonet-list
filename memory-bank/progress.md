@@ -141,6 +141,12 @@ No immediate tasks remaining.
       - Solution: Added explicit sorting using `sort.Slice` and `bytes.Compare` to sort IP addresses as numeric values
       - Implemented the same sorting logic as in the original `echonet_lite/Devices.go` file's `ListDevicePropertyData` method
       - This ensures consistent IP address sorting behavior between direct ECHONET Lite mode and WebSocket client mode
+  - **Documentation**:
+    - ✅ Created WebSocket protocol client developer documentation
+      - Created `docs/websocket_client_protocol.md` with detailed protocol specifications
+      - Documented message formats, data types, notifications, requests, and responses
+      - Included language-agnostic implementation guidelines and TypeScript example
+      - This documentation will help developers implement WebSocket clients in various languages
   - **Issues Remaining**:
     - ⚠️ Some WebSocket client commands still need implementation or fixes
     - ⚠️ Need to add more tests for the WebSocket client and server
