@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"echonet-list/client"
+	"echonet-list/config"
 	"echonet-list/console"
 	"echonet-list/server"
 	"flag"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -30,6 +32,9 @@ func main() {
 	debugFlag := flag.Bool("debug", false, "デバッグモードを有効にする")
 	logFilenameFlag := flag.String("log", defaultLog, "ログファイル名を指定する")
 
+	// 設定ファイル関連のフラグ
+	configFileFlag := flag.String("config", "", "TOML設定ファイルのパスを指定する")
+
 	// WebSocket関連のフラグ
 	websocketFlag := flag.Bool("websocket", false, "WebSocketサーバーモードを有効にする")
 	wsAddrFlag := flag.String("ws-addr", "localhost:8080", "WebSocketサーバーのアドレスを指定する")
@@ -37,23 +42,66 @@ func main() {
 	wsClientAddrFlag := flag.String("ws-client-addr", "ws://localhost:8080/ws", "WebSocketクライアントの接続先アドレスを指定する")
 	wsBothFlag := flag.Bool("ws-both", false, "WebSocketサーバーとクライアントの両方を有効にする（テスト用）")
 
+	// TLS関連のフラグ
+	wsTLSFlag := flag.Bool("ws-tls", false, "WebSocketサーバーでTLSを有効にする")
+	wsCertFileFlag := flag.String("ws-cert-file", "", "TLS証明書ファイルのパスを指定する")
+	wsKeyFileFlag := flag.String("ws-key-file", "", "TLS秘密鍵ファイルのパスを指定する")
+
 	// コマンドライン引数の解析
 	flag.Parse()
 
-	// フラグの値を取得
-	debug := *debugFlag
-	logFilename := *logFilenameFlag
-	websocket := *websocketFlag
-	wsAddr := *wsAddrFlag
-	wsClient := *wsClientFlag
-	wsClientAddr := *wsClientAddrFlag
-	wsBoth := *wsBothFlag
-
-	// -ws-both が指定された場合は、サーバーとクライアントの両方を有効にする
-	if wsBoth {
-		websocket = true
-		wsClient = true
+	// 設定ファイルの読み込み
+	cfg, err := config.LoadConfig(*configFileFlag)
+	if err != nil {
+		fmt.Printf("設定ファイルの読み込みに失敗しました: %v\n", err)
+		return
 	}
+
+	// コマンドライン引数を設定に適用
+	cmdArgs := config.CommandLineArgs{
+		ConfigFile:      *configFileFlag,
+		ConfigSpecified: *configFileFlag != "",
+
+		Debug:          *debugFlag,
+		DebugSpecified: flag.Lookup("debug").Value.String() != "false",
+
+		LogFilename:          *logFilenameFlag,
+		LogFilenameSpecified: flag.Lookup("log").Value.String() != defaultLog,
+
+		WebSocketEnabled:          *websocketFlag,
+		WebSocketEnabledSpecified: flag.Lookup("websocket").Value.String() != "false",
+
+		WebSocketAddr:          *wsAddrFlag,
+		WebSocketAddrSpecified: flag.Lookup("ws-addr").Value.String() != "localhost:8080",
+
+		WebSocketTLSEnabled:          *wsTLSFlag,
+		WebSocketTLSEnabledSpecified: flag.Lookup("ws-tls").Value.String() != "false",
+
+		WebSocketTLSCertFile:          *wsCertFileFlag,
+		WebSocketTLSCertFileSpecified: *wsCertFileFlag != "",
+
+		WebSocketTLSKeyFile:          *wsKeyFileFlag,
+		WebSocketTLSKeyFileSpecified: *wsKeyFileFlag != "",
+
+		WebSocketClientEnabled:          *wsClientFlag,
+		WebSocketClientEnabledSpecified: flag.Lookup("ws-client").Value.String() != "false",
+
+		WebSocketClientAddr:          *wsClientAddrFlag,
+		WebSocketClientAddrSpecified: flag.Lookup("ws-client-addr").Value.String() != "ws://localhost:8080/ws",
+
+		WebSocketBoth:          *wsBothFlag,
+		WebSocketBothSpecified: flag.Lookup("ws-both").Value.String() != "false",
+	}
+
+	cfg.ApplyCommandLineArgs(cmdArgs)
+
+	// 設定値を取得
+	debug := cfg.Debug
+	logFilename := cfg.Log.Filename
+	websocket := cfg.WebSocket.Enabled
+	wsAddr := cfg.WebSocket.Addr
+	wsClient := cfg.WebSocketClient.Enabled
+	wsClientAddr := cfg.WebSocketClient.Addr
 
 	// ロガーのセットアップ
 	logger, err := server.NewLogManager(logFilename)
@@ -111,11 +159,27 @@ func main() {
 			}
 		}()
 
+		// TLS設定を準備
+		startOptions := server.StartOptions{
+			CertFile: cfg.WebSocket.TLS.CertFile,
+			KeyFile:  cfg.WebSocket.TLS.KeyFile,
+		}
+
+		// TLSが有効かどうかを表示
+		if cfg.WebSocket.TLS.Enabled && startOptions.CertFile != "" && startOptions.KeyFile != "" {
+			fmt.Printf("TLSが有効です。証明書: %s, 秘密鍵: %s\n", startOptions.CertFile, startOptions.KeyFile)
+		} else if cfg.WebSocket.TLS.Enabled {
+			fmt.Println("TLSが有効ですが、証明書または秘密鍵が指定されていません。TLSなしで起動します。")
+			// TLSが有効だが証明書または秘密鍵が指定されていない場合は、TLSを無効にする
+			startOptions.CertFile = ""
+			startOptions.KeyFile = ""
+		}
+
 		// WebSocketサーバーを起動
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := wsServer.Start(); err != nil && err != http.ErrServerClosed {
+			if err := wsServer.Start(startOptions); err != nil && err != http.ErrServerClosed {
 				fmt.Printf("WebSocketサーバーの起動に失敗しました: %v\n", err)
 			}
 		}()
@@ -137,6 +201,15 @@ func main() {
 
 	// WebSocketクライアントモードの場合
 	if wsClient {
+		// TLSが有効な場合は、接続先アドレスを修正
+		if cfg.WebSocket.TLS.Enabled && cfg.WebSocket.TLS.CertFile != "" && cfg.WebSocket.TLS.KeyFile != "" {
+			// ws:// を wss:// に置き換え
+			if strings.HasPrefix(wsClientAddr, "ws://") {
+				wsClientAddr = "wss://" + wsClientAddr[5:]
+				fmt.Printf("TLSが有効なため、接続先アドレスを %s に変更しました\n", wsClientAddr)
+			}
+		}
+
 		// WebSocketクライアントの作成
 		var err error
 		wsClientInstance, err = client.NewWebSocketClient(ctx, wsClientAddr, debug)

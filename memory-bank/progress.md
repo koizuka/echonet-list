@@ -106,6 +106,20 @@ No immediate tasks remaining.
     - ✅ Updated WebSocket server to use `DeviceToProtocol` function
     - ✅ Updated WebSocket client to properly decode Base64-encoded property values
     - ✅ Removed debug output code for cleaner implementation
+  - ✅ Added TLS support for WebSocket server
+    - ✅ Added `StartOptions` struct to `server/websocket_server.go` for TLS configuration
+    - ✅ Modified `Start()` method to use TLS certificate and private key
+    - ✅ Updated WebSocket client to use `wss://` instead of `ws://` when TLS is enabled
+  - ✅ Added configuration file support
+    - ✅ Created `config/config.go` package for TOML configuration file loading and command-line argument parsing
+    - ✅ Modified `main.go` to load configuration file and apply command-line arguments
+    - ✅ Created sample configuration file `config.toml.sample` and updated `.gitignore` to exclude `config.toml`
+  - ✅ Created development environment certificates
+    - ✅ Used `mkcert` to create localhost certificates (valid until June 30, 2027)
+    - ✅ Created `certs` directory and moved certificate files
+    - ✅ Updated `config.toml` and `config.toml.sample` with new certificate paths
+    - ✅ Updated `.gitignore` to include localhost certificates but exclude others
+    - ✅ Created `config.toml` with TLS enabled for testing
   - **Issues Fixed**:
     - ✅ Fixed the `quit` command issue that was causing the application to freeze
     - ✅ Improved error handling and logging in the WebSocket client

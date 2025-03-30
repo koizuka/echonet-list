@@ -104,7 +104,7 @@ This file provides details about the technical environment and constraints of th
     - Client Request Related: `INVALID_REQUEST_FORMAT`, `INVALID_PARAMETERS`, `TARGET_NOT_FOUND`, `ALIAS_OPERATION_FAILED`, `ALIAS_ALREADY_EXISTS`, `INVALID_ALIAS_NAME`, `ALIAS_NOT_FOUND`
     - Server/Communication Related: `ECHONET_TIMEOUT`, `ECHONET_DEVICE_ERROR`, `ECHONET_COMMUNICATION_ERROR`, `INTERNAL_SERVER_ERROR`
 
-## WebSocket Communication (Planned)
+## WebSocket Communication
 
 - **Protocol**: Custom JSON-based protocol over WebSocket (defined in `protocol/protocol.go`)
   - **Message Types**: `initial_state`, `device_added`, `device_updated`, `device_removed`, `alias_changed`, `property_changed`, `timeout_notification`, `error_notification`, `command_result`, `get_properties`, `set_properties`, `update_properties`, `manage_alias`, `discover_devices`
@@ -118,3 +118,22 @@ This file provides details about the technical environment and constraints of th
   - `-ws-client`: Enable WebSocket client mode.
   - `-ws-client-addr`: Specify WebSocket server address for the client to connect to (default: `localhost:8080`).
   - `-ws-both`: Enable both WebSocket server and client mode for dogfooding.
+  - `-ws-tls`: Enable TLS for WebSocket server.
+  - `-ws-cert-file`: Specify TLS certificate file path.
+  - `-ws-key-file`: Specify TLS private key file path.
+- **TLS Support**: WebSocket server can be configured to use TLS (WSS) for secure connections.
+  - When TLS is enabled, WebSocket clients should connect using `wss://` instead of `ws://`.
+  - The application automatically updates client connection URLs when TLS is enabled.
+
+## Configuration File
+
+- **Format**: TOML (Tom's Obvious, Minimal Language)
+- **Default Path**: `config.toml` in the current directory
+- **Command Line Override**: `-config` option to specify a different file path
+- **Settings**:
+  - General settings (debug mode)
+  - Log settings (filename)
+  - WebSocket server settings (enabled, address, TLS)
+  - WebSocket client settings (enabled, address)
+- **Priority**: Command line arguments take precedence over configuration file settings
+- **Sample File**: `config.toml.sample` is provided as a template

@@ -4,6 +4,11 @@ aliases.json
 echonet-list
 echonet-list.exe
 echonet-list.log
+config.toml
+
+# 証明書ファイル (localhost用は除く)
+certs/*.pem
+!certs/localhost*.pem
 
 ### Go template
 # If you prefer the allow list template instead of the deny list, see community template:

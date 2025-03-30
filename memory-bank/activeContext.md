@@ -4,7 +4,37 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Current Task
 
-最近の作業では、`DeviceFromProtocol` 関数の改善を行いました。この関数は、WebSocketプロトコルで使用される `protocol.Device` 型から ECHONET Lite の型に変換する役割を持っています。
+最近の作業では、WebSocketサーバーのTLS対応と設定ファイルのサポートを実装しました。
+
+### WebSocketサーバーのTLS対応
+
+WebSocketサーバーをTLS対応にし、ブラウザからの安全な接続（WSS）を可能にしました。具体的には以下の変更を行いました：
+
+1. `server/websocket_server.go` に `StartOptions` 構造体を追加し、TLS証明書と秘密鍵のパスを指定できるようにしました
+2. `Start()` メソッドを修正して、TLS証明書と秘密鍵を使用してサーバーを起動できるようにしました
+3. WebSocketクライアントの接続先アドレスを修正し、TLSが有効な場合は `ws://` ではなく `wss://` を使用するようにしました
+
+### 設定ファイルのサポート
+
+TOML形式の設定ファイルをサポートし、コマンドライン引数と設定ファイルの両方から設定を読み込めるようにしました。具体的には以下の変更を行いました：
+
+1. `config/config.go` パッケージを作成して、TOML設定ファイルの読み込みと、コマンドライン引数の解析を実装しました
+2. `main.go` を修正して、設定ファイルの読み込みと、コマンドライン引数の適用を実装しました
+3. サンプル設定ファイル `config.toml.sample` を作成し、`.gitignore` を更新して `config.toml` を除外しました
+
+### 開発環境用の証明書作成と整理
+
+`mkcert` を使用して開発環境用の証明書を作成し、TLS対応のWebSocketサーバーをテストできるようにしました。
+
+1. `mkcert` をインストールし、ローカルCAをインストールしました
+2. localhost の証明書を作成しました（有効期限: 2027年6月30日）
+3. 証明書ファイル用の `certs` ディレクトリを作成し、証明書ファイルを移動しました
+4. `config.toml` と `config.toml.sample` を更新して、証明書ファイルのパスを修正しました
+5. `.gitignore` を更新して、localhost用の証明書はリポジトリに含め、それ以外の証明書は除外するようにしました
+
+これらの変更により、WebSocketサーバーがTLS対応になり、設定ファイルのサポートが追加されました。また、開発環境でのテストが容易になりました。
+
+以前の作業では、`DeviceFromProtocol` 関数の改善を行いました。この関数は、WebSocketプロトコルで使用される `protocol.Device` 型から ECHONET Lite の型に変換する役割を持っています。
 
 具体的には以下の変更を行いました：
 1. 戻り値の型を `map[string]string` から `echonet_lite.Properties` に変更しました

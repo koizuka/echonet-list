@@ -15,6 +15,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// StartOptions は WebSocketServer の起動オプションを表す
+type StartOptions struct {
+	// TLS証明書ファイルのパス (TLSを使用する場合)
+	CertFile string
+	// TLS秘密鍵ファイルのパス (TLSを使用する場合)
+	KeyFile string
+}
+
 // WebSocketServer implements a WebSocket server for ECHONET Lite
 type WebSocketServer struct {
 	ctx           context.Context
@@ -57,8 +65,16 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 }
 
 // Start starts the WebSocket server
-func (ws *WebSocketServer) Start() error {
+func (ws *WebSocketServer) Start(options StartOptions) error {
 	fmt.Printf("WebSocket server starting on %s\n", ws.server.Addr)
+
+	// TLS証明書が指定されている場合
+	if options.CertFile != "" && options.KeyFile != "" {
+		fmt.Printf("Using TLS with certificate: %s\n", options.CertFile)
+		return ws.server.ListenAndServeTLS(options.CertFile, options.KeyFile)
+	}
+
+	// 通常のHTTP (証明書なし)
 	return ws.server.ListenAndServe()
 }
 
