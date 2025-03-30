@@ -136,6 +136,11 @@ No immediate tasks remaining.
       - Modified functions to directly work with `echonet_lite.Properties` type
       - Updated server and client code to use the new parameter and return types
       - This simplifies property handling and reduces type conversion code throughout the codebase
+    - ✅ Fixed IP address sorting order in WebSocket client's `ListDevices` method
+      - Problem: IP addresses were not being sorted numerically, causing addresses like "192.168.0.10" to appear before "192.168.0.9"
+      - Solution: Added explicit sorting using `sort.Slice` and `bytes.Compare` to sort IP addresses as numeric values
+      - Implemented the same sorting logic as in the original `echonet_lite/Devices.go` file's `ListDevicePropertyData` method
+      - This ensures consistent IP address sorting behavior between direct ECHONET Lite mode and WebSocket client mode
   - **Issues Remaining**:
     - ⚠️ Some WebSocket client commands still need implementation or fixes
     - ⚠️ Need to add more tests for the WebSocket client and server

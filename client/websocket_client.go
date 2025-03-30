@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"echonet-list/echonet_lite"
 	"echonet-list/protocol"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sort"
 	"sync"
 	"time"
 
@@ -188,6 +190,17 @@ func (c *WebSocketClient) ListDevices(criteria FilterCriteria) []DeviceAndProper
 			result = append(result, deviceAndProps)
 		}
 	}
+
+	// IPアドレスとEOJでソート
+	sort.Slice(result, func(i, j int) bool {
+		// IPアドレスでソート
+		if !result[i].Device.IP.Equal(result[j].Device.IP) {
+			// IPアドレスをバイト値として比較 (IPv4/IPv6両対応)
+			return bytes.Compare(result[i].Device.IP, result[j].Device.IP) < 0
+		}
+		// IPアドレスが同じ場合はEOJでソート
+		return result[i].Device.EOJ < result[j].Device.EOJ
+	})
 
 	return result
 }

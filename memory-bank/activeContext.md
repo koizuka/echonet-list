@@ -81,6 +81,12 @@ TOML形式の設定ファイルをサポートし、コマンドライン引数�
 
 ## Recent Changes
 
+- `client/websocket_client.go` の `ListDevices` メソッドを修正し、IPアドレスのソート順を改善しました
+  - WebSocketクライアントで表示されるデバイスリストのIPアドレスが文字列順ではなく数値順でソートされるようにしました
+  - `sort.Slice` と `bytes.Compare` を使用して、IPv4/IPv6両対応のソート処理を実装しました
+  - これにより、「192.168.0.9」と「192.168.0.10」のような場合に、正しく「192.168.0.9」の後に「192.168.0.10」が表示されるようになりました
+  - 元の `echonet_lite/Devices.go` の `ListDevicePropertyData` メソッドと同様のソートロジックを使用しています
+
 - `protocol/protocol.go` の `DeviceToProtocol` 関数を改善しました
   - 引数の型を `map[echonet_lite.EPCType][]byte` から `echonet_lite.Properties` に変更しました
   - 関数内部で、プロパティの処理ロジックを `echonet_lite.Properties` スライスをループするように修正しました
