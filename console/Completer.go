@@ -75,6 +75,9 @@ func (dc *dynamicCompleter) getDeviceCandidates() []string {
 	// aliasList からエイリアスを取得
 	aliases := dc.getDeviceAliasCandidates()
 
+	// グループ名を取得
+	groups := dc.getGroupCandidates()
+
 	// IPアドレスを取得
 	deviceSpec := client.DeviceSpecifier{}
 	devices := dc.client.GetDevices(deviceSpec)
@@ -96,6 +99,7 @@ func (dc *dynamicCompleter) getDeviceCandidates() []string {
 	}
 
 	candidates := make([]string, 0, len(aliases)+len(ips)+len(eojs))
+	candidates = append(candidates, groups...)
 	candidates = append(candidates, aliases...)
 	candidates = append(candidates, ips...)
 	candidates = append(candidates, eojs...)
@@ -106,6 +110,16 @@ func (dc *dynamicCompleter) getDeviceCandidates() []string {
 // プロパティエイリアスの候補を返す
 func (dc *dynamicCompleter) getPropertyAliasCandidates() []string {
 	return dc.client.GetAllPropertyAliases()
+}
+
+func (dc *dynamicCompleter) getGroupCandidates() []string {
+	// グループ名を取得
+	groups := dc.client.GroupList(nil)
+	groupNames := make([]string, 0, len(groups))
+	for _, group := range groups {
+		groupNames = append(groupNames, group.Group)
+	}
+	return groupNames
 }
 
 // 入力行を単語に分割する補助関数

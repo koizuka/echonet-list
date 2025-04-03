@@ -98,3 +98,41 @@ func (c *ECHONETListClientProxy) FindPropertyAlias(classCode EOJClassCode, alias
 func (c *ECHONETListClientProxy) AvailablePropertyAliases(classCode EOJClassCode) map[string]string {
 	return echonet_lite.PropertyTables.AvailableAliases(classCode)
 }
+
+// GroupManager インターフェースの実装
+
+func (c *ECHONETListClientProxy) GroupList(groupName *string) []GroupDevicePair {
+	return c.handler.DeviceGroups.GroupList(groupName)
+}
+
+func (c *ECHONETListClientProxy) GroupAdd(groupName string, devices []IPAndEOJ) error {
+	err := c.handler.DeviceGroups.GroupAdd(groupName, devices)
+	if err != nil {
+		return err
+	}
+	return c.handler.SaveGroupFile()
+}
+
+func (c *ECHONETListClientProxy) GroupRemove(groupName string, devices []IPAndEOJ) error {
+	err := c.handler.DeviceGroups.GroupRemove(groupName, devices)
+	if err != nil {
+		return err
+	}
+	return c.handler.SaveGroupFile()
+}
+
+func (c *ECHONETListClientProxy) GroupDelete(groupName string) error {
+	err := c.handler.DeviceGroups.GroupDelete(groupName)
+	if err != nil {
+		return err
+	}
+	return c.handler.SaveGroupFile()
+}
+
+func (c *ECHONETListClientProxy) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
+	return c.handler.DeviceGroups.GetDevicesByGroup(groupName)
+}
+
+func (c *ECHONETListClientProxy) ValidateGroupName(groupName string) error {
+	return c.handler.DeviceGroups.ValidateGroupName(groupName)
+}

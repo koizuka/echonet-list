@@ -161,6 +161,10 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
     "aliases": {
       "living_ac": "192.168.1.10 0130:1",
       "bedroom_light": "192.168.1.11 0290:1"
+    },
+    "groups": {
+      "@living_room": ["192.168.1.10 0130:1", "192.168.1.11 0290:1"],
+      "@bedroom": ["192.168.1.12 0130:2"]
     }
   }
 }
@@ -268,6 +272,25 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 }
 ```
 
+### group_changed
+
+デバイスグループが追加・更新・削除されたことを通知します。
+
+```json
+{
+  "type": "group_changed",
+  "payload": {
+    "change_type": "added",  // "added", "updated", "deleted" のいずれか
+    "group": "@living_room",
+    "devices": ["192.168.1.10 0130:1", "192.168.1.11 0290:1"]  // change_type が "deleted" の場合は省略可能
+  }
+}
+```
+
+- `change_type`: 変更の種類（"added"=追加, "updated"=更新, "deleted"=削除）
+- `group`: グループ名（"@" で始まる文字列）
+- `devices`: グループに含まれるデバイスID文字列の配列（change_type が "deleted" の場合は省略可能）
+
 ### error_notification
 
 サーバー内部やECHONET Lite通信でエラーが発生したことを通知します。
@@ -360,6 +383,30 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - `action`: "add"（追加）または "delete"（削除）
 - `alias`: エイリアス文字列
 - `target`: デバイスID文字列（IP EOJ形式、`action`が"add"の場合必須）
+
+### manage_group
+
+デバイスグループの追加・削除・更新を行います。
+
+```json
+{
+  "type": "manage_group",
+  "payload": {
+    "action": "add",  // "add", "remove", "delete", "list" のいずれか
+    "group": "@living_room",
+    "devices": ["192.168.1.10 0130:1", "192.168.1.11 0290:1"]  // action が "add" または "remove" の場合必須
+  },
+  "requestId": "req-128"
+}
+```
+
+- `action`: 操作の種類
+  - "add": グループを作成またはデバイスを追加
+  - "remove": グループからデバイスを削除
+  - "delete": グループを削除
+  - "list": グループ一覧または特定グループの情報を取得
+- `group`: グループ名（"@" で始まる文字列）
+- `devices`: デバイスID文字列（IP EOJ形式）の配列（`action` が "add" または "remove" の場合必須）
 
 ### discover_devices
 
@@ -503,6 +550,7 @@ const pendingRequests = new Map<string, (response: any) => void>();
 // デバイス情報を保持する変数
 let devices = {};
 let aliases = {};
+let groups = {};
 
 socket.onopen = () => {
   console.log("WebSocket connected");
@@ -549,10 +597,11 @@ socket.onclose = () => {
 function handleNotification(type: string, payload: any) {
   switch (type) {
     case "initial_state":
-      console.log("Initial state received:", payload.devices, payload.aliases);
+      console.log("Initial state received:", payload.devices, payload.aliases, payload.groups);
       // アプリケーションの状態を初期化
       devices = payload.devices;
       aliases = payload.aliases;
+      groups = payload.groups;
       
       // 初期状態を受け取った後の処理
       // 例: UIの更新、デバイスリストの表示など
@@ -572,6 +621,22 @@ function handleNotification(type: string, payload: any) {
       const targetDeviceId = `${payload.ip} ${payload.eoj}`;
       if (devices[targetDeviceId]) {
         devices[targetDeviceId].properties[payload.epc] = payload.value;
+      }
+      break;
+      
+    case "group_changed":
+      console.log(`Group ${payload.group} ${payload.change_type}:`, payload.devices);
+      // グループの変更を処理
+      switch (payload.change_type) {
+        case "added":
+          groups[payload.group] = payload.devices;
+          break;
+        case "updated":
+          groups[payload.group] = payload.devices;
+          break;
+        case "deleted":
+          delete groups[payload.group];
+          break;
       }
       break;
       
@@ -658,9 +723,62 @@ async function addAlias(alias: string, targetDevice: string) {
   }
 }
 
+// グループ追加
+async function addGroup(groupName: string, devices: string[]) {
+  try {
+    const payload = { action: "add", group: groupName, devices: devices };
+    const resultData = await sendRequest("manage_group", payload);
+    console.log(`Added group ${groupName} with devices:`, devices);
+    return resultData;
+  } catch (error) {
+    console.error(`Failed to add group ${groupName}:`, error);
+    throw error;
+  }
+}
+
+// グループからデバイスを削除
+async function removeFromGroup(groupName: string, devices: string[]) {
+  try {
+    const payload = { action: "remove", group: groupName, devices: devices };
+    const resultData = await sendRequest("manage_group", payload);
+    console.log(`Removed devices from group ${groupName}:`, devices);
+    return resultData;
+  } catch (error) {
+    console.error(`Failed to remove devices from group ${groupName}:`, error);
+    throw error;
+  }
+}
+
+// グループ削除
+async function deleteGroup(groupName: string) {
+  try {
+    const payload = { action: "delete", group: groupName };
+    const resultData = await sendRequest("manage_group", payload);
+    console.log(`Deleted group ${groupName}`);
+    return resultData;
+  } catch (error) {
+    console.error(`Failed to delete group ${groupName}:`, error);
+    throw error;
+  }
+}
+
+// グループ一覧取得
+async function listGroups(groupName?: string) {
+  try {
+    const payload = { action: "list", group: groupName };
+    const resultData = await sendRequest("manage_group", payload);
+    console.log(`Group list:`, resultData);
+    return resultData;
+  } catch (error) {
+    console.error(`Failed to get group list:`, error);
+    throw error;
+  }
+}
+
 // 使用例:
 // 接続確立後（onopen内）で実行するか、initial_state受信後に実行
 // getDeviceProperties("192.168.1.10 0130:1", ["80", "B0"]);
+// addGroup("@living_room", ["192.168.1.10 0130:1", "192.168.1.11 0290:1"]);
 ```
 
 このコード例は概念的なものであり、実際の実装では言語やフレームワークに応じた適切なエラーハンドリングやタイプセーフな実装が必要です。

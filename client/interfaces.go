@@ -31,3 +31,12 @@ type PropertyInfoProvider interface {
 	FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool)
 	AvailablePropertyAliases(classCode EOJClassCode) map[string]string
 }
+
+type GroupManager interface {
+	GroupList(groupName *string) []GroupDevicePair
+	GroupAdd(groupName string, devices []IPAndEOJ) error
+	GroupRemove(groupName string, devices []IPAndEOJ) error
+	GroupDelete(groupName string) error
+	GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool)
+	ValidateGroupName(groupName string) error
+}

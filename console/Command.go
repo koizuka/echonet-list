@@ -28,6 +28,10 @@ const (
 	CmdAliasGet
 	CmdAliasDelete
 	CmdAliasList
+	CmdGroupAdd
+	CmdGroupRemove
+	CmdGroupDelete
+	CmdGroupList
 )
 
 // プロパティ表示モードを表す型
@@ -43,14 +47,16 @@ const (
 // コマンドを表す構造体
 type Command struct {
 	Type        CommandType
-	DeviceSpec  client.DeviceSpecifier // デバイス指定子
-	DeviceAlias *string                // エイリアス
-	EPCs        []client.EPCType       // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
-	PropMode    PropertyMode           // プロパティ表示モード
-	Properties  client.Properties      // set/devicesコマンドのプロパティリスト
-	DebugMode   *string                // debugコマンドのモード ("on" または "off")
-	Done        chan struct{}          // コマンド実行完了を通知するチャネル
-	Error       error                  // コマンド実行中に発生したエラー
+	DeviceSpec  client.DeviceSpecifier   // デバイス指定子（単一デバイス用）
+	DeviceSpecs []client.DeviceSpecifier // 複数デバイス指定子（グループ追加・削除用）
+	DeviceAlias *string                  // エイリアス
+	GroupName   *string                  // グループ名
+	EPCs        []client.EPCType         // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
+	PropMode    PropertyMode             // プロパティ表示モード
+	Properties  client.Properties        // set/devicesコマンドのプロパティリスト
+	DebugMode   *string                  // debugコマンドのモード ("on" または "off")
+	Done        chan struct{}            // コマンド実行完了を通知するチャネル
+	Error       error                    // コマンド実行中に発生したエラー
 }
 
 // GetIPAddress は、コマンドのIPアドレスを取得する

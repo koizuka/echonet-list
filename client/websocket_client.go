@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/url"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,8 @@ type WebSocketClient struct {
 	devicesMutex    sync.RWMutex
 	aliases         map[string]echonet_lite.IPAndEOJ
 	aliasesMutex    sync.RWMutex
+	groups          []GroupDevicePair
+	groupsMutex     sync.RWMutex
 	requestID       int
 	requestIDMutex  sync.Mutex
 	responseCh      map[string]chan *protocol.Message
@@ -51,6 +54,7 @@ func NewWebSocketClient(ctx context.Context, serverURL string, debug bool) (*Web
 		debug:      debug,
 		devices:    make(map[string]echonet_lite.DeviceAndProperties),
 		aliases:    make(map[string]echonet_lite.IPAndEOJ),
+		groups:     make([]GroupDevicePair, 0),
 		responseCh: make(map[string]chan *protocol.Message),
 	}
 
@@ -464,6 +468,198 @@ func (c *WebSocketClient) AvailablePropertyAliases(classCode EOJClassCode) map[s
 	return echonet_lite.AvailablePropertyAliases(classCode)
 }
 
+// GroupManager インターフェースの実装
+
+// GroupList returns a list of all groups
+func (c *WebSocketClient) GroupList(groupName *string) []GroupDevicePair {
+	// キャッシュされたグループ情報を使用
+	c.groupsMutex.RLock()
+	defer c.groupsMutex.RUnlock()
+
+	// グループ名が指定されている場合は、そのグループのみを返す
+	if groupName != nil {
+		for _, group := range c.groups {
+			if group.Group == *groupName {
+				// コピーを作成して返す
+				result := make([]GroupDevicePair, 1)
+				result[0] = GroupDevicePair{
+					Group:   group.Group,
+					Devices: make([]IPAndEOJ, len(group.Devices)),
+				}
+				copy(result[0].Devices, group.Devices)
+				return result
+			}
+		}
+		// 指定されたグループが見つからない場合は空のスライスを返す
+		return []GroupDevicePair{}
+	}
+
+	// グループ名が指定されていない場合は、全てのグループを返す
+	result := make([]GroupDevicePair, len(c.groups))
+	for i, group := range c.groups {
+		result[i] = GroupDevicePair{
+			Group:   group.Group,
+			Devices: make([]IPAndEOJ, len(group.Devices)),
+		}
+		copy(result[i].Devices, group.Devices)
+	}
+	return result
+}
+
+// GroupAdd adds devices to a group
+func (c *WebSocketClient) GroupAdd(groupName string, devices []IPAndEOJ) error {
+	// Validate the group name
+	if err := c.ValidateGroupName(groupName); err != nil {
+		return err
+	}
+
+	// Convert devices to strings
+	deviceStrs := make([]string, 0, len(devices))
+	for _, device := range devices {
+		deviceStrs = append(deviceStrs, device.Specifier())
+	}
+
+	// Create the payload
+	payload := protocol.ManageGroupPayload{
+		Action:  protocol.GroupActionAdd,
+		Group:   groupName,
+		Devices: deviceStrs,
+	}
+
+	// Send the message
+	response, err := c.sendRequest(protocol.MessageTypeManageGroup, payload)
+	if err != nil {
+		return fmt.Errorf("error adding devices to group: %v", err)
+	}
+
+	// Parse the response
+	var resultPayload protocol.CommandResultPayload
+	if err := protocol.ParsePayload(response, &resultPayload); err != nil {
+		return fmt.Errorf("error parsing response: %v", err)
+	}
+
+	if !resultPayload.Success {
+		if resultPayload.Error != nil {
+			return fmt.Errorf("error adding devices to group: %s: %s", resultPayload.Error.Code, resultPayload.Error.Message)
+		}
+		return fmt.Errorf("error adding devices to group: unknown error")
+	}
+
+	return nil
+}
+
+// GroupRemove removes devices from a group
+func (c *WebSocketClient) GroupRemove(groupName string, devices []IPAndEOJ) error {
+	// Validate the group name
+	if err := c.ValidateGroupName(groupName); err != nil {
+		return err
+	}
+
+	// Convert devices to strings
+	deviceStrs := make([]string, 0, len(devices))
+	for _, device := range devices {
+		deviceStrs = append(deviceStrs, device.Specifier())
+	}
+
+	// Create the payload
+	payload := protocol.ManageGroupPayload{
+		Action:  protocol.GroupActionRemove,
+		Group:   groupName,
+		Devices: deviceStrs,
+	}
+
+	// Send the message
+	response, err := c.sendRequest(protocol.MessageTypeManageGroup, payload)
+	if err != nil {
+		return fmt.Errorf("error removing devices from group: %v", err)
+	}
+
+	// Parse the response
+	var resultPayload protocol.CommandResultPayload
+	if err := protocol.ParsePayload(response, &resultPayload); err != nil {
+		return fmt.Errorf("error parsing response: %v", err)
+	}
+
+	if !resultPayload.Success {
+		if resultPayload.Error != nil {
+			return fmt.Errorf("error removing devices from group: %s: %s", resultPayload.Error.Code, resultPayload.Error.Message)
+		}
+		return fmt.Errorf("error removing devices from group: unknown error")
+	}
+
+	return nil
+}
+
+// GroupDelete deletes a group
+func (c *WebSocketClient) GroupDelete(groupName string) error {
+	// Validate the group name
+	if err := c.ValidateGroupName(groupName); err != nil {
+		return err
+	}
+
+	// Create the payload
+	payload := protocol.ManageGroupPayload{
+		Action: protocol.GroupActionDelete,
+		Group:  groupName,
+	}
+
+	// Send the message
+	response, err := c.sendRequest(protocol.MessageTypeManageGroup, payload)
+	if err != nil {
+		return fmt.Errorf("error deleting group: %v", err)
+	}
+
+	// Parse the response
+	var resultPayload protocol.CommandResultPayload
+	if err := protocol.ParsePayload(response, &resultPayload); err != nil {
+		return fmt.Errorf("error parsing response: %v", err)
+	}
+
+	if !resultPayload.Success {
+		if resultPayload.Error != nil {
+			return fmt.Errorf("error deleting group: %s: %s", resultPayload.Error.Code, resultPayload.Error.Message)
+		}
+		return fmt.Errorf("error deleting group: unknown error")
+	}
+
+	return nil
+}
+
+// GetDevicesByGroup gets devices in a group
+func (c *WebSocketClient) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
+	// Validate the group name
+	if err := c.ValidateGroupName(groupName); err != nil {
+		return nil, false
+	}
+
+	// Get the group list
+	groups := c.GroupList(&groupName)
+	if len(groups) == 0 {
+		return nil, false
+	}
+
+	// Return the devices
+	return groups[0].Devices, true
+}
+
+// ValidateGroupName validates a group name
+func (c *WebSocketClient) ValidateGroupName(groupName string) error {
+	if !strings.HasPrefix(groupName, "@") {
+		return fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
+	}
+
+	if len(groupName) <= 1 {
+		return fmt.Errorf("グループ名は '@' の後に少なくとも1文字必要です: %s", groupName)
+	}
+
+	// 空白文字を含まないことを確認
+	if strings.ContainsAny(groupName, " \t\n\r") {
+		return fmt.Errorf("グループ名に空白文字を含めることはできません: %s", groupName)
+	}
+
+	return nil
+}
+
 // listenForMessages listens for messages from the WebSocket server
 func (c *WebSocketClient) listenForMessages() {
 	for {
@@ -519,6 +715,8 @@ func (c *WebSocketClient) handleNotification(msg *protocol.Message) {
 		c.handleDeviceRemoved(msg)
 	case protocol.MessageTypeAliasChanged:
 		c.handleAliasChanged(msg)
+	case protocol.MessageTypeGroupChanged:
+		c.handleGroupChanged(msg)
 	case protocol.MessageTypePropertyChanged:
 		c.handlePropertyChanged(msg)
 	case protocol.MessageTypeTimeoutNotification:
@@ -583,6 +781,28 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 		c.aliases[alias] = ipAndEOJ
 	}
 	c.aliasesMutex.Unlock()
+
+	// Update groups
+	c.groupsMutex.Lock()
+	c.groups = make([]GroupDevicePair, 0, len(payload.Groups))
+	for groupName, deviceStrs := range payload.Groups {
+		devices := make([]IPAndEOJ, 0, len(deviceStrs))
+		for _, deviceStr := range deviceStrs {
+			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
+			if err != nil {
+				if c.debug {
+					fmt.Printf("Error parsing device identifier: %v\n", err)
+				}
+				continue
+			}
+			devices = append(devices, ipAndEOJ)
+		}
+		c.groups = append(c.groups, GroupDevicePair{
+			Group:   groupName,
+			Devices: devices,
+		})
+	}
+	c.groupsMutex.Unlock()
 }
 
 // handleDeviceAdded handles a device_added message
@@ -708,6 +928,91 @@ func (c *WebSocketClient) handleAliasChanged(msg *protocol.Message) {
 	case protocol.AliasChangeTypeDeleted:
 		// Remove the alias
 		delete(c.aliases, payload.Alias)
+	}
+}
+
+// handleGroupChanged handles a group_changed message
+func (c *WebSocketClient) handleGroupChanged(msg *protocol.Message) {
+	var payload protocol.GroupChangedPayload
+	if err := protocol.ParsePayload(msg, &payload); err != nil {
+		if c.debug {
+			fmt.Printf("Error parsing group_changed payload: %v\n", err)
+		}
+		return
+	}
+
+	c.groupsMutex.Lock()
+	defer c.groupsMutex.Unlock()
+
+	switch payload.ChangeType {
+	case protocol.GroupChangeTypeAdded:
+		// グループが追加された場合
+		devices := make([]IPAndEOJ, 0, len(payload.Devices))
+		for _, deviceStr := range payload.Devices {
+			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
+			if err != nil {
+				if c.debug {
+					fmt.Printf("Error parsing device identifier: %v\n", err)
+				}
+				continue
+			}
+			devices = append(devices, ipAndEOJ)
+		}
+		c.groups = append(c.groups, GroupDevicePair{
+			Group:   payload.Group,
+			Devices: devices,
+		})
+
+	case protocol.GroupChangeTypeUpdated:
+		// グループが更新された場合
+		found := false
+		for i, group := range c.groups {
+			if group.Group == payload.Group {
+				// 既存のグループを更新
+				devices := make([]IPAndEOJ, 0, len(payload.Devices))
+				for _, deviceStr := range payload.Devices {
+					ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
+					if err != nil {
+						if c.debug {
+							fmt.Printf("Error parsing device identifier: %v\n", err)
+						}
+						continue
+					}
+					devices = append(devices, ipAndEOJ)
+				}
+				c.groups[i].Devices = devices
+				found = true
+				break
+			}
+		}
+		if !found && len(payload.Devices) > 0 {
+			// グループが見つからない場合は追加
+			devices := make([]IPAndEOJ, 0, len(payload.Devices))
+			for _, deviceStr := range payload.Devices {
+				ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
+				if err != nil {
+					if c.debug {
+						fmt.Printf("Error parsing device identifier: %v\n", err)
+					}
+					continue
+				}
+				devices = append(devices, ipAndEOJ)
+			}
+			c.groups = append(c.groups, GroupDevicePair{
+				Group:   payload.Group,
+				Devices: devices,
+			})
+		}
+
+	case protocol.GroupChangeTypeDeleted:
+		// グループが削除された場合
+		for i, group := range c.groups {
+			if group.Group == payload.Group {
+				// グループを削除
+				c.groups = append(c.groups[:i], c.groups[i+1:]...)
+				break
+			}
+		}
 	}
 }
 

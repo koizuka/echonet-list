@@ -164,10 +164,22 @@ func (ws *WebSocketServer) sendInitialState(conn *websocket.Conn) error {
 		aliases[alias.Alias] = alias.Device.Specifier()
 	}
 
+	// Get all groups
+	groupList := ws.echonetClient.GroupList(nil)
+	groups := make(map[string][]string)
+	for _, group := range groupList {
+		deviceStrs := make([]string, 0, len(group.Devices))
+		for _, device := range group.Devices {
+			deviceStrs = append(deviceStrs, device.Specifier())
+		}
+		groups[group.Group] = deviceStrs
+	}
+
 	// Create initial state payload
 	payload := protocol.InitialStatePayload{
 		Devices: protoDevices,
 		Aliases: aliases,
+		Groups:  groups,
 	}
 
 	// Send the message
@@ -192,6 +204,8 @@ func (ws *WebSocketServer) handleMessage(conn *websocket.Conn, message []byte) e
 		return ws.handleUpdateProperties(conn, msg)
 	case protocol.MessageTypeManageAlias:
 		return ws.handleManageAlias(conn, msg)
+	case protocol.MessageTypeManageGroup:
+		return ws.handleManageGroup(conn, msg)
 	case protocol.MessageTypeDiscoverDevices:
 		return ws.handleDiscoverDevices(conn, msg)
 	default:
@@ -456,6 +470,165 @@ func (ws *WebSocketServer) handleManageAlias(conn *websocket.Conn, msg *protocol
 
 	default:
 		return fmt.Errorf("unknown alias action: %s", payload.Action)
+	}
+}
+
+// handleManageGroup handles a manage_group message
+func (ws *WebSocketServer) handleManageGroup(conn *websocket.Conn, msg *protocol.Message) error {
+	// Parse the payload
+	var payload protocol.ManageGroupPayload
+	if err := protocol.ParsePayload(msg, &payload); err != nil {
+		return fmt.Errorf("error parsing manage_group payload: %v", err)
+	}
+
+	// Validate the payload
+	if payload.Group == "" {
+		return fmt.Errorf("no group specified")
+	}
+
+	// Handle the action
+	switch payload.Action {
+	case protocol.GroupActionAdd:
+		// Validate the devices
+		if len(payload.Devices) == 0 {
+			return fmt.Errorf("no devices specified for add action")
+		}
+
+		// Parse the devices
+		devices := make([]echonet_lite.IPAndEOJ, 0, len(payload.Devices))
+		for _, deviceStr := range payload.Devices {
+			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
+			if err != nil {
+				return fmt.Errorf("invalid device: %v", err)
+			}
+			devices = append(devices, ipAndEOJ)
+		}
+
+		// Add the devices to the group
+		if err := ws.echonetClient.GroupAdd(payload.Group, devices); err != nil {
+			return fmt.Errorf("error adding devices to group: %v", err)
+		}
+
+		// Broadcast group changed notification
+		groupChangedPayload := protocol.GroupChangedPayload{
+			ChangeType: protocol.GroupChangeTypeAdded,
+			Group:      payload.Group,
+			Devices:    payload.Devices,
+		}
+		ws.broadcastMessage(protocol.MessageTypeGroupChanged, groupChangedPayload)
+
+		// Send the response
+		resultPayload := protocol.CommandResultPayload{
+			Success: true,
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
+
+	case protocol.GroupActionRemove:
+		// Validate the devices
+		if len(payload.Devices) == 0 {
+			return fmt.Errorf("no devices specified for remove action")
+		}
+
+		// Parse the devices
+		devices := make([]echonet_lite.IPAndEOJ, 0, len(payload.Devices))
+		for _, deviceStr := range payload.Devices {
+			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
+			if err != nil {
+				return fmt.Errorf("invalid device: %v", err)
+			}
+			devices = append(devices, ipAndEOJ)
+		}
+
+		// Remove the devices from the group
+		if err := ws.echonetClient.GroupRemove(payload.Group, devices); err != nil {
+			return fmt.Errorf("error removing devices from group: %v", err)
+		}
+
+		// Get the updated devices in the group
+		updatedDevices, exists := ws.echonetClient.GetDevicesByGroup(payload.Group)
+		if !exists {
+			// Group was deleted (all devices removed)
+			groupChangedPayload := protocol.GroupChangedPayload{
+				ChangeType: protocol.GroupChangeTypeDeleted,
+				Group:      payload.Group,
+			}
+			ws.broadcastMessage(protocol.MessageTypeGroupChanged, groupChangedPayload)
+		} else {
+			// Group was updated
+			deviceStrs := make([]string, 0, len(updatedDevices))
+			for _, device := range updatedDevices {
+				deviceStrs = append(deviceStrs, device.Specifier())
+			}
+			groupChangedPayload := protocol.GroupChangedPayload{
+				ChangeType: protocol.GroupChangeTypeUpdated,
+				Group:      payload.Group,
+				Devices:    deviceStrs,
+			}
+			ws.broadcastMessage(protocol.MessageTypeGroupChanged, groupChangedPayload)
+		}
+
+		// Send the response
+		resultPayload := protocol.CommandResultPayload{
+			Success: true,
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
+
+	case protocol.GroupActionDelete:
+		// Delete the group
+		if err := ws.echonetClient.GroupDelete(payload.Group); err != nil {
+			return fmt.Errorf("error deleting group: %v", err)
+		}
+
+		// Broadcast group deleted notification
+		groupChangedPayload := protocol.GroupChangedPayload{
+			ChangeType: protocol.GroupChangeTypeDeleted,
+			Group:      payload.Group,
+		}
+		ws.broadcastMessage(protocol.MessageTypeGroupChanged, groupChangedPayload)
+
+		// Send the response
+		resultPayload := protocol.CommandResultPayload{
+			Success: true,
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
+
+	case protocol.GroupActionList:
+		// Get the group list
+		var groupList []client.GroupDevicePair
+		if payload.Group != "" {
+			// Get a specific group
+			groupName := payload.Group
+			groupList = ws.echonetClient.GroupList(&groupName)
+		} else {
+			// Get all groups
+			groupList = ws.echonetClient.GroupList(nil)
+		}
+
+		// Convert to map for JSON response
+		groups := make(map[string][]string)
+		for _, group := range groupList {
+			deviceStrs := make([]string, 0, len(group.Devices))
+			for _, device := range group.Devices {
+				deviceStrs = append(deviceStrs, device.Specifier())
+			}
+			groups[group.Group] = deviceStrs
+		}
+
+		// Marshal the group data
+		groupDataJSON, err := json.Marshal(groups)
+		if err != nil {
+			return fmt.Errorf("error marshaling group data: %v", err)
+		}
+
+		// Send the response
+		resultPayload := protocol.CommandResultPayload{
+			Success: true,
+			Data:    groupDataJSON,
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
+
+	default:
+		return fmt.Errorf("unknown group action: %s", payload.Action)
 	}
 }
 

@@ -128,6 +128,71 @@ func (p *CommandProcessor) processCommands() {
 			if err == nil {
 				fmt.Printf("%s: %v\n", *cmd.DeviceAlias, device)
 			}
+		case CmdGroupAdd:
+			// DeviceSpecs から IPAndEOJ のスライスに変換
+			devices := make([]client.IPAndEOJ, 0, len(cmd.DeviceSpecs))
+			for _, spec := range cmd.DeviceSpecs {
+				found := p.handler.GetDevices(spec)
+				if len(found) == 0 {
+					cmd.Error = fmt.Errorf("デバイスが見つかりません: %v", spec)
+					break
+				}
+				devices = append(devices, found...)
+			}
+			if cmd.Error == nil {
+				cmd.Error = p.handler.GroupAdd(*cmd.GroupName, devices)
+				if cmd.Error == nil {
+					fmt.Printf("グループ %s にデバイスを追加しました\n", *cmd.GroupName)
+				}
+			}
+		case CmdGroupRemove:
+			// DeviceSpecs から IPAndEOJ のスライスに変換
+			devices := make([]client.IPAndEOJ, 0, len(cmd.DeviceSpecs))
+			for _, spec := range cmd.DeviceSpecs {
+				found := p.handler.GetDevices(spec)
+				if len(found) == 0 {
+					cmd.Error = fmt.Errorf("デバイスが見つかりません: %v", spec)
+					break
+				}
+				devices = append(devices, found...)
+			}
+			if cmd.Error == nil {
+				cmd.Error = p.handler.GroupRemove(*cmd.GroupName, devices)
+				if cmd.Error == nil {
+					fmt.Printf("グループ %s からデバイスを削除しました\n", *cmd.GroupName)
+				}
+			}
+		case CmdGroupDelete:
+			cmd.Error = p.handler.GroupDelete(*cmd.GroupName)
+			if cmd.Error == nil {
+				fmt.Printf("グループ %s を削除しました\n", *cmd.GroupName)
+			}
+		case CmdGroupList:
+			var groups []client.GroupDevicePair
+			if cmd.GroupName != nil {
+				groups = p.handler.GroupList(cmd.GroupName)
+				if len(groups) == 0 {
+					cmd.Error = fmt.Errorf("グループ %s が見つかりません", *cmd.GroupName)
+				}
+			} else {
+				groups = p.handler.GroupList(nil)
+				if len(groups) == 0 {
+					fmt.Println("グループが登録されていません")
+				}
+			}
+
+			for _, group := range groups {
+				fmt.Printf("%s: %d デバイス\n", group.Group, len(group.Devices))
+				for _, device := range group.Devices {
+					// エイリアスがあれば表示
+					aliases := p.handler.GetAliases(device)
+					if len(aliases) > 0 {
+						fmt.Printf("  %v (%s)\n", device, strings.Join(aliases, ", "))
+					} else {
+						fmt.Printf("  %v\n", device)
+					}
+				}
+			}
 		default:
 			panic("unhandled default case")
 		}

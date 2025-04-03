@@ -4,7 +4,28 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Current Task
 
-最近の作業では、WebSocketプロトコルのクライアント開発者向けドキュメントを作成し、WebSocketサーバーのTLS対応と設定ファイルのサポートを実装しました。
+最近の作業では、デバイスグループ管理機能を実装し、WebSocketプロトコルのクライアント開発者向けドキュメントを作成し、WebSocketサーバーのTLS対応と設定ファイルのサポートを実装しました。
+
+### デバイスグループ管理機能の実装
+
+デバイスグループ管理機能を実装し、複数のデバイスをグループとしてまとめて一括操作できるようにしました。この機能は、Web UIのグループ操作機能の基盤となります。
+
+実装内容：
+1. `client/interfaces.go` に `GroupManager` インターフェースを追加
+2. `echonet_lite/DeviceGroups.go` にグループ管理機能を実装
+3. `console/Command.go` に `group` コマンドを追加
+4. `console/CommandProcessor.go` を修正し、既存コマンドでの `@` プレフィックスによるグループ名解決とループ実行をサポート
+5. `protocol/protocol.go` にグループ関連のプロトコルを追加
+6. `server/websocket_server.go` と `client/websocket_client.go` にグループ管理機能を実装
+7. `docs/websocket_client_protocol.md` にグループ関連の記述を追加
+
+グループ名は必ず `@` プレフィックスで始まることとし、以下のコマンドを実装しました：
+- `group add @<group_name> <device_id1> ...`: グループ作成・デバイス追加
+- `group remove @<group_name> <device_id1> ...`: グループからデバイス削除
+- `group delete @<group_name>`: グループ削除
+- `group list [@<group_name>]`: グループ一覧または詳細表示
+
+なお、`set`、`get`、`update` コマンドの `<target>` 引数でのグループ名指定（`@` プレフィックス付き）は現在未実装です。今後の課題として、これらのコマンドでグループ内の全デバイスに対して一括操作できるようにする予定です。
 
 ### WebSocketプロトコルのクライアント開発者向けドキュメント
 

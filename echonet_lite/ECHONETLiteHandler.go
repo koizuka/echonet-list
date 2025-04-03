@@ -13,6 +13,7 @@ import (
 const (
 	DeviceFileName        = "devices.json"
 	DeviceAliasesFileName = "aliases.json"
+	DeviceGroupsFileName  = "groups.json"
 
 	CommandTimeout = 3 * time.Second // コマンド実行のタイムアウト時間
 )
@@ -37,6 +38,7 @@ type ECHONETLiteHandler struct {
 	session        *Session
 	devices        Devices
 	DeviceAliases  *DeviceAliases
+	DeviceGroups   *DeviceGroups
 	localDevices   DeviceProperties
 	Debug          bool
 	ctx            context.Context         // コンテキスト
@@ -107,6 +109,16 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 		}
 	}
 
+	// デバイスグループを管理するオブジェクトを作成
+	groups := NewDeviceGroups()
+
+	// DeviceGroupsFileName のファイルが存在するなら読み込む
+	err = groups.LoadFromFile(DeviceGroupsFileName)
+	if err != nil {
+		cancel() // エラーの場合はコンテキストをキャンセル
+		return nil, fmt.Errorf("グループ情報の読み込みに失敗: %w", err)
+	}
+
 	localDevices := make(DeviceProperties)
 	operationStatusOn := OperationStatus(true)
 	manufacturerCode := ManufacturerCodeExperimental
@@ -156,6 +168,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 		session:        session,
 		devices:        devices,
 		DeviceAliases:  aliases,
+		DeviceGroups:   groups,
 		localDevices:   localDevices,
 		Debug:          debug,
 		ctx:            handlerCtx,
@@ -943,4 +956,55 @@ func (h *ECHONETLiteHandler) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
 
 	// フィルタリング
 	return h.devices.Filter(criteria).ListIPAndEOJ()
+}
+
+// SaveGroupFile はグループ情報をファイルに保存する
+func (h *ECHONETLiteHandler) SaveGroupFile() error {
+	err := h.DeviceGroups.SaveToFile(DeviceGroupsFileName)
+	if err != nil {
+		return fmt.Errorf("グループ情報の保存に失敗しました: %w", err)
+	}
+	return nil
+}
+
+// GroupList はグループのリストを返す
+func (h *ECHONETLiteHandler) GroupList(groupName *string) []GroupDevicePair {
+	return h.DeviceGroups.GroupList(groupName)
+}
+
+// GroupAdd はグループにデバイスを追加する
+func (h *ECHONETLiteHandler) GroupAdd(groupName string, devices []IPAndEOJ) error {
+	err := h.DeviceGroups.GroupAdd(groupName, devices)
+	if err != nil {
+		return err
+	}
+	return h.SaveGroupFile()
+}
+
+// GroupRemove はグループからデバイスを削除する
+func (h *ECHONETLiteHandler) GroupRemove(groupName string, devices []IPAndEOJ) error {
+	err := h.DeviceGroups.GroupRemove(groupName, devices)
+	if err != nil {
+		return err
+	}
+	return h.SaveGroupFile()
+}
+
+// GroupDelete はグループを削除する
+func (h *ECHONETLiteHandler) GroupDelete(groupName string) error {
+	err := h.DeviceGroups.GroupDelete(groupName)
+	if err != nil {
+		return err
+	}
+	return h.SaveGroupFile()
+}
+
+// GetDevicesByGroup はグループ名に対応するデバイスリストを返す
+func (h *ECHONETLiteHandler) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
+	return h.DeviceGroups.GetDevicesByGroup(groupName)
+}
+
+// ValidateGroupName はグループ名が有効かどうかを検証する
+func (h *ECHONETLiteHandler) ValidateGroupName(groupName string) error {
+	return h.DeviceGroups.ValidateGroupName(groupName)
 }

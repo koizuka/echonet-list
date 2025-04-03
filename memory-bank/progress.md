@@ -29,9 +29,9 @@ This file tracks the implementation progress of the project features defined in 
 
 ## What's Left to Build
 
-- **デバイスグループ管理機能 (CLI)**: 複数のデバイスをグループ化し、既存の `set`/`get`/`update` コマンドでグループ名 (`@` プレフィックス付き) を指定して一括操作できるようにする。
-  - 実装予定: `groups.json` による永続化、`group add/remove/delete/list` コマンド (`@` プレフィックス必須)、既存コマンドの拡張 (`@` プレフィックスによる解決)。
-  - 状態: 計画中 (最優先)
+- **プロパティ変化通知機能**: デバイスのプロパティ値が変化した際に通知を送る機能を実装する。これにより、フロントエンドが状態変化をリアルタイムに受け取れるようになる。この機能は、システムを疎結合にし、将来的なWebSocketサーバーとUI分離のアーキテクチャを実現するための重要な要素となる。
+  - 実装予定: プロパティ監視機能とイベント通知の仕組みの設計と実装
+  - 状態: 計画中
 
 ### 将来の計画 (Future Plans)
 
@@ -161,8 +161,14 @@ This file tracks the implementation progress of the project features defined in 
   - **Framework**: SvelteKit + TypeScript
   - **Directory**: `web-client`
   - **Features**: Grouping by location (EPC 0x81), location management, status visualization, group operations.
-- **Device Group Management (CLI)**: 🔄 PLANNED
-  - **Persistence**: `groups.json`
-  - **Group Name Rule**: Must start with `@` prefix.
-  - **CLI Commands**: `group add/remove/delete/list` (requires `@` prefix for group name).
-  - **Existing Command Extension**: Support group names (with `@` prefix) in `set/get/update` target argument.
+- **Device Group Management (CLI)**: 🔄 IN PROGRESS
+  - ✅ Added `GroupManager` interface to `client/interfaces.go`
+  - ✅ Implemented group management functionality in `echonet_lite/DeviceGroups.go`
+  - ✅ Added `group` command to `console/Command.go`
+  - ✅ Added group-related protocol to `protocol/protocol.go`
+  - ✅ Implemented group management in WebSocket server and client
+  - ✅ Added group-related documentation to `docs/websocket_client_protocol.md`
+  - ✅ Implemented persistence with `groups.json` file
+  - ✅ Implemented group name validation (must start with `@` prefix)
+  - ⚠️ Support for group operations in existing commands (`set`, `get`, `update`) is not yet implemented
+  - ⚠️ Need to modify `console/CommandProcessor.go` to support group name resolution with `@` prefix

@@ -422,6 +422,131 @@ var CommandTable = []CommandDefinition{
 		},
 	},
 	{
+		Name:    "group",
+		Summary: "デバイスグループの管理",
+		Syntax:  "group add|remove|delete|list [@groupName] [deviceId1 deviceId2...]",
+		Description: []string{
+			"add: グループを作成し、デバイスを追加します",
+			"remove: グループからデバイスを削除します",
+			"delete: グループを削除します",
+			"list: グループの一覧または詳細を表示します",
+			"@groupName: グループ名（@で始まる必要があります）",
+			"deviceId: デバイスID（IPアドレス、クラスコード、インスタンスコード、またはエイリアス）",
+			"例: group add @livingroom 192.168.0.3 0130:1 ac",
+			"例: group remove @livingroom 192.168.0.3 0130:1",
+			"例: group delete @livingroom",
+			"例: group list",
+			"例: group list @livingroom",
+		},
+		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+			if wordCount == 2 {
+				// サブコマンドを表示
+				return []string{"add", "remove", "delete", "list"}
+			}
+			if wordCount >= 3 {
+				// デバイスエイリアスを表示
+				return dc.getDeviceCandidates()
+			}
+			return []string{}
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			if len(parts) < 2 {
+				return nil, fmt.Errorf("group コマンドにはサブコマンドが必要です")
+			}
+
+			var cmd *Command
+
+			switch parts[1] {
+			case "add":
+				if len(parts) < 3 {
+					return nil, fmt.Errorf("group add コマンドにはグループ名が必要です")
+				}
+				groupName := parts[2]
+				if !strings.HasPrefix(groupName, "@") {
+					return nil, fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
+				}
+
+				cmd = newCommand(CmdGroupAdd)
+				cmd.GroupName = &groupName
+
+				// デバイス指定子のパース
+				var deviceSpecs []client.DeviceSpecifier
+				argIndex := 3
+				for argIndex < len(parts) {
+					deviceSpec, nextArgIndex, err := p.parseDeviceSpecifier(parts, argIndex, true)
+					if err != nil {
+						return nil, err
+					}
+					deviceSpecs = append(deviceSpecs, deviceSpec)
+					argIndex = nextArgIndex
+				}
+
+				if len(deviceSpecs) == 0 {
+					return nil, fmt.Errorf("group add コマンドには少なくとも1つのデバイスが必要です")
+				}
+
+				cmd.DeviceSpecs = deviceSpecs
+
+			case "remove":
+				if len(parts) < 3 {
+					return nil, fmt.Errorf("group remove コマンドにはグループ名が必要です")
+				}
+				groupName := parts[2]
+				if !strings.HasPrefix(groupName, "@") {
+					return nil, fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
+				}
+
+				cmd = newCommand(CmdGroupRemove)
+				cmd.GroupName = &groupName
+
+				// デバイス指定子のパース
+				var deviceSpecs []client.DeviceSpecifier
+				argIndex := 3
+				for argIndex < len(parts) {
+					deviceSpec, nextArgIndex, err := p.parseDeviceSpecifier(parts, argIndex, true)
+					if err != nil {
+						return nil, err
+					}
+					deviceSpecs = append(deviceSpecs, deviceSpec)
+					argIndex = nextArgIndex
+				}
+
+				if len(deviceSpecs) == 0 {
+					return nil, fmt.Errorf("group remove コマンドには少なくとも1つのデバイスが必要です")
+				}
+
+				cmd.DeviceSpecs = deviceSpecs
+
+			case "delete":
+				if len(parts) != 3 {
+					return nil, fmt.Errorf("group delete コマンドにはグループ名のみが必要です")
+				}
+				groupName := parts[2]
+				if !strings.HasPrefix(groupName, "@") {
+					return nil, fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
+				}
+
+				cmd = newCommand(CmdGroupDelete)
+				cmd.GroupName = &groupName
+
+			case "list":
+				cmd = newCommand(CmdGroupList)
+				if len(parts) > 2 {
+					groupName := parts[2]
+					if !strings.HasPrefix(groupName, "@") {
+						return nil, fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
+					}
+					cmd.GroupName = &groupName
+				}
+
+			default:
+				return nil, fmt.Errorf("不明なサブコマンド: %s", parts[1])
+			}
+
+			return cmd, nil
+		},
+	},
+	{
 		Name:    "quit",
 		Summary: "終了",
 		Syntax:  "quit",

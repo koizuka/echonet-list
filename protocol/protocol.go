@@ -18,6 +18,7 @@ const (
 	MessageTypeDeviceUpdated       MessageType = "device_updated"
 	MessageTypeDeviceRemoved       MessageType = "device_removed"
 	MessageTypeAliasChanged        MessageType = "alias_changed"
+	MessageTypeGroupChanged        MessageType = "group_changed"
 	MessageTypePropertyChanged     MessageType = "property_changed"
 	MessageTypeTimeoutNotification MessageType = "timeout_notification"
 	MessageTypeErrorNotification   MessageType = "error_notification"
@@ -28,6 +29,7 @@ const (
 	MessageTypeSetProperties    MessageType = "set_properties"
 	MessageTypeUpdateProperties MessageType = "update_properties"
 	MessageTypeManageAlias      MessageType = "manage_alias"
+	MessageTypeManageGroup      MessageType = "manage_group"
 	MessageTypeDiscoverDevices  MessageType = "discover_devices"
 )
 
@@ -92,8 +94,9 @@ type Error struct {
 
 // InitialStatePayload is the payload for the initial_state message
 type InitialStatePayload struct {
-	Devices map[string]Device `json:"devices"`
-	Aliases map[string]string `json:"aliases"`
+	Devices map[string]Device   `json:"devices"`
+	Aliases map[string]string   `json:"aliases"`
+	Groups  map[string][]string `json:"groups"`
 }
 
 // DeviceAddedPayload is the payload for the device_added message
@@ -170,6 +173,39 @@ type ManageAliasPayload struct {
 	Action AliasAction `json:"action"`
 	Alias  string      `json:"alias"`
 	Target string      `json:"target,omitempty"`
+}
+
+// GroupChangeType defines the type of group change
+type GroupChangeType string
+
+const (
+	GroupChangeTypeAdded   GroupChangeType = "added"
+	GroupChangeTypeUpdated GroupChangeType = "updated"
+	GroupChangeTypeDeleted GroupChangeType = "deleted"
+)
+
+// GroupAction defines the action to perform on a group
+type GroupAction string
+
+const (
+	GroupActionAdd    GroupAction = "add"
+	GroupActionRemove GroupAction = "remove"
+	GroupActionDelete GroupAction = "delete"
+	GroupActionList   GroupAction = "list"
+)
+
+// GroupChangedPayload is the payload for the group_changed message
+type GroupChangedPayload struct {
+	ChangeType GroupChangeType `json:"change_type"`
+	Group      string          `json:"group"`
+	Devices    []string        `json:"devices,omitempty"`
+}
+
+// ManageGroupPayload is the payload for the manage_group message
+type ManageGroupPayload struct {
+	Action  GroupAction `json:"action"`
+	Group   string      `json:"group"`
+	Devices []string    `json:"devices,omitempty"`
 }
 
 // DiscoverDevicesPayload is the payload for the discover_devices message

@@ -15,6 +15,7 @@ func MakeEOJ(class EOJClassCode, instance EOJInstanceCode) EOJ {
 
 type FilterCriteria = echonet_lite.FilterCriteria
 type AliasDevicePair = echonet_lite.AliasDevicePair
+type GroupDevicePair = echonet_lite.GroupDevicePair
 type DeviceSpecifier = echonet_lite.DeviceSpecifier
 type EPCType = echonet_lite.EPCType
 type Property = echonet_lite.Property
@@ -28,5 +29,6 @@ type ECHONETListClient interface {
 	AliasManager
 	DeviceManager
 	PropertyInfoProvider
+	GroupManager
 	Close() error
 }
