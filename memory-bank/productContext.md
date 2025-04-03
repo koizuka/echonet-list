@@ -40,3 +40,13 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
    - ECHONET Lite processing will be handled by a WebSocket server
    - Console UI and Web UI will connect to this server to receive state updates
    - This loose coupling enables multiple frontends to react to state changes independently
+
+## Web UI Features (Planned)
+
+将来的に開発予定の Web UI では、以下の機能を目指します：
+
+- **デバイス一覧のグルーピング:** デバイスを設置場所（リビング、寝室など）でグループ化して表示します。設置場所の情報は、ECHONET Lite の Installation Location プロパティ (EPC 0x81) から取得します。
+- **設置場所の管理:** Web UI からデバイスの Installation Location プロパティ (EPC 0x81) を設定・変更できるようにします。
+- **状態の可視化:** デバイス一覧で、ON/OFF 状態や設定温度などの主要なプロパティを分かりやすく表示します。
+- **グループ操作:** 複数のデバイスをグループとしてまとめ、一括で操作（例：リビングの照明をすべて消灯）する機能を提供します。
+- **グループ設定:** グループ操作の設定（どのデバイスをどのグループに含めるかなど）は、別途サーバー側または設定ファイルで管理します。

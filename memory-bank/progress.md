@@ -43,6 +43,11 @@ No immediate tasks remaining.
 - **Web UI開発**: 上記分割が済んだら、web UIを作成する
   - 実装予定: フロントエンドの設計と実装
   - 状態: 未着手（アーキテクチャ分割後に開始）
+  - **詳細な機能要件:**
+    - デバイス一覧を設置場所 (EPC 0x81) でグルーピング表示
+    - Web UI から設置場所 (EPC 0x81) を設定・変更
+    - デバイスの主要な状態 (ON/OFF, 温度等) を一覧で可視化
+    - 複数デバイスのグループ操作機能 (グループ設定はサーバー側/設定ファイルで管理)
 
 ## Progress Status
 
@@ -151,3 +156,6 @@ No immediate tasks remaining.
     - ⚠️ Some WebSocket client commands still need implementation or fixes
     - ⚠️ Need to add more tests for the WebSocket client and server
 - **Web UI Development**: 🔄 PLANNED
+  - **Framework**: SvelteKit + TypeScript
+  - **Directory**: `web-client`
+  - **Features**: Grouping by location (EPC 0x81), location management, status visualization, group operations.
