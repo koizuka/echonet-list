@@ -25,7 +25,7 @@ This file focuses on the current work and recent changes in the project, buildin
 - `group delete @<group_name>`: グループ削除
 - `group list [@<group_name>]`: グループ一覧または詳細表示
 
-なお、`set`、`get`、`update` コマンドの `<target>` 引数でのグループ名指定（`@` プレフィックス付き）は現在未実装です。今後の課題として、これらのコマンドでグループ内の全デバイスに対して一括操作できるようにする予定です。
+`set`、`get`、`update` コマンドの `<target>` 引数でグループ名（`@` プレフィックス付き）を指定できるようになり、グループ内の全デバイスに対して一括操作できるようになりました。例えば、`set @1F床暖房 on` と入力すると、グループ「@1F床暖房」に登録されている全デバイスの電源をONにすることができます。
 
 ### WebSocketプロトコルのクライアント開発者向けドキュメント
 

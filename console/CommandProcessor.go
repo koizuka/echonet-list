@@ -104,11 +104,44 @@ func (p *CommandProcessor) processCommands() {
 		case CmdDebug:
 			cmd.Error = p.processDebugCommand(cmd)
 		case CmdUpdate:
-			// フィルタリング条件を作成
-			criteria := client.FilterCriteria{
-				Device: cmd.DeviceSpec,
+			// グループが指定されている場合
+			if cmd.GroupName != nil {
+				// グループ内のデバイスを取得
+				groupDevices := p.handler.GroupList(cmd.GroupName)
+				if len(groupDevices) == 0 {
+					cmd.Error = fmt.Errorf("グループ %s が見つからないか、デバイスが登録されていません", *cmd.GroupName)
+					break
+				}
+
+				// グループ内の各デバイスに対して処理
+				for _, group := range groupDevices {
+					for _, device := range group.Devices {
+						// デバイスごとにフィルタリング条件を作成
+						classCode := device.EOJ.ClassCode()
+						instanceCode := device.EOJ.InstanceCode()
+						criteria := client.FilterCriteria{
+							Device: client.DeviceSpecifier{
+								IP:           &device.IP,
+								ClassCode:    &classCode,
+								InstanceCode: &instanceCode,
+							},
+						}
+						err := p.handler.UpdateProperties(criteria)
+						if err != nil {
+							fmt.Printf("デバイス %v のプロパティ更新に失敗しました: %v\n", device, err)
+						} else {
+							fmt.Printf("デバイス %v のプロパティを更新しました\n", device)
+						}
+					}
+				}
+			} else {
+				// 通常のデバイス指定の場合
+				// フィルタリング条件を作成
+				criteria := client.FilterCriteria{
+					Device: cmd.DeviceSpec,
+				}
+				cmd.Error = p.handler.UpdateProperties(criteria)
 			}
-			cmd.Error = p.handler.UpdateProperties(criteria)
 		case CmdAliasList:
 			aliases := p.handler.AliasList()
 			for _, alias := range aliases {
@@ -313,6 +346,37 @@ func (p *CommandProcessor) processGetCommand(cmd *Command) error {
 		skipValidation = true
 	}
 
+	// グループが指定されている場合
+	if cmd.GroupName != nil {
+		// グループ内のデバイスを取得
+		groupDevices := p.handler.GroupList(cmd.GroupName)
+		if len(groupDevices) == 0 {
+			return fmt.Errorf("グループ %s が見つからないか、デバイスが登録されていません", *cmd.GroupName)
+		}
+
+		// グループ内の各デバイスに対して処理
+		for _, group := range groupDevices {
+			for _, device := range group.Devices {
+				if len(cmd.EPCs) == 0 {
+					return errors.New("get コマンドには少なくとも1つのEPCが必要です")
+				}
+				result, err := p.handler.GetProperties(device, cmd.EPCs, skipValidation)
+				if err != nil {
+					fmt.Printf("デバイス %v のプロパティ取得に失敗しました: %v\n", device, err)
+					continue
+				}
+				fmt.Printf("プロパティ取得成功: %v\n", result.Device)
+				classCode := result.Device.EOJ.ClassCode()
+				for _, prop := range result.Properties {
+					propStr := prop.String(classCode)
+					fmt.Printf("  %v\n", propStr)
+				}
+			}
+		}
+		return nil
+	}
+
+	// 通常のデバイス指定の場合
 	device, err := p.getSingleDevice(cmd.DeviceSpec)
 	if err != nil {
 		// -skip-validation が付いている場合、 IPアドレスとclassCodeさえあればデバイスを作成して処理を続行する。タイムアウト動作確認用
@@ -348,6 +412,38 @@ func (p *CommandProcessor) processGetCommand(cmd *Command) error {
 }
 
 func (p *CommandProcessor) processSetCommand(cmd *Command) error {
+	// グループが指定されている場合
+	if cmd.GroupName != nil {
+		// グループ内のデバイスを取得
+		groupDevices := p.handler.GroupList(cmd.GroupName)
+		if len(groupDevices) == 0 {
+			return fmt.Errorf("グループ %s が見つからないか、デバイスが登録されていません", *cmd.GroupName)
+		}
+
+		if len(cmd.Properties) == 0 {
+			return errors.New("set コマンドには少なくとも1つのプロパティが必要です")
+		}
+
+		// グループ内の各デバイスに対して処理
+		for _, group := range groupDevices {
+			for _, device := range group.Devices {
+				result, err := p.handler.SetProperties(device, cmd.Properties)
+				if err != nil {
+					fmt.Printf("デバイス %v のプロパティ設定に失敗しました: %v\n", device, err)
+					continue
+				}
+				fmt.Printf("プロパティ設定成功: %v\n", result.Device)
+				classCode := result.Device.EOJ.ClassCode()
+				for _, prop := range result.Properties {
+					propStr := prop.String(classCode)
+					fmt.Printf("  %v\n", propStr)
+				}
+			}
+		}
+		return nil
+	}
+
+	// 通常のデバイス指定の場合
 	device, err := p.getSingleDevice(cmd.DeviceSpec)
 	if err != nil {
 		return err

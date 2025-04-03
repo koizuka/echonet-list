@@ -170,5 +170,6 @@ This file tracks the implementation progress of the project features defined in 
   - ✅ Added group-related documentation to `docs/websocket_client_protocol.md`
   - ✅ Implemented persistence with `groups.json` file
   - ✅ Implemented group name validation (must start with `@` prefix)
-  - ⚠️ Support for group operations in existing commands (`set`, `get`, `update`) is not yet implemented
-  - ⚠️ Need to modify `console/CommandProcessor.go` to support group name resolution with `@` prefix
+  - ✅ Support for group operations in existing commands (`set`, `get`, `update`) is now implemented
+  - ✅ Modified `console/CommandProcessor.go` to support group name resolution with `@` prefix
+  - ✅ Modified `console/CommandTable.go` to handle group name in set command parsing

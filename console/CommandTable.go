@@ -2,6 +2,7 @@ package console
 
 import (
 	"echonet-list/client"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -132,12 +133,13 @@ var CommandTable = []CommandDefinition{
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdGet)
 
-			// デバイス識別子のパース
-			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
+			// デバイス識別子またはグループ名のパース
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, true)
 			if err != nil {
 				return nil, err
 			}
 			cmd.DeviceSpec = deviceSpec
+			cmd.GroupName = groupName
 
 			// EPCのパース
 			if argIndex >= len(parts) {
@@ -190,26 +192,41 @@ var CommandTable = []CommandDefinition{
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdSet)
 
-			// デバイス識別子のパース
-			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
+			// デバイス識別子またはグループ名のパース
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, true)
 			if err != nil {
 				return nil, err
 			}
 			cmd.DeviceSpec = deviceSpec
+			cmd.GroupName = groupName
 
 			// プロパティのパース
 			if argIndex >= len(parts) {
-				// 可能なエイリアス一覧
-				aliases := p.propertyInfoProvider.AvailablePropertyAliases(*cmd.GetClassCode())
-				return nil, &AvailableAliasesForAll{Aliases: aliases}
+				// デバイスが指定されている場合は、プロパティが必要というエラーを返す
+				if (cmd.DeviceSpec.IP != nil || cmd.DeviceSpec.ClassCode != nil || cmd.DeviceSpec.InstanceCode != nil) ||
+					(cmd.GroupName != nil && strings.HasPrefix(*cmd.GroupName, "@")) {
+					return nil, errors.New("set コマンドには少なくとも1つのプロパティが必要です")
+				}
+
+				// デバイスが指定されていない場合は、エイリアス一覧を表示
+				return nil, errors.New("デバイスまたはグループが指定されていません")
 			}
+
+			// デフォルトのクラスコード（グループ名指定時に使用）
+			defaultClassCode := client.EOJClassCode(0x0130) // デフォルトはエアコン
 
 			for i := argIndex; i < len(parts); i++ {
 				// EPCのみの場合（エイリアス一覧表示）
 				epc, err := parseEPC(parts[i])
 				if err == nil {
 					// クラスコードからPropertyInfoを取得
-					if propInfo, ok := p.propertyInfoProvider.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
+					var classCode client.EOJClassCode
+					if cmd.GetClassCode() != nil {
+						classCode = *cmd.GetClassCode()
+					} else {
+						classCode = defaultClassCode
+					}
+					if propInfo, ok := p.propertyInfoProvider.GetPropertyInfo(classCode, epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
 						return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
 					} else {
 						return nil, &AvailableAliasesForEPC{EPC: epc}
@@ -217,7 +234,13 @@ var CommandTable = []CommandDefinition{
 				}
 
 				// プロパティ文字列をパース
-				prop, err := p.parsePropertyString(parts[i], *cmd.GetClassCode(), debug)
+				var classCode client.EOJClassCode
+				if cmd.GetClassCode() != nil {
+					classCode = *cmd.GetClassCode()
+				} else {
+					classCode = defaultClassCode
+				}
+				prop, err := p.parsePropertyString(parts[i], classCode, debug)
 				if err != nil {
 					return nil, err
 				}
@@ -248,12 +271,13 @@ var CommandTable = []CommandDefinition{
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdUpdate)
 
-			// デバイス識別子のパース
-			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
+			// デバイス識別子またはグループ名のパース
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, false)
 			if err != nil {
 				return nil, err
 			}
 			cmd.DeviceSpec = deviceSpec
+			cmd.GroupName = groupName
 
 			// 残りの引数がある場合はエラー
 			if argIndex < len(parts) {

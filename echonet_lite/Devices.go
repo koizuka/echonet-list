@@ -166,6 +166,7 @@ func (c FilterCriteria) String() string {
 // 1. Devices are filtered by Device and PropertyValues
 // 2. All properties of matched devices are included in the result
 func (d Devices) Filter(criteria FilterCriteria) Devices {
+	filtered := NewDevices()
 	// ショートカット：フィルタ条件が無い場合は自身を返す
 	if (criteria.Device.IP == nil && criteria.Device.ClassCode == nil && criteria.Device.InstanceCode == nil) &&
 		len(criteria.PropertyValues) == 0 {
@@ -175,8 +176,6 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-
-	filtered := NewDevices()
 
 	for ip, eojMap := range d.data {
 		// IPアドレスフィルタがある場合、マッチしないものはスキップ
