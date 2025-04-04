@@ -4,6 +4,7 @@ import (
 	"context"
 	"echonet-list/client"
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/log"
 	"echonet-list/protocol"
 	"encoding/base64"
 	"encoding/json"
@@ -66,11 +67,20 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 
 // Start starts the WebSocket server
 func (ws *WebSocketServer) Start(options StartOptions) error {
-	fmt.Printf("WebSocket server starting on %s\n", ws.server.Addr)
+	logger := log.GetLogger()
+	if logger != nil {
+		logger.Log("WebSocket server starting on %s", ws.server.Addr)
+	} else {
+		fmt.Printf("WebSocket server starting on %s\n", ws.server.Addr)
+	}
 
 	// TLS証明書が指定されている場合
 	if options.CertFile != "" && options.KeyFile != "" {
-		fmt.Printf("Using TLS with certificate: %s\n", options.CertFile)
+		if logger != nil {
+			logger.Log("Using TLS with certificate: %s", options.CertFile)
+		} else {
+			fmt.Printf("Using TLS with certificate: %s\n", options.CertFile)
+		}
 		return ws.server.ListenAndServeTLS(options.CertFile, options.KeyFile)
 	}
 
@@ -80,19 +90,35 @@ func (ws *WebSocketServer) Start(options StartOptions) error {
 
 // Stop stops the WebSocket server
 func (ws *WebSocketServer) Stop() error {
+	logger := log.GetLogger()
+	if logger != nil {
+		logger.Log("Stopping WebSocket server")
+	}
 	ws.cancel()
-	return ws.server.Shutdown(context.Background())
+	err := ws.server.Shutdown(context.Background())
+	if err != nil && logger != nil {
+		logger.Log("Error shutting down WebSocket server: %v", err)
+	}
+	return err
 }
 
 // handleWebSocket handles WebSocket connections
 func (ws *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	logger := log.GetLogger()
+
 	// Upgrade the HTTP connection to a WebSocket connection
 	conn, err := ws.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		fmt.Printf("Error upgrading to WebSocket: %v\n", err)
+		if logger != nil {
+			logger.Log("Error upgrading to WebSocket: %v", err)
+		}
 		return
 	}
 	defer conn.Close()
+
+	if logger != nil && ws.handler.IsDebug() {
+		logger.Log("New WebSocket connection established")
+	}
 
 	// Register the client
 	ws.clientsMutex.Lock()
@@ -104,11 +130,16 @@ func (ws *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Reques
 		ws.clientsMutex.Lock()
 		delete(ws.clients, conn)
 		ws.clientsMutex.Unlock()
+		if logger != nil && ws.handler.IsDebug() {
+			logger.Log("WebSocket connection closed")
+		}
 	}()
 
 	// Send initial state to the client
 	if err := ws.sendInitialState(conn); err != nil {
-		fmt.Printf("Error sending initial state: %v\n", err)
+		if logger != nil {
+			logger.Log("Error sending initial state: %v", err)
+		}
 		return
 	}
 
@@ -117,28 +148,32 @@ func (ws *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Reques
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				fmt.Printf("WebSocket error: %v\n", err)
+				if logger != nil {
+					logger.Log("WebSocket error: %v", err)
+				}
 			}
 			break
 		}
 
 		// Parse and handle the message
 		if err := ws.handleMessage(conn, message); err != nil {
-			fmt.Printf("Error handling message: %v\n", err)
-			// Send error response
-			errorPayload := protocol.ErrorNotificationPayload{
-				Code:    protocol.ErrorCodeInternalServerError,
-				Message: err.Error(),
+			if logger != nil {
+				logger.Log("Error handling message: %v", err)
 			}
-			if err := ws.sendMessage(conn, protocol.MessageTypeErrorNotification, errorPayload, ""); err != nil {
-				fmt.Printf("Error sending error notification: %v\n", err)
-			}
+			// エラーはハンドラ関数内で処理されるはずなので、ここでは何もしない
+			// 未知のメッセージタイプなど、ハンドラ関数に到達する前のエラーのみここで処理される
 		}
 	}
 }
 
 // sendInitialState sends the initial state to a client
 func (ws *WebSocketServer) sendInitialState(conn *websocket.Conn) error {
+	logger := log.GetLogger()
+
+	if logger != nil && ws.handler.IsDebug() {
+		logger.Log("Sending initial state to client")
+	}
+
 	// Get all devices
 	devices := ws.echonetClient.ListDevices(echonet_lite.FilterCriteria{})
 
@@ -183,15 +218,35 @@ func (ws *WebSocketServer) sendInitialState(conn *websocket.Conn) error {
 	}
 
 	// Send the message
-	return ws.sendMessage(conn, protocol.MessageTypeInitialState, payload, "")
+	if err := ws.sendMessage(conn, protocol.MessageTypeInitialState, payload, ""); err != nil {
+		if logger != nil {
+			logger.Log("Error sending initial state: %v", err)
+		}
+		return err
+	}
+
+	if logger != nil && ws.handler.IsDebug() {
+		logger.Log("Initial state sent successfully")
+	}
+	return nil
 }
 
 // handleMessage handles an incoming message from a client
 func (ws *WebSocketServer) handleMessage(conn *websocket.Conn, message []byte) error {
+	logger := log.GetLogger()
+
 	// Parse the message
 	msg, err := protocol.ParseMessage(message)
 	if err != nil {
-		return fmt.Errorf("error parsing message: %v", err)
+		if logger != nil {
+			logger.Log("Error parsing message: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.ErrorNotificationPayload{
+			Code:    protocol.ErrorCodeInvalidRequestFormat,
+			Message: fmt.Sprintf("Error parsing message: %v", err),
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeErrorNotification, errorPayload, "")
 	}
 
 	// Handle the message based on its type
@@ -209,31 +264,76 @@ func (ws *WebSocketServer) handleMessage(conn *websocket.Conn, message []byte) e
 	case protocol.MessageTypeDiscoverDevices:
 		return ws.handleDiscoverDevices(conn, msg)
 	default:
-		return fmt.Errorf("unknown message type: %s", msg.Type)
+		if logger != nil {
+			logger.Log("Unknown message type: %s", msg.Type)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.ErrorNotificationPayload{
+			Code:    protocol.ErrorCodeInvalidRequestFormat,
+			Message: fmt.Sprintf("Unknown message type: %s", msg.Type),
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeErrorNotification, errorPayload, msg.RequestID)
 	}
 }
 
 // handleGetProperties handles a get_properties message
 func (ws *WebSocketServer) handleGetProperties(conn *websocket.Conn, msg *protocol.Message) error {
+	logger := log.GetLogger()
 	// Parse the payload
 	var payload protocol.GetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return fmt.Errorf("error parsing get_properties payload: %v", err)
+		if logger != nil {
+			logger.Log("Error parsing get_properties payload: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidRequestFormat,
+				Message: fmt.Sprintf("Error parsing get_properties payload: %v", err),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Validate the payload
 	if len(payload.Targets) == 0 {
-		return fmt.Errorf("no targets specified")
+		if logger != nil {
+			logger.Log("Error: no targets specified")
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: "No targets specified",
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
+
 	// Process each target
 	results := make([]protocol.Device, 0, len(payload.Targets))
 	for _, target := range payload.Targets {
 		// Parse the target
 		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
-		fmt.Printf("target: %v, ipAndEOJ: %v\n", target, ipAndEOJ) // DEBUG
+		if logger != nil && ws.handler.IsDebug() {
+			logger.Log("target: %v, ipAndEOJ: %v", target, ipAndEOJ) // DEBUG
+		}
 
 		if err != nil {
-			return fmt.Errorf("invalid target: %v", err)
+			if logger != nil {
+				logger.Log("Error: invalid target: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInvalidParameters,
+					Message: fmt.Sprintf("Invalid target: %v", err),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Parse EPCs
@@ -241,7 +341,18 @@ func (ws *WebSocketServer) handleGetProperties(conn *websocket.Conn, msg *protoc
 		for _, epcStr := range payload.EPCs {
 			epc, err := echonet_lite.ParseEPCString(epcStr)
 			if err != nil {
-				return fmt.Errorf("invalid EPC: %v", err)
+				if logger != nil {
+					logger.Log("Error: invalid EPC: %v", err)
+				}
+				// エラー応答を送信
+				errorPayload := protocol.CommandResultPayload{
+					Success: false,
+					Error: &protocol.Error{
+						Code:    protocol.ErrorCodeInvalidParameters,
+						Message: fmt.Sprintf("Invalid EPC: %v", err),
+					},
+				}
+				return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 			}
 			epcs = append(epcs, epc)
 		}
@@ -249,7 +360,18 @@ func (ws *WebSocketServer) handleGetProperties(conn *websocket.Conn, msg *protoc
 		// Get properties
 		deviceAndProps, err := ws.echonetClient.GetProperties(ipAndEOJ, epcs, false)
 		if err != nil {
-			return fmt.Errorf("error getting properties: %v", err)
+			if logger != nil {
+				logger.Log("Error getting properties: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeEchonetCommunicationError,
+					Message: err.Error(),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Use DeviceToProtocol to convert to protocol format
@@ -270,7 +392,18 @@ func (ws *WebSocketServer) handleGetProperties(conn *websocket.Conn, msg *protoc
 		// Marshal just the first device
 		deviceJSON, err := json.Marshal(results[0])
 		if err != nil {
-			return fmt.Errorf("error marshaling device: %v", err)
+			if logger != nil {
+				logger.Log("Error marshaling device: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInternalServerError,
+					Message: fmt.Sprintf("Error marshaling device: %v", err),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 		resultJSON = deviceJSON
 	}
@@ -287,24 +420,70 @@ func (ws *WebSocketServer) handleGetProperties(conn *websocket.Conn, msg *protoc
 
 // handleSetProperties handles a set_properties message
 func (ws *WebSocketServer) handleSetProperties(conn *websocket.Conn, msg *protocol.Message) error {
+	logger := log.GetLogger()
+
 	// Parse the payload
 	var payload protocol.SetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return fmt.Errorf("error parsing set_properties payload: %v", err)
+		if logger != nil {
+			logger.Log("Error parsing set_properties payload: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidRequestFormat,
+				Message: fmt.Sprintf("Error parsing set_properties payload: %v", err),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Validate the payload
 	if payload.Target == "" {
-		return fmt.Errorf("no target specified")
+		if logger != nil {
+			logger.Log("Error: no target specified")
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: "No target specified",
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 	if len(payload.Properties) == 0 {
-		return fmt.Errorf("no properties specified")
+		if logger != nil {
+			logger.Log("Error: no properties specified")
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: "No properties specified",
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Parse the target
 	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.Target)
 	if err != nil {
-		return fmt.Errorf("invalid target: %v", err)
+		if logger != nil {
+			logger.Log("Error: invalid target: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: fmt.Sprintf("Invalid target: %v", err),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Parse properties
@@ -312,12 +491,34 @@ func (ws *WebSocketServer) handleSetProperties(conn *websocket.Conn, msg *protoc
 	for epcStr, edtStr := range payload.Properties {
 		epc, err := echonet_lite.ParseEPCString(epcStr)
 		if err != nil {
-			return fmt.Errorf("invalid EPC: %v", err)
+			if logger != nil {
+				logger.Log("Error: invalid EPC: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInvalidParameters,
+					Message: fmt.Sprintf("Invalid EPC: %v", err),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
-			return fmt.Errorf("invalid EDT: %v", err)
+			if logger != nil {
+				logger.Log("Error: invalid EDT: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInvalidParameters,
+					Message: fmt.Sprintf("Invalid EDT: %v", err),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		properties = append(properties, echonet_lite.Property{
@@ -329,7 +530,18 @@ func (ws *WebSocketServer) handleSetProperties(conn *websocket.Conn, msg *protoc
 	// Set properties
 	deviceAndProps, err := ws.echonetClient.SetProperties(ipAndEOJ, properties)
 	if err != nil {
-		return fmt.Errorf("error setting properties: %v", err)
+		if logger != nil {
+			logger.Log("Error setting properties: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeEchonetCommunicationError,
+				Message: err.Error(),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Use DeviceToProtocol to convert to protocol format
@@ -343,7 +555,18 @@ func (ws *WebSocketServer) handleSetProperties(conn *websocket.Conn, msg *protoc
 	// Marshal the device data
 	deviceDataJSON, err := json.Marshal(deviceData)
 	if err != nil {
-		return fmt.Errorf("error marshaling device data: %v", err)
+		if logger != nil {
+			logger.Log("Error marshaling device data: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInternalServerError,
+				Message: fmt.Sprintf("Error marshaling device data: %v", err),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Send the response with device data
@@ -358,15 +581,38 @@ func (ws *WebSocketServer) handleSetProperties(conn *websocket.Conn, msg *protoc
 
 // handleUpdateProperties handles an update_properties message
 func (ws *WebSocketServer) handleUpdateProperties(conn *websocket.Conn, msg *protocol.Message) error {
+	logger := log.GetLogger()
 	// Parse the payload
 	var payload protocol.UpdatePropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return fmt.Errorf("error parsing update_properties payload: %v", err)
+		if logger != nil {
+			logger.Log("Error parsing update_properties payload: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidRequestFormat,
+				Message: fmt.Sprintf("Error parsing update_properties payload: %v", err),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Validate the payload
 	if len(payload.Targets) == 0 {
-		return fmt.Errorf("no targets specified")
+		if logger != nil {
+			logger.Log("Error: no targets specified")
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: "No targets specified",
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Process each target
@@ -374,7 +620,18 @@ func (ws *WebSocketServer) handleUpdateProperties(conn *websocket.Conn, msg *pro
 		// Parse the target
 		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
 		if err != nil {
-			return fmt.Errorf("invalid target: %v", err)
+			if logger != nil {
+				logger.Log("Error: invalid target: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInvalidParameters,
+					Message: fmt.Sprintf("Invalid target: %v", err),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Create filter criteria
@@ -390,7 +647,18 @@ func (ws *WebSocketServer) handleUpdateProperties(conn *websocket.Conn, msg *pro
 
 		// Update properties
 		if err := ws.echonetClient.UpdateProperties(criteria); err != nil {
-			return fmt.Errorf("error updating properties: %v", err)
+			if logger != nil {
+				logger.Log("Error updating properties: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeEchonetCommunicationError,
+					Message: err.Error(),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 	}
 
@@ -405,15 +673,38 @@ func (ws *WebSocketServer) handleUpdateProperties(conn *websocket.Conn, msg *pro
 
 // handleManageAlias handles a manage_alias message
 func (ws *WebSocketServer) handleManageAlias(conn *websocket.Conn, msg *protocol.Message) error {
+	logger := log.GetLogger()
 	// Parse the payload
 	var payload protocol.ManageAliasPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return fmt.Errorf("error parsing manage_alias payload: %v", err)
+		if logger != nil {
+			logger.Log("Error parsing manage_alias payload: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidRequestFormat,
+				Message: fmt.Sprintf("Error parsing manage_alias payload: %v", err),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Validate the payload
 	if payload.Alias == "" {
-		return fmt.Errorf("no alias specified")
+		if logger != nil {
+			logger.Log("Error: no alias specified")
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: "No alias specified",
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Handle the action
@@ -421,13 +712,35 @@ func (ws *WebSocketServer) handleManageAlias(conn *websocket.Conn, msg *protocol
 	case protocol.AliasActionAdd:
 		// Validate the target
 		if payload.Target == "" {
-			return fmt.Errorf("no target specified for add action")
+			if logger != nil {
+				logger.Log("Error: no target specified for add action")
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInvalidParameters,
+					Message: "No target specified for add action",
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Parse the target
 		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.Target)
 		if err != nil {
-			return fmt.Errorf("invalid target: %v", err)
+			if logger != nil {
+				logger.Log("Error: invalid target: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInvalidParameters,
+					Message: fmt.Sprintf("Invalid target: %v", err),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Create filter criteria
@@ -443,7 +756,18 @@ func (ws *WebSocketServer) handleManageAlias(conn *websocket.Conn, msg *protocol
 
 		// Set the alias
 		if err := ws.echonetClient.AliasSet(&payload.Alias, criteria); err != nil {
-			return fmt.Errorf("error setting alias: %v", err)
+			if logger != nil {
+				logger.Log("Error setting alias: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeAliasOperationFailed,
+					Message: err.Error(),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Send the response
@@ -457,7 +781,18 @@ func (ws *WebSocketServer) handleManageAlias(conn *websocket.Conn, msg *protocol
 	case protocol.AliasActionDelete:
 		// Delete the alias
 		if err := ws.echonetClient.AliasDelete(&payload.Alias); err != nil {
-			return fmt.Errorf("error deleting alias: %v", err)
+			if logger != nil {
+				logger.Log("Error deleting alias: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeAliasOperationFailed,
+					Message: err.Error(),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Send the response
@@ -469,21 +804,55 @@ func (ws *WebSocketServer) handleManageAlias(conn *websocket.Conn, msg *protocol
 		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
 
 	default:
-		return fmt.Errorf("unknown alias action: %s", payload.Action)
+		if logger != nil {
+			logger.Log("Error: unknown alias action: %s", payload.Action)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: fmt.Sprintf("Unknown alias action: %s", payload.Action),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 }
 
 // handleManageGroup handles a manage_group message
 func (ws *WebSocketServer) handleManageGroup(conn *websocket.Conn, msg *protocol.Message) error {
+	logger := log.GetLogger()
 	// Parse the payload
 	var payload protocol.ManageGroupPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return fmt.Errorf("error parsing manage_group payload: %v", err)
+		if logger != nil {
+			logger.Log("Error parsing manage_group payload: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidRequestFormat,
+				Message: fmt.Sprintf("Error parsing manage_group payload: %v", err),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Validate the payload
 	if payload.Group == "" {
-		return fmt.Errorf("no group specified")
+		if logger != nil {
+			logger.Log("Error: no group specified")
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: "No group specified",
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Handle the action
@@ -491,7 +860,18 @@ func (ws *WebSocketServer) handleManageGroup(conn *websocket.Conn, msg *protocol
 	case protocol.GroupActionAdd:
 		// Validate the devices
 		if len(payload.Devices) == 0 {
-			return fmt.Errorf("no devices specified for add action")
+			if logger != nil {
+				logger.Log("Error: no devices specified for add action")
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInvalidParameters,
+					Message: "No devices specified for add action",
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Parse the devices
@@ -499,14 +879,36 @@ func (ws *WebSocketServer) handleManageGroup(conn *websocket.Conn, msg *protocol
 		for _, deviceStr := range payload.Devices {
 			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
 			if err != nil {
-				return fmt.Errorf("invalid device: %v", err)
+				if logger != nil {
+					logger.Log("Error: invalid device: %v", err)
+				}
+				// エラー応答を送信
+				errorPayload := protocol.CommandResultPayload{
+					Success: false,
+					Error: &protocol.Error{
+						Code:    protocol.ErrorCodeInvalidParameters,
+						Message: fmt.Sprintf("Invalid device: %v", err),
+					},
+				}
+				return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 			}
 			devices = append(devices, ipAndEOJ)
 		}
 
 		// Add the devices to the group
 		if err := ws.echonetClient.GroupAdd(payload.Group, devices); err != nil {
-			return fmt.Errorf("error adding devices to group: %v", err)
+			if logger != nil {
+				logger.Log("Error adding devices to group: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInternalServerError,
+					Message: err.Error(),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Broadcast group changed notification
@@ -526,7 +928,18 @@ func (ws *WebSocketServer) handleManageGroup(conn *websocket.Conn, msg *protocol
 	case protocol.GroupActionRemove:
 		// Validate the devices
 		if len(payload.Devices) == 0 {
-			return fmt.Errorf("no devices specified for remove action")
+			if logger != nil {
+				logger.Log("Error: no devices specified for remove action")
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInvalidParameters,
+					Message: "No devices specified for remove action",
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Parse the devices
@@ -534,14 +947,36 @@ func (ws *WebSocketServer) handleManageGroup(conn *websocket.Conn, msg *protocol
 		for _, deviceStr := range payload.Devices {
 			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
 			if err != nil {
-				return fmt.Errorf("invalid device: %v", err)
+				if logger != nil {
+					logger.Log("Error: invalid device: %v", err)
+				}
+				// エラー応答を送信
+				errorPayload := protocol.CommandResultPayload{
+					Success: false,
+					Error: &protocol.Error{
+						Code:    protocol.ErrorCodeInvalidParameters,
+						Message: fmt.Sprintf("Invalid device: %v", err),
+					},
+				}
+				return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 			}
 			devices = append(devices, ipAndEOJ)
 		}
 
 		// Remove the devices from the group
 		if err := ws.echonetClient.GroupRemove(payload.Group, devices); err != nil {
-			return fmt.Errorf("error removing devices from group: %v", err)
+			if logger != nil {
+				logger.Log("Error removing devices from group: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInternalServerError,
+					Message: err.Error(),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Get the updated devices in the group
@@ -576,7 +1011,18 @@ func (ws *WebSocketServer) handleManageGroup(conn *websocket.Conn, msg *protocol
 	case protocol.GroupActionDelete:
 		// Delete the group
 		if err := ws.echonetClient.GroupDelete(payload.Group); err != nil {
-			return fmt.Errorf("error deleting group: %v", err)
+			if logger != nil {
+				logger.Log("Error deleting group: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInternalServerError,
+					Message: err.Error(),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Broadcast group deleted notification
@@ -617,7 +1063,18 @@ func (ws *WebSocketServer) handleManageGroup(conn *websocket.Conn, msg *protocol
 		// Marshal the group data
 		groupDataJSON, err := json.Marshal(groups)
 		if err != nil {
-			return fmt.Errorf("error marshaling group data: %v", err)
+			if logger != nil {
+				logger.Log("Error marshaling group data: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.CommandResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInternalServerError,
+					Message: fmt.Sprintf("Error marshaling group data: %v", err),
+				},
+			}
+			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
 		// Send the response
@@ -628,15 +1085,38 @@ func (ws *WebSocketServer) handleManageGroup(conn *websocket.Conn, msg *protocol
 		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
 
 	default:
-		return fmt.Errorf("unknown group action: %s", payload.Action)
+		if logger != nil {
+			logger.Log("Error: unknown group action: %s", payload.Action)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: fmt.Sprintf("Unknown group action: %s", payload.Action),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 }
 
 // handleDiscoverDevices handles a discover_devices message
 func (ws *WebSocketServer) handleDiscoverDevices(conn *websocket.Conn, msg *protocol.Message) error {
+	logger := log.GetLogger()
 	// Discover devices
 	if err := ws.echonetClient.Discover(); err != nil {
-		return fmt.Errorf("error discovering devices: %v", err)
+		if logger != nil {
+			logger.Log("Error discovering devices: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.CommandResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeEchonetCommunicationError,
+				Message: fmt.Sprintf("Error discovering devices: %v", err),
+			},
+		}
+		return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 	}
 
 	// Send the response
@@ -666,10 +1146,14 @@ func (ws *WebSocketServer) sendMessage(conn *websocket.Conn, msgType protocol.Me
 
 // broadcastMessage sends a message to all connected clients
 func (ws *WebSocketServer) broadcastMessage(msgType protocol.MessageType, payload interface{}) {
+	logger := log.GetLogger()
+
 	// Create the message
 	data, err := protocol.CreateMessage(msgType, payload, "")
 	if err != nil {
-		fmt.Printf("Error creating broadcast message: %v\n", err)
+		if logger != nil {
+			logger.Log("Error creating broadcast message: %v", err)
+		}
 		return
 	}
 
@@ -677,7 +1161,9 @@ func (ws *WebSocketServer) broadcastMessage(msgType protocol.MessageType, payloa
 	ws.clientsMutex.RLock()
 	for conn := range ws.clients {
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			fmt.Printf("Error broadcasting message: %v\n", err)
+			if logger != nil {
+				logger.Log("Error broadcasting message to client: %v", err)
+			}
 		}
 	}
 	ws.clientsMutex.RUnlock()
@@ -685,14 +1171,23 @@ func (ws *WebSocketServer) broadcastMessage(msgType protocol.MessageType, payloa
 
 // listenForNotifications listens for notifications from the ECHONET Lite handler
 func (ws *WebSocketServer) listenForNotifications() {
+	logger := log.GetLogger()
+
 	for {
 		select {
 		case <-ws.ctx.Done():
+			if logger != nil && ws.handler.IsDebug() {
+				logger.Log("Notification listener stopped")
+			}
 			return
 		case notification := <-ws.handler.NotificationCh:
 			// Handle the notification
 			switch notification.Type {
 			case echonet_lite.DeviceAdded:
+				if logger != nil && ws.handler.IsDebug() {
+					logger.Log("Device added: %s", notification.Device.Specifier())
+				}
+
 				// Create device added payload
 				device := notification.Device
 
@@ -712,6 +1207,10 @@ func (ws *WebSocketServer) listenForNotifications() {
 				ws.broadcastMessage(protocol.MessageTypeDeviceAdded, payload)
 
 			case echonet_lite.DeviceTimeout:
+				if logger != nil && ws.handler.IsDebug() {
+					logger.Log("Device timeout: %s - %v", notification.Device.Specifier(), notification.Error)
+				}
+
 				// Create timeout notification payload
 				device := notification.Device
 				payload := protocol.TimeoutNotificationPayload{

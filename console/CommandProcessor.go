@@ -311,7 +311,7 @@ func (p *CommandProcessor) processGetCommand(cmd *Command) error {
 			}
 		} else {
 			if lastError != nil {
-				fmt.Printf("プロパティ取得失敗: %v\n", lastError)
+				fmt.Println(lastError)
 			}
 			lastError = err
 		}
