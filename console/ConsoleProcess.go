@@ -46,7 +46,7 @@ func ConsoleProcess(ctx context.Context, c client.ECHONETListClient) {
 		_ = rl.Close()
 	}(rl)
 
-	p := NewCommandParser(c, c)
+	p := NewCommandParser(c, c, c)
 
 	for {
 		line, err := rl.Readline()

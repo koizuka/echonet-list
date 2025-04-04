@@ -77,12 +77,14 @@ func (c *Command) GetInstanceCode() *client.EOJInstanceCode {
 type CommandParser struct {
 	propertyInfoProvider client.PropertyInfoProvider
 	aliasManager         client.AliasManager
+	groupManager         client.GroupManager
 }
 
-func NewCommandParser(propertyInfoProvider client.PropertyInfoProvider, aliasManager client.AliasManager) *CommandParser {
+func NewCommandParser(propertyInfoProvider client.PropertyInfoProvider, aliasManager client.AliasManager, groupManager client.GroupManager) *CommandParser {
 	return &CommandParser{
 		propertyInfoProvider: propertyInfoProvider,
 		aliasManager:         aliasManager,
+		groupManager:         groupManager,
 	}
 }
 
@@ -283,10 +285,38 @@ func (p CommandParser) parseDeviceSpecifierOrGroup(parts []string, argIndex int,
 	return deviceSpec, nil, argIndex, nil
 }
 
-// parseDeviceSpecifier は、コマンド引数から DeviceSpecifier をパースする（後方互換性のため）
-func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requireClassCode bool) (client.DeviceSpecifier, int, error) {
-	deviceSpec, _, nextArgIndex, err := p.parseDeviceSpecifierOrGroup(parts, argIndex, requireClassCode)
-	return deviceSpec, nextArgIndex, err
+func (p CommandParser) parseDeviceSpecifiers(parts []string, argIndex int, requireClassCode bool) ([]client.DeviceSpecifier, int, error) {
+	deviceSpecs := make([]client.DeviceSpecifier, 0)
+
+	for argIndex < len(parts) {
+		deviceSpec, groupName, nextArgIndex, err := p.parseDeviceSpecifierOrGroup(parts, argIndex, requireClassCode)
+		if err != nil {
+			return nil, argIndex, err
+		}
+		if groupName != nil {
+			groups := p.groupManager.GroupList(groupName)
+			if groups == nil {
+				return nil, argIndex, fmt.Errorf("グループ '%s' が見つかりません", *groupName)
+			}
+			for _, group := range groups {
+				for _, device := range group.Devices {
+					classCode := device.EOJ.ClassCode()
+					instanceCode := device.EOJ.InstanceCode()
+					deviceSpec := client.DeviceSpecifier{
+						IP:           &device.IP,
+						ClassCode:    &classCode,
+						InstanceCode: &instanceCode,
+					}
+					deviceSpecs = append(deviceSpecs, deviceSpec)
+				}
+			}
+		} else {
+			deviceSpecs = append(deviceSpecs, deviceSpec)
+		}
+		argIndex = nextArgIndex
+	}
+
+	return deviceSpecs, argIndex, nil
 }
 
 // 基本的なコマンドオブジェクトを作成するヘルパー関数

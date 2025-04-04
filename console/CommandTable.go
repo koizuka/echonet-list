@@ -65,11 +65,12 @@ var CommandTable = []CommandDefinition{
 			cmd := newCommand(CmdDevices)
 
 			// デバイス識別子のパース
-			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, false)
 			if err != nil {
 				return nil, err
 			}
 			cmd.DeviceSpec = deviceSpec
+			cmd.GroupName = groupName
 
 			// 残りの引数を解析
 			for i := argIndex; i < len(parts); i++ {
@@ -204,7 +205,7 @@ var CommandTable = []CommandDefinition{
 			if argIndex >= len(parts) {
 				// デバイスが指定されている場合は、プロパティが必要というエラーを返す
 				if (cmd.DeviceSpec.IP != nil || cmd.DeviceSpec.ClassCode != nil || cmd.DeviceSpec.InstanceCode != nil) ||
-					(cmd.GroupName != nil && strings.HasPrefix(*cmd.GroupName, "@")) {
+					cmd.GroupName != nil {
 					return nil, errors.New("set コマンドには少なくとも1つのプロパティが必要です")
 				}
 
@@ -352,11 +353,12 @@ var CommandTable = []CommandDefinition{
 				cmd.DeviceAlias = &alias
 
 				// デバイス識別子のパース
-				deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 2, true)
+				deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 2, true)
 				if err != nil {
 					return nil, err
 				}
 				cmd.DeviceSpec = deviceSpec
+				cmd.GroupName = groupName
 
 				// 絞り込みプロパティ値のパース
 				var classCode client.EOJClassCode
@@ -497,11 +499,11 @@ var CommandTable = []CommandDefinition{
 				var deviceSpecs []client.DeviceSpecifier
 				argIndex := 3
 				for argIndex < len(parts) {
-					deviceSpec, nextArgIndex, err := p.parseDeviceSpecifier(parts, argIndex, true)
+					devs, nextArgIndex, err := p.parseDeviceSpecifiers(parts, argIndex, true)
 					if err != nil {
 						return nil, err
 					}
-					deviceSpecs = append(deviceSpecs, deviceSpec)
+					deviceSpecs = append(deviceSpecs, devs...)
 					argIndex = nextArgIndex
 				}
 
@@ -527,11 +529,11 @@ var CommandTable = []CommandDefinition{
 				var deviceSpecs []client.DeviceSpecifier
 				argIndex := 3
 				for argIndex < len(parts) {
-					deviceSpec, nextArgIndex, err := p.parseDeviceSpecifier(parts, argIndex, true)
+					devs, nextArgIndex, err := p.parseDeviceSpecifiers(parts, argIndex, true)
 					if err != nil {
 						return nil, err
 					}
-					deviceSpecs = append(deviceSpecs, deviceSpec)
+					deviceSpecs = append(deviceSpecs, devs...)
 					argIndex = nextArgIndex
 				}
 
