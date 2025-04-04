@@ -697,7 +697,7 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skip
 			return DeviceAndProperties{}, err
 		}
 		if !valid {
-			return DeviceAndProperties{}, fmt.Errorf("以下のEPCはGetPropertyMapに含まれていません: %v", invalidEPCs)
+			return DeviceAndProperties{}, fmt.Errorf("%v: 以下のEPCはGetPropertyMapに含まれていません: %v", device, invalidEPCs)
 		}
 	}
 
@@ -712,7 +712,7 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skip
 		if logger != nil {
 			logger.Log("エラー: プロパティ取得に失敗: %v", err)
 		}
-		return DeviceAndProperties{}, fmt.Errorf("プロパティ取得に失敗: %w", err)
+		return DeviceAndProperties{}, fmt.Errorf("%v: プロパティ取得に失敗: %w", device, err)
 	}
 
 	// 成功したプロパティを登録（部分的な成功の場合も含む）
@@ -730,7 +730,7 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skip
 
 	// 全体の成功/失敗を判定
 	if !success {
-		errMsg := fmt.Sprintf("一部のプロパティ取得に失敗: %v: %v", device, failedEPCs)
+		errMsg := fmt.Sprintf("%v: 一部のプロパティ取得に失敗: %v", device, failedEPCs)
 		if logger != nil {
 			logger.Log("警告: %s", errMsg)
 		}
