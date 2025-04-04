@@ -770,6 +770,14 @@ func (ws *WebSocketServer) handleManageAlias(conn *websocket.Conn, msg *protocol
 			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
+		// Broadcast alias changed notification
+		aliasChangedPayload := protocol.AliasChangedPayload{
+			ChangeType: protocol.AliasChangeTypeAdded,
+			Alias:      payload.Alias,
+			Target:     payload.Target,
+		}
+		ws.broadcastMessage(protocol.MessageTypeAliasChanged, aliasChangedPayload)
+
 		// Send the response
 		resultPayload := protocol.CommandResultPayload{
 			Success: true,
@@ -794,6 +802,14 @@ func (ws *WebSocketServer) handleManageAlias(conn *websocket.Conn, msg *protocol
 			}
 			return ws.sendMessage(conn, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
+
+		// Broadcast alias changed notification
+		aliasChangedPayload := protocol.AliasChangedPayload{
+			ChangeType: protocol.AliasChangeTypeDeleted,
+			Alias:      payload.Alias,
+			Target:     "",
+		}
+		ws.broadcastMessage(protocol.MessageTypeAliasChanged, aliasChangedPayload)
 
 		// Send the response
 		resultPayload := protocol.CommandResultPayload{
