@@ -86,11 +86,8 @@ var CommandTable = []CommandDefinition{
 					continue
 				}
 
-				pClassCode := cmd.GetClassCode()
-				if pClassCode == nil {
-					pClassCode = new(client.EOJClassCode)
-				}
-				props, err := p.parsePropertyString(parts[i], *pClassCode, false)
+				classCode := cmd.GetClassCode()
+				props, err := p.parsePropertyString(parts[i], classCode, false)
 				if err == nil {
 					cmd.Properties = append(cmd.Properties, props)
 					continue
@@ -214,20 +211,12 @@ var CommandTable = []CommandDefinition{
 				return nil, errors.New("デバイスまたはグループが指定されていません")
 			}
 
-			// デフォルトのクラスコード（グループ名指定時に使用）
-			defaultClassCode := client.EOJClassCode(0x0130) // デフォルトはエアコン
-
 			for i := argIndex; i < len(parts); i++ {
 				// EPCのみの場合（エイリアス一覧表示）
 				epc, err := parseEPC(parts[i])
 				if err == nil {
 					// クラスコードからPropertyInfoを取得
-					var classCode client.EOJClassCode
-					if cmd.GetClassCode() != nil {
-						classCode = *cmd.GetClassCode()
-					} else {
-						classCode = defaultClassCode
-					}
+					classCode := cmd.GetClassCode()
 					if propInfo, ok := p.propertyInfoProvider.GetPropertyInfo(classCode, epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
 						return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
 					} else {
@@ -236,12 +225,7 @@ var CommandTable = []CommandDefinition{
 				}
 
 				// プロパティ文字列をパース
-				var classCode client.EOJClassCode
-				if cmd.GetClassCode() != nil {
-					classCode = *cmd.GetClassCode()
-				} else {
-					classCode = defaultClassCode
-				}
+				classCode := cmd.GetClassCode()
 				prop, err := p.parsePropertyString(parts[i], classCode, debug)
 				if err != nil {
 					return nil, err

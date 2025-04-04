@@ -65,8 +65,12 @@ func (c *Command) GetIPAddress() *net.IP {
 }
 
 // GetClassCode は、コマンドのクラスコードを取得する
-func (c *Command) GetClassCode() *client.EOJClassCode {
-	return c.DeviceSpec.ClassCode
+func (c *Command) GetClassCode() client.EOJClassCode {
+	var result client.EOJClassCode
+	if c.DeviceSpec.ClassCode != nil {
+		result = *c.DeviceSpec.ClassCode
+	}
+	return result
 }
 
 // GetInstanceCode は、コマンドのインスタンスコードを取得する
