@@ -79,10 +79,6 @@ func (c *ECHONETListClientProxy) GetAllPropertyAliases() []string {
 	return echonet_lite.GetAllAliases()
 }
 
-func (c *ECHONETListClientProxy) ValidateDeviceAlias(alias string) error {
-	return echonet_lite.ValidateDeviceAlias(alias)
-}
-
 func (c *ECHONETListClientProxy) GetPropertyInfo(classCode EOJClassCode, e EPCType) (*PropertyInfo, bool) {
 	return echonet_lite.GetPropertyInfo(classCode, e)
 }

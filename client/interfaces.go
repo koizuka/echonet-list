@@ -12,7 +12,6 @@ type AliasManager interface {
 	AliasGet(alias *string) (*IPAndEOJ, error)
 	GetAliases(device IPAndEOJ) []string
 	GetDeviceByAlias(alias string) (IPAndEOJ, bool)
-	ValidateDeviceAlias(alias string) error
 }
 
 type DeviceManager interface {

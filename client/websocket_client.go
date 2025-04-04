@@ -437,11 +437,6 @@ func (c *WebSocketClient) GetDeviceByAlias(alias string) (IPAndEOJ, bool) {
 	return device, ok
 }
 
-// ValidateDeviceAlias validates an alias
-func (c *WebSocketClient) ValidateDeviceAlias(alias string) error {
-	return echonet_lite.ValidateDeviceAlias(alias)
-}
-
 // GetAllPropertyAliases gets all property aliases
 func (c *WebSocketClient) GetAllPropertyAliases() []string {
 	return echonet_lite.GetAllAliases()

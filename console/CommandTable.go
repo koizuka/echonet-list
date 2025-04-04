@@ -339,7 +339,7 @@ var CommandTable = []CommandDefinition{
 
 				// エイリアス名のパース
 				alias := parts[1]
-				if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
+				if err := echonet_lite.ValidateDeviceAlias(alias); err != nil {
 					return nil, err
 				}
 				cmd.DeviceAlias = &alias
@@ -348,7 +348,7 @@ var CommandTable = []CommandDefinition{
 
 				// エイリアス名のパース
 				alias := parts[1]
-				if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
+				if err := echonet_lite.ValidateDeviceAlias(alias); err != nil {
 					return nil, err
 				}
 				cmd.DeviceAlias = &alias
