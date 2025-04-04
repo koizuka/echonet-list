@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/url"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -509,7 +508,7 @@ func (c *WebSocketClient) GroupList(groupName *string) []GroupDevicePair {
 // GroupAdd adds devices to a group
 func (c *WebSocketClient) GroupAdd(groupName string, devices []IPAndEOJ) error {
 	// Validate the group name
-	if err := c.ValidateGroupName(groupName); err != nil {
+	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
 		return err
 	}
 
@@ -551,7 +550,7 @@ func (c *WebSocketClient) GroupAdd(groupName string, devices []IPAndEOJ) error {
 // GroupRemove removes devices from a group
 func (c *WebSocketClient) GroupRemove(groupName string, devices []IPAndEOJ) error {
 	// Validate the group name
-	if err := c.ValidateGroupName(groupName); err != nil {
+	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
 		return err
 	}
 
@@ -593,7 +592,7 @@ func (c *WebSocketClient) GroupRemove(groupName string, devices []IPAndEOJ) erro
 // GroupDelete deletes a group
 func (c *WebSocketClient) GroupDelete(groupName string) error {
 	// Validate the group name
-	if err := c.ValidateGroupName(groupName); err != nil {
+	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
 		return err
 	}
 
@@ -628,7 +627,7 @@ func (c *WebSocketClient) GroupDelete(groupName string) error {
 // GetDevicesByGroup gets devices in a group
 func (c *WebSocketClient) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
 	// Validate the group name
-	if err := c.ValidateGroupName(groupName); err != nil {
+	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
 		return nil, false
 	}
 
@@ -640,24 +639,6 @@ func (c *WebSocketClient) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool)
 
 	// Return the devices
 	return groups[0].Devices, true
-}
-
-// ValidateGroupName validates a group name
-func (c *WebSocketClient) ValidateGroupName(groupName string) error {
-	if !strings.HasPrefix(groupName, "@") {
-		return fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
-	}
-
-	if len(groupName) <= 1 {
-		return fmt.Errorf("グループ名は '@' の後に少なくとも1文字必要です: %s", groupName)
-	}
-
-	// 空白文字を含まないことを確認
-	if strings.ContainsAny(groupName, " \t\n\r") {
-		return fmt.Errorf("グループ名に空白文字を含めることはできません: %s", groupName)
-	}
-
-	return nil
 }
 
 // listenForMessages listens for messages from the WebSocket server

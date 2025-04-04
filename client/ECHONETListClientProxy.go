@@ -132,7 +132,3 @@ func (c *ECHONETListClientProxy) GroupDelete(groupName string) error {
 func (c *ECHONETListClientProxy) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
 	return c.handler.DeviceGroups.GetDevicesByGroup(groupName)
 }
-
-func (c *ECHONETListClientProxy) ValidateGroupName(groupName string) error {
-	return c.handler.DeviceGroups.ValidateGroupName(groupName)
-}

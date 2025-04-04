@@ -129,7 +129,7 @@ func (g *DeviceGroups) SaveToFile(filename string) error {
 }
 
 // ValidateGroupName はグループ名が有効かどうかを検証する
-func (g *DeviceGroups) ValidateGroupName(groupName string) error {
+func ValidateGroupName(groupName string) error {
 	if !strings.HasPrefix(groupName, "@") {
 		return fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
 	}
@@ -149,7 +149,7 @@ func (g *DeviceGroups) ValidateGroupName(groupName string) error {
 // GroupAdd はグループにデバイスを追加する
 func (g *DeviceGroups) GroupAdd(groupName string, devices []IPAndEOJ) error {
 	// グループ名の検証
-	if err := g.ValidateGroupName(groupName); err != nil {
+	if err := ValidateGroupName(groupName); err != nil {
 		return err
 	}
 
@@ -188,7 +188,7 @@ func (g *DeviceGroups) GroupAdd(groupName string, devices []IPAndEOJ) error {
 // GroupRemove はグループからデバイスを削除する
 func (g *DeviceGroups) GroupRemove(groupName string, devices []IPAndEOJ) error {
 	// グループ名の検証
-	if err := g.ValidateGroupName(groupName); err != nil {
+	if err := ValidateGroupName(groupName); err != nil {
 		return err
 	}
 
@@ -238,7 +238,7 @@ func (g *DeviceGroups) GroupRemove(groupName string, devices []IPAndEOJ) error {
 // GroupDelete はグループを削除する
 func (g *DeviceGroups) GroupDelete(groupName string) error {
 	// グループ名の検証
-	if err := g.ValidateGroupName(groupName); err != nil {
+	if err := ValidateGroupName(groupName); err != nil {
 		return err
 	}
 
@@ -309,7 +309,7 @@ func (g *DeviceGroups) GroupList(groupName *string) []GroupDevicePair {
 // GetDevicesByGroup はグループ名に対応するデバイスリストを返す
 func (g *DeviceGroups) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
 	// グループ名の検証
-	if err := g.ValidateGroupName(groupName); err != nil {
+	if err := ValidateGroupName(groupName); err != nil {
 		return nil, false
 	}
 

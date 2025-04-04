@@ -1003,8 +1003,3 @@ func (h *ECHONETLiteHandler) GroupDelete(groupName string) error {
 func (h *ECHONETLiteHandler) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
 	return h.DeviceGroups.GetDevicesByGroup(groupName)
 }
-
-// ValidateGroupName はグループ名が有効かどうかを検証する
-func (h *ECHONETLiteHandler) ValidateGroupName(groupName string) error {
-	return h.DeviceGroups.ValidateGroupName(groupName)
-}

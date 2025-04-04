@@ -38,5 +38,4 @@ type GroupManager interface {
 	GroupRemove(groupName string, devices []IPAndEOJ) error
 	GroupDelete(groupName string) error
 	GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool)
-	ValidateGroupName(groupName string) error
 }

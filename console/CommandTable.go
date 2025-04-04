@@ -2,6 +2,7 @@ package console
 
 import (
 	"echonet-list/client"
+	"echonet-list/echonet_lite"
 	"errors"
 	"fmt"
 	"strings"
@@ -488,8 +489,8 @@ var CommandTable = []CommandDefinition{
 					return nil, fmt.Errorf("group add コマンドにはグループ名が必要です")
 				}
 				groupName := parts[2]
-				if !strings.HasPrefix(groupName, "@") {
-					return nil, fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
+				if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+					return nil, err
 				}
 
 				cmd = newCommand(CmdGroupAdd)
@@ -518,8 +519,8 @@ var CommandTable = []CommandDefinition{
 					return nil, fmt.Errorf("group remove コマンドにはグループ名が必要です")
 				}
 				groupName := parts[2]
-				if !strings.HasPrefix(groupName, "@") {
-					return nil, fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
+				if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+					return nil, err
 				}
 
 				cmd = newCommand(CmdGroupRemove)
@@ -548,8 +549,8 @@ var CommandTable = []CommandDefinition{
 					return nil, fmt.Errorf("group delete コマンドにはグループ名のみが必要です")
 				}
 				groupName := parts[2]
-				if !strings.HasPrefix(groupName, "@") {
-					return nil, fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
+				if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+					return nil, err
 				}
 
 				cmd = newCommand(CmdGroupDelete)
@@ -559,8 +560,8 @@ var CommandTable = []CommandDefinition{
 				cmd = newCommand(CmdGroupList)
 				if len(parts) > 2 {
 					groupName := parts[2]
-					if !strings.HasPrefix(groupName, "@") {
-						return nil, fmt.Errorf("グループ名は '@' で始まる必要があります: %s", groupName)
+					if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+						return nil, err
 					}
 					cmd.GroupName = &groupName
 				}
