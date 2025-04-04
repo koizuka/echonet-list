@@ -249,30 +249,36 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 	return nil
 }
 
+func (p *CommandProcessor) getGroupDevices(cmd *Command) ([]client.IPAndEOJ, error) {
+	if cmd.GroupName != nil {
+		groupDevices := p.handler.GroupList(cmd.GroupName)
+		if len(groupDevices) == 0 {
+			return nil, fmt.Errorf("グループ %s が見つからないか、デバイスが登録されていません", *cmd.GroupName)
+		}
+
+		var devices []client.IPAndEOJ
+		for _, group := range groupDevices {
+			devices = append(devices, group.Devices...)
+		}
+		if len(devices) == 0 {
+			return nil, fmt.Errorf("グループ %s にデバイスが登録されていません", *cmd.GroupName)
+		}
+		return devices, nil
+	}
+	return nil, nil
+}
+
 func (p *CommandProcessor) processGetCommand(cmd *Command) error {
 	skipValidation := false
 	if cmd.DebugMode != nil && *cmd.DebugMode == "-skip-validation" {
 		skipValidation = true
 	}
 
-	var devices []client.IPAndEOJ
-
-	// グループが指定されている場合
-	if cmd.GroupName != nil {
-		// グループ内のデバイスを取得
-		groupDevices := p.handler.GroupList(cmd.GroupName)
-		if len(groupDevices) == 0 {
-			return fmt.Errorf("グループ %s が見つからないか、デバイスが登録されていません", *cmd.GroupName)
-		}
-		if len(cmd.EPCs) == 0 {
-			return errors.New("get コマンドには少なくとも1つのEPCが必要です")
-		}
-
-		// グループ内の各デバイスに対して処理
-		for _, group := range groupDevices {
-			devices = append(devices, group.Devices...)
-		}
-	} else {
+	devices, err := p.getGroupDevices(cmd)
+	if err != nil {
+		return err
+	}
+	if devices == nil {
 		// 通常のデバイス指定の場合
 		device, err := p.getSingleDevice(cmd.DeviceSpec)
 		if err != nil {
@@ -320,55 +326,41 @@ func (p *CommandProcessor) processGetCommand(cmd *Command) error {
 }
 
 func (p *CommandProcessor) processSetCommand(cmd *Command) error {
-	// グループが指定されている場合
-	if cmd.GroupName != nil {
-		// グループ内のデバイスを取得
-		groupDevices := p.handler.GroupList(cmd.GroupName)
-		if len(groupDevices) == 0 {
-			return fmt.Errorf("グループ %s が見つからないか、デバイスが登録されていません", *cmd.GroupName)
-		}
-
-		if len(cmd.Properties) == 0 {
-			return errors.New("set コマンドには少なくとも1つのプロパティが必要です")
-		}
-
-		// グループ内の各デバイスに対して処理
-		for _, group := range groupDevices {
-			for _, device := range group.Devices {
-				result, err := p.handler.SetProperties(device, cmd.Properties)
-				if err != nil {
-					fmt.Printf("デバイス %v のプロパティ設定に失敗しました: %v\n", device, err)
-					continue
-				}
-				fmt.Printf("プロパティ設定成功: %v\n", result.Device)
-				classCode := result.Device.EOJ.ClassCode()
-				for _, prop := range result.Properties {
-					propStr := prop.String(classCode)
-					fmt.Printf("  %v\n", propStr)
-				}
-			}
-		}
-		return nil
-	}
-
-	// 通常のデバイス指定の場合
-	device, err := p.getSingleDevice(cmd.DeviceSpec)
+	devices, err := p.getGroupDevices(cmd)
 	if err != nil {
 		return err
 	}
+	if devices == nil {
+		// 通常のデバイス指定の場合
+		device, err := p.getSingleDevice(cmd.DeviceSpec)
+		if err != nil {
+			return err
+		}
+		devices = append(devices, *device)
+	}
+
 	if len(cmd.Properties) == 0 {
 		return errors.New("set コマンドには少なくとも1つのプロパティが必要です")
 	}
-	result, err := p.handler.SetProperties(*device, cmd.Properties)
-	if err == nil {
-		fmt.Printf("プロパティ設定成功: %v\n", result.Device)
-		classCode := result.Device.EOJ.ClassCode()
-		for _, p := range result.Properties {
-			propStr := p.String(classCode)
-			fmt.Printf("  %v\n", propStr)
+
+	var lastError error
+	for _, device := range devices {
+		result, err := p.handler.SetProperties(device, cmd.Properties)
+		if err == nil {
+			fmt.Printf("プロパティ設定成功: %v\n", result.Device)
+			classCode := result.Device.EOJ.ClassCode()
+			for _, p := range result.Properties {
+				propStr := p.String(classCode)
+				fmt.Printf("  %v\n", propStr)
+			}
+		} else {
+			if lastError != nil {
+				fmt.Println(lastError)
+			}
+			lastError = err
 		}
 	}
-	return err
+	return lastError
 }
 
 func (p *CommandProcessor) processDebugCommand(cmd *Command) error {
