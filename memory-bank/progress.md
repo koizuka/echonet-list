@@ -26,6 +26,16 @@ This file tracks the implementation progress of the project features defined in 
   - Without arguments, it shows a summary of all commands
   - Command information is now stored in a table-driven approach using CommandDefinition structs
   - This makes the help system more maintainable and user-friendly
+- WebSocket server and client implementation is complete
+  - The server can handle client connections and process requests
+  - The client can connect to the server and send commands
+  - The server can broadcast notifications to all connected clients
+  - TLS support is implemented for secure connections
+  - Configuration file support is added for easier setup
+- Device group management functionality is implemented
+  - Users can create, view, delete, and list groups of devices
+  - Groups are persisted to disk in groups.json
+  - Commands can be executed on all devices in a group using the @ prefix
 
 ## What's Left to Build
 
@@ -100,8 +110,8 @@ This file tracks the implementation progress of the project features defined in 
   - ✅ Organized code into client, server, and protocol packages
   - ✅ Updated imports and dependencies
   - ✅ Tested functionality after reorganization
-- **Architecture Split (WebSocket Implementation)**: 🔄 IN PROGRESS
-  - ✅ WebSocket server/client implementation has been started. The implemented code (`protocol/protocol.go`, `server/websocket_server.go`, `client/websocket_client.go`) provides a basic WebSocket-based client-server architecture.
+- **Architecture Split (WebSocket Implementation)**: ✅ COMPLETED
+  - ✅ WebSocket server/client implementation has been completed. The implemented code (`protocol/protocol.go`, `server/websocket_server.go`, `client/websocket_client.go`) provides a basic WebSocket-based client-server architecture.
   - ✅ Added command-line flags for WebSocket mode: `-websocket`, `-ws-addr`, `-ws-client`, `-ws-client-addr`, `-ws-both`
   - ✅ Implemented WebSocket client that implements the ECHONETListClient interface
   - ✅ Implemented WebSocket server that handles client requests and notifications
@@ -127,6 +137,14 @@ This file tracks the implementation progress of the project features defined in 
     - ✅ Updated `config.toml` and `config.toml.sample` with new certificate paths
     - ✅ Updated `.gitignore` to include localhost certificates but exclude others
     - ✅ Created `config.toml` with TLS enabled for testing
+  - ✅ Refactored WebSocket server for better testability
+    - ✅ Added `WebSocketTransport` interface to abstract the WebSocket server's network layer
+    - ✅ Split large file into smaller files by functionality
+      - ✅ `websocket_server.go` - Core server structure and main methods
+      - ✅ `websocket_server_handlers_properties.go` - Property-related handlers
+      - ✅ `websocket_server_handlers_management.go` - Alias and group management handlers
+      - ✅ `websocket_server_handlers_discovery.go` - Device discovery handlers
+    - ✅ Improved testability by allowing mock implementations for testing
   - **Issues Fixed**:
     - ✅ Fixed the `quit` command issue that was causing the application to freeze
     - ✅ Improved error handling and logging in the WebSocket client
@@ -161,7 +179,7 @@ This file tracks the implementation progress of the project features defined in 
   - **Framework**: SvelteKit + TypeScript
   - **Directory**: `web-client`
   - **Features**: Grouping by location (EPC 0x81), location management, status visualization, group operations.
-- **Device Group Management (CLI)**: 🔄 IN PROGRESS
+- **Device Group Management (CLI)**: ✅ COMPLETED
   - ✅ Added `GroupManager` interface to `client/interfaces.go`
   - ✅ Implemented group management functionality in `echonet_lite/DeviceGroups.go`
   - ✅ Added `group` command to `console/Command.go`

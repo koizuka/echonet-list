@@ -4,7 +4,21 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Current Task
 
-最近の作業では、デバイスグループ管理機能を実装し、WebSocketプロトコルのクライアント開発者向けドキュメントを作成し、WebSocketサーバーのTLS対応と設定ファイルのサポートを実装しました。
+最近の作業では、WebSocketサーバーのリファクタリングを行い、テスト可能な構造に改善しました。また、デバイスグループ管理機能を実装し、WebSocketプロトコルのクライアント開発者向けドキュメントを作成し、WebSocketサーバーのTLS対応と設定ファイルのサポートを実装しました。
+
+### WebSocketサーバーのリファクタリング
+
+WebSocketサーバーのコードをリファクタリングし、テスト可能な構造に改善しました。具体的には以下の変更を行いました：
+
+1. **インターフェースの導入**: `WebSocketTransport` インターフェースを導入し、WebSocketサーバーのネットワーク層を抽象化しました。これにより、テスト時にmockに差し替えることが可能になりました。
+
+2. **コードの分割**: 大きなファイルを機能ごとに分割し、コードの管理がしやすくなりました：
+   - `websocket_server.go` - 基本的な構造と主要なメソッド
+   - `websocket_server_handlers_properties.go` - プロパティ関連のハンドラメソッド
+   - `websocket_server_handlers_management.go` - エイリアスやグループ管理関連のハンドラメソッド
+   - `websocket_server_handlers_discovery.go` - デバイス検出関連のハンドラメソッド
+
+3. **テスト容易性の向上**: インターフェースを使用することで、単体テストが書きやすくなりました。テスト時には、実際のWebSocketサーバーの代わりにモックを使用できます。
 
 ### デバイスグループ管理機能の実装
 
@@ -120,6 +134,15 @@ TOML形式の設定ファイルをサポートし、コマンドライン引数�
 
 ## Recent Changes
 
+- WebSocketサーバーのリファクタリングを行いました
+  - `WebSocketTransport` インターフェースを導入し、WebSocketサーバーのネットワーク層を抽象化しました
+  - 大きなファイルを機能ごとに分割し、コードの管理がしやすくなりました
+    - `websocket_server.go` - 基本的な構造と主要なメソッド
+    - `websocket_server_handlers_properties.go` - プロパティ関連のハンドラメソッド
+    - `websocket_server_handlers_management.go` - エイリアスやグループ管理関連のハンドラメソッド
+    - `websocket_server_handlers_discovery.go` - デバイス検出関連のハンドラメソッド
+  - インターフェースを使用することで、単体テストが書きやすくなりました
+
 - WebSocketプロトコルのクライアント開発者向けドキュメントを作成しました
   - `docs/websocket_client_protocol.md` ファイルを作成し、WebSocketプロトコルの詳細な仕様と使用方法を記述しました
   - プロトコルのメッセージ形式、データ型、通知、リクエスト、応答などを詳細に説明しました
@@ -176,6 +199,8 @@ WebSocketクライアントとサーバーの基本的な実装は完了しま�
 3. **Web UI開発**: 上記分割が済んだら、web UIを作成する
 
 ## 現在の作業状況
+
+WebSocketサーバーのリファクタリングが完了し、テスト可能な構造に改善しました。WebSocketTransportインターフェースを導入し、大きなファイルを機能ごとに分割しました。これにより、コードの保守性とテスト容易性が向上しました。
 
 WebSocketクライアントとサーバーの基本実装が完了し、`quit`コマンドの問題も解決しました。アプリケーションは`-ws-both`モードで起動し、WebSocketサーバーとクライアントの両方を同時に実行できるようになりました。
 
