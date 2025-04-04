@@ -184,9 +184,20 @@ func (c *WebSocketClient) ListDevices(criteria FilterCriteria) []DeviceAndProper
 		// Check if the device has all the specified property values
 		match := true
 		if len(criteria.PropertyValues) > 0 {
-			// For now, we don't check property values since we're using Properties as a slice
-			// This would need to be implemented differently
-			match = false
+			for _, prop := range criteria.PropertyValues {
+				found, ok := deviceAndProps.Properties.FindEPC(prop.EPC)
+				// Check if the property exists
+				if !ok {
+					match = false
+					break
+				}
+
+				// Check if the property value matches
+				if !bytes.Equal(found.EDT, prop.EDT) {
+					match = false
+					break
+				}
+			}
 		}
 
 		if match {
