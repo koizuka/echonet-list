@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/url"
 	"sort"
 	"sync"
 	"time"
@@ -21,8 +20,7 @@ import (
 type WebSocketClient struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
-	conn            *websocket.Conn
-	url             string
+	transport       WebSocketClientTransport
 	debug           bool
 	devices         map[string]echonet_lite.DeviceAndProperties
 	devicesMutex    sync.RWMutex
@@ -38,18 +36,19 @@ type WebSocketClient struct {
 
 // NewWebSocketClient creates a new WebSocket client
 func NewWebSocketClient(ctx context.Context, serverURL string, debug bool) (*WebSocketClient, error) {
-	// Validate the URL
-	_, err := url.Parse(serverURL)
+	clientCtx, cancel := context.WithCancel(ctx)
+
+	// Create the transport
+	transport, err := NewDefaultWebSocketClientTransport(clientCtx, serverURL, debug)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("invalid server URL: %v", err)
 	}
-
-	clientCtx, cancel := context.WithCancel(ctx)
 
 	client := &WebSocketClient{
 		ctx:        clientCtx,
 		cancel:     cancel,
-		url:        serverURL,
+		transport:  transport,
 		debug:      debug,
 		devices:    make(map[string]echonet_lite.DeviceAndProperties),
 		aliases:    make(map[string]echonet_lite.IPAndEOJ),
@@ -62,12 +61,10 @@ func NewWebSocketClient(ctx context.Context, serverURL string, debug bool) (*Web
 
 // Connect connects to the WebSocket server
 func (c *WebSocketClient) Connect() error {
-	// Connect to the WebSocket server
-	conn, _, err := websocket.DefaultDialer.Dial(c.url, nil)
-	if err != nil {
+	// Connect to the WebSocket server using the transport
+	if err := c.transport.Connect(); err != nil {
 		return fmt.Errorf("error connecting to WebSocket server: %v", err)
 	}
-	c.conn = conn
 
 	// Start listening for messages
 	go c.listenForMessages()
@@ -78,10 +75,7 @@ func (c *WebSocketClient) Connect() error {
 // Close closes the WebSocket connection
 func (c *WebSocketClient) Close() error {
 	c.cancel()
-	if c.conn != nil {
-		return c.conn.Close()
-	}
-	return nil
+	return c.transport.Close()
 }
 
 // IsDebug returns whether debug mode is enabled
@@ -92,6 +86,11 @@ func (c *WebSocketClient) IsDebug() bool {
 // SetDebug sets the debug mode
 func (c *WebSocketClient) SetDebug(debug bool) {
 	c.debug = debug
+
+	// トランスポートがDefaultWebSocketClientTransportの場合、そのデバッグモードも設定
+	if t, ok := c.transport.(*DefaultWebSocketClientTransport); ok {
+		t.SetDebug(debug)
+	}
 }
 
 // Discover sends a discover_devices message to the server
@@ -655,8 +654,8 @@ func (c *WebSocketClient) listenForMessages() {
 		case <-c.ctx.Done():
 			return
 		default:
-			// Read a message
-			_, message, err := c.conn.ReadMessage()
+			// Read a message using the transport
+			_, message, err := c.transport.ReadMessage()
 			if err != nil {
 				if c.debug {
 					fmt.Printf("Error reading message: %v\n", err)
@@ -1106,8 +1105,8 @@ func (c *WebSocketClient) sendRequest(msgType protocol.MessageType, payload inte
 		return nil, fmt.Errorf("error creating message: %v", err)
 	}
 
-	// Send the message
-	if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	// Send the message using the transport
+	if err := c.transport.WriteMessage(websocket.TextMessage, data); err != nil {
 		return nil, fmt.Errorf("error sending message: %v", err)
 	}
 
