@@ -169,8 +169,9 @@ func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties) {
 	defer d.mu.Unlock()
 	d.ensureDeviceExists(device)
 	ipStr := device.IP.String()
+	props := d.data[ipStr][device.EOJ]
 	for _, p := range properties {
-		d.data[ipStr][device.EOJ][p.EPC] = p
+		props[p.EPC] = p
 	}
 }
 
