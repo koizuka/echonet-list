@@ -617,7 +617,8 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 	}
 
 	// プロパティを取得
-	_, err := h.session.GetProperties(
+	err := h.session.StartGetPropertiesWithRetry(
+		h.ctx,
 		device,
 		forGet,
 		func(device IPAndEOJ, success bool, properties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
@@ -661,12 +662,12 @@ func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
 	// broadcastの場合、1秒無通信で完了とする
 	// タイマーを作る
 	var timer *time.Timer
-	idleTimeout := time.Duration(1 * time.Second)
+	idleTimeout := time.Duration(2 * time.Second)
 	if isBroadcast {
 		timer = time.NewTimer(idleTimeout)
 		defer timer.Stop()
 	}
-	key, err := h.session.GetProperties(
+	key, err := h.session.StartGetProperties(
 		IPAndEOJ{ip, NodeProfileObject}, []EPCType{EPC_NPO_SelfNodeInstanceListS},
 		func(ie IPAndEOJ, b bool, p Properties, f []EPCType) (CallbackCompleteStatus, error) {
 			var completeStatus CallbackCompleteStatus
@@ -696,8 +697,7 @@ func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
 
 // GetGetPropertyMap は、GetPropertyMapプロパティを取得する
 func (h *ECHONETLiteHandler) GetGetPropertyMap(device IPAndEOJ) error {
-	_, err := h.session.GetProperties(device, []EPCType{EPCGetPropertyMap}, h.onGetPropertyMap)
-	return err
+	return h.session.StartGetPropertiesWithRetry(h.ctx, device, []EPCType{EPCGetPropertyMap}, h.onGetPropertyMap)
 }
 
 // Discover は、ECHONET Liteデバイスを検出する
@@ -768,8 +768,7 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skip
 		}
 	}
 
-	// GetPropertiesWithContextを呼び出し
-	success, properties, failedEPCs, err := h.session.GetPropertiesWithContext(
+	success, properties, failedEPCs, err := h.session.GetProperties(
 		h.ctx,
 		device,
 		EPCs,
@@ -829,8 +828,7 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 		return DeviceAndProperties{}, fmt.Errorf("以下のEPCはSetPropertyMapに含まれていません: %v", invalidEPCs)
 	}
 
-	// SetPropertiesWithContextを呼び出し
-	success, successProperties, failedEPCs, err := h.session.SetPropertiesWithContext(
+	success, successProperties, failedEPCs, err := h.session.SetProperties(
 		h.ctx,
 		device,
 		properties,
@@ -915,8 +913,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 		go func(device IPAndEOJ, propMap PropertyMap) {
 			defer wg.Done()
 
-			// GetPropertiesWithContextを呼び出し
-			success, properties, failedEPCs, err := h.session.GetPropertiesWithContext(
+			success, properties, failedEPCs, err := h.session.GetProperties(
 				timeoutCtx,
 				device,
 				propMap.EPCs(),

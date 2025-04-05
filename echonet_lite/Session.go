@@ -371,13 +371,9 @@ func (s *Session) CreateGetPropertyMessage(device IPAndEOJ, EPCs []EPCType) *ECH
 	}
 }
 
-func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) (Key, error) {
+func (s *Session) prepareStartGetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) (*ECHONETLiteMessage, Key) {
 	msg := s.CreateGetPropertyMessage(device, EPCs)
-
-	if err := s.sendMessage(device.IP, msg); err != nil {
-		return Key{}, err
-	}
-	key := s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+	return msg, s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		device := IPAndEOJ{ip, msg.SEOJ}
 		if msg.ESV == ESVGet_Res {
 			return callback(device, true, msg.Properties, nil)
@@ -394,7 +390,107 @@ func (s *Session) GetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPro
 		}
 		return callback(device, false, successProperties, failedEPCs)
 	})
+}
+
+func (s *Session) StartGetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) (Key, error) {
+	msg, key := s.prepareStartGetProperties(device, EPCs, callback)
+	if err := s.sendMessage(device.IP, msg); err != nil {
+		return Key{}, err
+	}
 	return key, nil
+}
+
+// StartGetPropertiesWithRetry は、プロパティ取得を行い、タイムアウトした場合は go routineで再試行する
+func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) error {
+	desc := fmt.Sprintf("StartGetPropertiesWithRetry(%v, %v)", device, EPCs)
+
+	ctx, cancel := context.WithCancel(ctx1)
+
+	msg, key := s.prepareStartGetProperties(device, EPCs, func(device IPAndEOJ, success bool, properties Properties, FailedEPCs []EPCType) (CallbackCompleteStatus, error) {
+		cancel()
+		_, err := callback(device, success, properties, FailedEPCs)
+		return CallbackFinished, err
+	})
+
+	err := s.sendMessage(device.IP, msg)
+	if err != nil {
+		cancel()
+		s.unregisterCallback(key)
+		return err
+	}
+
+	go func() {
+		defer cancel() // ゴルーチン終了時にキャンセル
+
+		// 再送カウンタ
+		retryCount := 0
+
+		// タイマーの作成
+		timer := time.NewTimer(s.RetryInterval)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				s.unregisterCallback(key)
+
+				if retryCount > 0 {
+					fmt.Printf("%v: リトライ後に完了\n", desc) // DEBUG
+				}
+				return
+
+			case <-timer.C:
+				// タイムアウトした場合
+				retryCount++
+
+				if retryCount >= s.MaxRetries {
+					// 最大再送回数に達した場合
+					logger := log.GetLogger()
+					if logger != nil {
+						logger.Log("%v 最大再送回数(%d)に達しました", desc, s.MaxRetries)
+					}
+					_ = s.notifyDeviceTimeout(device)
+					return
+				}
+
+				// ログ出力
+				logger := log.GetLogger()
+				if logger != nil {
+					logger.Log("%v: リクエストを再送します (試行 %d/%d)", desc, retryCount, s.MaxRetries)
+				}
+				fmt.Printf("%v: リクエストを再送します (試行 %d/%d)\n", desc, retryCount, s.MaxRetries) // DEBUG
+
+				// 再送
+				if err := s.sendMessage(device.IP, msg); err != nil {
+					return
+				}
+
+				// タイマーをリセット
+				timer.Reset(s.RetryInterval)
+			}
+		}
+	}()
+	return nil
+}
+
+func (s *Session) notifyDeviceTimeout(device IPAndEOJ) error {
+	maxRetriesErr := ErrMaxRetriesReached{
+		MaxRetries: s.MaxRetries,
+		Device:     device,
+	}
+	if s.TimeoutCh != nil {
+		select {
+		case s.TimeoutCh <- SessionTimeoutEvent{
+			Device: device,
+			Type:   SessionTimeoutMaxRetries,
+			Error:  maxRetriesErr,
+		}:
+			// 送信成功
+		default:
+			// チャンネルがブロックされている場合は無視
+		}
+	}
+	return maxRetriesErr
 }
 
 func (s *Session) CreateSetPropertyMessage(device IPAndEOJ, properties Properties) *ECHONETLiteMessage {
@@ -438,9 +534,7 @@ func (s *Session) sendRequestWithContext(
 		}
 
 		// 必ず登録解除する（ブロードキャストを想定しない）
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		delete(s.dispatchTable, key)
+		s.unregisterCallback(key)
 
 		return CallbackFinished, nil
 	})
@@ -489,28 +583,7 @@ func (s *Session) sendRequestWithContext(
 				}
 
 				// タイムアウト通知をチャンネルに送信
-				maxRetriesErr := ErrMaxRetriesReached{
-					MaxRetries: s.MaxRetries,
-					Device:     device,
-				}
-
-				if s.TimeoutCh != nil {
-					select {
-					case s.TimeoutCh <- SessionTimeoutEvent{
-						Device: device,
-						Type:   SessionTimeoutMaxRetries,
-						Error:  maxRetriesErr,
-					}:
-						// 送信成功
-					default:
-						// チャンネルがブロックされている場合は無視
-						if logger != nil {
-							logger.Log("警告: タイムアウト通知チャネルがブロックされています")
-						}
-					}
-				}
-
-				return nil, maxRetriesErr
+				return nil, s.notifyDeviceTimeout(device)
 			}
 
 			// ログ出力
@@ -530,8 +603,8 @@ func (s *Session) sendRequestWithContext(
 	}
 }
 
-// GetPropertiesWithContext - コンテキスト付きのプロパティ取得
-func (s *Session) GetPropertiesWithContext(
+// GetProperties - プロパティ取得
+func (s *Session) GetProperties(
 	ctx context.Context,
 	device IPAndEOJ,
 	EPCs []EPCType,
@@ -570,8 +643,8 @@ func (s *Session) GetPropertiesWithContext(
 	return success, successProperties, failedEPCs, nil
 }
 
-// SetPropertiesWithContext - コンテキスト付きのプロパティ設定
-func (s *Session) SetPropertiesWithContext(
+// SetProperties - プロパティ設定
+func (s *Session) SetProperties(
 	ctx context.Context,
 	device IPAndEOJ,
 	properties Properties,
