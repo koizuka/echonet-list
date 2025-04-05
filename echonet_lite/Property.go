@@ -155,6 +155,8 @@ func (ps Properties) GetIdentificationNumber() *IdentificationNumber {
 	return nil
 }
 
+// EPCType はプロパティコードを表します。
+// プロパティコードは、Echonet Lite のプロパティを識別するための 1 バイトの値です。
 type EPCType byte
 
 func (e EPCType) PropertyForGet() *Property {

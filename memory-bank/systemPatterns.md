@@ -111,6 +111,7 @@ The WebSocket server is designed with a modular architecture to improve maintain
    - Each message type has a dedicated handler method
    - Messages are parsed and validated before processing
    - Responses are sent back to the client using a common message format
+   - Property aliases information can be retrieved via WebSocket using the `get_property_aliases` message type
 
 4. **Notification System**:
    - Server listens for notifications from the ECHONET Lite handler
@@ -120,5 +121,31 @@ The WebSocket server is designed with a modular architecture to improve maintain
 5. **Security**:
    - TLS support for secure WebSocket connections (WSS)
    - Certificate and private key paths configurable via options
+
+## WebSocket Protocol Message Types
+
+The WebSocket protocol supports the following message types:
+
+### Client -> Server (Requests)
+- `get_properties`: Get property values for specified devices and EPCs
+- `set_properties`: Set property values for a specified device
+- `update_properties`: Request the server to update property information for specified devices
+- `manage_alias`: Add or delete device aliases
+- `manage_group`: Add, remove, delete, or list device groups
+- `discover_devices`: Trigger device discovery
+- `get_property_aliases`: Get property aliases for a specified class code
+
+### Server -> Client (Responses and Notifications)
+- `command_result`: Response to client requests
+- `property_aliases_result`: Response to `get_property_aliases` request (EPCごとにグループ化されたプロパティエイリアス情報)
+- `initial_state`: Initial state sent when a client connects
+- `device_added`: Notification when a new device is discovered
+- `device_updated`: Notification when device information is updated
+- `device_removed`: Notification when a device is removed
+- `alias_changed`: Notification when a device alias is changed
+- `group_changed`: Notification when a device group is changed
+- `property_changed`: Notification when a property value changes
+- `timeout_notification`: Notification when a device communication times out
+- `error_notification`: Notification of an error
 
 This architecture allows for better separation of concerns, easier testing, and improved maintainability.

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -311,6 +312,121 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 
 	// Send the message
 	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
+}
+
+// handleGetPropertyAliasesFromClient handles a get_property_aliases message from a client
+func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(connID string, msg *protocol.Message) error {
+	logger := log.GetLogger()
+
+	// Parse the payload
+	var payload protocol.GetPropertyAliasesPayload
+	if err := protocol.ParsePayload(msg, &payload); err != nil {
+		if logger != nil {
+			logger.Log("Error parsing get_property_aliases payload: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.PropertyAliasesResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidRequestFormat,
+				Message: fmt.Sprintf("Error parsing get_property_aliases payload: %v", err),
+			},
+		}
+		return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, errorPayload, msg.RequestID)
+	}
+
+	// Validate the payload
+	if payload.ClassCode == "" {
+		if logger != nil {
+			logger.Log("Error: no class code specified")
+		}
+		// エラー応答を送信
+		errorPayload := protocol.PropertyAliasesResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: "No class code specified",
+			},
+		}
+		return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, errorPayload, msg.RequestID)
+	}
+
+	// Parse the class code
+	classCode, err := echonet_lite.ParseEOJClassCodeString(payload.ClassCode)
+	if err != nil {
+		if logger != nil {
+			logger.Log("Error: invalid class code: %v", err)
+		}
+		// エラー応答を送信
+		errorPayload := protocol.PropertyAliasesResultPayload{
+			Success: false,
+			Error: &protocol.Error{
+				Code:    protocol.ErrorCodeInvalidParameters,
+				Message: fmt.Sprintf("Invalid class code: %v", err),
+			},
+		}
+		return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, errorPayload, msg.RequestID)
+	}
+
+	// Get property aliases from client
+	aliases := ws.echonetClient.AvailablePropertyAliases(classCode)
+
+	// Convert to protocol format
+	propertiesMap := make(map[string]protocol.EPCInfo)
+
+	// Process each alias
+	for alias, desc := range aliases {
+		// Parse EPC and EDT from description (format: "EPC(説明):EDT")
+		parts := strings.Split(desc, ":")
+		if len(parts) != 2 {
+			continue
+		}
+
+		// EPCとその説明部分を取得
+		epcPart := parts[0]
+		// 括弧の位置を見つける
+		openParenIndex := strings.Index(epcPart, "(")
+		closeParenIndex := strings.Index(epcPart, ")")
+		if openParenIndex == -1 || closeParenIndex == -1 || closeParenIndex <= openParenIndex {
+			continue
+		}
+
+		// EPCは括弧の前の部分
+		epc := epcPart[:openParenIndex]
+		// 説明は括弧の中の部分
+		description := epcPart[openParenIndex+1 : closeParenIndex]
+
+		// EDTを解析
+		edt, err := echonet_lite.ParseHexString(parts[1])
+		if err != nil {
+			continue
+		}
+
+		// EPCInfoを取得または作成
+		epcInfo, exists := propertiesMap[epc]
+		if !exists {
+			epcInfo = protocol.EPCInfo{
+				Description: description,
+				Aliases:     make(map[string]string),
+			}
+		}
+
+		// エイリアスを追加
+		epcInfo.Aliases[alias] = base64.StdEncoding.EncodeToString(edt)
+		propertiesMap[epc] = epcInfo
+	}
+
+	// Create response payload
+	resultPayload := protocol.PropertyAliasesResultPayload{
+		Success: true,
+		Data: &protocol.PropertyAliasesData{
+			ClassCode:  payload.ClassCode,
+			Properties: propertiesMap,
+		},
+	}
+
+	// Send the response
+	return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, resultPayload, msg.RequestID)
 }
 
 // handleUpdatePropertiesFromClient handles an update_properties message from a client

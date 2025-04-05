@@ -4,7 +4,47 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Current Task
 
-最近の作業では、WebSocketサーバーのリファクタリングを行い、テスト可能な構造に改善しました。また、デバイスグループ管理機能を実装し、WebSocketプロトコルのクライアント開発者向けドキュメントを作成し、WebSocketサーバーのTLS対応と設定ファイルのサポートを実装しました。
+最近の作業では、WebSocketを通じてプロパティエイリアス情報を取得するための機能を実装し、その通信フォーマットを改善しました。また、WebSocketサーバーのリファクタリングを行い、テスト可能な構造に改善しました。デバイスグループ管理機能を実装し、WebSocketプロトコルのクライアント開発者向けドキュメントを作成し、WebSocketサーバーのTLS対応と設定ファイルのサポートを実装しました。
+
+### WebSocketを通じたプロパティエイリアス情報の提供機能と通信フォーマットの改善
+
+WebSocketクライアントがクラスコードを指定して、そのクラスに対応するプロパティエイリアス情報を取得できる機能を実装しました。これにより、WebSocketを通してしかアクセスできない別言語のクライアントでもPropertyAliasの情報にアクセスできるようになりました。
+
+さらに、プロパティエイリアス情報の通信フォーマットを改善し、EPCごとにグループ化された形式に変更しました。これにより、クライアント側でEPCに対する選択肢（エイリアスとその値）をより扱いやすくなりました。
+
+実装内容：
+1. `protocol/protocol.go`に`EPCInfo`構造体を新たに定義し、EPCの説明テキストとエイリアスマップを保持するようにしました。
+2. `PropertyAliasesData`構造体を修正し、`aliases`フィールドを`properties`フィールドに変更しました。
+3. `server/websocket_server_handlers_properties.go`ファイルの`handleGetPropertyAliasesFromClient`メソッドを修正し、`AvailablePropertyAliases`から取得したデータを新しいプロトコルフォーマットに変換するロジックを実装しました。
+4. EPCとその説明テキスト、エイリアス名、EDT値を正しく解析し、EPCごとにグループ化するようにしました。
+5. `server/websocket_server_handlers_properties_test.go`のテストケースを修正し、新しいレスポンスフォーマットの期待値に合わせてアサーションを更新しました。
+6. `docs/websocket_client_protocol.md`を更新し、`property_aliases_result`メッセージのフォーマットに関する記述を修正しました。
+
+新しいフォーマットでは、以下のような構造になります：
+```json
+{
+  "classCode": "0130",
+  "properties": {
+    "80": {
+      "description": "Operation status",
+      "aliases": {
+        "on": "MzA=",
+        "off": "MzE="
+      }
+    },
+    "B0": {
+      "description": "Operation mode setting",
+      "aliases": {
+        "auto": "NDE=",
+        "cooling": "NDI=",
+        "heating": "NDM="
+      }
+    }
+  }
+}
+```
+
+この変更により、クライアント側でEPCごとに選択肢を表示したり、特定のEPCに対する操作をグループ化したりすることが容易になります。また、EPCの説明テキストも含まれるようになったため、ユーザーインターフェースでより分かりやすい表示が可能になりました。
 
 ### WebSocketサーバーのリファクタリング
 

@@ -13,24 +13,26 @@ type MessageType string
 
 const (
 	// Server -> Client message types
-	MessageTypeInitialState        MessageType = "initial_state"
-	MessageTypeDeviceAdded         MessageType = "device_added"
-	MessageTypeDeviceUpdated       MessageType = "device_updated"
-	MessageTypeDeviceRemoved       MessageType = "device_removed"
-	MessageTypeAliasChanged        MessageType = "alias_changed"
-	MessageTypeGroupChanged        MessageType = "group_changed"
-	MessageTypePropertyChanged     MessageType = "property_changed"
-	MessageTypeTimeoutNotification MessageType = "timeout_notification"
-	MessageTypeErrorNotification   MessageType = "error_notification"
-	MessageTypeCommandResult       MessageType = "command_result"
+	MessageTypeInitialState          MessageType = "initial_state"
+	MessageTypeDeviceAdded           MessageType = "device_added"
+	MessageTypeDeviceUpdated         MessageType = "device_updated"
+	MessageTypeDeviceRemoved         MessageType = "device_removed"
+	MessageTypeAliasChanged          MessageType = "alias_changed"
+	MessageTypeGroupChanged          MessageType = "group_changed"
+	MessageTypePropertyChanged       MessageType = "property_changed"
+	MessageTypeTimeoutNotification   MessageType = "timeout_notification"
+	MessageTypeErrorNotification     MessageType = "error_notification"
+	MessageTypeCommandResult         MessageType = "command_result"
+	MessageTypePropertyAliasesResult MessageType = "property_aliases_result"
 
 	// Client -> Server message types
-	MessageTypeGetProperties    MessageType = "get_properties"
-	MessageTypeSetProperties    MessageType = "set_properties"
-	MessageTypeUpdateProperties MessageType = "update_properties"
-	MessageTypeManageAlias      MessageType = "manage_alias"
-	MessageTypeManageGroup      MessageType = "manage_group"
-	MessageTypeDiscoverDevices  MessageType = "discover_devices"
+	MessageTypeGetProperties      MessageType = "get_properties"
+	MessageTypeSetProperties      MessageType = "set_properties"
+	MessageTypeUpdateProperties   MessageType = "update_properties"
+	MessageTypeManageAlias        MessageType = "manage_alias"
+	MessageTypeManageGroup        MessageType = "manage_group"
+	MessageTypeDiscoverDevices    MessageType = "discover_devices"
+	MessageTypeGetPropertyAliases MessageType = "get_property_aliases"
 )
 
 // AliasChangeType defines the type of alias change
@@ -211,6 +213,30 @@ type ManageGroupPayload struct {
 // DiscoverDevicesPayload is the payload for the discover_devices message
 type DiscoverDevicesPayload struct {
 	// Empty payload
+}
+
+// GetPropertyAliasesPayload is the payload for the get_property_aliases message
+type GetPropertyAliasesPayload struct {
+	ClassCode string `json:"classCode"`
+}
+
+// PropertyAliasesResultPayload is the payload for the property_aliases_result message
+type PropertyAliasesResultPayload struct {
+	Success bool                 `json:"success"`
+	Data    *PropertyAliasesData `json:"data,omitempty"`
+	Error   *Error               `json:"error,omitempty"`
+}
+
+// EPCInfo contains information about an EPC, including its description and aliases
+type EPCInfo struct {
+	Description string            `json:"description"` // EPC description (e.g. "Operation status")
+	Aliases     map[string]string `json:"aliases"`     // Alias name -> EDT in base64 format
+}
+
+// PropertyAliasesData is the data for the property_aliases_result message
+type PropertyAliasesData struct {
+	ClassCode  string             `json:"classCode"`
+	Properties map[string]EPCInfo `json:"properties"` // EPC in hex format (e.g. "80") -> EPCInfo
 }
 
 // Helper functions for converting between ECHONET Lite types and protocol types

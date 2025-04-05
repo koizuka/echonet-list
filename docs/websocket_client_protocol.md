@@ -422,9 +422,99 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 - `payload`: 空のJSONオブジェクト `{}`
 
+### get_property_aliases
+
+指定したクラスコードに対応するプロパティエイリアス一覧を取得します。
+
+```json
+{
+  "type": "get_property_aliases",
+  "payload": {
+    "classCode": "0130"
+  },
+  "requestId": "req-128"
+}
+```
+
+- `classCode`: 4桁の16進数クラスコード（例: "0130" = エアコン）
+
 ## 6. サーバー -> クライアント メッセージ（応答）
 
 クライアントからのリクエストに対する応答JSONメッセージです。リクエストと同じ `requestId` を含みます。
+
+### property_aliases_result
+
+`get_property_aliases` リクエストに対する応答です。
+
+成功時の例：
+
+```json
+{
+  "type": "property_aliases_result",
+  "payload": {
+    "success": true,
+    "data": {
+      "classCode": "0130",
+      "properties": {
+        "80": {
+          "description": "Operation status",
+          "aliases": {
+            "on": "MzA=",
+            "off": "MzE="
+          }
+        },
+        "B0": {
+          "description": "Operation mode setting",
+          "aliases": {
+            "auto": "NDE=",
+            "cooling": "NDI=",
+            "heating": "NDM=",
+            "dehumidification": "NDQ=",
+            "ventilation": "NDU="
+          }
+        },
+        "B3": {
+          "description": "Air flow rate setting",
+          "aliases": {
+            "silent": "NDE=",
+            "standard": "NDI=",
+            "powerful": "NDM="
+          }
+        }
+      }
+    }
+  },
+  "requestId": "req-128"
+}
+```
+
+失敗時の例：
+
+```json
+{
+  "type": "property_aliases_result",
+  "payload": {
+    "success": false,
+    "error": {
+      "code": "INVALID_PARAMETERS",
+      "message": "Invalid class code: ABCD (must be 4 hexadecimal digits)"
+    }
+  },
+  "requestId": "req-128"
+}
+```
+
+- `success`: 操作が成功したかどうか（boolean）
+- `data`: 成功時のデータ
+  - `classCode`: リクエストされたクラスコード
+  - `properties`: EPCとその情報のマップ
+    - キー: EPC (16進数文字列)（例: "80" = 動作状態）
+    - 値: EPCの情報
+      - `description`: EPCの説明（例: "Operation status"）
+      - `aliases`: エイリアス名とEDT値のマップ
+        - キー: エイリアス名（例: "on", "off", "cooling"）
+        - 値: EDT (Base64エンコード文字列)（例: "MzA=" = 0x30 = ON）
+- `error`: 失敗時のエラー情報（`Error` オブジェクト、成功時は null または undefined）
 
 ### command_result
 

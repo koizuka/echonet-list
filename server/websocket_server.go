@@ -97,6 +97,8 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 		return ws.handleManageGroupFromClient(connID, msg)
 	case protocol.MessageTypeDiscoverDevices:
 		return ws.handleDiscoverDevicesFromClient(connID, msg)
+	case protocol.MessageTypeGetPropertyAliases:
+		return ws.handleGetPropertyAliasesFromClient(connID, msg)
 	default:
 		if logger != nil {
 			logger.Log("Unknown message type: %s", msg.Type)
