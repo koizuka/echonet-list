@@ -14,6 +14,58 @@ import (
 type EPCPropertyMap map[EPCType]Property
 type DeviceProperties map[EOJ]EPCPropertyMap
 
+// MarshalJSON は DeviceProperties を JSON にエンコードする際に、EOJ キーを文字列形式に変換します
+func (d DeviceProperties) MarshalJSON() ([]byte, error) {
+	// 文字列キーを使用した一時的なマップを作成
+	stringMap := make(map[string]EPCPropertyMap)
+	for eoj, props := range d {
+		// EOJ.Specifier() を使用して文字列キーを生成
+		stringMap[eoj.Specifier()] = props
+	}
+	// 標準のJSONエンコーダを使用して一時マップをエンコード
+	return json.Marshal(stringMap)
+}
+
+// UnmarshalJSON は JSON から DeviceProperties をデコードする際に、文字列キーを EOJ に変換します
+func (d *DeviceProperties) UnmarshalJSON(data []byte) error {
+	// 文字列キーを使用した一時的なマップを作成
+	stringMap := make(map[string]EPCPropertyMap)
+	if err := json.Unmarshal(data, &stringMap); err != nil {
+		return err
+	}
+
+	// 新しいマップを作成
+	result := make(DeviceProperties)
+	for eojStr, props := range stringMap {
+		// 文字列キーを EOJ に変換
+		var eoj EOJ
+		var err error
+
+		// インスタンスコードが含まれているかどうかを確認
+		if strings.Contains(eojStr, ":") {
+			// "CCCC:I" 形式の場合は ParseEOJString を使用
+			eoj, err = ParseEOJString(eojStr)
+		} else {
+			// "CCCC" 形式の場合は ParseEOJClassCodeString を使用してクラスコードのみを解析
+			classCode, err := ParseEOJClassCodeString(eojStr)
+			if err != nil {
+				return fmt.Errorf("invalid EOJ class code: %v", err)
+			}
+			// インスタンスコード 0 で EOJ を作成
+			eoj = MakeEOJ(classCode, 0)
+		}
+
+		if err != nil {
+			return fmt.Errorf("invalid EOJ string: %v", err)
+		}
+
+		result[eoj] = props
+	}
+
+	*d = result
+	return nil
+}
+
 // DeviceEventType はデバイスイベントの種類を表す型
 type DeviceEventType int
 
