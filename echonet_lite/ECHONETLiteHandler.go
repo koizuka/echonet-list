@@ -1,6 +1,7 @@
 package echonet_lite
 
 import (
+	"bytes"
 	"context"
 	"echonet-list/echonet_lite/log"
 	"errors"
@@ -33,17 +34,25 @@ type DeviceNotification struct {
 	Error  error // タイムアウトの場合はエラー情報
 }
 
+// PropertyChangeNotification はプロパティ変化に関する通知を表す構造体
+type PropertyChangeNotification struct {
+	Device   IPAndEOJ
+	Property Property
+}
+
 // ECHONETLiteHandler は、ECHONET Lite の通信処理を担当する構造体
 type ECHONETLiteHandler struct {
-	session        *Session
-	devices        Devices
-	DeviceAliases  *DeviceAliases
-	DeviceGroups   *DeviceGroups
-	localDevices   DeviceProperties
-	Debug          bool
-	ctx            context.Context         // コンテキスト
-	cancel         context.CancelFunc      // コンテキストのキャンセル関数
-	NotificationCh chan DeviceNotification // デバイス通知用チャネル
+	session          *Session
+	devices          Devices
+	propMutex        sync.RWMutex // プロパティの排他制御用ミューテックス
+	DeviceAliases    *DeviceAliases
+	DeviceGroups     *DeviceGroups
+	localDevices     DeviceProperties // 自ノードが所有するデバイスのプロパティ
+	Debug            bool
+	ctx              context.Context                 // コンテキスト
+	cancel           context.CancelFunc              // コンテキストのキャンセル関数
+	NotificationCh   chan DeviceNotification         // デバイス通知用チャネル
+	PropertyChangeCh chan PropertyChangeNotification // プロパティ変化通知用チャネル
 }
 
 // saveDeviceInfo は、デバイス情報をファイルに保存する共通処理
@@ -156,7 +165,8 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 	}
 
 	// 通知チャンネルを作成
-	notificationCh := make(chan DeviceNotification, 100) // バッファサイズは100に設定
+	notificationCh := make(chan DeviceNotification, 100)           // バッファサイズは100に設定
+	propertyChangeCh := make(chan PropertyChangeNotification, 100) // バッファサイズは100に設定
 
 	// セッションのタイムアウト通知チャンネルを作成
 	sessionTimeoutCh := make(chan SessionTimeoutEvent, 100)
@@ -165,15 +175,16 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 	session.SetTimeoutChannel(sessionTimeoutCh)
 
 	handler := &ECHONETLiteHandler{
-		session:        session,
-		devices:        devices,
-		DeviceAliases:  aliases,
-		DeviceGroups:   groups,
-		localDevices:   localDevices,
-		Debug:          debug,
-		ctx:            handlerCtx,
-		cancel:         cancel,
-		NotificationCh: notificationCh,
+		session:          session,
+		devices:          devices,
+		DeviceAliases:    aliases,
+		DeviceGroups:     groups,
+		localDevices:     localDevices,
+		Debug:            debug,
+		ctx:              handlerCtx,
+		cancel:           cancel,
+		NotificationCh:   notificationCh,
+		PropertyChangeCh: propertyChangeCh,
 	}
 
 	// デバイスイベントとセッションタイムアウトイベントを通知チャンネルに中継するゴルーチンを起動
@@ -244,6 +255,11 @@ func (h *ECHONETLiteHandler) Close() error {
 	// 通知チャネルを閉じる
 	if h.NotificationCh != nil {
 		close(h.NotificationCh)
+	}
+
+	// プロパティ変化通知チャネルを閉じる
+	if h.PropertyChangeCh != nil {
+		close(h.PropertyChangeCh)
 	}
 
 	return h.session.Close()
@@ -339,13 +355,61 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessage
 }
 
 func (h *ECHONETLiteHandler) registerProperties(device IPAndEOJ, properties Properties) {
+	h.propMutex.Lock()
+	defer h.propMutex.Unlock()
+
+	logger := log.GetLogger()
+
+	// 変更されたプロパティを追跡
+	var changedProperties []Property
+
+	// 各プロパティについて処理
+	for _, prop := range properties {
+		// 現在の値を取得
+		currentProp, exists := h.devices.GetProperty(device, prop.EPC)
+
+		// プロパティが新規または値が変更された場合
+		if !exists || !bytes.Equal(currentProp.EDT, prop.EDT) {
+			// 変更されたプロパティとして追加
+			changedProperties = append(changedProperties, prop)
+
+			if h.Debug {
+				if !exists {
+					fmt.Printf("%v: プロパティ追加: %v\n", device, prop.String(device.EOJ.ClassCode()))
+				} else {
+					fmt.Printf("%v: プロパティ変更: %v -> %v\n", device,
+						currentProp.String(device.EOJ.ClassCode()),
+						prop.String(device.EOJ.ClassCode()))
+				}
+			}
+		}
+	}
+
+	// デバイスのプロパティを登録
 	h.devices.RegisterProperties(device, properties)
+
 	// IdentificationNumber を受信した場合、登録する
 	if id := properties.GetIdentificationNumber(); id != nil {
 		err := h.DeviceAliases.RegisterDeviceIdentification(device, id)
 		if err != nil {
-			if logger := log.GetLogger(); logger != nil {
+			if logger != nil {
 				logger.Log("警告: IdentificationNumberの登録に失敗: %v", err)
+			}
+		}
+	}
+
+	// 変更されたプロパティについて通知を送信
+	for _, prop := range changedProperties {
+		select {
+		case h.PropertyChangeCh <- PropertyChangeNotification{
+			Device:   device,
+			Property: prop,
+		}:
+			// 送信成功
+		default:
+			// チャンネルがブロックされている場合は無視
+			if logger != nil {
+				logger.Log("警告: プロパティ変化通知チャネルがブロックされています")
 			}
 		}
 	}
@@ -482,6 +546,9 @@ func (h *ECHONETLiteHandler) onSelfNodeInstanceListS(device IPAndEOJ, success bo
 }
 
 func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, il InstanceList) error {
+	h.propMutex.Lock()
+	defer h.propMutex.Unlock()
+
 	// デバイスの登録
 	for _, eoj := range il {
 		h.devices.RegisterDevice(IPAndEOJ{ip, eoj})
@@ -825,6 +892,13 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 	var wg sync.WaitGroup
 	var errMutex sync.Mutex
 	var firstErr error
+	storeError := func(err error) {
+		errMutex.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		errMutex.Unlock()
+	}
 
 	// 各デバイスに対して処理を実行
 	for _, device := range filtered.ListIPAndEOJ() {
@@ -832,11 +906,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 
 		propMap := h.devices.GetPropertyMap(device, GetPropertyMap)
 		if propMap == nil {
-			errMutex.Lock()
-			if firstErr == nil {
-				firstErr = fmt.Errorf("プロパティマップが見つかりません: %v", device)
-			}
-			errMutex.Unlock()
+			storeError(fmt.Errorf("プロパティマップが見つかりません: %v", device))
 			wg.Done()
 			continue
 		}
@@ -853,12 +923,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 			)
 
 			if err != nil {
-				errMutex.Lock()
-				if firstErr == nil {
-					firstErr = fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err)
-				}
-				errMutex.Unlock()
-
+				storeError(fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err))
 				return
 			}
 
@@ -874,11 +939,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 
 			// 全体の成功/失敗を判定
 			if !success && len(failedEPCs) > 0 {
-				errMutex.Lock()
-				if firstErr == nil {
-					firstErr = fmt.Errorf("デバイス %v の一部のプロパティ取得に失敗: %v", device, failedEPCs)
-				}
-				errMutex.Unlock()
+				storeError(fmt.Errorf("デバイス %v の一部のプロパティ取得に失敗: %v", device, failedEPCs))
 			}
 		}(device, propMap)
 	}

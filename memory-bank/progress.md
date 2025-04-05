@@ -39,16 +39,16 @@ This file tracks the implementation progress of the project features defined in 
 
 ## What's Left to Build
 
-- **プロパティ変化通知機能**: デバイスのプロパティ値が変化した際に通知を送る機能を実装する。これにより、フロントエンドが状態変化をリアルタイムに受け取れるようになる。この機能は、システムを疎結合にし、将来的なWebSocketサーバーとUI分離のアーキテクチャを実現するための重要な要素となる。
-  - 実装予定: プロパティ監視機能とイベント通知の仕組みの設計と実装
-  - 状態: 計画中
+- ✅ **プロパティ変化通知機能**: デバイスのプロパティ値が変化した際に通知を送る機能を実装する。これにより、フロントエンドが状態変化をリアルタイムに受け取れるようになる。この機能は、システムを疎結合にし、将来的なWebSocketサーバーとUI分離のアーキテクチャを実現するための重要な要素となる。
+  - 実装完了: プロパティ監視機能とイベント通知の仕組みの設計と実装
+  - 状態: 完了
 
 ### 将来の計画 (Future Plans)
 
 - ✅ **デバイス通知機能**: ECHONETLiteHandlerから呼出元に対して、デバイスの追加通知とデバイスのリトライタイムアウト通知を送るチャンネルを作る。mainではそれを受けて表示する。
-- **プロパティ変化通知機能**: デバイスのプロパティ値が変化した際に通知を送る機能を実装する。これにより、フロントエンドが状態変化をリアルタイムに受け取れるようになる。この機能は、システムを疎結合にし、将来的なWebSocketサーバーとUI分離のアーキテクチャを実現するための重要な要素となる。
-  - 実装予定: プロパティ監視機能とイベント通知の仕組みの設計と実装
-  - 状態: 計画中（デバイス通知機能の次に実装予定）
+- ✅ **プロパティ変化通知機能**: デバイスのプロパティ値が変化した際に通知を送る機能を実装する。これにより、フロントエンドが状態変化をリアルタイムに受け取れるようになる。この機能は、システムを疎結合にし、将来的なWebSocketサーバーとUI分離のアーキテクチャを実現するための重要な要素となる。
+  - 実装完了: プロパティ監視機能とイベント通知の仕組みの設計と実装
+  - 状態: 完了
 - **アーキテクチャ分割**: ECHONET Liteに関する処理は web(WebSocket) サーバーにして、コンソールUIアプリはそれにアクセスするように分割する
   - 実装予定: 新しいパッケージ構造の設計と実装
   - 状態: 依存関係の整理中
@@ -63,6 +63,17 @@ This file tracks the implementation progress of the project features defined in 
 
 ## Progress Status
 
+- **Property Change Notification**: ✅ COMPLETED
+  - ✅ Added `PropertyChangeNotification` type in `echonet_lite/ECHONETLiteHandler.go`
+  - ✅ Added `PropertyChangeCh` channel to `ECHONETLiteHandler` struct
+  - ✅ Modified `onInfMessage` to send property change notifications
+  - ✅ Extended `listenForNotifications` in `server/websocket_server.go` to handle property changes
+  - ✅ Implemented broadcasting of property changes to WebSocket clients
+  - ✅ Fixed WebSocket client's property change notification handling
+    - ✅ Modified `handleInitialState`, `handleDeviceAdded`, `handleDeviceUpdated`, `handleDeviceRemoved`, and `handlePropertyChanged` functions in `client/websocket_notifications.go`
+    - ✅ Changed device map key from `ipAndEOJ.String()` to `ipAndEOJ.Specifier()` for consistent device identification
+    - ✅ Added debug output to track property change notifications and verify correct handling
+    - ✅ This fix ensures property changes are correctly reflected in the client's device map and displayed in the UI
 - **Alias Command Documentation in PrintUsage**: ✅ COMPLETED
 - **Alias Command Documentation in README.md**: ✅ COMPLETED
 - **Alias Command Persistence Implementation**: ✅ COMPLETED

@@ -6,6 +6,7 @@ import (
 	"echonet-list/echonet_lite"
 	"echonet-list/echonet_lite/log"
 	"echonet-list/protocol"
+	"encoding/base64"
 	"fmt"
 	"time"
 )
@@ -161,7 +162,11 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	aliasList := ws.echonetClient.AliasList()
 	aliases := make(map[string]string)
 	for _, alias := range aliasList {
-		aliases[alias.Alias] = alias.Device.Specifier()
+		if alias.Device != nil {
+			aliases[alias.Alias] = alias.Device.Specifier()
+		} else {
+			aliases[alias.Alias] = "" // 登録されたデバイスが見つからない
+		}
 	}
 
 	// Get all groups
@@ -269,6 +274,22 @@ func (ws *WebSocketServer) listenForNotifications() {
 				// Broadcast the message
 				ws.broadcastMessageToClients(protocol.MessageTypeTimeoutNotification, payload)
 			}
+		case propertyChange := <-ws.handler.PropertyChangeCh:
+			// プロパティ変化通知を処理
+			if logger != nil && ws.handler.IsDebug() {
+				logger.Log("Property changed: %s - EPC: %02X", propertyChange.Device.Specifier(), byte(propertyChange.Property.EPC))
+			}
+
+			// プロパティ変化通知ペイロードを作成
+			payload := protocol.PropertyChangedPayload{
+				IP:    propertyChange.Device.IP.String(),
+				EOJ:   propertyChange.Device.EOJ.Specifier(),
+				EPC:   fmt.Sprintf("%02X", byte(propertyChange.Property.EPC)),
+				Value: base64.StdEncoding.EncodeToString(propertyChange.Property.EDT),
+			}
+
+			// メッセージをブロードキャスト
+			ws.broadcastMessageToClients(protocol.MessageTypePropertyChanged, payload)
 		}
 	}
 }

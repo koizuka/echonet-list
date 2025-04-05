@@ -245,6 +245,25 @@ func (ps Properties) FindEPC(epc EPCType) (Property, bool) {
 	return Property{}, false
 }
 
+// UpdateProperty は指定されたEPCのプロパティを更新または追加します。
+// 既存のプロパティが見つかった場合は更新し、見つからなかった場合は追加します。
+// 更新または追加されたプロパティを含む新しいPropertiesを返します。
+func (ps Properties) UpdateProperty(prop Property) Properties {
+	// 既存のプロパティを探す
+	for i, p := range ps {
+		if p.EPC == prop.EPC {
+			// 既存のプロパティを更新
+			result := make(Properties, len(ps))
+			copy(result, ps)
+			result[i] = prop
+			return result
+		}
+	}
+
+	// 既存のプロパティが見つからなかった場合は追加
+	return append(ps, prop)
+}
+
 type IProperty interface {
 	Property() *Property
 }

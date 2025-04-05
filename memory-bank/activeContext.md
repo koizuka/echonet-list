@@ -4,7 +4,7 @@ This file focuses on the current work and recent changes in the project, buildin
 
 ## Current Task
 
-最近の作業では、WebSocketを通じてプロパティエイリアス情報を取得するための機能を実装し、その通信フォーマットを改善しました。また、WebSocketサーバーのリファクタリングを行い、テスト可能な構造に改善しました。デバイスグループ管理機能を実装し、WebSocketプロトコルのクライアント開発者向けドキュメントを作成し、WebSocketサーバーのTLS対応と設定ファイルのサポートを実装しました。
+最近の作業では、プロパティ変化通知機能を実装しました。また、以前にはWebSocketを通じてプロパティエイリアス情報を取得するための機能を実装し、その通信フォーマットを改善しました。WebSocketサーバーのリファクタリングを行い、テスト可能な構造に改善しました。デバイスグループ管理機能を実装し、WebSocketプロトコルのクライアント開発者向けドキュメントを作成し、WebSocketサーバーのTLS対応と設定ファイルのサポートを実装しました。
 
 ### WebSocketを通じたプロパティエイリアス情報の提供機能と通信フォーマットの改善
 
@@ -172,7 +172,38 @@ TOML形式の設定ファイルをサポートし、コマンドライン引数�
 
 この通知系の追加は、システムを疎結合にし、フロントエンドが状態変化をリアルタイムに受け取れるようにするためのものです。これは将来的なアーキテクチャ分割（ECHONET Lite処理をWebSocketサーバーに分離し、コンソールUIやWeb UIがそれに接続する形態）を見据えた設計です。今後はプロパティ変化通知なども実装していく予定で、これによりフロントエンドコンポーネントがデバイスの状態変化をリアルタイムに検知できるようになります。
 
+### プロパティ変化通知機能の実装
+
+ECHONET Liteデバイスからのプロパティ値変化通知（INF）を受信した際に、WebSocketクライアントにリアルタイムで通知する機能を実装しました。これにより、フロントエンドアプリケーションがデバイスの状態変化をリアルタイムに検知し、表示を更新することが可能になります。
+
+実装内容：
+1. `echonet_lite/ECHONETLiteHandler.go` に `PropertyChangeNotification` 構造体を定義し、変化があったデバイス (`IPAndEOJ`) とプロパティ (`Property`) を含めるようにしました。
+2. `ECHONETLiteHandler` 構造体に `PropertyChangeCh` フィールドを追加し、プロパティ変化通知用のチャネルとして使用します。
+3. `NewECHONETLiteHandler` 関数で `PropertyChangeCh` を初期化し、バッファサイズを100に設定しました。
+4. `onInfMessage` 関数内で、ECHONET Liteデバイスからプロパティ変化通知（INF）を受信し、`h.registerProperties` で内部状態を更新した後、変更があった各プロパティについて `PropertyChangeNotification` を作成し、`PropertyChangeCh` に送信するようにしました。
+5. `server/websocket_server.go` の `listenForNotifications` 関数を拡張し、`handler.PropertyChangeCh` からの通知も監視するようにしました。
+6. プロパティ変化通知を受信したら、その情報を `protocol.PropertyChangedPayload` 形式に変換し（IP, EOJ, EPCを文字列化し、EDTをBase64エンコード）、接続している全てのWebSocketクライアントに `property_changed` メッセージとして送信するようにしました。
+
+この機能により、以下のようなメリットがあります：
+- フロントエンドアプリケーションがデバイスの状態変化をリアルタイムに検知できる
+- ポーリングによる定期的な状態確認が不要になり、ネットワークトラフィックが削減される
+- ユーザーインターフェースの応答性が向上し、ユーザー体験が改善される
+- システムが疎結合になり、将来的なWebSocketサーバーとUI分離のアーキテクチャが実現しやすくなる
+
+この機能は、既に実装済みのデバイス追加通知とデバイスタイムアウト通知の仕組みを拡張したものであり、同様のパターンを使用しています。WebSocketクライアント側では、`client/websocket_notifications.go` の `handlePropertyChanged` 関数で通知を受け取り、内部状態を更新します。
+
 ## Recent Changes
+
+- プロパティ変化通知機能を実装・修正しました
+  - `echonet_lite/ECHONETLiteHandler.go` に `PropertyChangeNotification` 構造体を定義しました
+  - `ECHONETLiteHandler` 構造体に `PropertyChangeCh` フィールドを追加しました
+  - `onInfMessage` 関数内でプロパティ変化通知を送信するようにしました
+  - `server/websocket_server.go` の `listenForNotifications` 関数を拡張し、プロパティ変化通知を処理するようにしました
+  - WebSocketクライアントへのプロパティ変化通知のブロードキャスト機能を実装しました
+  - WebSocketクライアントのプロパティ変化通知処理を修正しました
+    - `client/websocket_notifications.go` の `handleInitialState`, `handleDeviceAdded`, `handleDeviceUpdated`, `handleDeviceRemoved`, `handlePropertyChanged` 関数を修正しました
+    - デバイスマップのキーとして `ipAndEOJ.String()` ではなく `ipAndEOJ.Specifier()` を使用するように変更しました
+    - これにより、デバイス識別子の一貫性が保たれ、プロパティ変更通知が正しく処理されるようになりました
 
 - WebSocketサーバーのリファクタリングを行いました
   - `WebSocketTransport` インターフェースを導入し、WebSocketサーバーのネットワーク層を抽象化しました
@@ -226,7 +257,7 @@ TOML形式の設定ファイルをサポートし、コマンドライン引数�
 
 ## Next Steps
 
-WebSocketクライアントとサーバーの基本的な実装は完了しましたが、まだいくつかの課題が残っています：
+プロパティ変化通知機能の実装が完了し、WebSocketクライアントとサーバーの基本的な実装も完了しましたが、まだいくつかの課題が残っています：
 
 1. **WebSocketクライアントの機能改善**:
    - `list`や`discover`などのコマンドが正しく動作するように実装を改善する
@@ -237,8 +268,11 @@ WebSocketクライアントとサーバーの基本的な実装は完了しま�
    - 残りの機能をWebSocketプロトコル経由で利用できるようにする
 
 3. **Web UI開発**: 上記分割が済んだら、web UIを作成する
+   - プロパティ変化通知機能を活用して、リアルタイムに状態を更新するUIを実装する
 
 ## 現在の作業状況
+
+プロパティ変化通知機能の実装が完了し、ECHONET Liteデバイスからのプロパティ値変化通知（INF）をWebSocketクライアントにリアルタイムで転送できるようになりました。これにより、フロントエンドアプリケーションがデバイスの状態変化をリアルタイムに検知し、表示を更新することが可能になります。
 
 WebSocketサーバーのリファクタリングが完了し、テスト可能な構造に改善しました。WebSocketTransportインターフェースを導入し、大きなファイルを機能ごとに分割しました。これにより、コードの保守性とテスト容易性が向上しました。
 

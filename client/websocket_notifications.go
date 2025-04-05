@@ -138,7 +138,8 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 
 	// Add to devices
 	c.devicesMutex.Lock()
-	c.devices[ipAndEOJ.String()] = echonet_lite.DeviceAndProperties{
+	// ipAndEOJ.Specifier() をキーとして使用
+	c.devices[ipAndEOJ.Specifier()] = echonet_lite.DeviceAndProperties{
 		Device:     ipAndEOJ,
 		Properties: props,
 	}
@@ -172,7 +173,8 @@ func (c *WebSocketClient) handleDeviceUpdated(msg *protocol.Message) {
 
 	// Update devices
 	c.devicesMutex.Lock()
-	c.devices[ipAndEOJ.String()] = echonet_lite.DeviceAndProperties{
+	// ipAndEOJ.Specifier() をキーとして使用
+	c.devices[ipAndEOJ.Specifier()] = echonet_lite.DeviceAndProperties{
 		Device:     ipAndEOJ,
 		Properties: props,
 	}
@@ -200,7 +202,8 @@ func (c *WebSocketClient) handleDeviceRemoved(msg *protocol.Message) {
 
 	// Remove from devices
 	c.devicesMutex.Lock()
-	delete(c.devices, ipAndEOJ.String())
+	// ipAndEOJ.Specifier() をキーとして使用
+	delete(c.devices, ipAndEOJ.Specifier())
 	c.devicesMutex.Unlock()
 }
 
@@ -361,15 +364,20 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 
 	// Update the property
 	c.devicesMutex.Lock()
-	if deviceProps, ok := c.devices[ipAndEOJ.String()]; ok {
+	// ipAndEOJ.Specifier() をキーとして使用
+	if deviceProps, ok := c.devices[ipAndEOJ.Specifier()]; ok {
 		// Create a new property
-		prop := echonet_lite.Property{
+		newProp := echonet_lite.Property{
 			EPC: epc,
 			EDT: edt,
 		}
-		// Register the property
-		deviceProps.Properties = append(deviceProps.Properties, prop)
-		c.devices[ipAndEOJ.String()] = deviceProps
+
+		// UpdatePropertyメソッドを使用してプロパティを更新
+		deviceProps.Properties = deviceProps.Properties.UpdateProperty(newProp)
+		c.devices[ipAndEOJ.Specifier()] = deviceProps
+		if c.debug {
+			fmt.Printf("プロパティ更新: %s EPC:%02X EDT:%X\n", ipAndEOJ.String(), byte(epc), edt)
+		}
 	}
 	c.devicesMutex.Unlock()
 }
