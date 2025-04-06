@@ -189,11 +189,16 @@ func (c *WebSocketClient) AliasSet(alias *string, criteria FilterCriteria) error
 		return fmt.Errorf("multiple devices match the criteria")
 	}
 
+	ids := c.GetIDString(devices[0])
+	if ids == "" {
+		return fmt.Errorf("device ID is empty")
+	}
+
 	// Create the payload
 	payload := protocol.ManageAliasPayload{
 		Action: protocol.AliasActionAdd,
 		Alias:  *alias,
-		Target: devices[0].Specifier(),
+		Target: string(ids),
 	}
 
 	// Send the message

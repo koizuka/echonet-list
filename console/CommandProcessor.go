@@ -112,7 +112,7 @@ func (p *CommandProcessor) processCommands() {
 			for _, alias := range aliases {
 				d := p.handler.FindDeviceByIDString(alias.ID)
 				if d == nil {
-					fmt.Printf("%s: not found\n", alias.Alias)
+					fmt.Printf("%s: not found (IDString:%v)\n", alias.Alias, alias.ID)
 				} else {
 					fmt.Printf("%s: %v\n", alias.Alias, *d)
 				}
