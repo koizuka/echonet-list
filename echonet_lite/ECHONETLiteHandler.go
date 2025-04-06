@@ -1029,7 +1029,7 @@ func (h *ECHONETLiteHandler) GroupList(groupName *string) []GroupDevicePair {
 }
 
 // GroupAdd はグループにデバイスを追加する
-func (h *ECHONETLiteHandler) GroupAdd(groupName string, devices []IPAndEOJ) error {
+func (h *ECHONETLiteHandler) GroupAdd(groupName string, devices []IDString) error {
 	err := h.DeviceGroups.GroupAdd(groupName, devices)
 	if err != nil {
 		return err
@@ -1038,7 +1038,7 @@ func (h *ECHONETLiteHandler) GroupAdd(groupName string, devices []IPAndEOJ) erro
 }
 
 // GroupRemove はグループからデバイスを削除する
-func (h *ECHONETLiteHandler) GroupRemove(groupName string, devices []IPAndEOJ) error {
+func (h *ECHONETLiteHandler) GroupRemove(groupName string, devices []IDString) error {
 	err := h.DeviceGroups.GroupRemove(groupName, devices)
 	if err != nil {
 		return err
@@ -1056,7 +1056,7 @@ func (h *ECHONETLiteHandler) GroupDelete(groupName string) error {
 }
 
 // GetDevicesByGroup はグループ名に対応するデバイスリストを返す
-func (h *ECHONETLiteHandler) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
+func (h *ECHONETLiteHandler) GetDevicesByGroup(groupName string) ([]IDString, bool) {
 	return h.DeviceGroups.GetDevicesByGroup(groupName)
 }
 
@@ -1066,4 +1066,8 @@ func (c *ECHONETLiteHandler) FindDeviceByIDString(id IDString) *IPAndEOJ {
 		return nil
 	}
 	return &devices[0]
+}
+
+func (c *ECHONETLiteHandler) GetIDString(device IPAndEOJ) IDString {
+	return c.devices.GetIDString(device)
 }

@@ -105,7 +105,7 @@ func (c *ECHONETListClientProxy) GroupList(groupName *string) []GroupDevicePair 
 	return c.handler.DeviceGroups.GroupList(groupName)
 }
 
-func (c *ECHONETListClientProxy) GroupAdd(groupName string, devices []IPAndEOJ) error {
+func (c *ECHONETListClientProxy) GroupAdd(groupName string, devices []IDString) error {
 	err := c.handler.DeviceGroups.GroupAdd(groupName, devices)
 	if err != nil {
 		return err
@@ -113,7 +113,7 @@ func (c *ECHONETListClientProxy) GroupAdd(groupName string, devices []IPAndEOJ) 
 	return c.handler.SaveGroupFile()
 }
 
-func (c *ECHONETListClientProxy) GroupRemove(groupName string, devices []IPAndEOJ) error {
+func (c *ECHONETListClientProxy) GroupRemove(groupName string, devices []IDString) error {
 	err := c.handler.DeviceGroups.GroupRemove(groupName, devices)
 	if err != nil {
 		return err
@@ -129,10 +129,14 @@ func (c *ECHONETListClientProxy) GroupDelete(groupName string) error {
 	return c.handler.SaveGroupFile()
 }
 
-func (c *ECHONETListClientProxy) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
+func (c *ECHONETListClientProxy) GetDevicesByGroup(groupName string) ([]IDString, bool) {
 	return c.handler.DeviceGroups.GetDevicesByGroup(groupName)
 }
 
 func (c *ECHONETListClientProxy) FindDeviceByIDString(id IDString) *IPAndEOJ {
 	return c.handler.FindDeviceByIDString(id)
+}
+
+func (c *ECHONETListClientProxy) GetIDString(device IPAndEOJ) IDString {
+	return c.handler.GetIDString(device)
 }

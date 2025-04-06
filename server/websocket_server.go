@@ -170,8 +170,8 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	groups := make(map[string][]string)
 	for _, group := range groupList {
 		deviceStrs := make([]string, 0, len(group.Devices))
-		for _, device := range group.Devices {
-			deviceStrs = append(deviceStrs, device.Specifier())
+		for _, ids := range group.Devices {
+			deviceStrs = append(deviceStrs, string(ids))
 		}
 		groups[group.Group] = deviceStrs
 	}

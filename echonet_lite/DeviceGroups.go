@@ -1,10 +1,8 @@
 package echonet_lite
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,14 +12,14 @@ import (
 
 // DeviceGroups はデバイスグループを管理する構造体
 type DeviceGroups struct {
-	groups map[string][]IPAndEOJ // グループ名 -> デバイスリスト
+	groups map[string][]IDString // グループ名 -> デバイスリスト
 	mutex  sync.RWMutex
 }
 
 // NewDeviceGroups は DeviceGroups の新しいインスタンスを作成する
 func NewDeviceGroups() *DeviceGroups {
 	return &DeviceGroups{
-		groups: make(map[string][]IPAndEOJ),
+		groups: make(map[string][]IDString),
 	}
 }
 
@@ -32,7 +30,7 @@ func (g *DeviceGroups) LoadFromFile(filename string) error {
 
 	// ファイルが存在しない場合は空のグループリストを作成して終了
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		g.groups = make(map[string][]IPAndEOJ)
+		g.groups = make(map[string][]IDString)
 		return nil
 	}
 
@@ -57,18 +55,13 @@ func (g *DeviceGroups) LoadFromFile(filename string) error {
 	}
 
 	// グループマップを初期化
-	g.groups = make(map[string][]IPAndEOJ)
+	g.groups = make(map[string][]IDString)
 
 	// エントリをグループマップに変換
 	for _, entry := range entries {
-		devices := make([]IPAndEOJ, 0, len(entry.Devices))
-		for _, deviceStr := range entry.Devices {
-			device, err := ParseDeviceIdentifier(deviceStr)
-			if err != nil {
-				// エラーがあっても続行（無効なデバイスはスキップ）
-				continue
-			}
-			devices = append(devices, device)
+		devices := make([]IDString, 0, len(entry.Devices))
+		for _, idStr := range entry.Devices {
+			devices = append(devices, IDString(idStr))
 		}
 		g.groups[entry.Group] = devices
 	}
@@ -98,7 +91,7 @@ func (g *DeviceGroups) SaveToFile(filename string) error {
 	for group, devices := range g.groups {
 		deviceStrs := make([]string, 0, len(devices))
 		for _, device := range devices {
-			deviceStrs = append(deviceStrs, device.Specifier())
+			deviceStrs = append(deviceStrs, string(device))
 		}
 		entries = append(entries, GroupEntry{
 			Group:   group,
@@ -147,7 +140,7 @@ func ValidateGroupName(groupName string) error {
 }
 
 // GroupAdd はグループにデバイスを追加する
-func (g *DeviceGroups) GroupAdd(groupName string, devices []IPAndEOJ) error {
+func (g *DeviceGroups) GroupAdd(groupName string, devices []IDString) error {
 	// グループ名の検証
 	if err := ValidateGroupName(groupName); err != nil {
 		return err
@@ -159,7 +152,7 @@ func (g *DeviceGroups) GroupAdd(groupName string, devices []IPAndEOJ) error {
 	// 既存のグループを取得または新規作成
 	existingDevices, exists := g.groups[groupName]
 	if !exists {
-		existingDevices = make([]IPAndEOJ, 0)
+		existingDevices = make([]IDString, 0)
 	}
 
 	// 新しいデバイスを追加（重複チェック）
@@ -167,7 +160,7 @@ func (g *DeviceGroups) GroupAdd(groupName string, devices []IPAndEOJ) error {
 		// 既に存在するかチェック
 		found := false
 		for _, existing := range existingDevices {
-			if existing.Equals(device) {
+			if existing == device {
 				found = true
 				break
 			}
@@ -186,7 +179,7 @@ func (g *DeviceGroups) GroupAdd(groupName string, devices []IPAndEOJ) error {
 }
 
 // GroupRemove はグループからデバイスを削除する
-func (g *DeviceGroups) GroupRemove(groupName string, devices []IPAndEOJ) error {
+func (g *DeviceGroups) GroupRemove(groupName string, devices []IDString) error {
 	// グループ名の検証
 	if err := ValidateGroupName(groupName); err != nil {
 		return err
@@ -207,12 +200,12 @@ func (g *DeviceGroups) GroupRemove(groupName string, devices []IPAndEOJ) error {
 	}
 
 	// 指定されたデバイスを削除
-	newDevices := make([]IPAndEOJ, 0, len(existingDevices))
+	newDevices := make([]IDString, 0, len(existingDevices))
 	for _, existing := range existingDevices {
 		// 削除対象かチェック
 		shouldKeep := true
 		for _, device := range devices {
-			if existing.Equals(device) {
+			if existing == device {
 				shouldKeep = false
 				break
 			}
@@ -268,14 +261,9 @@ func (g *DeviceGroups) GroupList(groupName *string) []GroupDevicePair {
 	if groupName != nil {
 		// 特定のグループが指定された場合
 		if devices, exists := g.groups[*groupName]; exists {
-			// デバイスをソート
-			sortedDevices := make([]IPAndEOJ, len(devices))
-			copy(sortedDevices, devices)
-			sortIPAndEOJs(sortedDevices)
-
 			result = append(result, GroupDevicePair{
 				Group:   *groupName,
-				Devices: sortedDevices,
+				Devices: devices,
 			})
 		}
 	} else {
@@ -291,14 +279,9 @@ func (g *DeviceGroups) GroupList(groupName *string) []GroupDevicePair {
 		for _, name := range groupNames {
 			devices := g.groups[name]
 
-			// デバイスをソート
-			sortedDevices := make([]IPAndEOJ, len(devices))
-			copy(sortedDevices, devices)
-			sortIPAndEOJs(sortedDevices)
-
 			result = append(result, GroupDevicePair{
 				Group:   name,
-				Devices: sortedDevices,
+				Devices: devices,
 			})
 		}
 	}
@@ -307,7 +290,7 @@ func (g *DeviceGroups) GroupList(groupName *string) []GroupDevicePair {
 }
 
 // GetDevicesByGroup はグループ名に対応するデバイスリストを返す
-func (g *DeviceGroups) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
+func (g *DeviceGroups) GetDevicesByGroup(groupName string) ([]IDString, bool) {
 	// グループ名の検証
 	if err := ValidateGroupName(groupName); err != nil {
 		return nil, false
@@ -322,44 +305,13 @@ func (g *DeviceGroups) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
 	}
 
 	// コピーを返す
-	result := make([]IPAndEOJ, len(devices))
+	result := make([]IDString, len(devices))
 	copy(result, devices)
 	return result, true
-}
-
-// sortIPAndEOJs はIPAndEOJのスライスをソートする
-// IPアドレスでソートし、同じIPの場合はEOJでソート
-func sortIPAndEOJs(devices []IPAndEOJ) {
-	sort.Slice(devices, func(i, j int) bool {
-		// まずIPアドレスで比較
-		ipCompare := compareIP(devices[i].IP, devices[j].IP)
-		if ipCompare != 0 {
-			return ipCompare < 0
-		}
-		// IPが同じ場合はEOJで比較
-		return devices[i].EOJ < devices[j].EOJ
-	})
-}
-
-// compareIP は2つのIPアドレスを比較する
-// 戻り値: a < b なら負、a == b なら0、a > b なら正
-func compareIP(a, b net.IP) int {
-	// IPv4アドレスを正規化（IPv4-mapped IPv6アドレスの場合はIPv4に変換）
-	a = a.To4()
-	if a == nil {
-		a = a.To16()
-	}
-	b = b.To4()
-	if b == nil {
-		b = b.To16()
-	}
-
-	// バイト単位で比較
-	return bytes.Compare(a, b)
 }
 
 // GroupDevicePair はグループとデバイスのペアを表す
 type GroupDevicePair struct {
 	Group   string
-	Devices []IPAndEOJ
+	Devices []IDString
 }

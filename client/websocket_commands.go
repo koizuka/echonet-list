@@ -219,7 +219,7 @@ func (c *WebSocketClient) AliasDelete(alias *string) error {
 }
 
 // GroupAdd adds devices to a group
-func (c *WebSocketClient) GroupAdd(groupName string, devices []IPAndEOJ) error {
+func (c *WebSocketClient) GroupAdd(groupName string, devices []IDString) error {
 	// Validate the group name
 	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
 		return err
@@ -227,8 +227,8 @@ func (c *WebSocketClient) GroupAdd(groupName string, devices []IPAndEOJ) error {
 
 	// Convert devices to strings
 	deviceStrs := make([]string, 0, len(devices))
-	for _, device := range devices {
-		deviceStrs = append(deviceStrs, device.Specifier())
+	for _, ids := range devices {
+		deviceStrs = append(deviceStrs, string(ids))
 	}
 
 	// Create the payload
@@ -261,7 +261,7 @@ func (c *WebSocketClient) GroupAdd(groupName string, devices []IPAndEOJ) error {
 }
 
 // GroupRemove removes devices from a group
-func (c *WebSocketClient) GroupRemove(groupName string, devices []IPAndEOJ) error {
+func (c *WebSocketClient) GroupRemove(groupName string, devices []IDString) error {
 	// Validate the group name
 	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
 		return err
@@ -269,8 +269,8 @@ func (c *WebSocketClient) GroupRemove(groupName string, devices []IPAndEOJ) erro
 
 	// Convert devices to strings
 	deviceStrs := make([]string, 0, len(devices))
-	for _, device := range devices {
-		deviceStrs = append(deviceStrs, device.Specifier())
+	for _, ids := range devices {
+		deviceStrs = append(deviceStrs, string(ids))
 	}
 
 	// Create the payload

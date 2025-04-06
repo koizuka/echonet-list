@@ -151,11 +151,11 @@ func (m *mockECHONETListClient) GroupList(groupName *string) []echonet_lite.Grou
 	return nil
 }
 
-func (m *mockECHONETListClient) GroupAdd(groupName string, devices []echonet_lite.IPAndEOJ) error {
+func (m *mockECHONETListClient) GroupAdd(groupName string, devices []echonet_lite.IDString) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) GroupRemove(groupName string, devices []echonet_lite.IPAndEOJ) error {
+func (m *mockECHONETListClient) GroupRemove(groupName string, devices []echonet_lite.IDString) error {
 	return nil
 }
 
@@ -163,7 +163,7 @@ func (m *mockECHONETListClient) GroupDelete(groupName string) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetDevicesByGroup(groupName string) ([]echonet_lite.IPAndEOJ, bool) {
+func (m *mockECHONETListClient) GetDevicesByGroup(groupName string) ([]echonet_lite.IDString, bool) {
 	return nil, false
 }
 
@@ -173,6 +173,10 @@ func (m *mockECHONETListClient) Close() error {
 
 func (m *mockECHONETListClient) FindDeviceByIDString(id echonet_lite.IDString) *echonet_lite.IPAndEOJ {
 	return nil
+}
+
+func (m *mockECHONETListClient) GetIDString(device echonet_lite.IPAndEOJ) echonet_lite.IDString {
+	return ""
 }
 
 // NotificationChannel は通知チャネルのモック

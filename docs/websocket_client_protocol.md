@@ -167,8 +167,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
       "bedroom_light": "029001:FFFFFF:9876543210FEDCBA9876543210"
     },
     "groups": {
-      "@living_room": ["192.168.1.10 0130:1", "192.168.1.11 0290:1"],
-      "@bedroom": ["192.168.1.12 0130:2"]
+      "@living_room": ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"],
+      "@bedroom": ["013001:FE0000:ABCDEF0123456789ABCDEF012345"]
     }
   }
 }
@@ -286,14 +286,14 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "change_type": "added",  // "added", "updated", "deleted" のいずれか
     "group": "@living_room",
-    "devices": ["192.168.1.10 0130:1", "192.168.1.11 0290:1"]  // change_type が "deleted" の場合は省略可能
+    "devices": ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"]  // change_type が "deleted" の場合は省略可能
   }
 }
 ```
 
 - `change_type`: 変更の種類（"added"=追加, "updated"=更新, "deleted"=削除）
 - `group`: グループ名（"@" で始まる文字列）
-- `devices`: グループに含まれるデバイスID文字列の配列（change_type が "deleted" の場合は省略可能）
+- `devices`: グループに含まれるデバイスIDString文字列の配列（change_type が "deleted" の場合は省略可能）
 
 ### error_notification
 
@@ -398,7 +398,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "action": "add",  // "add", "remove", "delete", "list" のいずれか
     "group": "@living_room",
-    "devices": ["192.168.1.10 0130:1", "192.168.1.11 0290:1"]  // action が "add" または "remove" の場合必須
+    "devices": ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"]  // action が "add" または "remove" の場合必須
   },
   "requestId": "req-128"
 }
@@ -410,7 +410,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   - "delete": グループを削除
   - "list": グループ一覧または特定グループの情報を取得
 - `group`: グループ名（"@" で始まる文字列）
-- `devices`: デバイスID文字列（IP EOJ形式）の配列（`action` が "add" または "remove" の場合必須）
+- `devices`: デバイスIDString文字列（EOJ:ManufacturerCode:UniqueIdentifier形式）の配列（`action` が "add" または "remove" の場合必須）
 
 ### discover_devices
 
@@ -872,7 +872,7 @@ async function listGroups(groupName?: string) {
 // 使用例:
 // 接続確立後（onopen内）で実行するか、initial_state受信後に実行
 // getDeviceProperties("192.168.1.10 0130:1", ["80", "B0"]);
-// addGroup("@living_room", ["192.168.1.10 0130:1", "192.168.1.11 0290:1"]);
+// addGroup("@living_room", ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"]);
 ```
 
 このコード例は概念的なものであり、実際の実装では言語やフレームワークに応じた適切なエラーハンドリングやタイプセーフな実装が必要です。

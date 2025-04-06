@@ -128,22 +128,36 @@ func (c *WebSocketClient) FindDeviceByIDString(id IDString) *IPAndEOJ {
 	// device の EOJ と properties の IdentificationNumber をもとに IDStringを組み立て、一致する物を探す
 	for _, device := range c.devices {
 		eoj := device.Device.EOJ
-		for _, prop := range device.Properties {
-			if prop.EPC == echonet_lite.EPCIdentificationNumber {
-				decoded := echonet_lite.DecodeIdentificationNumber(prop.EDT)
-				if decoded == nil {
-					continue
-				}
-				// IDString を組み立てる
-				idString := echonet_lite.MakeIDString(eoj, *decoded)
-				// IDString が一致するか確認
-				if idString == id {
-					return &device.Device
-				}
+		if prop, ok := device.Properties.FindEPC(echonet_lite.EPCIdentificationNumber); ok {
+			decoded := echonet_lite.DecodeIdentificationNumber(prop.EDT)
+			if decoded == nil {
+				continue
+			}
+			// IDString を組み立てる
+			idString := echonet_lite.MakeIDString(eoj, *decoded)
+			// IDString が一致するか確認
+			if idString == id {
+				return &device.Device
 			}
 		}
 	}
 	return nil
+}
+
+func (c *WebSocketClient) GetIDString(device IPAndEOJ) IDString {
+	c.devicesMutex.RLock()
+	defer c.devicesMutex.RUnlock()
+
+	key := device.Specifier()
+	if device, ok := c.devices[key]; ok {
+		if prop, ok := device.Properties.FindEPC(echonet_lite.EPCIdentificationNumber); ok {
+			decoded := echonet_lite.DecodeIdentificationNumber(prop.EDT)
+			if decoded != nil {
+				return echonet_lite.MakeIDString(device.Device.EOJ, *decoded)
+			}
+		}
+	}
+	return ""
 }
 
 // ListDevices returns devices and their properties matching the given criteria
@@ -289,7 +303,7 @@ func (c *WebSocketClient) GroupList(groupName *string) []GroupDevicePair {
 				result := make([]GroupDevicePair, 1)
 				result[0] = GroupDevicePair{
 					Group:   group.Group,
-					Devices: make([]IPAndEOJ, len(group.Devices)),
+					Devices: make([]IDString, len(group.Devices)),
 				}
 				copy(result[0].Devices, group.Devices)
 				return result
@@ -304,7 +318,7 @@ func (c *WebSocketClient) GroupList(groupName *string) []GroupDevicePair {
 	for i, group := range c.groups {
 		result[i] = GroupDevicePair{
 			Group:   group.Group,
-			Devices: make([]IPAndEOJ, len(group.Devices)),
+			Devices: make([]IDString, len(group.Devices)),
 		}
 		copy(result[i].Devices, group.Devices)
 	}
@@ -312,7 +326,7 @@ func (c *WebSocketClient) GroupList(groupName *string) []GroupDevicePair {
 }
 
 // GetDevicesByGroup gets devices in a group
-func (c *WebSocketClient) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
+func (c *WebSocketClient) GetDevicesByGroup(groupName string) ([]IDString, bool) {
 	// Validate the group name
 	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
 		return nil, false

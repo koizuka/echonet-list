@@ -22,6 +22,7 @@ type DeviceManager interface {
 	GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error)
 	SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error)
 	FindDeviceByIDString(id IDString) *IPAndEOJ
+	GetIDString(device IPAndEOJ) IDString
 }
 
 type PropertyInfoProvider interface {
@@ -34,8 +35,8 @@ type PropertyInfoProvider interface {
 
 type GroupManager interface {
 	GroupList(groupName *string) []GroupDevicePair
-	GroupAdd(groupName string, devices []IPAndEOJ) error
-	GroupRemove(groupName string, devices []IPAndEOJ) error
+	GroupAdd(groupName string, devices []IDString) error
+	GroupRemove(groupName string, devices []IDString) error
 	GroupDelete(groupName string) error
-	GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool)
+	GetDevicesByGroup(groupName string) ([]IDString, bool)
 }

@@ -1,10 +1,12 @@
 package console
 
 import (
+	"bytes"
 	"context"
 	"echonet-list/client"
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 
@@ -263,7 +265,12 @@ func (p *CommandProcessor) getGroupDevices(cmd *Command) ([]client.IPAndEOJ, err
 
 		var devices []client.IPAndEOJ
 		for _, group := range groupDevices {
-			devices = append(devices, group.Devices...)
+			for _, id := range group.Devices {
+				device := p.handler.FindDeviceByIDString(id)
+				if device != nil {
+					devices = append(devices, *device)
+				}
+			}
 		}
 		if len(devices) == 0 {
 			return nil, fmt.Errorf("グループ %s にデバイスが登録されていません", *cmd.GroupName)
@@ -401,7 +408,11 @@ func (p *CommandProcessor) processUpdateCommand(cmd *Command) error {
 
 		// グループ内の各デバイスに対して処理
 		for _, group := range groupDevices {
-			for _, device := range group.Devices {
+			for _, id := range group.Devices {
+				device := p.handler.FindDeviceByIDString(id)
+				if device == nil {
+					continue
+				}
 				// デバイスごとにフィルタリング条件を作成
 				classCode := device.EOJ.ClassCode()
 				instanceCode := device.EOJ.InstanceCode()
@@ -432,14 +443,19 @@ func (p *CommandProcessor) processUpdateCommand(cmd *Command) error {
 }
 
 func (p *CommandProcessor) processGroupAddCommand(cmd *Command) error {
-	// DeviceSpecs から IPAndEOJ のスライスに変換
-	devices := make([]client.IPAndEOJ, 0, len(cmd.DeviceSpecs))
+	// DeviceSpecs から IDString のスライスに変換
+	devices := make([]client.IDString, 0, len(cmd.DeviceSpecs))
 	for _, spec := range cmd.DeviceSpecs {
 		found := p.handler.GetDevices(spec)
 		if len(found) == 0 {
 			return fmt.Errorf("デバイスが見つかりません: %v", spec)
 		}
-		devices = append(devices, found...)
+		for _, device := range found {
+			ids := p.handler.GetIDString(device)
+			if ids != "" {
+				devices = append(devices, ids)
+			}
+		}
 	}
 
 	err := p.handler.GroupAdd(*cmd.GroupName, devices)
@@ -450,14 +466,19 @@ func (p *CommandProcessor) processGroupAddCommand(cmd *Command) error {
 }
 
 func (p *CommandProcessor) processGroupRemoveCommand(cmd *Command) error {
-	// DeviceSpecs から IPAndEOJ のスライスに変換
-	devices := make([]client.IPAndEOJ, 0, len(cmd.DeviceSpecs))
+	// DeviceSpecs から IDString のスライスに変換
+	devices := make([]client.IDString, 0, len(cmd.DeviceSpecs))
 	for _, spec := range cmd.DeviceSpecs {
 		found := p.handler.GetDevices(spec)
 		if len(found) == 0 {
 			return fmt.Errorf("デバイスが見つかりません: %v", spec)
 		}
-		devices = append(devices, found...)
+		for _, device := range found {
+			ids := p.handler.GetIDString(device)
+			if ids != "" {
+				devices = append(devices, ids)
+			}
+		}
 	}
 
 	err := p.handler.GroupRemove(*cmd.GroupName, devices)
@@ -483,8 +504,17 @@ func (p *CommandProcessor) processGroupListCommand(cmd *Command) error {
 
 	for _, group := range groups {
 		fmt.Printf("%s: %d デバイス\n", group.Group, len(group.Devices))
-		for _, device := range group.Devices {
+		devices := make([]client.IPAndEOJ, 0, len(group.Devices))
+		for _, ids := range group.Devices {
 			// エイリアスがあれば表示
+			device := p.handler.FindDeviceByIDString(ids)
+			if device == nil {
+				continue
+			}
+			devices = append(devices, *device)
+		}
+		sortIPAndEOJs(devices)
+		for _, device := range devices {
 			aliases := p.handler.GetAliases(device)
 			if len(aliases) > 0 {
 				fmt.Printf("  %v (%s)\n", device, strings.Join(aliases, ", "))
@@ -494,4 +524,35 @@ func (p *CommandProcessor) processGroupListCommand(cmd *Command) error {
 		}
 	}
 	return nil
+}
+
+// sortIPAndEOJs はIPAndEOJのスライスをソートする
+// IPアドレスでソートし、同じIPの場合はEOJでソート
+func sortIPAndEOJs(devices []client.IPAndEOJ) {
+	sort.Slice(devices, func(i, j int) bool {
+		// まずIPアドレスで比較
+		ipCompare := compareIP(devices[i].IP, devices[j].IP)
+		if ipCompare != 0 {
+			return ipCompare < 0
+		}
+		// IPが同じ場合はEOJで比較
+		return devices[i].EOJ < devices[j].EOJ
+	})
+}
+
+// compareIP は2つのIPアドレスを比較する
+// 戻り値: a < b なら負、a == b なら0、a > b なら正
+func compareIP(a, b net.IP) int {
+	// IPv4アドレスを正規化（IPv4-mapped IPv6アドレスの場合はIPv4に変換）
+	a = a.To4()
+	if a == nil {
+		a = a.To16()
+	}
+	b = b.To4()
+	if b == nil {
+		b = b.To16()
+	}
+
+	// バイト単位で比較
+	return bytes.Compare(a, b)
 }

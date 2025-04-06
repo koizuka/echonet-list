@@ -229,24 +229,24 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		}
 
 		// Parse the devices
-		devices := make([]echonet_lite.IPAndEOJ, 0, len(payload.Devices))
-		for _, deviceStr := range payload.Devices {
-			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
-			if err != nil {
+		devices := make([]echonet_lite.IDString, 0, len(payload.Devices))
+		for _, ids := range payload.Devices {
+			device := ws.handler.FindDeviceByIDString(echonet_lite.IDString(ids))
+			if device == nil {
 				if logger != nil {
-					logger.Log("Error: invalid device: %v", err)
+					logger.Log("Error: device not found: %s", ids)
 				}
 				// エラー応答を送信
 				errorPayload := protocol.CommandResultPayload{
 					Success: false,
 					Error: &protocol.Error{
 						Code:    protocol.ErrorCodeInvalidParameters,
-						Message: fmt.Sprintf("Invalid device: %v", err),
+						Message: fmt.Sprintf("Device not found: %s", ids),
 					},
 				}
 				return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 			}
-			devices = append(devices, ipAndEOJ)
+			devices = append(devices, echonet_lite.IDString(ids))
 		}
 
 		// Add the devices to the group
@@ -297,24 +297,24 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		}
 
 		// Parse the devices
-		devices := make([]echonet_lite.IPAndEOJ, 0, len(payload.Devices))
-		for _, deviceStr := range payload.Devices {
-			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
-			if err != nil {
+		devices := make([]echonet_lite.IDString, 0, len(payload.Devices))
+		for _, ids := range payload.Devices {
+			device := ws.handler.FindDeviceByIDString(echonet_lite.IDString(ids))
+			if device == nil {
 				if logger != nil {
-					logger.Log("Error: invalid device: %v", err)
+					logger.Log("Error: device not found: %s", ids)
 				}
 				// エラー応答を送信
 				errorPayload := protocol.CommandResultPayload{
 					Success: false,
 					Error: &protocol.Error{
 						Code:    protocol.ErrorCodeInvalidParameters,
-						Message: fmt.Sprintf("Invalid device: %v", err),
+						Message: fmt.Sprintf("Device not found: %s", ids),
 					},
 				}
 				return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 			}
-			devices = append(devices, ipAndEOJ)
+			devices = append(devices, echonet_lite.IDString(ids))
 		}
 
 		// Remove the devices from the group
@@ -345,8 +345,8 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		} else {
 			// Group was updated
 			deviceStrs := make([]string, 0, len(updatedDevices))
-			for _, device := range updatedDevices {
-				deviceStrs = append(deviceStrs, device.Specifier())
+			for _, ids := range updatedDevices {
+				deviceStrs = append(deviceStrs, string(ids))
 			}
 			groupChangedPayload := protocol.GroupChangedPayload{
 				ChangeType: protocol.GroupChangeTypeUpdated,
@@ -408,8 +408,8 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		groups := make(map[string][]string)
 		for _, group := range groupList {
 			deviceStrs := make([]string, 0, len(group.Devices))
-			for _, device := range group.Devices {
-				deviceStrs = append(deviceStrs, device.Specifier())
+			for _, ids := range group.Devices {
+				deviceStrs = append(deviceStrs, string(ids))
 			}
 			groups[group.Group] = deviceStrs
 		}

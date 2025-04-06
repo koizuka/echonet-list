@@ -303,7 +303,11 @@ func (p CommandParser) parseDeviceSpecifiers(parts []string, argIndex int, requi
 				return nil, argIndex, fmt.Errorf("グループ '%s' が見つかりません", *groupName)
 			}
 			for _, group := range groups {
-				for _, device := range group.Devices {
+				for _, ids := range group.Devices {
+					device, ok := p.aliasManager.GetDeviceByAlias(string(ids))
+					if !ok {
+						continue
+					}
 					classCode := device.EOJ.ClassCode()
 					instanceCode := device.EOJ.InstanceCode()
 					deviceSpec := client.DeviceSpecifier{

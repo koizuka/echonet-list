@@ -82,16 +82,9 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 	c.groupsMutex.Lock()
 	c.groups = make([]GroupDevicePair, 0, len(payload.Groups))
 	for groupName, deviceStrs := range payload.Groups {
-		devices := make([]IPAndEOJ, 0, len(deviceStrs))
+		devices := make([]IDString, 0, len(deviceStrs))
 		for _, deviceStr := range deviceStrs {
-			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
-			if err != nil {
-				if c.debug {
-					fmt.Printf("Error parsing device identifier: %v\n", err)
-				}
-				continue
-			}
-			devices = append(devices, ipAndEOJ)
+			devices = append(devices, IDString(deviceStr))
 		}
 		c.groups = append(c.groups, GroupDevicePair{
 			Group:   groupName,
@@ -237,16 +230,9 @@ func (c *WebSocketClient) handleGroupChanged(msg *protocol.Message) {
 	switch payload.ChangeType {
 	case protocol.GroupChangeTypeAdded:
 		// グループが追加された場合
-		devices := make([]IPAndEOJ, 0, len(payload.Devices))
+		devices := make([]IDString, 0, len(payload.Devices))
 		for _, deviceStr := range payload.Devices {
-			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
-			if err != nil {
-				if c.debug {
-					fmt.Printf("Error parsing device identifier: %v\n", err)
-				}
-				continue
-			}
-			devices = append(devices, ipAndEOJ)
+			devices = append(devices, IDString(deviceStr))
 		}
 		c.groups = append(c.groups, GroupDevicePair{
 			Group:   payload.Group,
@@ -259,16 +245,9 @@ func (c *WebSocketClient) handleGroupChanged(msg *protocol.Message) {
 		for i, group := range c.groups {
 			if group.Group == payload.Group {
 				// 既存のグループを更新
-				devices := make([]IPAndEOJ, 0, len(payload.Devices))
+				devices := make([]IDString, 0, len(payload.Devices))
 				for _, deviceStr := range payload.Devices {
-					ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
-					if err != nil {
-						if c.debug {
-							fmt.Printf("Error parsing device identifier: %v\n", err)
-						}
-						continue
-					}
-					devices = append(devices, ipAndEOJ)
+					devices = append(devices, IDString(deviceStr))
 				}
 				c.groups[i].Devices = devices
 				found = true
@@ -277,16 +256,9 @@ func (c *WebSocketClient) handleGroupChanged(msg *protocol.Message) {
 		}
 		if !found && len(payload.Devices) > 0 {
 			// グループが見つからない場合は追加
-			devices := make([]IPAndEOJ, 0, len(payload.Devices))
+			devices := make([]IDString, 0, len(payload.Devices))
 			for _, deviceStr := range payload.Devices {
-				ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceStr)
-				if err != nil {
-					if c.debug {
-						fmt.Printf("Error parsing device identifier: %v\n", err)
-					}
-					continue
-				}
-				devices = append(devices, ipAndEOJ)
+				devices = append(devices, IDString(deviceStr))
 			}
 			c.groups = append(c.groups, GroupDevicePair{
 				Group:   payload.Group,
