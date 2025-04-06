@@ -230,13 +230,9 @@ func (c *WebSocketClient) handleGroupChanged(msg *protocol.Message) {
 	switch payload.ChangeType {
 	case protocol.GroupChangeTypeAdded:
 		// グループが追加された場合
-		devices := make([]IDString, 0, len(payload.Devices))
-		for _, deviceStr := range payload.Devices {
-			devices = append(devices, IDString(deviceStr))
-		}
 		c.groups = append(c.groups, GroupDevicePair{
 			Group:   payload.Group,
-			Devices: devices,
+			Devices: payload.Devices,
 		})
 
 	case protocol.GroupChangeTypeUpdated:
@@ -245,24 +241,16 @@ func (c *WebSocketClient) handleGroupChanged(msg *protocol.Message) {
 		for i, group := range c.groups {
 			if group.Group == payload.Group {
 				// 既存のグループを更新
-				devices := make([]IDString, 0, len(payload.Devices))
-				for _, deviceStr := range payload.Devices {
-					devices = append(devices, IDString(deviceStr))
-				}
-				c.groups[i].Devices = devices
+				c.groups[i].Devices = payload.Devices
 				found = true
 				break
 			}
 		}
 		if !found && len(payload.Devices) > 0 {
 			// グループが見つからない場合は追加
-			devices := make([]IDString, 0, len(payload.Devices))
-			for _, deviceStr := range payload.Devices {
-				devices = append(devices, IDString(deviceStr))
-			}
 			c.groups = append(c.groups, GroupDevicePair{
 				Group:   payload.Group,
-				Devices: devices,
+				Devices: payload.Devices,
 			})
 		}
 

@@ -199,16 +199,16 @@ const (
 
 // GroupChangedPayload is the payload for the group_changed message
 type GroupChangedPayload struct {
-	ChangeType GroupChangeType `json:"change_type"`
-	Group      string          `json:"group"`
-	Devices    []string        `json:"devices,omitempty"`
+	ChangeType GroupChangeType         `json:"change_type"`
+	Group      string                  `json:"group"`
+	Devices    []echonet_lite.IDString `json:"devices,omitempty"`
 }
 
 // ManageGroupPayload is the payload for the manage_group message
 type ManageGroupPayload struct {
-	Action  GroupAction `json:"action"`
-	Group   string      `json:"group"`
-	Devices []string    `json:"devices,omitempty"`
+	Action  GroupAction             `json:"action"`
+	Group   string                  `json:"group"`
+	Devices []echonet_lite.IDString `json:"devices,omitempty"`
 }
 
 // DiscoverDevicesPayload is the payload for the discover_devices message

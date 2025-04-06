@@ -230,17 +230,11 @@ func (c *WebSocketClient) GroupAdd(groupName string, devices []IDString) error {
 		return err
 	}
 
-	// Convert devices to strings
-	deviceStrs := make([]string, 0, len(devices))
-	for _, ids := range devices {
-		deviceStrs = append(deviceStrs, string(ids))
-	}
-
 	// Create the payload
 	payload := protocol.ManageGroupPayload{
 		Action:  protocol.GroupActionAdd,
 		Group:   groupName,
-		Devices: deviceStrs,
+		Devices: devices,
 	}
 
 	// Send the message
@@ -272,17 +266,11 @@ func (c *WebSocketClient) GroupRemove(groupName string, devices []IDString) erro
 		return err
 	}
 
-	// Convert devices to strings
-	deviceStrs := make([]string, 0, len(devices))
-	for _, ids := range devices {
-		deviceStrs = append(deviceStrs, string(ids))
-	}
-
 	// Create the payload
 	payload := protocol.ManageGroupPayload{
 		Action:  protocol.GroupActionRemove,
 		Group:   groupName,
-		Devices: deviceStrs,
+		Devices: devices,
 	}
 
 	// Send the message

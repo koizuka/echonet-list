@@ -230,7 +230,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		// Parse the devices
 		devices := make([]echonet_lite.IDString, 0, len(payload.Devices))
 		for _, ids := range payload.Devices {
-			device := ws.handler.FindDeviceByIDString(echonet_lite.IDString(ids))
+			device := ws.handler.FindDeviceByIDString(ids)
 			if device == nil {
 				if logger != nil {
 					logger.Log("Error: device not found: %s", ids)
@@ -245,7 +245,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 				}
 				return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 			}
-			devices = append(devices, echonet_lite.IDString(ids))
+			devices = append(devices, ids)
 		}
 
 		// Add the devices to the group
@@ -264,11 +264,12 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
+		updatedDevices, _ := ws.echonetClient.GetDevicesByGroup(payload.Group)
 		// Broadcast group changed notification
 		groupChangedPayload := protocol.GroupChangedPayload{
-			ChangeType: protocol.GroupChangeTypeAdded,
+			ChangeType: protocol.GroupChangeTypeUpdated,
 			Group:      payload.Group,
-			Devices:    payload.Devices,
+			Devices:    updatedDevices,
 		}
 		ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
 
@@ -298,7 +299,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		// Parse the devices
 		devices := make([]echonet_lite.IDString, 0, len(payload.Devices))
 		for _, ids := range payload.Devices {
-			device := ws.handler.FindDeviceByIDString(echonet_lite.IDString(ids))
+			device := ws.handler.FindDeviceByIDString(ids)
 			if device == nil {
 				if logger != nil {
 					logger.Log("Error: device not found: %s", ids)
@@ -313,7 +314,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 				}
 				return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 			}
-			devices = append(devices, echonet_lite.IDString(ids))
+			devices = append(devices, ids)
 		}
 
 		// Remove the devices from the group
@@ -343,14 +344,10 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 			ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
 		} else {
 			// Group was updated
-			deviceStrs := make([]string, 0, len(updatedDevices))
-			for _, ids := range updatedDevices {
-				deviceStrs = append(deviceStrs, string(ids))
-			}
 			groupChangedPayload := protocol.GroupChangedPayload{
 				ChangeType: protocol.GroupChangeTypeUpdated,
 				Group:      payload.Group,
-				Devices:    deviceStrs,
+				Devices:    updatedDevices,
 			}
 			ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
 		}
