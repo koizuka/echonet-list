@@ -141,3 +141,15 @@ type IDString string
 func MakeIDString(eoj EOJ, id IdentificationNumber) IDString {
 	return IDString(fmt.Sprintf("%s:%s", eoj.IDString(), id.String()))
 }
+
+func FilterCriteriaFromIPAndEOJ(device IPAndEOJ) FilterCriteria {
+	classCode := device.EOJ.ClassCode()
+	instanceCode := device.EOJ.InstanceCode()
+	return FilterCriteria{
+		Device: DeviceSpecifier{
+			IP:           &device.IP,
+			ClassCode:    &classCode,
+			InstanceCode: &instanceCode,
+		},
+	}
+}

@@ -34,15 +34,7 @@ func (ws *WebSocketServer) handleManageAliasFromClient(connID string, msg *proto
 		}
 
 		// Create filter criteria
-		classCode := ipAndEOJ.EOJ.ClassCode()
-		instanceCode := ipAndEOJ.EOJ.InstanceCode()
-		criteria := echonet_lite.FilterCriteria{
-			Device: echonet_lite.DeviceSpecifier{
-				IP:           &ipAndEOJ.IP,
-				ClassCode:    &classCode,
-				InstanceCode: &instanceCode,
-			},
-		}
+		criteria := echonet_lite.FilterCriteriaFromIPAndEOJ(*ipAndEOJ)
 
 		// Set the alias
 		if err := ws.echonetClient.AliasSet(&payload.Alias, criteria); err != nil {
