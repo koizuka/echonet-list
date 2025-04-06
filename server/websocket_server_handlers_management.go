@@ -3,46 +3,21 @@ package server
 import (
 	"echonet-list/client"
 	"echonet-list/echonet_lite"
-	"echonet-list/echonet_lite/log"
 	"echonet-list/protocol"
 	"encoding/json"
-	"fmt"
 )
 
 // handleManageAliasFromClient handles a manage_alias message from a client
 func (ws *WebSocketServer) handleManageAliasFromClient(connID string, msg *protocol.Message) error {
-	logger := log.GetLogger()
 	// Parse the payload
 	var payload protocol.ManageAliasPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if logger != nil {
-			logger.Log("Error parsing manage_alias payload: %v", err)
-		}
-		// エラー応答を送信
-		errorPayload := protocol.CommandResultPayload{
-			Success: false,
-			Error: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidRequestFormat,
-				Message: fmt.Sprintf("Error parsing manage_alias payload: %v", err),
-			},
-		}
-		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing manage_alias payload: %v", err)
 	}
 
 	// Validate the payload
 	if payload.Alias == "" {
-		if logger != nil {
-			logger.Log("Error: no alias specified")
-		}
-		// エラー応答を送信
-		errorPayload := protocol.CommandResultPayload{
-			Success: false,
-			Error: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidParameters,
-				Message: "No alias specified",
-			},
-		}
-		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "No alias specified")
 	}
 
 	// Handle the action
@@ -50,34 +25,12 @@ func (ws *WebSocketServer) handleManageAliasFromClient(connID string, msg *proto
 	case protocol.AliasActionAdd:
 		// Validate the target
 		if payload.Target == "" {
-			if logger != nil {
-				logger.Log("Error: no target specified for add action")
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeInvalidParameters,
-					Message: "No target specified for add action",
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "No target specified for add action")
 		}
 
 		ipAndEOJ := ws.handler.FindDeviceByIDString(payload.Target)
 		if ipAndEOJ == nil {
-			if logger != nil {
-				logger.Log("Error: invalid target: %v", payload.Target)
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeInvalidParameters,
-					Message: fmt.Sprintf("Invalid target: %v", payload.Target),
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", payload.Target)
 		}
 
 		// Create filter criteria
@@ -93,18 +46,7 @@ func (ws *WebSocketServer) handleManageAliasFromClient(connID string, msg *proto
 
 		// Set the alias
 		if err := ws.echonetClient.AliasSet(&payload.Alias, criteria); err != nil {
-			if logger != nil {
-				logger.Log("Error setting alias: %v", err)
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeAliasOperationFailed,
-					Message: err.Error(),
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeAliasOperationFailed, "Error setting alias: %v", err)
 		}
 
 		// Broadcast alias changed notification
@@ -126,18 +68,7 @@ func (ws *WebSocketServer) handleManageAliasFromClient(connID string, msg *proto
 	case protocol.AliasActionDelete:
 		// Delete the alias
 		if err := ws.echonetClient.AliasDelete(&payload.Alias); err != nil {
-			if logger != nil {
-				logger.Log("Error deleting alias: %v", err)
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeAliasOperationFailed,
-					Message: err.Error(),
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeAliasOperationFailed, "Error deleting alias: %v", err)
 		}
 
 		// Broadcast alias changed notification
@@ -157,55 +88,21 @@ func (ws *WebSocketServer) handleManageAliasFromClient(connID string, msg *proto
 		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
 
 	default:
-		if logger != nil {
-			logger.Log("Error: unknown alias action: %s", payload.Action)
-		}
-		// エラー応答を送信
-		errorPayload := protocol.CommandResultPayload{
-			Success: false,
-			Error: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidParameters,
-				Message: fmt.Sprintf("Unknown alias action: %s", payload.Action),
-			},
-		}
-		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Unknown alias action: %s", payload.Action)
 	}
 }
 
 // handleManageGroupFromClient handles a manage_group message from a client
 func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *protocol.Message) error {
-	logger := log.GetLogger()
 	// Parse the payload
 	var payload protocol.ManageGroupPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if logger != nil {
-			logger.Log("Error parsing manage_group payload: %v", err)
-		}
-		// エラー応答を送信
-		errorPayload := protocol.CommandResultPayload{
-			Success: false,
-			Error: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidRequestFormat,
-				Message: fmt.Sprintf("Error parsing manage_group payload: %v", err),
-			},
-		}
-		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing manage_group payload: %v", err)
 	}
 
 	// Validate the payload
 	if payload.Group == "" {
-		if logger != nil {
-			logger.Log("Error: no group specified")
-		}
-		// エラー応答を送信
-		errorPayload := protocol.CommandResultPayload{
-			Success: false,
-			Error: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidParameters,
-				Message: "No group specified",
-			},
-		}
-		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "No group specified")
 	}
 
 	// Handle the action
@@ -213,18 +110,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 	case protocol.GroupActionAdd:
 		// Validate the devices
 		if len(payload.Devices) == 0 {
-			if logger != nil {
-				logger.Log("Error: no devices specified for add action")
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeInvalidParameters,
-					Message: "No devices specified for add action",
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "No devices specified for add action")
 		}
 
 		// Parse the devices
@@ -232,36 +118,14 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		for _, ids := range payload.Devices {
 			device := ws.handler.FindDeviceByIDString(ids)
 			if device == nil {
-				if logger != nil {
-					logger.Log("Error: device not found: %s", ids)
-				}
-				// エラー応答を送信
-				errorPayload := protocol.CommandResultPayload{
-					Success: false,
-					Error: &protocol.Error{
-						Code:    protocol.ErrorCodeInvalidParameters,
-						Message: fmt.Sprintf("Device not found: %s", ids),
-					},
-				}
-				return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+				return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Device not found: %s", ids)
 			}
 			devices = append(devices, ids)
 		}
 
 		// Add the devices to the group
 		if err := ws.echonetClient.GroupAdd(payload.Group, devices); err != nil {
-			if logger != nil {
-				logger.Log("Error adding devices to group: %v", err)
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeInternalServerError,
-					Message: err.Error(),
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInternalServerError, "Error adding devices to group: %v", err)
 		}
 
 		updatedDevices, _ := ws.echonetClient.GetDevicesByGroup(payload.Group)
@@ -282,18 +146,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 	case protocol.GroupActionRemove:
 		// Validate the devices
 		if len(payload.Devices) == 0 {
-			if logger != nil {
-				logger.Log("Error: no devices specified for remove action")
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeInvalidParameters,
-					Message: "No devices specified for remove action",
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "No devices specified for remove action")
 		}
 
 		// Parse the devices
@@ -301,36 +154,14 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		for _, ids := range payload.Devices {
 			device := ws.handler.FindDeviceByIDString(ids)
 			if device == nil {
-				if logger != nil {
-					logger.Log("Error: device not found: %s", ids)
-				}
-				// エラー応答を送信
-				errorPayload := protocol.CommandResultPayload{
-					Success: false,
-					Error: &protocol.Error{
-						Code:    protocol.ErrorCodeInvalidParameters,
-						Message: fmt.Sprintf("Device not found: %s", ids),
-					},
-				}
-				return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+				return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Device not found: %s", ids)
 			}
 			devices = append(devices, ids)
 		}
 
 		// Remove the devices from the group
 		if err := ws.echonetClient.GroupRemove(payload.Group, devices); err != nil {
-			if logger != nil {
-				logger.Log("Error removing devices from group: %v", err)
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeInternalServerError,
-					Message: err.Error(),
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInternalServerError, "Error removing devices from group: %v", err)
 		}
 
 		// Get the updated devices in the group
@@ -361,18 +192,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 	case protocol.GroupActionDelete:
 		// Delete the group
 		if err := ws.echonetClient.GroupDelete(payload.Group); err != nil {
-			if logger != nil {
-				logger.Log("Error deleting group: %v", err)
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeInternalServerError,
-					Message: err.Error(),
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInternalServerError, "Error deleting group: %v", err)
 		}
 
 		// Broadcast group deleted notification
@@ -413,18 +233,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		// Marshal the group data
 		groupDataJSON, err := json.Marshal(groups)
 		if err != nil {
-			if logger != nil {
-				logger.Log("Error marshaling group data: %v", err)
-			}
-			// エラー応答を送信
-			errorPayload := protocol.CommandResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeInternalServerError,
-					Message: fmt.Sprintf("Error marshaling group data: %v", err),
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInternalServerError, "Error marshaling group data: %v", err)
 		}
 
 		// Send the response
@@ -435,17 +244,6 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
 
 	default:
-		if logger != nil {
-			logger.Log("Error: unknown group action: %s", payload.Action)
-		}
-		// エラー応答を送信
-		errorPayload := protocol.CommandResultPayload{
-			Success: false,
-			Error: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidParameters,
-				Message: fmt.Sprintf("Unknown group action: %s", payload.Action),
-			},
-		}
-		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
+		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Unknown group action: %s", payload.Action)
 	}
 }

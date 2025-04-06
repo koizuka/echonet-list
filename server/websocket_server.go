@@ -195,6 +195,39 @@ func (ws *WebSocketServer) sendMessageToClient(connID string, msgType protocol.M
 	return ws.transport.SendMessage(connID, data)
 }
 
+// sendErrorResponse logs an error and sends an error response to the client
+func (ws *WebSocketServer) sendErrorResponse(connID string, requestID *string, errorCode protocol.ErrorCode, format string, args ...interface{}) error {
+	errorMessage := fmt.Sprintf(format, args...)
+	logger := log.GetLogger()
+	if logger != nil {
+		logger.Log("Error for RequestID %s: %s", derefString(requestID), errorMessage)
+	}
+
+	errorPayload := protocol.CommandResultPayload{
+		Success: false,
+		Error: &protocol.Error{
+			Code:    errorCode,
+			Message: errorMessage,
+		},
+	}
+
+	// requestIDがnilの場合は空文字列を使用
+	requestIDStr := ""
+	if requestID != nil {
+		requestIDStr = *requestID
+	}
+
+	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, requestIDStr)
+}
+
+// derefString safely dereferences a *string. Returns empty string if nil.
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 // broadcastMessageToClients sends a message to all connected clients
 func (ws *WebSocketServer) broadcastMessageToClients(msgType protocol.MessageType, payload interface{}) error {
 	logger := log.GetLogger()
