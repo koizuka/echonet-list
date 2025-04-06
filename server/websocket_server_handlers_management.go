@@ -213,13 +213,9 @@ func (ws *WebSocketServer) handleManageGroupFromClient(connID string, msg *proto
 		}
 
 		// Convert to map for JSON response
-		groups := make(map[string][]string)
+		groups := make(map[string][]client.IDString)
 		for _, group := range groupList {
-			deviceStrs := make([]string, 0, len(group.Devices))
-			for _, ids := range group.Devices {
-				deviceStrs = append(deviceStrs, string(ids))
-			}
-			groups[group.Group] = deviceStrs
+			groups[group.Group] = group.Devices
 		}
 
 		// Marshal the group data

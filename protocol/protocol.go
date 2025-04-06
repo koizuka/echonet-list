@@ -81,12 +81,12 @@ type Message struct {
 
 // Device represents an ECHONET Lite device
 type Device struct {
-	IP         string            `json:"ip"`
-	EOJ        string            `json:"eoj"`
-	Name       string            `json:"name"`
-	ID         string            `json:"id,omitempty"`
-	Properties map[string]string `json:"properties"`
-	LastSeen   time.Time         `json:"lastSeen"`
+	IP         string                `json:"ip"`
+	EOJ        string                `json:"eoj"`
+	Name       string                `json:"name"`
+	ID         echonet_lite.IDString `json:"id,omitempty"`
+	Properties map[string]string     `json:"properties"`
+	LastSeen   time.Time             `json:"lastSeen"`
 }
 
 // Error represents an error in the WebSocket protocol
@@ -250,9 +250,9 @@ func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties echonet_lite.P
 	}
 
 	// Generate IDString from EOJ and properties
-	var ids string
+	var ids echonet_lite.IDString
 	if id := properties.GetIdentificationNumber(); id != nil {
-		ids = string(echonet_lite.MakeIDString(eoj, *id))
+		ids = echonet_lite.MakeIDString(eoj, *id)
 	}
 
 	return Device{
