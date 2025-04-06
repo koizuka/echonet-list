@@ -72,19 +72,9 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 
 	// Update aliases
 	c.aliasesMutex.Lock()
-	c.aliases = make(map[string]echonet_lite.IPAndEOJ)
-	for alias, deviceID := range payload.Aliases {
-		// Parse the device identifier
-		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(deviceID)
-		if err != nil {
-			if c.debug {
-				fmt.Printf("Error parsing device identifier: %v\n", err)
-			}
-			continue
-		}
-
-		// Add to aliases
-		c.aliases[alias] = ipAndEOJ
+	c.aliases = make(map[string]IDString)
+	for alias, id := range payload.Aliases {
+		c.aliases[alias] = IDString(id)
 	}
 	c.aliasesMutex.Unlock()
 
@@ -222,17 +212,8 @@ func (c *WebSocketClient) handleAliasChanged(msg *protocol.Message) {
 
 	switch payload.ChangeType {
 	case protocol.AliasChangeTypeAdded, protocol.AliasChangeTypeUpdated:
-		// Parse the device identifier
-		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.Target)
-		if err != nil {
-			if c.debug {
-				fmt.Printf("Error parsing device identifier: %v\n", err)
-			}
-			return
-		}
-
 		// Add or update the alias
-		c.aliases[payload.Alias] = ipAndEOJ
+		c.aliases[payload.Alias] = IDString(payload.Target)
 
 	case protocol.AliasChangeTypeDeleted:
 		// Remove the alias

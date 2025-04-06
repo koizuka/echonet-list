@@ -108,7 +108,12 @@ func (p *CommandProcessor) processCommands() {
 		case CmdAliasList:
 			aliases := p.handler.AliasList()
 			for _, alias := range aliases {
-				fmt.Println(alias)
+				d := p.handler.FindDeviceByIDString(alias.ID)
+				if d == nil {
+					fmt.Printf("%s: not found\n", alias.Alias)
+				} else {
+					fmt.Printf("%s: %v\n", alias.Alias, *d)
+				}
 			}
 		case CmdAliasSet:
 			criteria := client.FilterCriteria{

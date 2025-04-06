@@ -21,7 +21,7 @@ type WebSocketClient struct {
 	debug           bool
 	devices         map[string]echonet_lite.DeviceAndProperties
 	devicesMutex    sync.RWMutex
-	aliases         map[string]echonet_lite.IPAndEOJ
+	aliases         map[string]IDString
 	aliasesMutex    sync.RWMutex
 	groups          []GroupDevicePair
 	groupsMutex     sync.RWMutex
@@ -48,7 +48,7 @@ func NewWebSocketClient(ctx context.Context, serverURL string, debug bool) (*Web
 		transport:  transport,
 		debug:      debug,
 		devices:    make(map[string]echonet_lite.DeviceAndProperties),
-		aliases:    make(map[string]echonet_lite.IPAndEOJ),
+		aliases:    make(map[string]IDString),
 		groups:     make([]GroupDevicePair, 0),
 		responseCh: make(map[string]chan *protocol.Message),
 	}
@@ -121,6 +121,31 @@ func (c *WebSocketClient) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
 	return result
 }
 
+func (c *WebSocketClient) FindDeviceByIDString(id IDString) *IPAndEOJ {
+	c.devicesMutex.RLock()
+	defer c.devicesMutex.RUnlock()
+
+	// device の EOJ と properties の IdentificationNumber をもとに IDStringを組み立て、一致する物を探す
+	for _, device := range c.devices {
+		eoj := device.Device.EOJ
+		for _, prop := range device.Properties {
+			if prop.EPC == echonet_lite.EPCIdentificationNumber {
+				decoded := echonet_lite.DecodeIdentificationNumber(prop.EDT)
+				if decoded == nil {
+					continue
+				}
+				// IDString を組み立てる
+				idString := echonet_lite.MakeIDString(eoj, *decoded)
+				// IDString が一致するか確認
+				if idString == id {
+					return &device.Device
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // ListDevices returns devices and their properties matching the given criteria
 func (c *WebSocketClient) ListDevices(criteria FilterCriteria) []DeviceAndProperties {
 	c.devicesMutex.RLock()
@@ -178,18 +203,17 @@ func (c *WebSocketClient) ListDevices(criteria FilterCriteria) []DeviceAndProper
 }
 
 // AliasList returns a list of all aliases
-func (c *WebSocketClient) AliasList() []AliasDevicePair {
+func (c *WebSocketClient) AliasList() []AliasIDStringPair {
 	c.aliasesMutex.RLock()
 	defer c.aliasesMutex.RUnlock()
 
-	var result []AliasDevicePair
-	for alias, device := range c.aliases {
+	var result []AliasIDStringPair
+	for alias, id := range c.aliases {
 		// Create a copy of the device to avoid reference issues
-		deviceCopy := device
-		// Create a new AliasDevicePair with the alias and device pointer
-		result = append(result, AliasDevicePair{
-			Alias:  alias,
-			Device: &deviceCopy,
+		// Create a new AliasIDStringPair with the alias and device pointer
+		result = append(result, AliasIDStringPair{
+			Alias: alias,
+			ID:    id,
 		})
 	}
 
@@ -205,8 +229,12 @@ func (c *WebSocketClient) AliasGet(alias *string) (*IPAndEOJ, error) {
 	c.aliasesMutex.RLock()
 	defer c.aliasesMutex.RUnlock()
 
-	if device, ok := c.aliases[*alias]; ok {
-		return &device, nil
+	if id, ok := c.aliases[*alias]; ok {
+		device := c.FindDeviceByIDString(id)
+		if device == nil {
+			return nil, fmt.Errorf("device not found for alias: %s", *alias)
+		}
+		return device, nil
 	}
 
 	return nil, fmt.Errorf("alias not found: %s", *alias)
@@ -218,9 +246,11 @@ func (c *WebSocketClient) GetAliases(device IPAndEOJ) []string {
 	defer c.aliasesMutex.RUnlock()
 
 	var result []string
-	for alias, d := range c.aliases {
-		if d.IP.Equal(device.IP) && d.EOJ == device.EOJ {
-			result = append(result, alias)
+	for alias, id := range c.aliases {
+		if d := c.FindDeviceByIDString(id); d != nil {
+			if d.IP.Equal(device.IP) && d.EOJ == device.EOJ {
+				result = append(result, alias)
+			}
 		}
 	}
 
@@ -232,8 +262,15 @@ func (c *WebSocketClient) GetDeviceByAlias(alias string) (IPAndEOJ, bool) {
 	c.aliasesMutex.RLock()
 	defer c.aliasesMutex.RUnlock()
 
-	device, ok := c.aliases[alias]
-	return device, ok
+	id, ok := c.aliases[alias]
+	if !ok {
+		return IPAndEOJ{}, false
+	}
+	device := c.FindDeviceByIDString(id)
+	if device == nil {
+		return IPAndEOJ{}, false
+	}
+	return *device, ok
 }
 
 // GroupManager インターフェースの実装

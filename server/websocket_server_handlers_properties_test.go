@@ -67,7 +67,7 @@ func (m *mockECHONETListClient) SetDebug(debug bool) {
 	m.debug = debug
 }
 
-func (m *mockECHONETListClient) AliasList() []echonet_lite.AliasDevicePair {
+func (m *mockECHONETListClient) AliasList() []echonet_lite.AliasIDStringPair {
 	return nil
 }
 
@@ -168,6 +168,10 @@ func (m *mockECHONETListClient) GetDevicesByGroup(groupName string) ([]echonet_l
 }
 
 func (m *mockECHONETListClient) Close() error {
+	return nil
+}
+
+func (m *mockECHONETListClient) FindDeviceByIDString(id echonet_lite.IDString) *echonet_lite.IPAndEOJ {
 	return nil
 }
 

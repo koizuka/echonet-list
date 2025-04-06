@@ -450,6 +450,48 @@ func (d Devices) HasEPCInPropertyMap(device IPAndEOJ, mapType PropertyMapType, e
 	return propMap.Has(epc)
 }
 
+func (d Devices) GetIDString(device IPAndEOJ) IDString {
+	edt, ok := d.GetProperty(device, EPCIdentificationNumber)
+	if !ok {
+		return ""
+	}
+	id := DecodeIdentificationNumber(edt.EDT)
+	if id == nil {
+		return ""
+	}
+	return MakeIDString(device.EOJ, *id)
+}
+
+func (d Devices) FindByIDString(id IDString) []IPAndEOJ {
+	if id == "" {
+		return nil
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	var result []IPAndEOJ
+
+	for ipStr, eojMap := range d.data {
+		for eoj, props := range eojMap {
+			if prop, ok := props[EPCIdentificationNumber]; ok {
+				pId := DecodeIdentificationNumber(prop.EDT)
+				if pId == nil {
+					continue
+				}
+				idStr := MakeIDString(eoj, *pId)
+				if idStr == id {
+					result = append(result, IPAndEOJ{
+						IP:  net.ParseIP(ipStr),
+						EOJ: eoj,
+					})
+				}
+			}
+		}
+	}
+	return result
+}
+
 func (d DeviceProperties) Set(eoj EOJ, properties ...IProperty) error {
 	if eoj.InstanceCode() == 0 {
 		// インスタンスコードが0の場合は設定できない

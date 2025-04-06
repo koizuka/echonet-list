@@ -24,7 +24,11 @@ func (c *ECHONETListClientProxy) Discover() error {
 }
 
 func (c *ECHONETListClientProxy) GetDeviceByAlias(alias string) (IPAndEOJ, bool) {
-	return c.handler.DeviceAliases.GetDeviceByAlias(alias)
+	device, err := c.handler.AliasGet(&alias)
+	if err != nil {
+		return IPAndEOJ{}, false
+	}
+	return *device, true
 }
 
 func (c *ECHONETListClientProxy) IsDebug() bool {
@@ -39,7 +43,7 @@ func (c *ECHONETListClientProxy) UpdateProperties(criteria FilterCriteria) error
 	return c.handler.UpdateProperties(criteria)
 }
 
-func (c *ECHONETListClientProxy) AliasList() []AliasDevicePair {
+func (c *ECHONETListClientProxy) AliasList() []AliasIDStringPair {
 	return c.handler.AliasList()
 }
 
@@ -56,7 +60,7 @@ func (c *ECHONETListClientProxy) AliasGet(alias *string) (*IPAndEOJ, error) {
 }
 
 func (c *ECHONETListClientProxy) GetAliases(device IPAndEOJ) []string {
-	return c.handler.DeviceAliases.GetAliases(device)
+	return c.handler.GetAliases(device)
 }
 
 func (c *ECHONETListClientProxy) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
@@ -127,4 +131,8 @@ func (c *ECHONETListClientProxy) GroupDelete(groupName string) error {
 
 func (c *ECHONETListClientProxy) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
 	return c.handler.DeviceGroups.GetDevicesByGroup(groupName)
+}
+
+func (c *ECHONETListClientProxy) FindDeviceByIDString(id IDString) *IPAndEOJ {
+	return c.handler.FindDeviceByIDString(id)
 }

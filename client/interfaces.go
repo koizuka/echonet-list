@@ -6,7 +6,7 @@ type Debugger interface {
 }
 
 type AliasManager interface {
-	AliasList() []AliasDevicePair
+	AliasList() []AliasIDStringPair
 	AliasSet(alias *string, criteria FilterCriteria) error
 	AliasDelete(alias *string) error
 	AliasGet(alias *string) (*IPAndEOJ, error)
@@ -21,6 +21,7 @@ type DeviceManager interface {
 	ListDevices(criteria FilterCriteria) []DeviceAndProperties
 	GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error)
 	SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error)
+	FindDeviceByIDString(id IDString) *IPAndEOJ
 }
 
 type PropertyInfoProvider interface {

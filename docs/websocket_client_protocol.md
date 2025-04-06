@@ -123,6 +123,10 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - ECHONET Lite の EPC（プロパティコード）は16進数文字列（例: "80"）で表現されます
 - EDT（プロパティ値データ）はBase64エンコードされた文字列で表現されます
 - デバイス識別子は `IP EOJ` 形式の文字列（例: "192.168.1.10 0130:1"）で表現されます
+- デバイスのIDStringは `EOJ:ManufacturerCode:UniqueIdentifier` 形式の文字列（例: "013001:FE0000:08D0C5D3C3E17B000000000000"）で表現されます
+  - EOJは6桁の16進数（例: "013001"）
+  - ManufacturerCodeはEPC=0x83（識別番号）のプロパティの最初の3バイトを16進数で表現したもの
+  - UniqueIdentifierはEPC=0x83（識別番号）のプロパティの残り13バイトを16進数で表現したもの
 
 ## 4. サーバー -> クライアント メッセージ（通知）
 
@@ -159,8 +163,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
       }
     },
     "aliases": {
-      "living_ac": "192.168.1.10 0130:1",
-      "bedroom_light": "192.168.1.11 0290:1"
+      "living_ac": "013001:FE0000:08D0C5D3C3E17B000000000000",
+      "bedroom_light": "029001:FFFFFF:9876543210FEDCBA9876543210"
     },
     "groups": {
       "@living_room": ["192.168.1.10 0130:1", "192.168.1.11 0290:1"],
@@ -235,7 +239,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "change_type": "added",  // "added", "updated", "deleted" のいずれか
     "alias": "kitchen_ac",
-    "target": "192.168.1.10 0130:1"
+    "target": "013001:FE0000:08D0C5D3C3E17B000000000000"
   }
 }
 ```
@@ -374,7 +378,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "action": "add",  // "add" または "delete"
     "alias": "bedroom_ac",
-    "target": "192.168.1.10 0130:1"  // action が "add" の場合必須
+    "target": "013001:FE0000:08D0C5D3C3E17B000000000000"  // action が "add" の場合必須
   },
   "requestId": "req-126"
 }
@@ -382,7 +386,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 - `action`: "add"（追加）または "delete"（削除）
 - `alias`: エイリアス文字列
-- `target`: デバイスID文字列（IP EOJ形式、`action`が"add"の場合必須）
+- `target`: デバイスIDString（EOJ:ManufacturerCode:UniqueIdentifier形式、`action`が"add"の場合必須）
 
 ### manage_group
 

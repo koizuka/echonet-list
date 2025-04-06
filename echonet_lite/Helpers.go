@@ -132,3 +132,12 @@ func AvailablePropertyAliases(classCode EOJClassCode) map[string]string {
 // func IsPropertyDefaultEPC(classCode EOJClassCode, epc EPCType) bool {
 //     return IsPropertyDefaultEPC(classCode, epc)
 // }
+
+// IDString は EOJ と IdentificationNumber の組み合わせを表す文字列型です
+type IDString string
+
+// MakeIDString は EOJ と IdentificationNumber から IDString を生成します
+// 形式は "${EOJ.IDString()}:${identificationNumber.String()}" です
+func MakeIDString(eoj EOJ, id IdentificationNumber) IDString {
+	return IDString(fmt.Sprintf("%s:%s", eoj.IDString(), id.String()))
+}

@@ -5,17 +5,9 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"sync"
 )
-
-// DeviceNotFoundError はデバイスが見つからない場合のエラーです
-type DeviceNotFoundError struct {
-	Device IPAndEOJ
-}
-
-func (e DeviceNotFoundError) Error() string {
-	return fmt.Sprintf("device %v is not found", e.Device)
-}
 
 // AliasAlreadyExistsError はエイリアスが既に存在する場合のエラーです
 type AliasAlreadyExistsError struct {
@@ -34,78 +26,6 @@ type InvalidAliasError struct {
 
 func (e InvalidAliasError) Error() string {
 	return fmt.Sprintf("invalid alias %s: %s", e.Alias, e.Reason)
-}
-
-// DeviceAliases は デバイスを特定する IPAndEOJ に対して、
-// 永続的な識別子 echonet_lite.IdentificationNumber と、
-// 人間が理解しやすい名前 Alias (string) を紐づけるための構造体です。
-// 1つの識別子に対して複数のエイリアスを設定できます。
-type DeviceAliases struct {
-	mu                     sync.RWMutex
-	deviceToIdentification map[string]string   // IPAndEOJ の文字列表現から IdentificationNumber の文字列表現へのマップ
-	identificationToDevice map[string]IPAndEOJ // IdentificationNumber の文字列表現から IPAndEOJ へのマップ
-	aliasToIdentification  map[string]string   // エイリアスから IdentificationNumber の文字列表現へのマップ
-}
-
-// deviceToKey は IPAndEOJ をマップのキーとして使用するための文字列に変換します
-func deviceToKey(device IPAndEOJ) string {
-	return fmt.Sprintf("%v:%v", device.IP, device.EOJ)
-}
-
-// NewDeviceAliases は新しいDeviceAliasesインスタンスを作成します
-func NewDeviceAliases() *DeviceAliases {
-	return &DeviceAliases{
-		deviceToIdentification: make(map[string]string),
-		identificationToDevice: make(map[string]IPAndEOJ),
-		aliasToIdentification:  make(map[string]string),
-	}
-}
-
-// RegisterDeviceIdentification はデバイスとIdentificationNumberを関連付けます
-func (da *DeviceAliases) RegisterDeviceIdentification(device IPAndEOJ, identificationNumber *IdentificationNumber) error {
-	if identificationNumber == nil {
-		return fmt.Errorf("identificationNumber cannot be nil")
-	}
-
-	// 同一IP:ClassCodeで複数のInstanceCodeで同一のIdentificationNumberを持つものがあるため、EOJも含めて一意にする
-	idStr := fmt.Sprintf("%v:%v", device.EOJ.IDString(), identificationNumber)
-	deviceKey := deviceToKey(device)
-
-	da.mu.Lock()
-	defer da.mu.Unlock()
-
-	// 既存のデバイスに関連付けられたIdentificationNumberがある場合、それを削除
-	if existingID, ok := da.deviceToIdentification[deviceKey]; ok {
-		delete(da.identificationToDevice, existingID)
-	}
-
-	// 既存のIdentificationNumberに関連付けられたデバイスがある場合、それを削除
-	if existingDevice, ok := da.identificationToDevice[idStr]; ok {
-		delete(da.deviceToIdentification, deviceToKey(existingDevice))
-	}
-
-	// 新しい関連付けを設定
-	da.deviceToIdentification[deviceKey] = idStr
-	da.identificationToDevice[idStr] = device
-
-	return nil
-}
-
-func (da *DeviceAliases) UpdateIndex(devices *Devices) error {
-	var failedDevices []IPAndEOJ
-	for _, dp := range devices.ListDevicePropertyData() {
-		device := dp.Device
-		if p, ok := dp.Properties[EPCIdentificationNumber]; ok {
-			id := DecodeIdentificationNumber(p.EDT)
-			if err := da.RegisterDeviceIdentification(device, id); err != nil {
-				failedDevices = append(failedDevices, device)
-			}
-		}
-	}
-	if len(failedDevices) > 0 {
-		return fmt.Errorf("failed to register IdentificationNumber for devices: %v", failedDevices)
-	}
-	return nil
 }
 
 // 16進数の正規表現パターン
@@ -134,143 +54,6 @@ func ValidateDeviceAlias(alias string) error {
 	return nil
 }
 
-// SetAlias はIdentificationNumberにエイリアスを設定します
-// 1つのIdentificationNumberに対して複数のエイリアスを設定できます
-func (da *DeviceAliases) SetAlias(device IPAndEOJ, alias string) error {
-	// エイリアスのバリデーション
-	if err := ValidateDeviceAlias(alias); err != nil {
-		return err
-	}
-
-	da.mu.Lock()
-	defer da.mu.Unlock()
-
-	// デバイスからIdentificationNumberを取得
-	deviceKey := deviceToKey(device)
-	idStr, ok := da.deviceToIdentification[deviceKey]
-	if !ok {
-		return &DeviceNotFoundError{Device: device}
-	}
-
-	// 既存のエイリアスが別のIdentificationNumberに関連付けられている場合、エラー
-	if existingID, ok := da.aliasToIdentification[alias]; ok && existingID != idStr {
-		return &AliasAlreadyExistsError{Alias: alias}
-	}
-
-	// 新しいエイリアスを設定
-	da.aliasToIdentification[alias] = idStr
-
-	return nil
-}
-
-// GetAliases はデバイスに関連付けられた全てのエイリアスを取得します
-func (da *DeviceAliases) GetAliases(device IPAndEOJ) []string {
-	da.mu.RLock()
-	defer da.mu.RUnlock()
-
-	deviceKey := deviceToKey(device)
-	idStr, ok := da.deviceToIdentification[deviceKey]
-	if !ok {
-		return []string{}
-	}
-
-	// 指定されたIdentificationNumberに関連付けられた全てのエイリアスを収集
-	aliases := []string{}
-	for alias, id := range da.aliasToIdentification {
-		if id == idStr {
-			aliases = append(aliases, alias)
-		}
-	}
-
-	return aliases
-}
-
-// GetDeviceByAlias はエイリアスに関連付けられたデバイスを取得します
-func (da *DeviceAliases) GetDeviceByAlias(alias string) (IPAndEOJ, bool) {
-	da.mu.RLock()
-	defer da.mu.RUnlock()
-
-	idStr, ok := da.aliasToIdentification[alias]
-	if !ok {
-		return IPAndEOJ{}, false
-	}
-
-	device, ok := da.identificationToDevice[idStr]
-	return device, ok
-}
-
-// GetDeviceByIdentificationNumber はIdentificationNumberに関連付けられたデバイスを取得します
-func (da *DeviceAliases) GetDeviceByIdentificationNumber(identificationNumber *IdentificationNumber) (IPAndEOJ, bool) {
-	if identificationNumber == nil {
-		return IPAndEOJ{}, false
-	}
-
-	idStr := identificationNumber.String()
-
-	da.mu.RLock()
-	defer da.mu.RUnlock()
-
-	device, ok := da.identificationToDevice[idStr]
-	return device, ok
-}
-
-// aliasToIdentificationData は永続化のためのデータ構造です
-type aliasToIdentificationData map[string]string
-
-// SaveToFile はエイリアスとIdentificationNumberの対応表をJSONファイルに保存します
-func (da *DeviceAliases) SaveToFile(filename string) error {
-	da.mu.RLock()
-	defer da.mu.RUnlock()
-
-	// aliasToIdentificationのみを保存
-	data := aliasToIdentificationData(da.aliasToIdentification)
-
-	file, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	if err := encoder.Encode(data); err != nil {
-		return fmt.Errorf("failed to encode data: %w", err)
-	}
-
-	return nil
-}
-
-// LoadFromFile はJSONファイルからエイリアスとIdentificationNumberの対応表を読み込みます
-func (da *DeviceAliases) LoadFromFile(filename string) error {
-	file, err := os.Open(filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// ファイルが存在しない場合は何もしない
-			return nil
-		}
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	var data aliasToIdentificationData
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&data); err != nil {
-		return fmt.Errorf("failed to decode data: %w", err)
-	}
-
-	da.mu.Lock()
-	defer da.mu.Unlock()
-
-	// マップをクリア
-	da.aliasToIdentification = make(map[string]string)
-
-	// データを読み込む
-	for alias, idStr := range data {
-		da.aliasToIdentification[alias] = idStr
-	}
-
-	return nil
-}
-
 // AliasNotFoundError はエイリアスが見つからない場合のエラーです
 type AliasNotFoundError struct {
 	Alias string
@@ -280,70 +63,187 @@ func (e AliasNotFoundError) Error() string {
 	return fmt.Sprintf("alias %s is not registered", e.Alias)
 }
 
-// AliasDevicePair はエイリアスとデバイスのペアを表します
-type AliasDevicePair struct {
-	Alias  string
-	Device *IPAndEOJ // デバイスが存在しない場合はnil
+// AliasIDStringPair はエイリアスと IDString のペアを表します
+type AliasIDStringPair struct {
+	Alias string
+	ID    IDString
 }
 
-func (pair AliasDevicePair) String() string {
-	if pair.Device == nil {
-		return fmt.Sprintf("%s: not found", pair.Alias)
+// IDNotFoundError は IDString が見つからない場合のエラーです
+type IDNotFoundError struct {
+	ID IDString
+}
+
+func (e IDNotFoundError) Error() string {
+	return fmt.Sprintf("ID %v is not registered", e.ID)
+}
+
+// 注: AliasNotFoundError, AliasAlreadyExistsError, InvalidAliasError は
+// DeviceAliases.go で定義されているものを使用します
+
+// DeviceAliases は IDString に対してエイリアスを紐づけるための構造体です
+type DeviceAliases struct {
+	mu      sync.RWMutex
+	aliases map[string]IDString // エイリアスから IDString へのマップ
+}
+
+// NewDeviceAliases は新しい RawDeviceAliases インスタンスを作成します
+func NewDeviceAliases() *DeviceAliases {
+	return &DeviceAliases{
+		aliases: make(map[string]IDString),
 	}
-	return fmt.Sprintf("%s: %v", pair.Alias, *pair.Device)
 }
 
-// GetAllAliases はすべてのエイリアスとそれに対応するデバイス（存在する場合）の一覧を返します
-func (da *DeviceAliases) GetAllAliases() []AliasDevicePair {
-	da.mu.RLock()
-	defer da.mu.RUnlock()
-
-	result := make([]AliasDevicePair, 0, len(da.aliasToIdentification))
-	for alias, idStr := range da.aliasToIdentification {
-		var devicePtr *IPAndEOJ
-		if device, ok := da.identificationToDevice[idStr]; ok {
-			devicePtr = &device
-		}
-		result = append(result, AliasDevicePair{
-			Alias:  alias,
-			Device: devicePtr,
-		})
+// Register はエイリアスと IDString を登録します
+func (da *DeviceAliases) Register(alias string, idString IDString) error {
+	// エイリアスのバリデーション
+	if err := ValidateDeviceAlias(alias); err != nil {
+		return err
 	}
-	return result
-}
 
-// RemoveDevice はデバイスとその関連付けを削除します
-// エイリアスとIdentificationNumberの関連付けは維持されます
-func (da *DeviceAliases) RemoveDevice(device IPAndEOJ) error {
 	da.mu.Lock()
 	defer da.mu.Unlock()
 
-	// デバイスからIdentificationNumberを取得
-	deviceKey := deviceToKey(device)
-	idStr, ok := da.deviceToIdentification[deviceKey]
-	if !ok {
-		return &DeviceNotFoundError{Device: device}
+	// 既存のエイリアスが別の IDString に関連付けられている場合、エラー
+	if _, ok := da.aliases[alias]; ok {
+		return &AliasAlreadyExistsError{Alias: alias}
 	}
 
-	// デバイスとIdentificationNumberの関連付けを削除
-	delete(da.deviceToIdentification, deviceKey)
-	delete(da.identificationToDevice, idStr)
+	// 新しいエイリアスを設定
+	da.aliases[alias] = idString
 
 	return nil
 }
 
-// RemoveAlias はエイリアスとその関連付けを削除します
-func (da *DeviceAliases) RemoveAlias(alias string) error {
+// FindByAlias はエイリアスから IDString を検索します
+func (da *DeviceAliases) FindByAlias(alias string) (IDString, bool) {
+	da.mu.RLock()
+	defer da.mu.RUnlock()
+
+	id, ok := da.aliases[alias]
+	return id, ok
+}
+
+// FindAliasesByIDString は IDString からエイリアスを検索します
+// 複数のエイリアスが同じ IDString に関連付けられている場合、すべてのエイリアスを返します
+func (da *DeviceAliases) FindAliasesByIDString(idString IDString) []string {
+	da.mu.RLock()
+	defer da.mu.RUnlock()
+
+	var aliases []string
+	for alias, registeredID := range da.aliases {
+		if registeredID == idString {
+			aliases = append(aliases, alias)
+		}
+	}
+
+	return aliases
+}
+
+// DeleteByAlias はエイリアスを削除します
+func (da *DeviceAliases) DeleteByAlias(alias string) error {
 	da.mu.Lock()
 	defer da.mu.Unlock()
 
-	// エイリアスが存在するか確認
-	if _, ok := da.aliasToIdentification[alias]; !ok {
+	if _, ok := da.aliases[alias]; !ok {
 		return &AliasNotFoundError{Alias: alias}
 	}
 
-	// エイリアスとIdentificationNumberの関連付けを削除
-	delete(da.aliasToIdentification, alias)
+	delete(da.aliases, alias)
+	return nil
+}
+
+// DeleteByIDString は IDString に関連付けられたすべてのエイリアスを削除します
+func (da *DeviceAliases) DeleteByIDString(idString IDString) error {
+	da.mu.Lock()
+	defer da.mu.Unlock()
+
+	var found bool
+	for alias, registeredID := range da.aliases {
+		if registeredID == idString {
+			delete(da.aliases, alias)
+			found = true
+		}
+	}
+
+	if !found {
+		return &IDNotFoundError{ID: idString}
+	}
+
+	return nil
+}
+
+// List はすべてのエイリアスと IDString のペアを返します
+// 結果はエイリアス名でソートされます
+func (da *DeviceAliases) List() []AliasIDStringPair {
+	da.mu.RLock()
+	defer da.mu.RUnlock()
+
+	result := make([]AliasIDStringPair, 0, len(da.aliases))
+	for alias, id := range da.aliases {
+		result = append(result, AliasIDStringPair{
+			Alias: alias,
+			ID:    id,
+		})
+	}
+
+	// エイリアス名でソート
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Alias < result[j].Alias
+	})
+
+	return result
+}
+
+// SaveToFile はエイリアスと IDString の対応表をJSONファイルに保存します
+func (da *DeviceAliases) SaveToFile(filename string) error {
+	da.mu.RLock()
+	defer da.mu.RUnlock()
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Printf("ファイルを閉じる際にエラーが発生しました: %v\n", err)
+		}
+	}()
+
+	encoder := json.NewEncoder(file)
+	if err := encoder.Encode(da.aliases); err != nil {
+		return fmt.Errorf("failed to encode data: %w", err)
+	}
+
+	return nil
+}
+
+// LoadFromFile はJSONファイルからエイリアスと IDString の対応表を読み込みます
+func (da *DeviceAliases) LoadFromFile(filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// ファイルが存在しない場合は何もしない
+			return nil
+		}
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Printf("ファイルを閉じる際にエラーが発生しました: %v\n", err)
+		}
+	}()
+
+	da.mu.Lock()
+	defer da.mu.Unlock()
+
+	// マップをクリア
+	da.aliases = make(map[string]IDString)
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&da.aliases); err != nil {
+		return fmt.Errorf("failed to decode data: %w", err)
+	}
 
 	return nil
 }

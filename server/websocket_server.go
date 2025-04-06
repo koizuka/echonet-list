@@ -162,11 +162,7 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	aliasList := ws.echonetClient.AliasList()
 	aliases := make(map[string]string)
 	for _, alias := range aliasList {
-		if alias.Device != nil {
-			aliases[alias.Alias] = alias.Device.Specifier()
-		} else {
-			aliases[alias.Alias] = "" // 登録されたデバイスが見つからない
-		}
+		aliases[alias.Alias] = string(alias.ID)
 	}
 
 	// Get all groups

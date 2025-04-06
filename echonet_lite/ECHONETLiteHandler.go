@@ -112,12 +112,6 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 		return nil, fmt.Errorf("エイリアス情報の読み込みに失敗: %w", err)
 	}
 
-	if err := aliases.UpdateIndex(&devices); err != nil {
-		if logger := log.GetLogger(); logger != nil {
-			logger.Log("警告: デバイスのインデックス更新に失敗: %v", err)
-		}
-	}
-
 	// デバイスグループを管理するオブジェクトを作成
 	groups := NewDeviceGroups()
 
@@ -387,16 +381,6 @@ func (h *ECHONETLiteHandler) registerProperties(device IPAndEOJ, properties Prop
 
 	// デバイスのプロパティを登録
 	h.devices.RegisterProperties(device, properties)
-
-	// IdentificationNumber を受信した場合、登録する
-	if id := properties.GetIdentificationNumber(); id != nil {
-		err := h.DeviceAliases.RegisterDeviceIdentification(device, id)
-		if err != nil {
-			if logger != nil {
-				logger.Log("警告: IdentificationNumberの登録に失敗: %v", err)
-			}
-		}
-	}
 
 	// 変更されたプロパティについて通知を送信
 	for _, prop := range changedProperties {
@@ -960,12 +944,16 @@ func (h *ECHONETLiteHandler) SaveAliasFile() error {
 	return nil
 }
 
-func (h *ECHONETLiteHandler) AliasList() []AliasDevicePair {
-	return h.DeviceAliases.GetAllAliases()
+func (h *ECHONETLiteHandler) AliasList() []AliasIDStringPair {
+	return h.DeviceAliases.List()
 }
 
 func (h *ECHONETLiteHandler) GetAliases(device IPAndEOJ) []string {
-	return h.DeviceAliases.GetAliases(device)
+	ids := h.devices.GetIDString(device)
+	if ids == "" {
+		return nil
+	}
+	return h.DeviceAliases.FindAliasesByIDString(ids)
 }
 
 func (h *ECHONETLiteHandler) AliasSet(alias *string, criteria FilterCriteria) error {
@@ -978,7 +966,12 @@ func (h *ECHONETLiteHandler) AliasSet(alias *string, criteria FilterCriteria) er
 	}
 	found := devices.ListIPAndEOJ()[0]
 
-	err := h.DeviceAliases.SetAlias(found, *alias)
+	ids := h.devices.GetIDString(found)
+	if ids == "" {
+		return fmt.Errorf("デバイスのIDが見つかりません: %v", found)
+	}
+
+	err := h.DeviceAliases.Register(*alias, ids)
 	if err != nil {
 		return fmt.Errorf("エイリアスを設定できませんでした: %w", err)
 	}
@@ -989,7 +982,7 @@ func (h *ECHONETLiteHandler) AliasDelete(alias *string) error {
 	if alias == nil {
 		return errors.New("エイリアス名が指定されていません")
 	}
-	if err := h.DeviceAliases.RemoveAlias(*alias); err != nil {
+	if err := h.DeviceAliases.DeleteByAlias(*alias); err != nil {
 		return fmt.Errorf("エイリアス %s の削除に失敗しました: %w", *alias, err)
 	}
 	return h.SaveAliasFile()
@@ -999,10 +992,15 @@ func (h *ECHONETLiteHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
 	if alias == nil {
 		return nil, errors.New("エイリアス名が指定されていません")
 	}
-	device, ok := h.DeviceAliases.GetDeviceByAlias(*alias)
+	ids, ok := h.DeviceAliases.FindByAlias(*alias)
 	if !ok {
 		return nil, fmt.Errorf("エイリアス %s が見つかりません", *alias)
 	}
+	devices := h.devices.FindByIDString(ids)
+	if len(devices) == 0 {
+		return nil, fmt.Errorf("エイリアス %s に紐付いたデバイス %s が見つかりません", *alias, ids)
+	}
+	device := devices[0]
 	return &device, nil
 }
 
@@ -1060,4 +1058,12 @@ func (h *ECHONETLiteHandler) GroupDelete(groupName string) error {
 // GetDevicesByGroup はグループ名に対応するデバイスリストを返す
 func (h *ECHONETLiteHandler) GetDevicesByGroup(groupName string) ([]IPAndEOJ, bool) {
 	return h.DeviceGroups.GetDevicesByGroup(groupName)
+}
+
+func (c *ECHONETLiteHandler) FindDeviceByIDString(id IDString) *IPAndEOJ {
+	devices := c.devices.FindByIDString(id)
+	if len(devices) == 0 {
+		return nil
+	}
+	return &devices[0]
 }
