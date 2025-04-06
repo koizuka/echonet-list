@@ -84,6 +84,7 @@ type Device struct {
 	IP         string            `json:"ip"`
 	EOJ        string            `json:"eoj"`
 	Name       string            `json:"name"`
+	ID         string            `json:"id,omitempty"`
 	Properties map[string]string `json:"properties"`
 	LastSeen   time.Time         `json:"lastSeen"`
 }
@@ -248,10 +249,20 @@ func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties echonet_lite.P
 		protoProps[fmt.Sprintf("%02X", byte(prop.EPC))] = base64.StdEncoding.EncodeToString(prop.EDT)
 	}
 
+	// Generate IDString from EOJ and properties
+	var ids string
+	if edt, ok := properties.FindEPC(echonet_lite.EPCIdentificationNumber); ok {
+		id := echonet_lite.DecodeIdentificationNumber(edt.EDT)
+		if id != nil {
+			ids = string(echonet_lite.MakeIDString(eoj, *id))
+		}
+	}
+
 	return Device{
 		IP:         ip,
 		EOJ:        eoj.Specifier(),
 		Name:       eoj.ClassCode().String(),
+		ID:         ids,
 		Properties: protoProps,
 		LastSeen:   lastSeen,
 	}

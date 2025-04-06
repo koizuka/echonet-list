@@ -71,6 +71,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "ip": "192.168.1.10",
   "eoj": "0130:1",
   "name": "HomeAirConditioner",
+  "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
   "properties": {
     "80": "MzA=",  // EPC "80" (OperationStatus) の値 "30" (ON) をBase64エンコード
     "B0": "MjU="   // EPC "B0" (温度設定) の値 "25" をBase64エンコード
@@ -145,6 +146,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
         "ip": "192.168.1.10",
         "eoj": "0130:1",
         "name": "HomeAirConditioner",
+        "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
         "properties": {
           "80": "MzA=",
           "B0": "MjU="
@@ -205,6 +207,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
       "ip": "192.168.1.10",
       "eoj": "0130:1",
       "name": "HomeAirConditioner",
+      "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
       "properties": {
         "80": "MzA=",
         "B0": "MjY="  // 温度設定が変更された
