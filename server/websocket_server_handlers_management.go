@@ -64,18 +64,17 @@ func (ws *WebSocketServer) handleManageAliasFromClient(connID string, msg *proto
 			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)
 		}
 
-		// Parse the target
-		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.Target)
-		if err != nil {
+		ipAndEOJ := ws.handler.FindDeviceByIDString(payload.Target)
+		if ipAndEOJ == nil {
 			if logger != nil {
-				logger.Log("Error: invalid target: %v", err)
+				logger.Log("Error: invalid target: %v", payload.Target)
 			}
 			// エラー応答を送信
 			errorPayload := protocol.CommandResultPayload{
 				Success: false,
 				Error: &protocol.Error{
 					Code:    protocol.ErrorCodeInvalidParameters,
-					Message: fmt.Sprintf("Invalid target: %v", err),
+					Message: fmt.Sprintf("Invalid target: %v", payload.Target),
 				},
 			}
 			return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, msg.RequestID)

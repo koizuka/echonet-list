@@ -198,7 +198,7 @@ func (c *WebSocketClient) AliasSet(alias *string, criteria FilterCriteria) error
 	payload := protocol.ManageAliasPayload{
 		Action: protocol.AliasActionAdd,
 		Alias:  *alias,
-		Target: string(ids),
+		Target: ids,
 	}
 
 	// Send the message

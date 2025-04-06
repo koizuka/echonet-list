@@ -120,9 +120,9 @@ type DeviceRemovedPayload struct {
 
 // AliasChangedPayload is the payload for the alias_changed message
 type AliasChangedPayload struct {
-	ChangeType AliasChangeType `json:"change_type"`
-	Alias      string          `json:"alias"`
-	Target     string          `json:"target"`
+	ChangeType AliasChangeType       `json:"change_type"`
+	Alias      string                `json:"alias"`
+	Target     echonet_lite.IDString `json:"target"`
 }
 
 // PropertyChangedPayload is the payload for the property_changed message
@@ -173,9 +173,9 @@ type UpdatePropertiesPayload struct {
 
 // ManageAliasPayload is the payload for the manage_alias message
 type ManageAliasPayload struct {
-	Action AliasAction `json:"action"`
-	Alias  string      `json:"alias"`
-	Target string      `json:"target,omitempty"`
+	Action AliasAction           `json:"action"`
+	Alias  string                `json:"alias"`
+	Target echonet_lite.IDString `json:"target,omitempty"`
 }
 
 // GroupChangeType defines the type of group change
