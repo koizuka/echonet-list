@@ -43,8 +43,8 @@ func (g *DeviceGroups) LoadFromFile(filename string) error {
 
 	// JSONデコード用の一時構造体
 	type GroupEntry struct {
-		Group   string   `json:"group"`
-		Devices []string `json:"devices"`
+		Group   string     `json:"group"`
+		Devices []IDString `json:"devices"`
 	}
 	var entries []GroupEntry
 
@@ -59,11 +59,7 @@ func (g *DeviceGroups) LoadFromFile(filename string) error {
 
 	// エントリをグループマップに変換
 	for _, entry := range entries {
-		devices := make([]IDString, 0, len(entry.Devices))
-		for _, idStr := range entry.Devices {
-			devices = append(devices, IDString(idStr))
-		}
-		g.groups[entry.Group] = devices
+		g.groups[entry.Group] = entry.Devices
 	}
 
 	return nil
@@ -82,20 +78,16 @@ func (g *DeviceGroups) SaveToFile(filename string) error {
 
 	// JSONエンコード用の一時構造体
 	type GroupEntry struct {
-		Group   string   `json:"group"`
-		Devices []string `json:"devices"`
+		Group   string     `json:"group"`
+		Devices []IDString `json:"devices"`
 	}
 
 	// グループマップをエントリのスライスに変換
 	entries := make([]GroupEntry, 0, len(g.groups))
 	for group, devices := range g.groups {
-		deviceStrs := make([]string, 0, len(devices))
-		for _, device := range devices {
-			deviceStrs = append(deviceStrs, string(device))
-		}
 		entries = append(entries, GroupEntry{
 			Group:   group,
-			Devices: deviceStrs,
+			Devices: devices,
 		})
 	}
 
