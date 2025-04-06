@@ -74,18 +74,14 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 	c.aliasesMutex.Lock()
 	c.aliases = make(map[string]IDString)
 	for alias, id := range payload.Aliases {
-		c.aliases[alias] = IDString(id)
+		c.aliases[alias] = id
 	}
 	c.aliasesMutex.Unlock()
 
 	// Update groups
 	c.groupsMutex.Lock()
 	c.groups = make([]GroupDevicePair, 0, len(payload.Groups))
-	for groupName, deviceStrs := range payload.Groups {
-		devices := make([]IDString, 0, len(deviceStrs))
-		for _, deviceStr := range deviceStrs {
-			devices = append(devices, IDString(deviceStr))
-		}
+	for groupName, devices := range payload.Groups {
 		c.groups = append(c.groups, GroupDevicePair{
 			Group:   groupName,
 			Devices: devices,
@@ -206,7 +202,7 @@ func (c *WebSocketClient) handleAliasChanged(msg *protocol.Message) {
 	switch payload.ChangeType {
 	case protocol.AliasChangeTypeAdded, protocol.AliasChangeTypeUpdated:
 		// Add or update the alias
-		c.aliases[payload.Alias] = IDString(payload.Target)
+		c.aliases[payload.Alias] = payload.Target
 
 	case protocol.AliasChangeTypeDeleted:
 		// Remove the alias

@@ -160,20 +160,16 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 
 	// Get all aliases
 	aliasList := ws.echonetClient.AliasList()
-	aliases := make(map[string]string)
+	aliases := make(map[string]client.IDString)
 	for _, alias := range aliasList {
-		aliases[alias.Alias] = string(alias.ID)
+		aliases[alias.Alias] = alias.ID
 	}
 
 	// Get all groups
 	groupList := ws.echonetClient.GroupList(nil)
-	groups := make(map[string][]string)
+	groups := make(map[string][]client.IDString)
 	for _, group := range groupList {
-		deviceStrs := make([]string, 0, len(group.Devices))
-		for _, ids := range group.Devices {
-			deviceStrs = append(deviceStrs, string(ids))
-		}
-		groups[group.Group] = deviceStrs
+		groups[group.Group] = group.Devices
 	}
 
 	// Create initial state payload

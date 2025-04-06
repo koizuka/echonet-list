@@ -97,9 +97,9 @@ type Error struct {
 
 // InitialStatePayload is the payload for the initial_state message
 type InitialStatePayload struct {
-	Devices map[string]Device   `json:"devices"`
-	Aliases map[string]string   `json:"aliases"`
-	Groups  map[string][]string `json:"groups"`
+	Devices map[string]Device                  `json:"devices"`
+	Aliases map[string]echonet_lite.IDString   `json:"aliases"`
+	Groups  map[string][]echonet_lite.IDString `json:"groups"`
 }
 
 // DeviceAddedPayload is the payload for the device_added message
