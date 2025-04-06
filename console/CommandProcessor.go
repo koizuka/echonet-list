@@ -209,6 +209,7 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 		PropertyValues: cmd.Properties,
 	}
 	result := p.handler.ListDevices(criteria)
+	count := 0
 
 	for _, d := range result {
 		device := d.Device
@@ -252,7 +253,9 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 		for _, prop := range sortProperties(filteredProps) {
 			fmt.Printf("  %v\n", prop.String(classCode))
 		}
+		count++
 	}
+	fmt.Printf("%d devices found\n", count)
 	return nil
 }
 
