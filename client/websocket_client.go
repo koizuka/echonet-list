@@ -128,11 +128,7 @@ func (c *WebSocketClient) FindDeviceByIDString(id IDString) *IPAndEOJ {
 	// device の EOJ と properties の IdentificationNumber をもとに IDStringを組み立て、一致する物を探す
 	for _, device := range c.devices {
 		eoj := device.Device.EOJ
-		if prop, ok := device.Properties.FindEPC(echonet_lite.EPCIdentificationNumber); ok {
-			decoded := echonet_lite.DecodeIdentificationNumber(prop.EDT)
-			if decoded == nil {
-				continue
-			}
+		if decoded := device.Properties.GetIdentificationNumber(); decoded != nil {
 			// IDString を組み立てる
 			idString := echonet_lite.MakeIDString(eoj, *decoded)
 			// IDString が一致するか確認
@@ -150,11 +146,8 @@ func (c *WebSocketClient) GetIDString(device IPAndEOJ) IDString {
 
 	key := device.Specifier()
 	if device, ok := c.devices[key]; ok {
-		if prop, ok := device.Properties.FindEPC(echonet_lite.EPCIdentificationNumber); ok {
-			decoded := echonet_lite.DecodeIdentificationNumber(prop.EDT)
-			if decoded != nil {
-				return echonet_lite.MakeIDString(device.Device.EOJ, *decoded)
-			}
+		if decoded := device.Properties.GetIdentificationNumber(); decoded != nil {
+			return echonet_lite.MakeIDString(device.Device.EOJ, *decoded)
 		}
 	}
 	return ""

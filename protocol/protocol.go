@@ -251,11 +251,8 @@ func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties echonet_lite.P
 
 	// Generate IDString from EOJ and properties
 	var ids string
-	if edt, ok := properties.FindEPC(echonet_lite.EPCIdentificationNumber); ok {
-		id := echonet_lite.DecodeIdentificationNumber(edt.EDT)
-		if id != nil {
-			ids = string(echonet_lite.MakeIDString(eoj, *id))
-		}
+	if id := properties.GetIdentificationNumber(); id != nil {
+		ids = string(echonet_lite.MakeIDString(eoj, *id))
 	}
 
 	return Device{

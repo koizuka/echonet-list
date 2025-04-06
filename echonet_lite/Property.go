@@ -147,10 +147,8 @@ func (ps Properties) Encode() []byte {
 }
 
 func (ps Properties) GetIdentificationNumber() *IdentificationNumber {
-	for _, p := range ps {
-		if p.EPC == EPCIdentificationNumber {
-			return DecodeIdentificationNumber(p.EDT)
-		}
+	if p, ok := ps.FindEPC(EPCIdentificationNumber); ok {
+		return DecodeIdentificationNumber(p.EDT)
 	}
 	return nil
 }
