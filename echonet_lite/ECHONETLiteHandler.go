@@ -434,10 +434,8 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) er
 			}
 			// 応答を返す
 			err := h.session.SendResponse(ip, msg, ESVINFC_Res, replyProps, nil)
-			if err != nil {
-				if logger != nil {
-					logger.Log("エラー: INFメッセージに対する応答の送信に失敗: %v", err)
-				}
+			if err != nil && logger != nil {
+				logger.Log("エラー: INFメッセージに対する応答の送信に失敗: %v", err)
 			}
 		}
 	}()
@@ -631,10 +629,8 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 		},
 	)
 
-	if err != nil {
-		if logger != nil {
-			logger.Log("エラー: プロパティ取得リクエストの送信に失敗: %v", err)
-		}
+	if err != nil && logger != nil {
+		logger.Log("エラー: プロパティ取得リクエストの送信に失敗: %v", err)
 	}
 
 	return CallbackFinished, err

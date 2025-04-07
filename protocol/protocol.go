@@ -243,7 +243,7 @@ type PropertyAliasesData struct {
 // Helper functions for converting between ECHONET Lite types and protocol types
 
 // DeviceToProtocol converts an ECHONET Lite device to a protocol Device
-func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties echonet_lite.Properties, lastSeen time.Time) Device {
+func DeviceToProtocol(ipAndEOJ echonet_lite.IPAndEOJ, properties echonet_lite.Properties, lastSeen time.Time) Device {
 	protoProps := make(map[string]string)
 	for _, prop := range properties {
 		protoProps[fmt.Sprintf("%02X", byte(prop.EPC))] = base64.StdEncoding.EncodeToString(prop.EDT)
@@ -252,13 +252,13 @@ func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties echonet_lite.P
 	// Generate IDString from EOJ and properties
 	var ids echonet_lite.IDString
 	if id := properties.GetIdentificationNumber(); id != nil {
-		ids = echonet_lite.MakeIDString(eoj, *id)
+		ids = echonet_lite.MakeIDString(ipAndEOJ.EOJ, *id)
 	}
 
 	return Device{
-		IP:         ip,
-		EOJ:        eoj.Specifier(),
-		Name:       eoj.ClassCode().String(),
+		IP:         ipAndEOJ.IP.String(),
+		EOJ:        ipAndEOJ.EOJ.Specifier(),
+		Name:       ipAndEOJ.EOJ.ClassCode().String(),
 		ID:         ids,
 		Properties: protoProps,
 		LastSeen:   lastSeen,
@@ -266,10 +266,10 @@ func DeviceToProtocol(ip string, eoj echonet_lite.EOJ, properties echonet_lite.P
 }
 
 // DeviceFromProtocol converts a protocol Device to ECHONET Lite types
-func DeviceFromProtocol(device Device) (string, echonet_lite.EOJ, echonet_lite.Properties, error) {
+func DeviceFromProtocol(device Device) (echonet_lite.IPAndEOJ, echonet_lite.Properties, error) {
 	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(device.IP + " " + device.EOJ)
 	if err != nil {
-		return "", 0, nil, err
+		return echonet_lite.IPAndEOJ{}, nil, err
 	}
 
 	// Convert properties map to Properties slice
@@ -278,13 +278,13 @@ func DeviceFromProtocol(device Device) (string, echonet_lite.EOJ, echonet_lite.P
 		// Parse EPC string to EPCType
 		epc, err := echonet_lite.ParseEPCString(epcStr)
 		if err != nil {
-			return "", 0, nil, fmt.Errorf("error parsing EPC: %v", err)
+			return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error parsing EPC: %v", err)
 		}
 
 		// Decode EDT string from base64
 		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
-			return "", 0, nil, fmt.Errorf("error decoding EDT: %v", err)
+			return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error decoding EDT: %v", err)
 		}
 
 		// Add property to properties slice
@@ -294,7 +294,7 @@ func DeviceFromProtocol(device Device) (string, echonet_lite.EOJ, echonet_lite.P
 		})
 	}
 
-	return ipAndEOJ.IP.String(), ipAndEOJ.EOJ, properties, nil
+	return ipAndEOJ, properties, nil
 }
 
 // CreateMessage creates a new Message with the given type and payload

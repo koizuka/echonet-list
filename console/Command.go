@@ -2,6 +2,7 @@ package console
 
 import (
 	"echonet-list/client"
+	"echonet-list/echonet_lite"
 	"fmt"
 	"net"
 	"sort"
@@ -250,13 +251,7 @@ func (p CommandParser) parseDeviceSpecifierOrGroup(parts []string, argIndex int,
 
 	// エイリアスの取得
 	if alias, ok := p.aliasManager.GetDeviceByAlias(parts[argIndex]); ok {
-		classCode := alias.EOJ.ClassCode()
-		instanceCode := alias.EOJ.InstanceCode()
-		deviceSpec := client.DeviceSpecifier{
-			IP:           &alias.IP,
-			ClassCode:    &classCode,
-			InstanceCode: &instanceCode,
-		}
+		deviceSpec = echonet_lite.DeviceSpecifierFromIPAndEOJ(alias)
 		return deviceSpec, nil, argIndex + 1, nil
 	}
 
@@ -304,18 +299,10 @@ func (p CommandParser) parseDeviceSpecifiers(parts []string, argIndex int, requi
 			}
 			for _, group := range groups {
 				for _, ids := range group.Devices {
-					device, ok := p.aliasManager.GetDeviceByAlias(string(ids))
-					if !ok {
-						continue
+					if device, ok := p.aliasManager.GetDeviceByAlias(string(ids)); ok {
+						deviceSpec := echonet_lite.DeviceSpecifierFromIPAndEOJ(device)
+						deviceSpecs = append(deviceSpecs, deviceSpec)
 					}
-					classCode := device.EOJ.ClassCode()
-					instanceCode := device.EOJ.InstanceCode()
-					deviceSpec := client.DeviceSpecifier{
-						IP:           &device.IP,
-						ClassCode:    &classCode,
-						InstanceCode: &instanceCode,
-					}
-					deviceSpecs = append(deviceSpecs, deviceSpec)
 				}
 			}
 		} else {

@@ -149,8 +149,7 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	for _, device := range devices {
 		// Use DeviceToProtocol to convert to protocol format
 		protoDevice := protocol.DeviceToProtocol(
-			device.Device.IP.String(),
-			device.Device.EOJ,
+			device.Device,
 			device.Properties,
 			time.Now(), // Use current time as last seen
 		)
@@ -266,8 +265,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 
 				// Use DeviceToProtocol to convert to protocol format
 				protoDevice := protocol.DeviceToProtocol(
-					device.IP.String(),
-					device.EOJ,
+					device,
 					echonet_lite.Properties{}, // Empty properties, will be updated later
 					time.Now(),                // Use current time as last seen
 				)

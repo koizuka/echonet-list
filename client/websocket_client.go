@@ -84,8 +84,8 @@ func (c *WebSocketClient) IsDebug() bool {
 func (c *WebSocketClient) SetDebug(debug bool) {
 	c.debug = debug
 
-	// トランスポートがDefaultWebSocketClientTransportの場合、そのデバッグモードも設定
-	if t, ok := c.transport.(*DefaultWebSocketClientTransport); ok {
+	// トランスポートがDebuggerを実装している場合、そのデバッグモードも設定
+	if t, ok := c.transport.(Debugger); ok {
 		t.SetDebug(debug)
 	}
 }
@@ -127,10 +127,9 @@ func (c *WebSocketClient) FindDeviceByIDString(id IDString) *IPAndEOJ {
 
 	// device の EOJ と properties の IdentificationNumber をもとに IDStringを組み立て、一致する物を探す
 	for _, device := range c.devices {
-		eoj := device.Device.EOJ
 		if decoded := device.Properties.GetIdentificationNumber(); decoded != nil {
 			// IDString を組み立てる
-			idString := echonet_lite.MakeIDString(eoj, *decoded)
+			idString := echonet_lite.MakeIDString(device.Device.EOJ, *decoded)
 			// IDString が一致するか確認
 			if idString == id {
 				return &device.Device
@@ -196,14 +195,7 @@ func (c *WebSocketClient) ListDevices(criteria FilterCriteria) []DeviceAndProper
 
 	// IPアドレスとEOJでソート
 	sort.Slice(result, func(i, j int) bool {
-		// IPアドレスでソート
-		c := bytes.Compare(result[i].Device.IP, result[j].Device.IP)
-		if c != 0 {
-			// IPアドレスをバイト値として比較 (IPv4/IPv6両対応)
-			return c < 0
-		}
-		// IPアドレスが同じ場合はEOJでソート
-		return result[i].Device.EOJ < result[j].Device.EOJ
+		return result[i].Device.Compare(result[j].Device) < 0
 	})
 
 	return result
@@ -269,15 +261,12 @@ func (c *WebSocketClient) GetDeviceByAlias(alias string) (IPAndEOJ, bool) {
 	c.aliasesMutex.RLock()
 	defer c.aliasesMutex.RUnlock()
 
-	id, ok := c.aliases[alias]
-	if !ok {
-		return IPAndEOJ{}, false
+	if id, ok := c.aliases[alias]; ok {
+		if device := c.FindDeviceByIDString(id); device != nil {
+			return *device, ok
+		}
 	}
-	device := c.FindDeviceByIDString(id)
-	if device == nil {
-		return IPAndEOJ{}, false
-	}
-	return *device, ok
+	return IPAndEOJ{}, false
 }
 
 // GroupManager インターフェースの実装

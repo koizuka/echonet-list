@@ -11,10 +11,8 @@ import (
 
 // HasPropertyWithValue is a test helper function that checks if a property with the expected EPC and EDT exists for the given device
 func HasPropertyWithValue(d Devices, device IPAndEOJ, epc EPCType, expectedEDT []byte) bool {
-	classCode := device.EOJ.ClassCode()
-	instanceCode := device.EOJ.InstanceCode()
 	criteria := FilterCriteria{
-		Device:         DeviceSpecifier{IP: &device.IP, ClassCode: &classCode, InstanceCode: &instanceCode},
+		Device:         DeviceSpecifierFromIPAndEOJ(device),
 		PropertyValues: []Property{{EPC: epc, EDT: expectedEDT}},
 	}
 

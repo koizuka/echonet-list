@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net"
 )
 
 // Discover sends a discover_devices message to the server
@@ -99,15 +98,9 @@ func (c *WebSocketClient) GetProperties(device IPAndEOJ, EPCs []EPCType, skipVal
 	}
 
 	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
-	ip, eoj, props, err := protocol.DeviceFromProtocol(deviceData)
+	ipAndEOJ, props, err := protocol.DeviceFromProtocol(deviceData)
 	if err != nil {
 		return DeviceAndProperties{}, fmt.Errorf("error converting device: %v", err)
-	}
-
-	// Create IPAndEOJ
-	ipAndEOJ := echonet_lite.IPAndEOJ{
-		IP:  net.ParseIP(ip),
-		EOJ: eoj,
 	}
 
 	return DeviceAndProperties{
@@ -157,15 +150,9 @@ func (c *WebSocketClient) SetProperties(device IPAndEOJ, properties Properties) 
 	}
 
 	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
-	ip, eoj, props, err := protocol.DeviceFromProtocol(deviceData)
+	ipAndEOJ, props, err := protocol.DeviceFromProtocol(deviceData)
 	if err != nil {
 		return DeviceAndProperties{}, fmt.Errorf("error converting device: %v", err)
-	}
-
-	// Create IPAndEOJ
-	ipAndEOJ := echonet_lite.IPAndEOJ{
-		IP:  net.ParseIP(ip),
-		EOJ: eoj,
 	}
 
 	return DeviceAndProperties{

@@ -1,12 +1,11 @@
 package console
 
 import (
-	"bytes"
 	"context"
 	"echonet-list/client"
+	"echonet-list/echonet_lite"
 	"errors"
 	"fmt"
-	"net"
 	"sort"
 	"strings"
 
@@ -417,14 +416,8 @@ func (p *CommandProcessor) processUpdateCommand(cmd *Command) error {
 					continue
 				}
 				// デバイスごとにフィルタリング条件を作成
-				classCode := device.EOJ.ClassCode()
-				instanceCode := device.EOJ.InstanceCode()
 				criteria := client.FilterCriteria{
-					Device: client.DeviceSpecifier{
-						IP:           &device.IP,
-						ClassCode:    &classCode,
-						InstanceCode: &instanceCode,
-					},
+					Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(*device),
 				}
 				err := p.handler.UpdateProperties(criteria)
 				if err != nil {
@@ -516,7 +509,9 @@ func (p *CommandProcessor) processGroupListCommand(cmd *Command) error {
 			}
 			devices = append(devices, *device)
 		}
-		sortIPAndEOJs(devices)
+		sort.Slice(devices, func(i, j int) bool {
+			return devices[i].Compare(devices[j]) < 0
+		})
 		for _, device := range devices {
 			aliases := p.handler.GetAliases(device)
 			if len(aliases) > 0 {
@@ -527,35 +522,4 @@ func (p *CommandProcessor) processGroupListCommand(cmd *Command) error {
 		}
 	}
 	return nil
-}
-
-// sortIPAndEOJs はIPAndEOJのスライスをソートする
-// IPアドレスでソートし、同じIPの場合はEOJでソート
-func sortIPAndEOJs(devices []client.IPAndEOJ) {
-	sort.Slice(devices, func(i, j int) bool {
-		// まずIPアドレスで比較
-		ipCompare := compareIP(devices[i].IP, devices[j].IP)
-		if ipCompare != 0 {
-			return ipCompare < 0
-		}
-		// IPが同じ場合はEOJで比較
-		return devices[i].EOJ < devices[j].EOJ
-	})
-}
-
-// compareIP は2つのIPアドレスを比較する
-// 戻り値: a < b なら負、a == b なら0、a > b なら正
-func compareIP(a, b net.IP) int {
-	// IPv4アドレスを正規化（IPv4-mapped IPv6アドレスの場合はIPv4に変換）
-	a = a.To4()
-	if a == nil {
-		a = a.To16()
-	}
-	b = b.To4()
-	if b == nil {
-		b = b.To16()
-	}
-
-	// バイト単位で比較
-	return bytes.Compare(a, b)
 }

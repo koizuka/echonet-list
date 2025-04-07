@@ -4,6 +4,7 @@ import (
 	"echonet-list/echonet_lite"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -13,16 +14,17 @@ func TestDeviceToProtocol(t *testing.T) {
 	// Test cases
 	tests := []struct {
 		name       string
-		ip         string
-		eoj        echonet_lite.EOJ
+		ipAndEOJ   echonet_lite.IPAndEOJ
 		properties echonet_lite.Properties
 		lastSeen   time.Time
 		want       Device
 	}{
 		{
 			name: "Basic device conversion",
-			ip:   "192.168.1.10",
-			eoj:  echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+			ipAndEOJ: echonet_lite.IPAndEOJ{
+				IP:  net.ParseIP("192.168.1.10"),
+				EOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+			},
 			properties: echonet_lite.Properties{
 				{EPC: 0x80, EDT: []byte{0x30}},
 				{EPC: 0x81, EDT: []byte{0x01, 0x02}},
@@ -40,9 +42,11 @@ func TestDeviceToProtocol(t *testing.T) {
 			},
 		},
 		{
-			name:       "Empty properties",
-			ip:         "192.168.1.20",
-			eoj:        echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1),
+			name: "Empty properties",
+			ipAndEOJ: echonet_lite.IPAndEOJ{
+				IP:  net.ParseIP("192.168.1.20"),
+				EOJ: echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1),
+			},
 			properties: echonet_lite.Properties{},
 			lastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			want: Device{
@@ -58,7 +62,7 @@ func TestDeviceToProtocol(t *testing.T) {
 	// Run tests
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DeviceToProtocol(tt.ip, tt.eoj, tt.properties, tt.lastSeen)
+			got := DeviceToProtocol(tt.ipAndEOJ, tt.properties, tt.lastSeen)
 
 			// Check IP
 			if got.IP != tt.want.IP {
@@ -91,11 +95,10 @@ func TestDeviceToProtocol(t *testing.T) {
 func TestDeviceFromProtocol(t *testing.T) {
 	// Test cases
 	tests := []struct {
-		name    string
-		device  Device
-		wantIP  string
-		wantEOJ echonet_lite.EOJ
-		wantErr bool
+		name         string
+		device       Device
+		wantIPAndEOJ echonet_lite.IPAndEOJ
+		wantErr      bool
 	}{
 		{
 			name: "Basic device conversion",
@@ -109,8 +112,10 @@ func TestDeviceFromProtocol(t *testing.T) {
 				},
 				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
-			wantIP:  "192.168.1.10",
-			wantEOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+			wantIPAndEOJ: echonet_lite.IPAndEOJ{
+				IP:  net.ParseIP("192.168.1.10"),
+				EOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+			},
 			wantErr: false,
 		},
 		{
@@ -122,8 +127,10 @@ func TestDeviceFromProtocol(t *testing.T) {
 				Properties: map[string]string{},
 				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
-			wantIP:  "192.168.1.20",
-			wantEOJ: echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1),
+			wantIPAndEOJ: echonet_lite.IPAndEOJ{
+				IP:  net.ParseIP("192.168.1.20"),
+				EOJ: echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 1),
+			},
 			wantErr: false,
 		},
 		{
@@ -135,9 +142,8 @@ func TestDeviceFromProtocol(t *testing.T) {
 				Properties: map[string]string{},
 				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
-			wantIP:  "",
-			wantEOJ: 0,
-			wantErr: true,
+			wantIPAndEOJ: echonet_lite.IPAndEOJ{},
+			wantErr:      true,
 		},
 		{
 			name: "Invalid EOJ",
@@ -148,9 +154,8 @@ func TestDeviceFromProtocol(t *testing.T) {
 				Properties: map[string]string{},
 				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
-			wantIP:  "",
-			wantEOJ: 0,
-			wantErr: true,
+			wantIPAndEOJ: echonet_lite.IPAndEOJ{},
+			wantErr:      true,
 		},
 		{
 			name: "Invalid property EPC",
@@ -163,9 +168,8 @@ func TestDeviceFromProtocol(t *testing.T) {
 				},
 				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
-			wantIP:  "",
-			wantEOJ: 0,
-			wantErr: true,
+			wantIPAndEOJ: echonet_lite.IPAndEOJ{},
+			wantErr:      true,
 		},
 		{
 			name: "Invalid property EDT",
@@ -178,16 +182,15 @@ func TestDeviceFromProtocol(t *testing.T) {
 				},
 				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
-			wantIP:  "",
-			wantEOJ: 0,
-			wantErr: true,
+			wantIPAndEOJ: echonet_lite.IPAndEOJ{},
+			wantErr:      true,
 		},
 	}
 
 	// Run tests
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotIP, gotEOJ, gotProps, err := DeviceFromProtocol(tt.device)
+			gotIPAndEOJ, gotProps, err := DeviceFromProtocol(tt.device)
 
 			// Check error
 			if (err != nil) != tt.wantErr {
@@ -199,14 +202,12 @@ func TestDeviceFromProtocol(t *testing.T) {
 				return
 			}
 
-			// Check IP
-			if gotIP != tt.wantIP {
-				t.Errorf("DeviceFromProtocol() IP = %v, want %v", gotIP, tt.wantIP)
+			// Check IPAndEOJ
+			if !gotIPAndEOJ.IP.Equal(tt.wantIPAndEOJ.IP) {
+				t.Errorf("DeviceFromProtocol() IP = %v, want %v", gotIPAndEOJ.IP, tt.wantIPAndEOJ.IP)
 			}
-
-			// Check EOJ
-			if gotEOJ != tt.wantEOJ {
-				t.Errorf("DeviceFromProtocol() EOJ = %v, want %v", gotEOJ, tt.wantEOJ)
+			if gotIPAndEOJ.EOJ != tt.wantIPAndEOJ.EOJ {
+				t.Errorf("DeviceFromProtocol() EOJ = %v, want %v", gotIPAndEOJ.EOJ, tt.wantIPAndEOJ.EOJ)
 			}
 
 			// Check Properties
@@ -226,8 +227,10 @@ func TestDeviceFromProtocol(t *testing.T) {
 // Test round-trip conversion
 func TestDeviceRoundTrip(t *testing.T) {
 	// Create a test device
-	ip := "192.168.1.10"
-	eoj := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+	ipAndEOJ := echonet_lite.IPAndEOJ{
+		IP:  net.ParseIP("192.168.1.10"),
+		EOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+	}
 	properties := echonet_lite.Properties{
 		{EPC: 0x80, EDT: []byte{0x30}},
 		{EPC: 0x81, EDT: []byte{0x01, 0x02}},
@@ -235,10 +238,10 @@ func TestDeviceRoundTrip(t *testing.T) {
 	lastSeen := time.Now()
 
 	// Convert to protocol Device
-	protoDevice := DeviceToProtocol(ip, eoj, properties, lastSeen)
+	protoDevice := DeviceToProtocol(ipAndEOJ, properties, lastSeen)
 
 	// Convert back to ECHONET Lite types
-	gotIP, gotEOJ, gotProps, err := DeviceFromProtocol(protoDevice)
+	gotIPAndEOJ, gotProps, err := DeviceFromProtocol(protoDevice)
 
 	// Check for errors
 	if err != nil {
@@ -246,14 +249,12 @@ func TestDeviceRoundTrip(t *testing.T) {
 		return
 	}
 
-	// Check IP
-	if gotIP != ip {
-		t.Errorf("Round-trip IP = %v, want %v", gotIP, ip)
+	// Check IPAndEOJ
+	if !gotIPAndEOJ.IP.Equal(ipAndEOJ.IP) {
+		t.Errorf("Round-trip IP = %v, want %v", gotIPAndEOJ.IP, ipAndEOJ.IP)
 	}
-
-	// Check EOJ
-	if gotEOJ != eoj {
-		t.Errorf("Round-trip EOJ = %v, want %v", gotEOJ, eoj)
+	if gotIPAndEOJ.EOJ != ipAndEOJ.EOJ {
+		t.Errorf("Round-trip EOJ = %v, want %v", gotIPAndEOJ.EOJ, ipAndEOJ.EOJ)
 	}
 
 	// Check Properties

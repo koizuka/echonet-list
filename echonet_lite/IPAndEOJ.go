@@ -1,6 +1,7 @@
 package echonet_lite
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 )
@@ -19,12 +20,14 @@ func (d IPAndEOJ) Specifier() string {
 	return fmt.Sprintf("%v %v", d.IP, d.EOJ.Specifier())
 }
 
-// Equals は2つのIPAndEOJが等しいかどうかを判定する
-func (d IPAndEOJ) Equals(other IPAndEOJ) bool {
-	// IPアドレスの比較
-	if !d.IP.Equal(other.IP) {
-		return false
+func (d IPAndEOJ) Compare(other IPAndEOJ) int {
+	if d.IP.Equal(other.IP) {
+		if d.EOJ > other.EOJ {
+			return 1
+		} else if d.EOJ < other.EOJ {
+			return -1
+		}
+		return 0
 	}
-	// EOJの比較
-	return d.EOJ == other.EOJ
+	return bytes.Compare(d.IP, other.IP)
 }

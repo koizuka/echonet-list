@@ -5,7 +5,6 @@ import (
 	"echonet-list/protocol"
 	"encoding/base64"
 	"fmt"
-	"net"
 )
 
 // handleNotification handles a notification from the WebSocket server
@@ -47,7 +46,7 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 	c.devices = make(map[string]echonet_lite.DeviceAndProperties)
 	for deviceID, device := range payload.Devices {
 		// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
-		ip, eoj, properties, err := protocol.DeviceFromProtocol(device)
+		ipAndEOJ, properties, err := protocol.DeviceFromProtocol(device)
 		if err != nil {
 			if c.debug {
 				fmt.Printf("Error converting device: %v\n", err)
@@ -59,10 +58,6 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 		props := properties
 
 		// Add to devices
-		ipAndEOJ := echonet_lite.IPAndEOJ{
-			IP:  net.ParseIP(ip),
-			EOJ: eoj,
-		}
 		c.devices[deviceID] = echonet_lite.DeviceAndProperties{
 			Device:     ipAndEOJ,
 			Properties: props,
@@ -101,18 +96,12 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 	}
 
 	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
-	ip, eoj, props, err := protocol.DeviceFromProtocol(payload.Device)
+	ipAndEOJ, props, err := protocol.DeviceFromProtocol(payload.Device)
 	if err != nil {
 		if c.debug {
 			fmt.Printf("Error converting device: %v\n", err)
 		}
 		return
-	}
-
-	// Create IPAndEOJ
-	ipAndEOJ := echonet_lite.IPAndEOJ{
-		IP:  net.ParseIP(ip),
-		EOJ: eoj,
 	}
 
 	// Add to devices
@@ -136,18 +125,12 @@ func (c *WebSocketClient) handleDeviceUpdated(msg *protocol.Message) {
 	}
 
 	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
-	ip, eoj, props, err := protocol.DeviceFromProtocol(payload.Device)
+	ipAndEOJ, props, err := protocol.DeviceFromProtocol(payload.Device)
 	if err != nil {
 		if c.debug {
 			fmt.Printf("Error converting device: %v\n", err)
 		}
 		return
-	}
-
-	// Create IPAndEOJ
-	ipAndEOJ := echonet_lite.IPAndEOJ{
-		IP:  net.ParseIP(ip),
-		EOJ: eoj,
 	}
 
 	// Update devices

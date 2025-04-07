@@ -56,8 +56,7 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 
 		// Use DeviceToProtocol to convert to protocol format
 		protoDevice := protocol.DeviceToProtocol(
-			deviceAndProps.Device.IP.String(),
-			deviceAndProps.Device.EOJ,
+			deviceAndProps.Device,
 			deviceAndProps.Properties,
 			time.Now(), // Use current time as last seen
 		)
@@ -131,8 +130,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 
 	// Use DeviceToProtocol to convert to protocol format
 	deviceData := protocol.DeviceToProtocol(
-		deviceAndProps.Device.IP.String(),
-		deviceAndProps.Device.EOJ,
+		deviceAndProps.Device,
 		deviceAndProps.Properties,
 		time.Now(), // Use current time as last seen
 	)
@@ -284,7 +282,9 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *
 		}
 
 		// Create filter criteria
-		criteria := echonet_lite.FilterCriteriaFromIPAndEOJ(ipAndEOJ)
+		criteria := echonet_lite.FilterCriteria{
+			Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(ipAndEOJ),
+		}
 
 		// Update properties
 		if err := ws.echonetClient.UpdateProperties(criteria); err != nil {

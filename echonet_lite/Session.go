@@ -244,10 +244,8 @@ func (s *Session) MainLoop() {
 					}
 				}
 			}
-			if err != nil {
-				if logger != nil {
-					logger.Log("ディスパッチエラー: %v", err)
-				}
+			if err != nil && logger != nil {
+				logger.Log("ディスパッチエラー: %v", err)
 			}
 		case ESVINF, ESVINFC:
 			// Get the callback while holding the lock
@@ -258,10 +256,8 @@ func (s *Session) MainLoop() {
 			// Execute callback outside the lock
 			if callback != nil {
 				err = callback(addr.IP, msg)
-				if err != nil {
-					if logger != nil {
-						logger.Log("Infコールバックエラー: %v", err)
-					}
+				if err != nil && logger != nil {
+					logger.Log("Infコールバックエラー: %v", err)
 				}
 			}
 		case ESVGet, ESVSetC, ESVSetI, ESVINF_REQ:
@@ -270,10 +266,8 @@ func (s *Session) MainLoop() {
 			s.mu.RUnlock()
 			if callback != nil {
 				err = callback(addr.IP, msg)
-				if err != nil {
-					if logger != nil {
-						logger.Log("%v: ReceiveCallbackエラー: %v", msg.DEOJ, err)
-					}
+				if err != nil && logger != nil {
+					logger.Log("%v: ReceiveCallbackエラー: %v", msg.DEOJ, err)
 				}
 			}
 		}
@@ -309,12 +303,6 @@ func (s *Session) registerCallback(key Key, ESVs []ESVType, callback CallbackFun
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.dispatchTable.Register(key, ESVs, callback)
-}
-
-func (s *Session) registerCallbackFromMessage(msg *ECHONETLiteMessage, callback CallbackFunc) Key {
-	key := MakeKey(msg)
-	s.registerCallback(key, msg.ESV.ResponseESVs(), callback)
-	return key
 }
 
 func (s *Session) sendMessage(ip net.IP, msg *ECHONETLiteMessage) error {
@@ -373,7 +361,8 @@ func (s *Session) CreateGetPropertyMessage(device IPAndEOJ, EPCs []EPCType) *ECH
 
 func (s *Session) prepareStartGetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) (*ECHONETLiteMessage, Key) {
 	msg := s.CreateGetPropertyMessage(device, EPCs)
-	return msg, s.registerCallbackFromMessage(msg, func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+	key := MakeKey(msg)
+	s.registerCallback(key, msg.ESV.ResponseESVs(), func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		device := IPAndEOJ{ip, msg.SEOJ}
 		if msg.ESV == ESVGet_Res {
 			return callback(device, true, msg.Properties, nil)
@@ -390,6 +379,7 @@ func (s *Session) prepareStartGetProperties(device IPAndEOJ, EPCs []EPCType, cal
 		}
 		return callback(device, false, successProperties, failedEPCs)
 	})
+	return msg, key
 }
 
 func (s *Session) StartGetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) (Key, error) {
@@ -443,9 +433,9 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 				// タイムアウトした場合
 				retryCount++
 
+				logger := log.GetLogger()
 				if retryCount >= s.MaxRetries {
 					// 最大再送回数に達した場合
-					logger := log.GetLogger()
 					if logger != nil {
 						logger.Log("%v 最大再送回数(%d)に達しました", desc, s.MaxRetries)
 					}
@@ -454,7 +444,6 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 				}
 
 				// ログ出力
-				logger := log.GetLogger()
 				if logger != nil {
 					logger.Log("%v: リクエストを再送します (試行 %d/%d)", desc, retryCount, s.MaxRetries)
 				}
@@ -523,8 +512,7 @@ func (s *Session) sendRequestWithContext(
 	key := MakeKey(msg)
 
 	// コールバックを登録
-	s.mu.Lock()
-	s.dispatchTable.Register(key, msg.ESV.ResponseESVs(), func(ip net.IP, respMsg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+	s.registerCallback(key, msg.ESV.ResponseESVs(), func(ip net.IP, respMsg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		// 応答メッセージをチャネルに送信
 		select {
 		case <-ctx.Done():
@@ -538,7 +526,6 @@ func (s *Session) sendRequestWithContext(
 
 		return CallbackFinished, nil
 	})
-	s.mu.Unlock()
 
 	// 関数終了時にコールバックを登録解除するための遅延処理
 	callbackUnregistered := false
@@ -575,9 +562,9 @@ func (s *Session) sendRequestWithContext(
 			// タイムアウトした場合
 			retryCount++
 
+			logger := log.GetLogger()
 			if retryCount >= s.MaxRetries {
 				// 最大再送回数に達した場合
-				logger := log.GetLogger()
 				if logger != nil {
 					logger.Log("最大再送回数(%d)に達しました", s.MaxRetries)
 				}
@@ -587,7 +574,6 @@ func (s *Session) sendRequestWithContext(
 			}
 
 			// ログ出力
-			logger := log.GetLogger()
 			if logger != nil {
 				logger.Log("タイムアウト: リクエストを再送します (試行 %d/%d)", retryCount+1, s.MaxRetries)
 			}
@@ -613,11 +599,7 @@ func (s *Session) GetProperties(
 	msg := s.CreateGetPropertyMessage(device, EPCs)
 
 	// 共通処理を呼び出し
-	respMsg, err := s.sendRequestWithContext(
-		ctx,
-		device,
-		msg,
-	)
+	respMsg, err := s.sendRequestWithContext(ctx, device, msg)
 
 	// エラーチェック
 	if err != nil {
@@ -653,11 +635,7 @@ func (s *Session) SetProperties(
 	msg := s.CreateSetPropertyMessage(device, properties)
 
 	// 共通処理を呼び出し
-	respMsg, err := s.sendRequestWithContext(
-		ctx,
-		device,
-		msg,
-	)
+	respMsg, err := s.sendRequestWithContext(ctx, device, msg)
 
 	// エラーチェック
 	if err != nil {
