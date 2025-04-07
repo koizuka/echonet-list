@@ -8,14 +8,9 @@ import (
 func (ws *WebSocketServer) handleDiscoverDevicesFromClient(connID string, msg *protocol.Message) error {
 	// Discover devices
 	if err := ws.echonetClient.Discover(); err != nil {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error discovering devices: %v", err)
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error discovering devices: %v", err)
 	}
 
-	// Send the response
-	resultPayload := protocol.CommandResultPayload{
-		Success: true,
-	}
-
-	// Send the message
-	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
+	// Send the success response
+	return ws.sendSuccessResponse(connID, msg.RequestID, nil)
 }

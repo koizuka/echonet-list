@@ -16,12 +16,12 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 	// Parse the payload
 	var payload protocol.GetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing get_properties payload: %v", err)
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing get_properties payload: %v", err)
 	}
 
 	// Validate the payload
 	if len(payload.Targets) == 0 {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "No targets specified")
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "No targets specified")
 	}
 
 	// Process each target
@@ -35,7 +35,7 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 		}
 
 		if err != nil {
-			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
+			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
 		}
 
 		// Parse EPCs
@@ -43,7 +43,7 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 		for _, epcStr := range payload.EPCs {
 			epc, err := echonet_lite.ParseEPCString(epcStr)
 			if err != nil {
-				return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
+				return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
 			}
 			epcs = append(epcs, epc)
 		}
@@ -51,7 +51,7 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 		// Get properties
 		deviceAndProps, err := ws.echonetClient.GetProperties(ipAndEOJ, epcs, false)
 		if err != nil {
-			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error getting properties: %v", err)
+			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error getting properties: %v", err)
 		}
 
 		// Use DeviceToProtocol to convert to protocol format
@@ -72,19 +72,13 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 		// Marshal just the first device
 		deviceJSON, err := json.Marshal(results[0])
 		if err != nil {
-			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInternalServerError, "Error marshaling device: %v", err)
+			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInternalServerError, "Error marshaling device: %v", err)
 		}
 		resultJSON = deviceJSON
 	}
 
-	// Send the response with the device data
-	resultPayload := protocol.CommandResultPayload{
-		Success: true,
-		Data:    resultJSON, // Include the marshaled device (not the array)
-	}
-
-	// Send the message using the helper function
-	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
+	// Send the success response with the device data
+	return ws.sendSuccessResponse(connID, msg.RequestID, resultJSON)
 }
 
 // handleSetPropertiesFromClient handles a set_properties message from a client
@@ -93,21 +87,21 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 	// Parse the payload
 	var payload protocol.SetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing set_properties payload: %v", err)
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing set_properties payload: %v", err)
 	}
 
 	// Validate the payload
 	if payload.Target == "" {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "No target specified")
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "No target specified")
 	}
 	if len(payload.Properties) == 0 {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "No properties specified")
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "No properties specified")
 	}
 
 	// Parse the target
 	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.Target)
 	if err != nil {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
 	}
 
 	// Parse properties
@@ -115,12 +109,12 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 	for epcStr, edtStr := range payload.Properties {
 		epc, err := echonet_lite.ParseEPCString(epcStr)
 		if err != nil {
-			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
+			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
 		}
 
 		edt, err := base64.StdEncoding.DecodeString(edtStr)
 		if err != nil {
-			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid EDT: %v", err)
+			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid EDT: %v", err)
 		}
 
 		properties = append(properties, echonet_lite.Property{
@@ -132,7 +126,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 	// Set properties
 	deviceAndProps, err := ws.echonetClient.SetProperties(ipAndEOJ, properties)
 	if err != nil {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error setting properties: %v", err)
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error setting properties: %v", err)
 	}
 
 	// Use DeviceToProtocol to convert to protocol format
@@ -146,17 +140,11 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 	// Marshal the device data
 	deviceDataJSON, err := json.Marshal(deviceData)
 	if err != nil {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInternalServerError, "Error marshaling device data: %v", err)
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInternalServerError, "Error marshaling device data: %v", err)
 	}
 
-	// Send the response with device data
-	resultPayload := protocol.CommandResultPayload{
-		Success: true,
-		Data:    deviceDataJSON,
-	}
-
-	// Send the message
-	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
+	// Send the success response with device data
+	return ws.sendSuccessResponse(connID, msg.RequestID, deviceDataJSON)
 }
 
 // handleGetPropertyAliasesFromClient handles a get_property_aliases message from a client
@@ -279,12 +267,12 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *
 	// Parse the payload
 	var payload protocol.UpdatePropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing update_properties payload: %v", err)
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing update_properties payload: %v", err)
 	}
 
 	// Validate the payload
 	if len(payload.Targets) == 0 {
-		return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "No targets specified")
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "No targets specified")
 	}
 
 	// Process each target
@@ -292,7 +280,7 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *
 		// Parse the target
 		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
 		if err != nil {
-			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
+			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
 		}
 
 		// Create filter criteria
@@ -300,15 +288,10 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *
 
 		// Update properties
 		if err := ws.echonetClient.UpdateProperties(criteria); err != nil {
-			return ws.sendErrorResponse(connID, &msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error updating properties: %v", err)
+			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error updating properties: %v", err)
 		}
 	}
 
-	// Send the response
-	resultPayload := protocol.CommandResultPayload{
-		Success: true,
-	}
-
-	// Send the message
-	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, resultPayload, msg.RequestID)
+	// Send the success response
+	return ws.sendSuccessResponse(connID, msg.RequestID, nil)
 }

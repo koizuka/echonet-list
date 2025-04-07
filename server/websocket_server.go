@@ -7,6 +7,7 @@ import (
 	"echonet-list/echonet_lite/log"
 	"echonet-list/protocol"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -195,12 +196,22 @@ func (ws *WebSocketServer) sendMessageToClient(connID string, msgType protocol.M
 	return ws.transport.SendMessage(connID, data)
 }
 
+// sendSuccessResponse logs success and sends a success response to the client
+func (ws *WebSocketServer) sendSuccessResponse(connID string, requestID string, data json.RawMessage) error {
+	resultPayload := protocol.CommandResultPayload{
+		Success: true,
+		Data:    data,
+	}
+
+	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, resultPayload, requestID)
+}
+
 // sendErrorResponse logs an error and sends an error response to the client
-func (ws *WebSocketServer) sendErrorResponse(connID string, requestID *string, errorCode protocol.ErrorCode, format string, args ...interface{}) error {
+func (ws *WebSocketServer) sendErrorResponse(connID string, requestID string, errorCode protocol.ErrorCode, format string, args ...interface{}) error {
 	errorMessage := fmt.Sprintf(format, args...)
 	logger := log.GetLogger()
 	if logger != nil {
-		logger.Log("Error for RequestID %s: %s", derefString(requestID), errorMessage)
+		logger.Log("Error for RequestID %s: %s", requestID, errorMessage)
 	}
 
 	errorPayload := protocol.CommandResultPayload{
@@ -211,21 +222,7 @@ func (ws *WebSocketServer) sendErrorResponse(connID string, requestID *string, e
 		},
 	}
 
-	// requestIDがnilの場合は空文字列を使用
-	requestIDStr := ""
-	if requestID != nil {
-		requestIDStr = *requestID
-	}
-
-	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, requestIDStr)
-}
-
-// derefString safely dereferences a *string. Returns empty string if nil.
-func derefString(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
+	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, requestID)
 }
 
 // broadcastMessageToClients sends a message to all connected clients
