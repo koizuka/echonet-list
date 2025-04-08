@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 )
 
 // handleGetPropertiesFromClient handles a get_properties message from a client
@@ -54,11 +53,14 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error getting properties: %v", err)
 		}
 
+		// デバイスの最終更新タイムスタンプを取得
+		lastSeen := ws.handler.GetLastUpdateTime(deviceAndProps.Device)
+
 		// Use DeviceToProtocol to convert to protocol format
 		protoDevice := protocol.DeviceToProtocol(
 			deviceAndProps.Device,
 			deviceAndProps.Properties,
-			time.Now(), // Use current time as last seen
+			lastSeen,
 		)
 		results = append(results, protoDevice)
 	}
@@ -128,11 +130,14 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error setting properties: %v", err)
 	}
 
+	// デバイスの最終更新タイムスタンプを取得
+	lastSeen := ws.handler.GetLastUpdateTime(deviceAndProps.Device)
+
 	// Use DeviceToProtocol to convert to protocol format
 	deviceData := protocol.DeviceToProtocol(
 		deviceAndProps.Device,
 		deviceAndProps.Properties,
-		time.Now(), // Use current time as last seen
+		lastSeen,
 	)
 
 	// Marshal the device data

@@ -88,7 +88,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - `properties`: プロパティのマップ
   - キー: 2桁の16進数EPC（プロパティコード）文字列
   - 値: EDTのBase64エンコード文字列
-- `lastSeen`: デバイスが最後に応答した時刻（ISO 8601形式）
+- `lastSeen`: デバイスのプロパティが最後に更新された時刻（ISO 8601形式）
 
 #### Error（エラー情報）
 

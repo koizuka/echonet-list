@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"time"
 )
 
 // StartOptions は WebSocketServer の起動オプションを表す
@@ -147,11 +146,14 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	// Convert devices to protocol format
 	protoDevices := make(map[string]protocol.Device)
 	for _, device := range devices {
+		// デバイスの最終更新タイムスタンプを取得
+		lastSeen := ws.handler.GetLastUpdateTime(device.Device)
+
 		// Use DeviceToProtocol to convert to protocol format
 		protoDevice := protocol.DeviceToProtocol(
 			device.Device,
 			device.Properties,
-			time.Now(), // Use current time as last seen
+			lastSeen,
 		)
 
 		// Add to map with device identifier as key
@@ -263,11 +265,14 @@ func (ws *WebSocketServer) listenForNotifications() {
 				// Create device added payload
 				device := notification.Device
 
+				// デバイスの最終更新タイムスタンプを取得
+				lastSeen := ws.handler.GetLastUpdateTime(device)
+
 				// Use DeviceToProtocol to convert to protocol format
 				protoDevice := protocol.DeviceToProtocol(
 					device,
 					echonet_lite.Properties{}, // Empty properties, will be updated later
-					time.Now(),                // Use current time as last seen
+					lastSeen,
 				)
 
 				payload := protocol.DeviceAddedPayload{

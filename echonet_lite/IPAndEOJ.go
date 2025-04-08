@@ -20,6 +20,12 @@ func (d IPAndEOJ) Specifier() string {
 	return fmt.Sprintf("%v %v", d.IP, d.EOJ.Specifier())
 }
 
+// Key は IPAndEOJ をマップのキーとして使用するための文字列表現を返します
+// "IP EOJ" 形式の文字列を返します（例: "192.168.0.1 0130:1"）
+func (d IPAndEOJ) Key() string {
+	return d.Specifier()
+}
+
 func (d IPAndEOJ) Compare(other IPAndEOJ) int {
 	if d.IP.Equal(other.IP) {
 		if d.EOJ > other.EOJ {

@@ -1067,3 +1067,9 @@ func (c *ECHONETLiteHandler) FindDeviceByIDString(id IDString) *IPAndEOJ {
 func (c *ECHONETLiteHandler) GetIDString(device IPAndEOJ) IDString {
 	return c.devices.GetIDString(device)
 }
+
+// GetLastUpdateTime は、指定されたデバイスの最終更新タイムスタンプを取得します
+// タイムスタンプが存在しない場合は time.Time のゼロ値を返します
+func (c *ECHONETLiteHandler) GetLastUpdateTime(device IPAndEOJ) time.Time {
+	return c.devices.GetLastUpdateTime(device)
+}

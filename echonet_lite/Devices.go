@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 type EPCPropertyMap map[EPCType]Property
@@ -80,9 +81,10 @@ type DeviceEvent struct {
 }
 
 type DevicesImpl struct {
-	mu      sync.RWMutex
-	data    map[string]DeviceProperties // key is IP address string
-	EventCh chan DeviceEvent            // デバイスイベント通知用チャンネル
+	mu         sync.RWMutex
+	data       map[string]DeviceProperties // key is IP address string
+	timestamps map[string]time.Time        // key is "IP EOJ" format string (IPAndEOJ.Key())
+	EventCh    chan DeviceEvent            // デバイスイベント通知用チャンネル
 }
 
 type Devices struct {
@@ -92,8 +94,9 @@ type Devices struct {
 func NewDevices() Devices {
 	return Devices{
 		DevicesImpl: &DevicesImpl{
-			data:    make(map[string]DeviceProperties),
-			EventCh: nil, // 初期値はnil、後で設定する
+			data:       make(map[string]DeviceProperties),
+			timestamps: make(map[string]time.Time),
+			EventCh:    nil, // 初期値はnil、後で設定する
 		},
 	}
 }
@@ -162,6 +165,8 @@ func (d Devices) RegisterProperty(device IPAndEOJ, property Property) {
 	defer d.mu.Unlock()
 	d.ensureDeviceExists(device)
 	d.data[device.IP.String()][device.EOJ][property.EPC] = property
+	// プロパティが更新されたタイムスタンプを記録
+	d.timestamps[device.Key()] = time.Now()
 }
 
 func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties) {
@@ -173,6 +178,20 @@ func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties) {
 	for _, p := range properties {
 		props[p.EPC] = p
 	}
+	// プロパティが更新されたタイムスタンプを記録
+	d.timestamps[device.Key()] = time.Now()
+}
+
+// GetLastUpdateTime は、指定されたデバイスの最終更新タイムスタンプを取得します
+// タイムスタンプが存在しない場合は time.Time のゼロ値を返します
+func (d Devices) GetLastUpdateTime(device IPAndEOJ) time.Time {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	ts, ok := d.timestamps[device.Key()]
+	if !ok {
+		return time.Time{} // ゼロ値を返す
+	}
+	return ts
 }
 
 // DeviceSpecifier は、デバイスを一意に識別するための情報を表す構造体

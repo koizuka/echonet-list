@@ -42,3 +42,4 @@ This file tracks the implementation progress of the project features defined in 
 - ✅ **設定ファイルのサポート**: TOML形式の設定ファイル対応
 - ✅ **デバイスグループ管理機能**: グループ作成と一括操作の実装
 - ✅ **Devices Command Grouping Enhancement**: EPCの値でデバイスをグループ化表示
+- ✅ **デバイスプロパティ更新タイムスタンプ機能**: デバイスごとにプロパティが最後に更新された時刻を記録し、WebSocketプロトコルを通じてクライアントに提供

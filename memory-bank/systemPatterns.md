@@ -117,6 +117,13 @@ The WebSocket server is designed with a modular architecture to improve maintain
    - Server listens for notifications from the ECHONET Lite handler
    - Notifications are broadcast to all connected clients
    - Supported notifications: device added, device timeout, property changed
+   - Device property update timestamps are tracked and provided to clients via the WebSocket protocol
+
+5. **Device State Tracking**:
+   - Each device (identified by IP+EOJ) has its last property update timestamp tracked
+   - Timestamps are stored in memory (not persisted to disk)
+   - Timestamps are updated whenever a property is registered or modified
+   - This information is included in device data sent to clients via `DeviceToProtocol`
 
 5. **Security**:
    - TLS support for secure WebSocket connections (WSS)
