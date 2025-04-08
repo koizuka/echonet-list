@@ -127,6 +127,7 @@ The WebSocket server is designed with a modular architecture to improve maintain
 The WebSocket protocol supports the following message types:
 
 ### Client -> Server (Requests)
+
 - `get_properties`: Get property values for specified devices and EPCs
 - `set_properties`: Set property values for a specified device
 - `update_properties`: Request the server to update property information for specified devices
@@ -136,6 +137,7 @@ The WebSocket protocol supports the following message types:
 - `get_property_aliases`: Get property aliases for a specified class code
 
 ### Server -> Client (Responses and Notifications)
+
 - `command_result`: Response to client requests
 - `property_aliases_result`: Response to `get_property_aliases` request (EPCごとにグループ化されたプロパティエイリアス情報)
 - `initial_state`: Initial state sent when a client connects
