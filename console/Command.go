@@ -55,6 +55,7 @@ type Command struct {
 	EPCs        []client.EPCType         // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
 	PropMode    PropertyMode             // プロパティ表示モード
 	Properties  client.Properties        // set/devicesコマンドのプロパティリスト
+	GroupByEPC  *client.EPCType          // devicesコマンドのグループ化に使用するEPC
 	DebugMode   *string                  // debugコマンドのモード ("on" または "off")
 	Done        chan struct{}            // コマンド実行完了を通知するチャネル
 	Error       error                    // コマンド実行中に発生したエラー

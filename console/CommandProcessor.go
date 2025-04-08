@@ -201,6 +201,50 @@ func sortProperties(p client.Properties) client.Properties {
 	return p
 }
 
+// displayDevice は、デバイスとそのプロパティを表示する
+func (p *CommandProcessor) displayDevice(cmd *Command, device client.IPAndEOJ, properties client.Properties) bool {
+	classCode := device.EOJ.ClassCode()
+
+	// プロパティ表示モードに応じてフィルタリング
+	filteredProps := make(client.Properties, 0, len(properties))
+
+	for _, prop := range properties {
+		epc := prop.EPC
+
+		switch cmd.PropMode {
+		case PropDefault:
+			// デフォルトのプロパティのみ表示
+			if !p.handler.IsPropertyDefaultEPC(classCode, epc) {
+				continue
+			}
+		case PropKnown:
+			// 既知のプロパティのみ表示
+			if _, ok := p.handler.GetPropertyInfo(classCode, epc); !ok {
+				continue
+			}
+		case PropEPC:
+			// cmd.EPCsにあるもののみ表示
+			if !slices.Contains(cmd.EPCs, epc) {
+				continue
+			}
+		}
+		filteredProps = append(filteredProps, prop)
+	}
+
+	if len(filteredProps) == 0 {
+		return false
+	}
+
+	names := p.handler.GetAliases(device)
+	names = append(names, device.String())
+	fmt.Println(strings.Join(names, " "))
+
+	for _, prop := range sortProperties(filteredProps) {
+		fmt.Printf("  %v\n", prop.String(classCode))
+	}
+	return true
+}
+
 func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 	// フィルタリング条件を作成
 	criteria := client.FilterCriteria{
@@ -208,53 +252,82 @@ func (p *CommandProcessor) processDevicesCommand(cmd *Command) error {
 		PropertyValues: cmd.Properties,
 	}
 	result := p.handler.ListDevices(criteria)
-	count := 0
 
+	// グループ化が指定されている場合
+	if cmd.GroupByEPC != nil {
+		return p.processDevicesWithGrouping(cmd, result)
+	}
+
+	// 通常の表示（グループ化なし）
+	count := 0
 	for _, d := range result {
+		if p.displayDevice(cmd, d.Device, d.Properties) {
+			count++
+		}
+	}
+	fmt.Printf("%d devices found\n", count)
+	return nil
+}
+
+// processDevicesWithGrouping は、指定されたEPCでデバイスをグループ化して表示する
+func (p *CommandProcessor) processDevicesWithGrouping(cmd *Command, devices []client.DeviceAndProperties) error {
+	// グループ化するEPC
+	groupByEPC := *cmd.GroupByEPC
+
+	// EPCの値ごとにデバイスをグループ化
+	groups := make(map[string][]client.DeviceAndProperties)
+	groupValues := make(map[string]string) // EDT値の文字列表現を保持
+
+	// 各デバイスを処理
+	for _, d := range devices {
 		device := d.Device
 		properties := d.Properties
 		classCode := device.EOJ.ClassCode()
 
-		// プロパティ表示モードに応じてフィルタリング
-		filteredProps := make(client.Properties, 0, len(properties))
-
-		for _, prop := range properties {
-			epc := prop.EPC
-
-			switch cmd.PropMode {
-			case PropDefault:
-				// デフォルトのプロパティのみ表示
-				if !p.handler.IsPropertyDefaultEPC(classCode, epc) {
-					continue
-				}
-			case PropKnown:
-				// 既知のプロパティのみ表示
-				if _, ok := p.handler.GetPropertyInfo(classCode, epc); !ok {
-					continue
-				}
-			case PropEPC:
-				// cmd.EPCsにあるもののみ表示
-				if !slices.Contains(cmd.EPCs, epc) {
-					continue
-				}
+		// 指定されたEPCを持つプロパティを探す
+		var groupProp *client.Property
+		for i, prop := range properties {
+			if prop.EPC == groupByEPC {
+				groupProp = &properties[i]
+				break
 			}
-			filteredProps = append(filteredProps, prop)
 		}
 
-		if len(filteredProps) == 0 {
+		// 指定されたEPCを持たないデバイスはスキップ
+		if groupProp == nil {
 			continue
 		}
 
-		names := p.handler.GetAliases(device)
-		names = append(names, device.String())
-		fmt.Println(strings.Join(names, " "))
+		// グループキーを作成（EDTの16進表現）
+		edtHex := fmt.Sprintf("%X", groupProp.EDT)
 
-		for _, prop := range sortProperties(filteredProps) {
-			fmt.Printf("  %v\n", prop.String(classCode))
-		}
-		count++
+		// グループキーの説明文を取得 - 常にprop.String(classCode)を使用
+		propDesc := groupProp.String(classCode)
+		groupValues[edtHex] = propDesc
+
+		// グループにデバイスを追加
+		groups[edtHex] = append(groups[edtHex], d)
 	}
-	fmt.Printf("%d devices found\n", count)
+
+	// グループごとに表示
+	totalCount := 0
+	for edtHex, groupDevices := range groups {
+		// グループヘッダーを表示（propDescにはすでにEPCの情報が含まれている）
+		propDesc := groupValues[edtHex]
+		fmt.Printf("--- %s ---\n", propDesc)
+
+		// グループ内の各デバイスを表示
+		groupCount := 0
+		for _, d := range groupDevices {
+			if p.displayDevice(cmd, d.Device, d.Properties) {
+				groupCount++
+				totalCount++
+			}
+		}
+
+		// グループの末尾に所属デバイス数を表示
+		fmt.Printf("%d devices in this group\n\n", groupCount)
+	}
 	return nil
 }
 

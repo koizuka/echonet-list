@@ -36,6 +36,10 @@ This file tracks the implementation progress of the project features defined in 
   - Users can create, view, delete, and list groups of devices
   - Groups are persisted to disk in groups.json
   - Commands can be executed on all devices in a group using the @ prefix
+- Devices command has been enhanced with grouping functionality
+  - Users can group devices by a specific EPC value using the `-group-by` option
+  - Each group displays the devices with the same EPC value together
+  - Each group shows the number of devices in that group
 
 ## What's Left to Build
 
@@ -62,6 +66,15 @@ This file tracks the implementation progress of the project features defined in 
     - 複数デバイスのグループ操作機能 (グループ設定はサーバー側/設定ファイルで管理)
 
 ## Progress Status
+
+- **Devices Command Grouping Enhancement**: ✅ COMPLETED
+  - ✅ Added `GroupByEPC` field to `Command` struct in `console/Command.go`
+  - ✅ Updated `devices` command definition in `console/CommandTable.go` to add `-group-by` option
+  - ✅ Implemented parsing logic for `-group-by` option in `console/CommandTable.go`
+  - ✅ Added `processDevicesWithGrouping` function in `console/CommandProcessor.go` to handle grouped display
+  - ✅ Extracted common device display logic to `displayDevice` function for code reuse
+  - ✅ Implemented group-specific device count display at the end of each group
+  - ✅ Improved group header display to use standard property string format
 
 - **Property Change Notification**: ✅ COMPLETED
   - ✅ Added `PropertyChangeNotification` type in `echonet_lite/ECHONETLiteHandler.go`

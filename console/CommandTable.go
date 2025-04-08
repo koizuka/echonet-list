@@ -47,7 +47,7 @@ var CommandTable = []CommandDefinition{
 		Name:    "devices",
 		Aliases: []string{"list"},
 		Summary: "検出されたECHONET Liteデバイスの一覧表示",
-		Syntax:  "devices, list [ipAddress] [classCode[:instanceCode]] [-all|-props] [epc1 epc2...]",
+		Syntax:  "devices, list [ipAddress] [classCode[:instanceCode]] [-all|-props] [epc1 epc2...] [-group-by epc]",
 		Description: []string{
 			"ipAddress: IPアドレスでフィルター（例: 192.168.0.212 または IPv6アドレス）",
 			"classCode: クラスコード（4桁の16進数、例: 0130）",
@@ -55,11 +55,12 @@ var CommandTable = []CommandDefinition{
 			"-all: 全てのEPCを表示",
 			"-props: 既知のEPCのみを表示",
 			"epc: 2桁の16進数で指定（例: 80）。複数指定可能",
+			"-group-by epc: 指定したEPCの値でデバイスをグループ化して表示（例: -group-by 80）",
 			"※-all, -props, epc は最後に指定されたものが有効になります",
 		},
 		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
 			// オプションとエイリアスを表示
-			options := []string{"-all", "-props"}
+			options := []string{"-all", "-props", "-group-by"}
 			return append(options, dc.getDeviceCandidates()...)
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
@@ -83,6 +84,18 @@ var CommandTable = []CommandDefinition{
 				case "-props":
 					cmd.PropMode = PropKnown
 					cmd.EPCs = nil // EPCsをクリア
+					continue
+				case "-group-by":
+					// -group-by の次の引数がEPCであることを確認
+					if i+1 >= len(parts) {
+						return nil, fmt.Errorf("-group-by オプションにはEPCが必要です")
+					}
+					epc, err := parseEPC(parts[i+1])
+					if err != nil {
+						return nil, fmt.Errorf("-group-by オプションの引数が無効です: %v", err)
+					}
+					cmd.GroupByEPC = &epc
+					i++ // 次の引数（EPC）をスキップ
 					continue
 				}
 
