@@ -1061,7 +1061,18 @@ func (c *ECHONETLiteHandler) FindDeviceByIDString(id IDString) *IPAndEOJ {
 	if len(devices) == 0 {
 		return nil
 	}
-	return &devices[0]
+	if len(devices) == 1 {
+		return &devices[0]
+	}
+
+	// 同一 IDString のデバイスが複数ある場合、 last update time が一番新しいものを選ぶ
+	latest := devices[0]
+	for _, d := range devices {
+		if c.devices.GetLastUpdateTime(d).After(c.devices.GetLastUpdateTime(latest)) {
+			latest = d
+		}
+	}
+	return &latest
 }
 
 func (c *ECHONETLiteHandler) GetIDString(device IPAndEOJ) IDString {

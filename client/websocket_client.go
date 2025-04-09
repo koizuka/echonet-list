@@ -21,6 +21,8 @@ type WebSocketClient struct {
 	debug           bool
 	devices         map[string]echonet_lite.DeviceAndProperties
 	devicesMutex    sync.RWMutex
+	lastSeenTimes   map[string]time.Time
+	lastSeenMutex   sync.RWMutex
 	aliases         map[string]IDString
 	aliasesMutex    sync.RWMutex
 	groups          []GroupDevicePair
@@ -43,14 +45,15 @@ func NewWebSocketClient(ctx context.Context, serverURL string, debug bool) (*Web
 	}
 
 	client := &WebSocketClient{
-		ctx:        clientCtx,
-		cancel:     cancel,
-		transport:  transport,
-		debug:      debug,
-		devices:    make(map[string]echonet_lite.DeviceAndProperties),
-		aliases:    make(map[string]IDString),
-		groups:     make([]GroupDevicePair, 0),
-		responseCh: make(map[string]chan *protocol.Message),
+		ctx:           clientCtx,
+		cancel:        cancel,
+		transport:     transport,
+		debug:         debug,
+		devices:       make(map[string]echonet_lite.DeviceAndProperties),
+		lastSeenTimes: make(map[string]time.Time),
+		aliases:       make(map[string]IDString),
+		groups:        make([]GroupDevicePair, 0),
+		responseCh:    make(map[string]chan *protocol.Message),
 	}
 
 	return client, nil
@@ -125,6 +128,9 @@ func (c *WebSocketClient) FindDeviceByIDString(id IDString) *IPAndEOJ {
 	c.devicesMutex.RLock()
 	defer c.devicesMutex.RUnlock()
 
+	var matchedDevice *IPAndEOJ
+	var latestTime time.Time
+
 	// device の EOJ と properties の IdentificationNumber をもとに IDStringを組み立て、一致する物を探す
 	for _, device := range c.devices {
 		if decoded := device.Properties.GetIdentificationNumber(); decoded != nil {
@@ -132,11 +138,22 @@ func (c *WebSocketClient) FindDeviceByIDString(id IDString) *IPAndEOJ {
 			idString := echonet_lite.MakeIDString(device.Device.EOJ, *decoded)
 			// IDString が一致するか確認
 			if idString == id {
-				return &device.Device
+				// lastSeen の時刻を取得
+				c.lastSeenMutex.RLock()
+				lastSeen, ok := c.lastSeenTimes[device.Device.Specifier()]
+				c.lastSeenMutex.RUnlock()
+
+				// 初めて見つかったデバイス、または最新のlastSeenを持つデバイスを選択
+				if matchedDevice == nil || (ok && lastSeen.After(latestTime)) {
+					matchedDevice = &device.Device
+					if ok {
+						latestTime = lastSeen
+					}
+				}
 			}
 		}
 	}
-	return nil
+	return matchedDevice
 }
 
 func (c *WebSocketClient) GetIDString(device IPAndEOJ) IDString {

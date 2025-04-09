@@ -5,6 +5,7 @@ import (
 	"echonet-list/protocol"
 	"encoding/base64"
 	"fmt"
+	"time"
 )
 
 // handleNotification handles a notification from the WebSocket server
@@ -43,7 +44,11 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 
 	// Update devices
 	c.devicesMutex.Lock()
+	c.lastSeenMutex.Lock()
+
 	c.devices = make(map[string]echonet_lite.DeviceAndProperties)
+	c.lastSeenTimes = make(map[string]time.Time)
+
 	for deviceID, device := range payload.Devices {
 		// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
 		ipAndEOJ, properties, err := protocol.DeviceFromProtocol(device)
@@ -62,7 +67,12 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 			Device:     ipAndEOJ,
 			Properties: props,
 		}
+
+		// Update lastSeenTimes
+		c.lastSeenTimes[ipAndEOJ.Specifier()] = device.LastSeen
 	}
+
+	c.lastSeenMutex.Unlock()
 	c.devicesMutex.Unlock()
 
 	// Update aliases
@@ -106,11 +116,18 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 
 	// Add to devices
 	c.devicesMutex.Lock()
+	c.lastSeenMutex.Lock()
+
 	// ipAndEOJ.Specifier() をキーとして使用
 	c.devices[ipAndEOJ.Specifier()] = echonet_lite.DeviceAndProperties{
 		Device:     ipAndEOJ,
 		Properties: props,
 	}
+
+	// Update lastSeenTimes
+	c.lastSeenTimes[ipAndEOJ.Specifier()] = payload.Device.LastSeen
+
+	c.lastSeenMutex.Unlock()
 	c.devicesMutex.Unlock()
 }
 
@@ -135,11 +152,18 @@ func (c *WebSocketClient) handleDeviceUpdated(msg *protocol.Message) {
 
 	// Update devices
 	c.devicesMutex.Lock()
+	c.lastSeenMutex.Lock()
+
 	// ipAndEOJ.Specifier() をキーとして使用
 	c.devices[ipAndEOJ.Specifier()] = echonet_lite.DeviceAndProperties{
 		Device:     ipAndEOJ,
 		Properties: props,
 	}
+
+	// Update lastSeenTimes
+	c.lastSeenTimes[ipAndEOJ.Specifier()] = payload.Device.LastSeen
+
+	c.lastSeenMutex.Unlock()
 	c.devicesMutex.Unlock()
 }
 
@@ -164,8 +188,15 @@ func (c *WebSocketClient) handleDeviceRemoved(msg *protocol.Message) {
 
 	// Remove from devices
 	c.devicesMutex.Lock()
+	c.lastSeenMutex.Lock()
+
 	// ipAndEOJ.Specifier() をキーとして使用
 	delete(c.devices, ipAndEOJ.Specifier())
+
+	// Remove from lastSeenTimes
+	delete(c.lastSeenTimes, ipAndEOJ.Specifier())
+
+	c.lastSeenMutex.Unlock()
 	c.devicesMutex.Unlock()
 }
 
