@@ -26,6 +26,7 @@ const (
 	EPCProductionDate                        EPCType = 0x8e // 製造年月日
 	EPCPowerSavingOperationSetting           EPCType = 0x8f // 節電動作設定
 	EPCRemoteControlSetting                  EPCType = 0x93 // 遠隔操作設定
+	EPCCurrentDate                           EPCType = 0x98 // 現在日時
 	EPCStatusAnnouncementPropertyMap         EPCType = 0x9d // 状態アナウンスプロパティマップ
 	EPCSetPropertyMap                        EPCType = 0x9e //Set プロパティマップ
 	EPCGetPropertyMap                        EPCType = 0x9f // Get プロパティマップ
@@ -67,9 +68,10 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		EPCBusinessFacilityCode:          {"Business facility code", nil, nil},
 		EPCProductCode:                   {"Product code", Decoder(DecodeProductCode), nil},
 		EPCProductionNumber:              {"Production number", nil, nil},
-		EPCProductionDate:                {"Production date", nil, nil},
+		EPCProductionDate:                {"Production date", Decoder(DecodeDate), nil},
 		EPCPowerSavingOperationSetting:   {"Power saving operation setting", nil, nil},
 		EPCRemoteControlSetting:          {"Remote control setting", nil, nil},
+		EPCCurrentDate:                   {"Current date", Decoder(DecodeDate), nil},
 		EPCStatusAnnouncementPropertyMap: {"Status announcement property map", Decoder(DecodePropertyMap), nil},
 		EPCSetPropertyMap:                {"Set property map", Decoder(DecodePropertyMap), nil},
 		EPCGetPropertyMap:                {"Get property map", Decoder(DecodePropertyMap), nil},
@@ -376,6 +378,31 @@ func (c ProductCode) String() string {
 
 func (c ProductCode) Property() *Property {
 	return &Property{EPC: EPCProductCode, EDT: []byte(c)}
+}
+
+type Date struct {
+	Year  uint16
+	Month uint8
+	Day   uint8
+}
+
+func DecodeDate(EDT []byte) *Date {
+	if len(EDT) < 4 {
+		return nil
+	}
+	return &Date{
+		Year:  uint16(EDT[0])<<8 | uint16(EDT[1]),
+		Month: EDT[2],
+		Day:   EDT[3],
+	}
+}
+
+func (s *Date) String() string {
+	return fmt.Sprintf("%04d/%02d/%02d", s.Year, s.Month, s.Day)
+}
+
+func (s *Date) EDT() []byte {
+	return []byte{byte(s.Year >> 8), byte(s.Year & 0xff), s.Month, s.Day}
 }
 
 type PropertyMap map[EPCType]struct{}
