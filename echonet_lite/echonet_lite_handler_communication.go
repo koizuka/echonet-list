@@ -102,6 +102,7 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) er
 	if logger != nil {
 		logger.Log("INFメッセージを受信: %v, SEOJ:%v, DEOJ:%v", ip, msg.SEOJ, msg.DEOJ)
 	}
+	fmt.Printf("INFメッセージを受信: %v %v, DEOJ:%v\n", ip, msg.SEOJ, msg.DEOJ) // DEBUG
 
 	// DEOJ は instanceCode = 0 (ワイルドカード) の場合がある
 	if found := h.localDevices.FindEOJ(msg.DEOJ); len(found) == 0 {
