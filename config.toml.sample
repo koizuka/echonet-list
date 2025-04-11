@@ -1,0 +1,24 @@
+# echonet-list 設定ファイル
+
+# 全般設定
+debug = false
+
+# ログ設定
+[log]
+filename = "echonet-list.log"
+
+# WebSocketサーバー設定
+[websocket]
+enabled = true
+addr = "localhost:8080"
+
+# TLS設定
+[websocket.tls]
+enabled = false
+cert_file = "certs/cert.pem"
+key_file = "certs/key.pem"
+
+# WebSocketクライアント設定
+[websocket_client]
+enabled = false
+addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用

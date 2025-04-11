@@ -2,6 +2,7 @@ package console
 
 import (
 	"echonet-list/client"
+	"echonet-list/echonet_lite"
 	"fmt"
 	"net"
 	"sort"
@@ -28,6 +29,10 @@ const (
 	CmdAliasGet
 	CmdAliasDelete
 	CmdAliasList
+	CmdGroupAdd
+	CmdGroupRemove
+	CmdGroupDelete
+	CmdGroupList
 )
 
 // プロパティ表示モードを表す型
@@ -43,14 +48,17 @@ const (
 // コマンドを表す構造体
 type Command struct {
 	Type        CommandType
-	DeviceSpec  client.DeviceSpecifier // デバイス指定子
-	DeviceAlias *string                // エイリアス
-	EPCs        []client.EPCType       // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
-	PropMode    PropertyMode           // プロパティ表示モード
-	Properties  client.Properties      // set/devicesコマンドのプロパティリスト
-	DebugMode   *string                // debugコマンドのモード ("on" または "off")
-	Done        chan struct{}          // コマンド実行完了を通知するチャネル
-	Error       error                  // コマンド実行中に発生したエラー
+	DeviceSpec  client.DeviceSpecifier   // デバイス指定子（単一デバイス用）
+	DeviceSpecs []client.DeviceSpecifier // 複数デバイス指定子（グループ追加・削除用）
+	DeviceAlias *string                  // エイリアス
+	GroupName   *string                  // グループ名（グループ操作用およびフィルタリング用）
+	EPCs        []client.EPCType         // devicesコマンドのEPCフィルター用。空の場合は全EPCを表示
+	PropMode    PropertyMode             // プロパティ表示モード
+	Properties  client.Properties        // set/devicesコマンドのプロパティリスト
+	GroupByEPC  *client.EPCType          // devicesコマンドのグループ化に使用するEPC
+	DebugMode   *string                  // debugコマンドのモード ("on" または "off")
+	Done        chan struct{}            // コマンド実行完了を通知するチャネル
+	Error       error                    // コマンド実行中に発生したエラー
 }
 
 // GetIPAddress は、コマンドのIPアドレスを取得する
@@ -59,8 +67,12 @@ func (c *Command) GetIPAddress() *net.IP {
 }
 
 // GetClassCode は、コマンドのクラスコードを取得する
-func (c *Command) GetClassCode() *client.EOJClassCode {
-	return c.DeviceSpec.ClassCode
+func (c *Command) GetClassCode() client.EOJClassCode {
+	var result client.EOJClassCode
+	if c.DeviceSpec.ClassCode != nil {
+		result = *c.DeviceSpec.ClassCode
+	}
+	return result
 }
 
 // GetInstanceCode は、コマンドのインスタンスコードを取得する
@@ -71,12 +83,14 @@ func (c *Command) GetInstanceCode() *client.EOJInstanceCode {
 type CommandParser struct {
 	propertyInfoProvider client.PropertyInfoProvider
 	aliasManager         client.AliasManager
+	groupManager         client.GroupManager
 }
 
-func NewCommandParser(propertyInfoProvider client.PropertyInfoProvider, aliasManager client.AliasManager) *CommandParser {
+func NewCommandParser(propertyInfoProvider client.PropertyInfoProvider, aliasManager client.AliasManager, groupManager client.GroupManager) *CommandParser {
 	return &CommandParser{
 		propertyInfoProvider: propertyInfoProvider,
 		aliasManager:         aliasManager,
+		groupManager:         groupManager,
 	}
 }
 
@@ -207,7 +221,7 @@ func (p CommandParser) parsePropertyString(propertyStr string, classCode client.
 	}
 }
 
-// parseDeviceSpecifier は、コマンド引数から DeviceSpecifier をパースする
+// parseDeviceSpecifierOrGroup は、コマンド引数から DeviceSpecifier またはグループ名をパースする
 // 引数:
 //
 //	parts: コマンドの引数配列
@@ -217,27 +231,29 @@ func (p CommandParser) parsePropertyString(propertyStr string, classCode client.
 // 戻り値:
 //
 //	deviceSpecifier: パースされた DeviceSpecifier
+//	groupName: パースされたグループ名（@で始まる場合）
 //	nextArgIndex: 次の引数のインデックス
 //	error: エラー
-func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requireClassCode bool) (client.DeviceSpecifier, int, error) {
+func (p CommandParser) parseDeviceSpecifierOrGroup(parts []string, argIndex int, requireClassCode bool) (client.DeviceSpecifier, *string, int, error) {
 	var deviceSpec client.DeviceSpecifier
+
 	if argIndex >= len(parts) {
 		if requireClassCode {
-			return deviceSpec, argIndex, fmt.Errorf("デバイス識別子が必要です")
+			return deviceSpec, nil, argIndex, fmt.Errorf("デバイス識別子またはグループ名が必要です")
 		}
-		return deviceSpec, argIndex, nil
+		return deviceSpec, nil, argIndex, nil
+	}
+
+	// @で始まる場合はグループ名
+	if strings.HasPrefix(parts[argIndex], "@") {
+		group := parts[argIndex]
+		return deviceSpec, &group, argIndex + 1, nil
 	}
 
 	// エイリアスの取得
 	if alias, ok := p.aliasManager.GetDeviceByAlias(parts[argIndex]); ok {
-		classCode := alias.EOJ.ClassCode()
-		instanceCode := alias.EOJ.InstanceCode()
-		deviceSpec := client.DeviceSpecifier{
-			IP:           &alias.IP,
-			ClassCode:    &classCode,
-			InstanceCode: &instanceCode,
-		}
-		return deviceSpec, argIndex + 1, nil
+		deviceSpec = echonet_lite.DeviceSpecifierFromIPAndEOJ(alias)
+		return deviceSpec, nil, argIndex + 1, nil
 	}
 
 	// IPアドレスのパース（省略可能）- IPv4/IPv6に対応
@@ -246,9 +262,9 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 		argIndex++
 
 		if argIndex >= len(parts) && requireClassCode {
-			return deviceSpec, argIndex, fmt.Errorf("クラスコードが必要です")
+			return deviceSpec, nil, argIndex, fmt.Errorf("クラスコードが必要です")
 		} else if argIndex >= len(parts) {
-			return deviceSpec, argIndex, nil
+			return deviceSpec, nil, argIndex, nil
 		}
 	}
 
@@ -256,17 +272,47 @@ func (p CommandParser) parseDeviceSpecifier(parts []string, argIndex int, requir
 	classCode, instanceCode, err := parseClassAndInstanceCode(parts[argIndex])
 	if err != nil {
 		if requireClassCode {
-			return deviceSpec, argIndex, err
+			return deviceSpec, nil, argIndex, err
 		}
 		// クラスコードが必須でない場合は、パースエラーを無視して現在の引数を処理せずに返す
-		return deviceSpec, argIndex, nil
+		return deviceSpec, nil, argIndex, nil
 	}
 
 	deviceSpec.ClassCode = classCode
 	deviceSpec.InstanceCode = instanceCode
 	argIndex++
 
-	return deviceSpec, argIndex, nil
+	return deviceSpec, nil, argIndex, nil
+}
+
+func (p CommandParser) parseDeviceSpecifiers(parts []string, argIndex int, requireClassCode bool) ([]client.DeviceSpecifier, int, error) {
+	deviceSpecs := make([]client.DeviceSpecifier, 0)
+
+	for argIndex < len(parts) {
+		deviceSpec, groupName, nextArgIndex, err := p.parseDeviceSpecifierOrGroup(parts, argIndex, requireClassCode)
+		if err != nil {
+			return nil, argIndex, err
+		}
+		if groupName != nil {
+			groups := p.groupManager.GroupList(groupName)
+			if groups == nil {
+				return nil, argIndex, fmt.Errorf("グループ '%s' が見つかりません", *groupName)
+			}
+			for _, group := range groups {
+				for _, ids := range group.Devices {
+					if device, ok := p.aliasManager.GetDeviceByAlias(string(ids)); ok {
+						deviceSpec := echonet_lite.DeviceSpecifierFromIPAndEOJ(device)
+						deviceSpecs = append(deviceSpecs, deviceSpec)
+					}
+				}
+			}
+		} else {
+			deviceSpecs = append(deviceSpecs, deviceSpec)
+		}
+		argIndex = nextArgIndex
+	}
+
+	return deviceSpecs, argIndex, nil
 }
 
 // 基本的なコマンドオブジェクトを作成するヘルパー関数

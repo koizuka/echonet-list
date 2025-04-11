@@ -3,6 +3,7 @@
 This file provides details about the technical environment and constraints of the project, complementing the core project definition in [projectbrief.md](./projectbrief.md).
 
 ## Technologies Used
+
 - **Programming Language**: Go (version 1.20 as specified in go.mod)
 - **Dependencies**:
   - github.com/chzyer/readline: For command-line interface
@@ -13,12 +14,14 @@ This file provides details about the technical environment and constraints of th
 - **Package Manager**: Homebrew (used for updating Git)
 
 ## Development Setup
+
 - Go 1.20 or later
 - Git for version control
 - Command-line environment for running and testing the application
 - Local network with ECHONET Lite devices for full testing
 
 ## Technical Constraints
+
 - Must maintain compatibility with the ECHONET Lite protocol specification
 - Needs to work with various ECHONET Lite device types
 - Requires UDP network access for device discovery and communication
@@ -38,6 +41,7 @@ This file provides details about the technical environment and constraints of th
 
 - **Protocol**: Custom JSON-based protocol.
   - **Base Message Structure**:
+
     ```json
     {
       "type": "message_type_string",
@@ -45,8 +49,10 @@ This file provides details about the technical environment and constraints of th
       "requestId": "client_request_id_string" // Optional, for request-response matching
     }
     ```
+
   - **Device Identification**: Devices identified by a string: `"IP_ADDRESS EOJ_CLASS:EOJ_INSTANCE"`, e.g., `"192.168.0.1 0130:01"`. EOJ parts are hex encoded.
   - **Device Representation**:
+
     ```json
     {
       "ip": "string",
@@ -56,11 +62,15 @@ This file provides details about the technical environment and constraints of th
       "lastSeen": "timestamp" // ISO 8601 format
     }
     ```
+
   - **Aliases Representation**: Map of alias name (string) to device identifier string.
+
     ```json
     { "alias_name": "device_identifier_string", ... }
     ```
+
   - **Error Representation**:
+
     ```json
     {
       "code": "ERROR_CODE_STRING",
@@ -104,8 +114,9 @@ This file provides details about the technical environment and constraints of th
     - Client Request Related: `INVALID_REQUEST_FORMAT`, `INVALID_PARAMETERS`, `TARGET_NOT_FOUND`, `ALIAS_OPERATION_FAILED`, `ALIAS_ALREADY_EXISTS`, `INVALID_ALIAS_NAME`, `ALIAS_NOT_FOUND`
     - Server/Communication Related: `ECHONET_TIMEOUT`, `ECHONET_DEVICE_ERROR`, `ECHONET_COMMUNICATION_ERROR`, `INTERNAL_SERVER_ERROR`
 
-## WebSocket Communication (Planned)
+## WebSocket Communication
 
+- **Documentation**: Detailed client developer documentation available in `docs/websocket_client_protocol.md`
 - **Protocol**: Custom JSON-based protocol over WebSocket (defined in `protocol/protocol.go`)
   - **Message Types**: `initial_state`, `device_added`, `device_updated`, `device_removed`, `alias_changed`, `property_changed`, `timeout_notification`, `error_notification`, `command_result`, `get_properties`, `set_properties`, `update_properties`, `manage_alias`, `discover_devices`
   - **Payloads**: Defined for each message type (e.g., `InitialStatePayload`, `DeviceAddedPayload`)
@@ -118,3 +129,22 @@ This file provides details about the technical environment and constraints of th
   - `-ws-client`: Enable WebSocket client mode.
   - `-ws-client-addr`: Specify WebSocket server address for the client to connect to (default: `localhost:8080`).
   - `-ws-both`: Enable both WebSocket server and client mode for dogfooding.
+  - `-ws-tls`: Enable TLS for WebSocket server.
+  - `-ws-cert-file`: Specify TLS certificate file path.
+  - `-ws-key-file`: Specify TLS private key file path.
+- **TLS Support**: WebSocket server can be configured to use TLS (WSS) for secure connections.
+  - When TLS is enabled, WebSocket clients should connect using `wss://` instead of `ws://`.
+  - The application automatically updates client connection URLs when TLS is enabled.
+
+## Configuration File
+
+- **Format**: TOML (Tom's Obvious, Minimal Language)
+- **Default Path**: `config.toml` in the current directory
+- **Command Line Override**: `-config` option to specify a different file path
+- **Settings**:
+  - General settings (debug mode)
+  - Log settings (filename)
+  - WebSocket server settings (enabled, address, TLS)
+  - WebSocket client settings (enabled, address)
+- **Priority**: Command line arguments take precedence over configuration file settings
+- **Sample File**: `config.toml.sample` is provided as a template

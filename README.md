@@ -38,12 +38,110 @@ Run the application:
 
 - `-debug`: Enable debug mode to display detailed communication logs (packet contents, hex dumps, etc.)
 - `-log`: Specify a log file name
+- `-config`: Specify a TOML configuration file path (default: `config.toml` in the current directory)
+- `-websocket`: Enable WebSocket server mode
+- `-ws-addr`: Specify WebSocket server address (default: `localhost:8080`)
+- `-ws-client`: Enable WebSocket client mode
+- `-ws-client-addr`: Specify WebSocket client connection address (default: `ws://localhost:8080/ws`)
+- `-ws-both`: Enable both WebSocket server and client modes (for testing)
+- `-ws-tls`: Enable TLS for WebSocket server
+- `-ws-cert-file`: Specify TLS certificate file path
+- `-ws-key-file`: Specify TLS private key file path
 
 Example with debug mode:
 
 ```bash
 ./echonet-list -debug
 ```
+
+Example with WebSocket server and TLS:
+
+```bash
+./echonet-list -websocket -ws-tls -ws-cert-file=cert.pem -ws-key-file=key.pem
+```
+
+### Configuration File
+
+The application supports a TOML configuration file for persistent settings. By default, it looks for `config.toml` in the current directory. You can specify a different file using the `-config` option.
+
+To get started, copy the sample configuration file:
+
+```bash
+cp config.toml.sample config.toml
+```
+
+Then edit `config.toml` to customize your settings. The configuration file is excluded from version control by `.gitignore`.
+
+Example configuration file (`config.toml.sample`):
+
+```toml
+# echonet-list 設定ファイル
+
+# 全般設定
+debug = false
+
+# ログ設定
+[log]
+filename = "echonet-list.log"
+
+# WebSocketサーバー設定
+[websocket]
+enabled = true
+addr = "localhost:8080"
+
+# TLS設定
+[websocket.tls]
+enabled = false
+cert_file = "/path/to/cert.pem"
+key_file = "/path/to/key.pem"
+
+# WebSocketクライアント設定
+[websocket_client]
+enabled = false
+addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
+```
+
+Command line options take precedence over configuration file settings.
+
+### WebSocket Support
+
+The application can run in WebSocket server mode, allowing web browsers and other clients to connect and interact with ECHONET Lite devices. It can also run in WebSocket client mode, connecting to another instance of the application running in server mode.
+
+#### WebSocket Protocol Documentation
+
+Detailed documentation for the WebSocket protocol is available in [docs/websocket_client_protocol.md](docs/websocket_client_protocol.md). This document provides comprehensive information for developers who want to implement their own WebSocket clients in various programming languages (JavaScript/TypeScript, Python, Java, C#, etc.) to communicate with the ECHONET Lite WebSocket server.
+
+The documentation includes:
+- Protocol overview and communication flow
+- Message formats and data types
+- Server-to-client notifications
+- Client-to-server requests
+- Server responses
+- Implementation guidelines
+- Error handling
+- TypeScript example implementation
+
+#### Secure WebSocket (WSS) with TLS
+
+For secure WebSocket connections (WSS), you need to provide a TLS certificate and private key. You can generate these using tools like `mkcert` for development:
+
+```bash
+# Install mkcert
+brew install mkcert  # macOS with Homebrew
+mkcert -install      # Install local CA
+
+# Generate certificate for your domain/IP
+mkcert localhost 192.168.1.100  # Replace with your server's hostname/IP
+
+# Move the generated files to the certs directory
+mkdir -p certs
+mv localhost+1.pem localhost+1-key.pem certs/
+
+# Use the generated files
+./echonet-list -websocket -ws-tls -ws-cert-file=certs/localhost+1.pem -ws-key-file=certs/localhost+1-key.pem
+```
+
+When TLS is enabled, WebSocket clients should connect using `wss://` instead of `ws://`.
 
 ### Commands
 

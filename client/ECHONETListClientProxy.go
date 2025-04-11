@@ -24,7 +24,11 @@ func (c *ECHONETListClientProxy) Discover() error {
 }
 
 func (c *ECHONETListClientProxy) GetDeviceByAlias(alias string) (IPAndEOJ, bool) {
-	return c.handler.DeviceAliases.GetDeviceByAlias(alias)
+	device, err := c.handler.AliasGet(&alias)
+	if err != nil {
+		return IPAndEOJ{}, false
+	}
+	return *device, true
 }
 
 func (c *ECHONETListClientProxy) IsDebug() bool {
@@ -39,7 +43,7 @@ func (c *ECHONETListClientProxy) UpdateProperties(criteria FilterCriteria) error
 	return c.handler.UpdateProperties(criteria)
 }
 
-func (c *ECHONETListClientProxy) AliasList() []AliasDevicePair {
+func (c *ECHONETListClientProxy) AliasList() []AliasIDStringPair {
 	return c.handler.AliasList()
 }
 
@@ -56,7 +60,7 @@ func (c *ECHONETListClientProxy) AliasGet(alias *string) (*IPAndEOJ, error) {
 }
 
 func (c *ECHONETListClientProxy) GetAliases(device IPAndEOJ) []string {
-	return c.handler.DeviceAliases.GetAliases(device)
+	return c.handler.GetAliases(device)
 }
 
 func (c *ECHONETListClientProxy) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
@@ -79,10 +83,6 @@ func (c *ECHONETListClientProxy) GetAllPropertyAliases() []string {
 	return echonet_lite.GetAllAliases()
 }
 
-func (c *ECHONETListClientProxy) ValidateDeviceAlias(alias string) error {
-	return echonet_lite.ValidateDeviceAlias(alias)
-}
-
 func (c *ECHONETListClientProxy) GetPropertyInfo(classCode EOJClassCode, e EPCType) (*PropertyInfo, bool) {
 	return echonet_lite.GetPropertyInfo(classCode, e)
 }
@@ -97,4 +97,46 @@ func (c *ECHONETListClientProxy) FindPropertyAlias(classCode EOJClassCode, alias
 
 func (c *ECHONETListClientProxy) AvailablePropertyAliases(classCode EOJClassCode) map[string]string {
 	return echonet_lite.PropertyTables.AvailableAliases(classCode)
+}
+
+// GroupManager インターフェースの実装
+
+func (c *ECHONETListClientProxy) GroupList(groupName *string) []GroupDevicePair {
+	return c.handler.DeviceGroups.GroupList(groupName)
+}
+
+func (c *ECHONETListClientProxy) GroupAdd(groupName string, devices []IDString) error {
+	err := c.handler.DeviceGroups.GroupAdd(groupName, devices)
+	if err != nil {
+		return err
+	}
+	return c.handler.SaveGroupFile()
+}
+
+func (c *ECHONETListClientProxy) GroupRemove(groupName string, devices []IDString) error {
+	err := c.handler.DeviceGroups.GroupRemove(groupName, devices)
+	if err != nil {
+		return err
+	}
+	return c.handler.SaveGroupFile()
+}
+
+func (c *ECHONETListClientProxy) GroupDelete(groupName string) error {
+	err := c.handler.DeviceGroups.GroupDelete(groupName)
+	if err != nil {
+		return err
+	}
+	return c.handler.SaveGroupFile()
+}
+
+func (c *ECHONETListClientProxy) GetDevicesByGroup(groupName string) ([]IDString, bool) {
+	return c.handler.DeviceGroups.GetDevicesByGroup(groupName)
+}
+
+func (c *ECHONETListClientProxy) FindDeviceByIDString(id IDString) *IPAndEOJ {
+	return c.handler.FindDeviceByIDString(id)
+}
+
+func (c *ECHONETListClientProxy) GetIDString(device IPAndEOJ) IDString {
+	return c.handler.GetIDString(device)
 }

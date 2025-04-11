@@ -1,6 +1,8 @@
 package echonet_lite
 
 import (
+	"bytes"
+	"encoding/json"
 	"net"
 	"os"
 	"testing"
@@ -9,10 +11,8 @@ import (
 
 // HasPropertyWithValue is a test helper function that checks if a property with the expected EPC and EDT exists for the given device
 func HasPropertyWithValue(d Devices, device IPAndEOJ, epc EPCType, expectedEDT []byte) bool {
-	classCode := device.EOJ.ClassCode()
-	instanceCode := device.EOJ.InstanceCode()
 	criteria := FilterCriteria{
-		Device:         DeviceSpecifier{IP: &device.IP, ClassCode: &classCode, InstanceCode: &instanceCode},
+		Device:         DeviceSpecifierFromIPAndEOJ(device),
 		PropertyValues: []Property{{EPC: epc, EDT: expectedEDT}},
 	}
 
@@ -321,5 +321,196 @@ func TestDevices_DeviceEvents(t *testing.T) {
 	// デバイスが正しく登録されていることを確認
 	if !devices.IsKnownDevice(device3) {
 		t.Errorf("Device %v was not registered", device3)
+	}
+}
+
+// TestDeviceProperties_MarshalJSON は DeviceProperties の MarshalJSON メソッドをテストします
+func TestDeviceProperties_MarshalJSON(t *testing.T) {
+	// テスト用のデータを作成
+	props := make(DeviceProperties)
+
+	// EOJ を作成
+	eoj1 := MakeEOJ(HomeAirConditioner_ClassCode, 1)
+	eoj2 := MakeEOJ(LightingSystem_ClassCode, 2)
+	eoj3 := MakeEOJ(NodeProfile_ClassCode, 0) // インスタンスコード 0 のケース
+
+	// プロパティを作成
+	props[eoj1] = make(EPCPropertyMap)
+	props[eoj1][EPCType(0x80)] = Property{EPC: EPCType(0x80), EDT: []byte{0x30}}
+
+	props[eoj2] = make(EPCPropertyMap)
+	props[eoj2][EPCType(0x81)] = Property{EPC: EPCType(0x81), EDT: []byte{0x41, 0x42}}
+
+	props[eoj3] = make(EPCPropertyMap)
+	props[eoj3][EPCType(0x82)] = Property{EPC: EPCType(0x82), EDT: []byte{0x50}}
+
+	// JSON にエンコード
+	data, err := json.Marshal(props)
+	if err != nil {
+		t.Fatalf("Failed to marshal DeviceProperties: %v", err)
+	}
+
+	// 期待される文字列キーが含まれていることを確認
+	jsonStr := string(data)
+
+	// eoj1 のキーは "0130:1" 形式であることを確認
+	if !bytes.Contains(data, []byte(`"0130:1"`)) {
+		t.Errorf("Expected JSON to contain key \"0130:1\", but got: %s", jsonStr)
+	}
+
+	// eoj2 のキーは "02A3:2" 形式であることを確認
+	if !bytes.Contains(data, []byte(`"02A3:2"`)) {
+		t.Errorf("Expected JSON to contain key \"02A3:2\", but got: %s", jsonStr)
+	}
+
+	// eoj3 のキーは "0EF0" 形式であることを確認 (インスタンスコード 0 の場合)
+	if !bytes.Contains(data, []byte(`"0EF0"`)) {
+		t.Errorf("Expected JSON to contain key \"0EF0\", but got: %s", jsonStr)
+	}
+}
+
+// TestDeviceProperties_UnmarshalJSON は DeviceProperties の UnmarshalJSON メソッドをテストします
+func TestDeviceProperties_UnmarshalJSON(t *testing.T) {
+	// テスト用の JSON データを作成
+	jsonData := []byte(`{
+		"0130:1": {
+			"128": {
+				"EPC": 128,
+				"EDT": "MA=="
+			}
+		},
+		"02A3:2": {
+			"129": {
+				"EPC": 129,
+				"EDT": "QUI="
+			}
+		},
+		"0EF0": {
+			"130": {
+				"EPC": 130,
+				"EDT": "UA=="
+			}
+		}
+	}`)
+
+	// JSON からデコード
+	var props DeviceProperties
+	err := json.Unmarshal(jsonData, &props)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal DeviceProperties: %v", err)
+	}
+
+	// 期待される EOJ キーが存在することを確認
+	eoj1 := MakeEOJ(HomeAirConditioner_ClassCode, 1)
+	eoj2 := MakeEOJ(LightingSystem_ClassCode, 2)
+	eoj3 := MakeEOJ(NodeProfile_ClassCode, 0)
+
+	// eoj1 のプロパティを確認
+	if prop, ok := props[eoj1][EPCType(0x80)]; !ok {
+		t.Errorf("Expected property with EPC 0x80 for EOJ %v to exist, but it doesn't", eoj1)
+	} else if !bytes.Equal(prop.EDT, []byte{0x30}) {
+		t.Errorf("Expected EDT [0x30] for EOJ %v and EPC 0x80, but got %v", eoj1, prop.EDT)
+	}
+
+	// eoj2 のプロパティを確認
+	if prop, ok := props[eoj2][EPCType(0x81)]; !ok {
+		t.Errorf("Expected property with EPC 0x81 for EOJ %v to exist, but it doesn't", eoj2)
+	} else if !bytes.Equal(prop.EDT, []byte{0x41, 0x42}) {
+		t.Errorf("Expected EDT [0x41, 0x42] for EOJ %v and EPC 0x81, but got %v", eoj2, prop.EDT)
+	}
+
+	// eoj3 のプロパティを確認
+	if prop, ok := props[eoj3][EPCType(0x82)]; !ok {
+		t.Errorf("Expected property with EPC 0x82 for EOJ %v to exist, but it doesn't", eoj3)
+	} else if !bytes.Equal(prop.EDT, []byte{0x50}) {
+		t.Errorf("Expected EDT [0x50] for EOJ %v and EPC 0x82, but got %v", eoj3, prop.EDT)
+	}
+}
+
+// TestDevices_SaveLoadToFile_EOJFormat は EOJ キーが文字列形式で保存され、正しく読み込まれることをテストします
+func TestDevices_SaveLoadToFile_EOJFormat(t *testing.T) {
+	// 一時ファイルを作成
+	tempFile := "test_eoj_format.json"
+	defer os.Remove(tempFile)
+
+	// テスト用のデータを作成
+	devices := NewDevices()
+
+	// IPアドレスを定義
+	ip := net.ParseIP("192.168.1.1")
+
+	// 異なるタイプの EOJ を作成
+	eoj1 := MakeEOJ(HomeAirConditioner_ClassCode, 1)
+	eoj2 := MakeEOJ(LightingSystem_ClassCode, 2)
+	eoj3 := MakeEOJ(NodeProfile_ClassCode, 0) // インスタンスコード 0 のケース
+
+	// プロパティを登録
+	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj1}, Property{EPC: EPCType(0x80), EDT: []byte{0x30}})
+	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj2}, Property{EPC: EPCType(0x81), EDT: []byte{0x41, 0x42}})
+	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj3}, Property{EPC: EPCType(0x82), EDT: []byte{0x50}})
+
+	// ファイルに保存
+	err := devices.SaveToFile(tempFile)
+	if err != nil {
+		t.Fatalf("Failed to save devices to file: %v", err)
+	}
+
+	// ファイルの内容を確認
+	fileData, err := os.ReadFile(tempFile)
+	if err != nil {
+		t.Fatalf("Failed to read file: %v", err)
+	}
+
+	fileStr := string(fileData)
+
+	// EOJ キーが文字列形式で保存されていることを確認
+	if !bytes.Contains(fileData, []byte(`"0130:1"`)) {
+		t.Errorf("Expected file to contain key \"0130:1\", but got: %s", fileStr)
+	}
+
+	if !bytes.Contains(fileData, []byte(`"02A3:2"`)) {
+		t.Errorf("Expected file to contain key \"02A3:2\", but got: %s", fileStr)
+	}
+
+	if !bytes.Contains(fileData, []byte(`"0EF0"`)) {
+		t.Errorf("Expected file to contain key \"0EF0\", but got: %s", fileStr)
+	}
+
+	// 新しい Devices インスタンスを作成して読み込み
+	loadedDevices := NewDevices()
+	err = loadedDevices.LoadFromFile(tempFile)
+	if err != nil {
+		t.Fatalf("Failed to load devices from file: %v", err)
+	}
+
+	// 読み込んだデータを確認
+	device1 := IPAndEOJ{IP: ip, EOJ: eoj1}
+	device2 := IPAndEOJ{IP: ip, EOJ: eoj2}
+	device3 := IPAndEOJ{IP: ip, EOJ: eoj3}
+
+	// デバイスが存在することを確認
+	if !loadedDevices.IsKnownDevice(device1) {
+		t.Errorf("Expected device %v to exist, but it doesn't", device1)
+	}
+
+	if !loadedDevices.IsKnownDevice(device2) {
+		t.Errorf("Expected device %v to exist, but it doesn't", device2)
+	}
+
+	if !loadedDevices.IsKnownDevice(device3) {
+		t.Errorf("Expected device %v to exist, but it doesn't", device3)
+	}
+
+	// プロパティが正しく読み込まれていることを確認
+	if !HasPropertyWithValue(loadedDevices, device1, EPCType(0x80), []byte{0x30}) {
+		t.Errorf("Property value for device %v was not correctly loaded", device1)
+	}
+
+	if !HasPropertyWithValue(loadedDevices, device2, EPCType(0x81), []byte{0x41, 0x42}) {
+		t.Errorf("Property value for device %v was not correctly loaded", device2)
+	}
+
+	if !HasPropertyWithValue(loadedDevices, device3, EPCType(0x82), []byte{0x50}) {
+		t.Errorf("Property value for device %v was not correctly loaded", device3)
 	}
 }

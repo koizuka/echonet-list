@@ -9,10 +9,63 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 type EPCPropertyMap map[EPCType]Property
 type DeviceProperties map[EOJ]EPCPropertyMap
+
+// MarshalJSON は DeviceProperties を JSON にエンコードする際に、EOJ キーを文字列形式に変換します
+func (d DeviceProperties) MarshalJSON() ([]byte, error) {
+	// 文字列キーを使用した一時的なマップを作成
+	stringMap := make(map[string]EPCPropertyMap)
+	for eoj, props := range d {
+		// EOJ.Specifier() を使用して文字列キーを生成
+		stringMap[eoj.Specifier()] = props
+	}
+	// 標準のJSONエンコーダを使用して一時マップをエンコード
+	return json.Marshal(stringMap)
+}
+
+// UnmarshalJSON は JSON から DeviceProperties をデコードする際に、文字列キーを EOJ に変換します
+func (d *DeviceProperties) UnmarshalJSON(data []byte) error {
+	// 文字列キーを使用した一時的なマップを作成
+	stringMap := make(map[string]EPCPropertyMap)
+	if err := json.Unmarshal(data, &stringMap); err != nil {
+		return err
+	}
+
+	// 新しいマップを作成
+	result := make(DeviceProperties)
+	for eojStr, props := range stringMap {
+		// 文字列キーを EOJ に変換
+		var eoj EOJ
+		var err error
+
+		// インスタンスコードが含まれているかどうかを確認
+		if strings.Contains(eojStr, ":") {
+			// "CCCC:I" 形式の場合は ParseEOJString を使用
+			eoj, err = ParseEOJString(eojStr)
+		} else {
+			// "CCCC" 形式の場合は ParseEOJClassCodeString を使用してクラスコードのみを解析
+			classCode, err := ParseEOJClassCodeString(eojStr)
+			if err != nil {
+				return fmt.Errorf("invalid EOJ class code: %v", err)
+			}
+			// インスタンスコード 0 で EOJ を作成
+			eoj = MakeEOJ(classCode, 0)
+		}
+
+		if err != nil {
+			return fmt.Errorf("invalid EOJ string: %v", err)
+		}
+
+		result[eoj] = props
+	}
+
+	*d = result
+	return nil
+}
 
 // DeviceEventType はデバイスイベントの種類を表す型
 type DeviceEventType int
@@ -28,9 +81,10 @@ type DeviceEvent struct {
 }
 
 type DevicesImpl struct {
-	mu      sync.RWMutex
-	data    map[string]DeviceProperties // key is IP address string
-	EventCh chan DeviceEvent            // デバイスイベント通知用チャンネル
+	mu         sync.RWMutex
+	data       map[string]DeviceProperties // key is IP address string
+	timestamps map[string]time.Time        // key is "IP EOJ" format string (IPAndEOJ.Key())
+	EventCh    chan DeviceEvent            // デバイスイベント通知用チャンネル
 }
 
 type Devices struct {
@@ -40,8 +94,9 @@ type Devices struct {
 func NewDevices() Devices {
 	return Devices{
 		DevicesImpl: &DevicesImpl{
-			data:    make(map[string]DeviceProperties),
-			EventCh: nil, // 初期値はnil、後で設定する
+			data:       make(map[string]DeviceProperties),
+			timestamps: make(map[string]time.Time),
+			EventCh:    nil, // 初期値はnil、後で設定する
 		},
 	}
 }
@@ -110,6 +165,8 @@ func (d Devices) RegisterProperty(device IPAndEOJ, property Property) {
 	defer d.mu.Unlock()
 	d.ensureDeviceExists(device)
 	d.data[device.IP.String()][device.EOJ][property.EPC] = property
+	// プロパティが更新されたタイムスタンプを記録
+	d.timestamps[device.Key()] = time.Now()
 }
 
 func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties) {
@@ -117,9 +174,24 @@ func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties) {
 	defer d.mu.Unlock()
 	d.ensureDeviceExists(device)
 	ipStr := device.IP.String()
+	props := d.data[ipStr][device.EOJ]
 	for _, p := range properties {
-		d.data[ipStr][device.EOJ][p.EPC] = p
+		props[p.EPC] = p
 	}
+	// プロパティが更新されたタイムスタンプを記録
+	d.timestamps[device.Key()] = time.Now()
+}
+
+// GetLastUpdateTime は、指定されたデバイスの最終更新タイムスタンプを取得します
+// タイムスタンプが存在しない場合は time.Time のゼロ値を返します
+func (d Devices) GetLastUpdateTime(device IPAndEOJ) time.Time {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	ts, ok := d.timestamps[device.Key()]
+	if !ok {
+		return time.Time{} // ゼロ値を返す
+	}
+	return ts
 }
 
 // DeviceSpecifier は、デバイスを一意に識別するための情報を表す構造体
@@ -166,6 +238,7 @@ func (c FilterCriteria) String() string {
 // 1. Devices are filtered by Device and PropertyValues
 // 2. All properties of matched devices are included in the result
 func (d Devices) Filter(criteria FilterCriteria) Devices {
+	filtered := NewDevices()
 	// ショートカット：フィルタ条件が無い場合は自身を返す
 	if (criteria.Device.IP == nil && criteria.Device.ClassCode == nil && criteria.Device.InstanceCode == nil) &&
 		len(criteria.PropertyValues) == 0 {
@@ -175,8 +248,6 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-
-	filtered := NewDevices()
 
 	for ip, eojMap := range d.data {
 		// IPアドレスフィルタがある場合、マッチしないものはスキップ
@@ -396,6 +467,48 @@ func (d Devices) HasEPCInPropertyMap(device IPAndEOJ, mapType PropertyMapType, e
 		return false
 	}
 	return propMap.Has(epc)
+}
+
+func (d Devices) GetIDString(device IPAndEOJ) IDString {
+	edt, ok := d.GetProperty(device, EPCIdentificationNumber)
+	if !ok {
+		return ""
+	}
+	id := DecodeIdentificationNumber(edt.EDT)
+	if id == nil {
+		return ""
+	}
+	return MakeIDString(device.EOJ, *id)
+}
+
+func (d Devices) FindByIDString(id IDString) []IPAndEOJ {
+	if id == "" {
+		return nil
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	var result []IPAndEOJ
+
+	for ipStr, eojMap := range d.data {
+		for eoj, props := range eojMap {
+			if prop, ok := props[EPCIdentificationNumber]; ok {
+				pId := DecodeIdentificationNumber(prop.EDT)
+				if pId == nil {
+					continue
+				}
+				idStr := MakeIDString(eoj, *pId)
+				if idStr == id {
+					result = append(result, IPAndEOJ{
+						IP:  net.ParseIP(ipStr),
+						EOJ: eoj,
+					})
+				}
+			}
+		}
+	}
+	return result
 }
 
 func (d DeviceProperties) Set(eoj EOJ, properties ...IProperty) error {

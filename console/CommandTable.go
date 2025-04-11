@@ -2,6 +2,8 @@ package console
 
 import (
 	"echonet-list/client"
+	"echonet-list/echonet_lite"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -45,7 +47,7 @@ var CommandTable = []CommandDefinition{
 		Name:    "devices",
 		Aliases: []string{"list"},
 		Summary: "検出されたECHONET Liteデバイスの一覧表示",
-		Syntax:  "devices, list [ipAddress] [classCode[:instanceCode]] [-all|-props] [epc1 epc2...]",
+		Syntax:  "devices, list [ipAddress] [classCode[:instanceCode]] [-all|-props] [epc1 epc2...] [-group-by epc]",
 		Description: []string{
 			"ipAddress: IPアドレスでフィルター（例: 192.168.0.212 または IPv6アドレス）",
 			"classCode: クラスコード（4桁の16進数、例: 0130）",
@@ -53,22 +55,24 @@ var CommandTable = []CommandDefinition{
 			"-all: 全てのEPCを表示",
 			"-props: 既知のEPCのみを表示",
 			"epc: 2桁の16進数で指定（例: 80）。複数指定可能",
+			"-group-by epc: 指定したEPCの値でデバイスをグループ化して表示（例: -group-by 80）",
 			"※-all, -props, epc は最後に指定されたものが有効になります",
 		},
 		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
 			// オプションとエイリアスを表示
-			options := []string{"-all", "-props"}
+			options := []string{"-all", "-props", "-group-by"}
 			return append(options, dc.getDeviceCandidates()...)
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdDevices)
 
 			// デバイス識別子のパース
-			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, false)
 			if err != nil {
 				return nil, err
 			}
 			cmd.DeviceSpec = deviceSpec
+			cmd.GroupName = groupName
 
 			// 残りの引数を解析
 			for i := argIndex; i < len(parts); i++ {
@@ -81,13 +85,22 @@ var CommandTable = []CommandDefinition{
 					cmd.PropMode = PropKnown
 					cmd.EPCs = nil // EPCsをクリア
 					continue
+				case "-group-by":
+					// -group-by の次の引数がEPCであることを確認
+					if i+1 >= len(parts) {
+						return nil, fmt.Errorf("-group-by オプションにはEPCが必要です")
+					}
+					epc, err := parseEPC(parts[i+1])
+					if err != nil {
+						return nil, fmt.Errorf("-group-by オプションの引数が無効です: %v", err)
+					}
+					cmd.GroupByEPC = &epc
+					i++ // 次の引数（EPC）をスキップ
+					continue
 				}
 
-				pClassCode := cmd.GetClassCode()
-				if pClassCode == nil {
-					pClassCode = new(client.EOJClassCode)
-				}
-				props, err := p.parsePropertyString(parts[i], *pClassCode, false)
+				classCode := cmd.GetClassCode()
+				props, err := p.parsePropertyString(parts[i], classCode, false)
 				if err == nil {
 					cmd.Properties = append(cmd.Properties, props)
 					continue
@@ -132,12 +145,13 @@ var CommandTable = []CommandDefinition{
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdGet)
 
-			// デバイス識別子のパース
-			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
+			// デバイス識別子またはグループ名のパース
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, true)
 			if err != nil {
 				return nil, err
 			}
 			cmd.DeviceSpec = deviceSpec
+			cmd.GroupName = groupName
 
 			// EPCのパース
 			if argIndex >= len(parts) {
@@ -190,18 +204,24 @@ var CommandTable = []CommandDefinition{
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdSet)
 
-			// デバイス識別子のパース
-			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, true)
+			// デバイス識別子またはグループ名のパース
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, true)
 			if err != nil {
 				return nil, err
 			}
 			cmd.DeviceSpec = deviceSpec
+			cmd.GroupName = groupName
 
 			// プロパティのパース
 			if argIndex >= len(parts) {
-				// 可能なエイリアス一覧
-				aliases := p.propertyInfoProvider.AvailablePropertyAliases(*cmd.GetClassCode())
-				return nil, &AvailableAliasesForAll{Aliases: aliases}
+				// デバイスが指定されている場合は、プロパティが必要というエラーを返す
+				if (cmd.DeviceSpec.IP != nil || cmd.DeviceSpec.ClassCode != nil || cmd.DeviceSpec.InstanceCode != nil) ||
+					cmd.GroupName != nil {
+					return nil, errors.New("set コマンドには少なくとも1つのプロパティが必要です")
+				}
+
+				// デバイスが指定されていない場合は、エイリアス一覧を表示
+				return nil, errors.New("デバイスまたはグループが指定されていません")
 			}
 
 			for i := argIndex; i < len(parts); i++ {
@@ -209,7 +229,8 @@ var CommandTable = []CommandDefinition{
 				epc, err := parseEPC(parts[i])
 				if err == nil {
 					// クラスコードからPropertyInfoを取得
-					if propInfo, ok := p.propertyInfoProvider.GetPropertyInfo(*cmd.GetClassCode(), epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
+					classCode := cmd.GetClassCode()
+					if propInfo, ok := p.propertyInfoProvider.GetPropertyInfo(classCode, epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
 						return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
 					} else {
 						return nil, &AvailableAliasesForEPC{EPC: epc}
@@ -217,7 +238,8 @@ var CommandTable = []CommandDefinition{
 				}
 
 				// プロパティ文字列をパース
-				prop, err := p.parsePropertyString(parts[i], *cmd.GetClassCode(), debug)
+				classCode := cmd.GetClassCode()
+				prop, err := p.parsePropertyString(parts[i], classCode, debug)
 				if err != nil {
 					return nil, err
 				}
@@ -248,12 +270,13 @@ var CommandTable = []CommandDefinition{
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdUpdate)
 
-			// デバイス識別子のパース
-			deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 1, false)
+			// デバイス識別子またはグループ名のパース
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, false)
 			if err != nil {
 				return nil, err
 			}
 			cmd.DeviceSpec = deviceSpec
+			cmd.GroupName = groupName
 
 			// 残りの引数がある場合はエラー
 			if argIndex < len(parts) {
@@ -313,7 +336,7 @@ var CommandTable = []CommandDefinition{
 
 				// エイリアス名のパース
 				alias := parts[1]
-				if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
+				if err := echonet_lite.ValidateDeviceAlias(alias); err != nil {
 					return nil, err
 				}
 				cmd.DeviceAlias = &alias
@@ -322,17 +345,18 @@ var CommandTable = []CommandDefinition{
 
 				// エイリアス名のパース
 				alias := parts[1]
-				if err := p.aliasManager.ValidateDeviceAlias(alias); err != nil {
+				if err := echonet_lite.ValidateDeviceAlias(alias); err != nil {
 					return nil, err
 				}
 				cmd.DeviceAlias = &alias
 
 				// デバイス識別子のパース
-				deviceSpec, argIndex, err := p.parseDeviceSpecifier(parts, 2, true)
+				deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 2, true)
 				if err != nil {
 					return nil, err
 				}
 				cmd.DeviceSpec = deviceSpec
+				cmd.GroupName = groupName
 
 				// 絞り込みプロパティ値のパース
 				var classCode client.EOJClassCode
@@ -416,6 +440,131 @@ var CommandTable = []CommandDefinition{
 			// 引数がある場合は、その特定のコマンドについてのヘルプを表示する
 			if len(parts) > 1 {
 				cmd.DeviceAlias = &parts[1] // コマンド名を DeviceAlias に格納
+			}
+
+			return cmd, nil
+		},
+	},
+	{
+		Name:    "group",
+		Summary: "デバイスグループの管理",
+		Syntax:  "group add|remove|delete|list [@groupName] [deviceId1 deviceId2...]",
+		Description: []string{
+			"add: グループを作成し、デバイスを追加します",
+			"remove: グループからデバイスを削除します",
+			"delete: グループを削除します",
+			"list: グループの一覧または詳細を表示します",
+			"@groupName: グループ名（@で始まる必要があります）",
+			"deviceId: デバイスID（IPアドレス、クラスコード、インスタンスコード、またはエイリアス）",
+			"例: group add @livingroom 192.168.0.3 0130:1 ac",
+			"例: group remove @livingroom 192.168.0.3 0130:1",
+			"例: group delete @livingroom",
+			"例: group list",
+			"例: group list @livingroom",
+		},
+		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+			if wordCount == 2 {
+				// サブコマンドを表示
+				return []string{"add", "remove", "delete", "list"}
+			}
+			if wordCount >= 3 {
+				// デバイスエイリアスを表示
+				return dc.getDeviceCandidates()
+			}
+			return []string{}
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			if len(parts) < 2 {
+				return nil, fmt.Errorf("group コマンドにはサブコマンドが必要です")
+			}
+
+			var cmd *Command
+
+			switch parts[1] {
+			case "add":
+				if len(parts) < 3 {
+					return nil, fmt.Errorf("group add コマンドにはグループ名が必要です")
+				}
+				groupName := parts[2]
+				if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+					return nil, err
+				}
+
+				cmd = newCommand(CmdGroupAdd)
+				cmd.GroupName = &groupName
+
+				// デバイス指定子のパース
+				var deviceSpecs []client.DeviceSpecifier
+				argIndex := 3
+				for argIndex < len(parts) {
+					devs, nextArgIndex, err := p.parseDeviceSpecifiers(parts, argIndex, true)
+					if err != nil {
+						return nil, err
+					}
+					deviceSpecs = append(deviceSpecs, devs...)
+					argIndex = nextArgIndex
+				}
+
+				if len(deviceSpecs) == 0 {
+					return nil, fmt.Errorf("group add コマンドには少なくとも1つのデバイスが必要です")
+				}
+
+				cmd.DeviceSpecs = deviceSpecs
+
+			case "remove":
+				if len(parts) < 3 {
+					return nil, fmt.Errorf("group remove コマンドにはグループ名が必要です")
+				}
+				groupName := parts[2]
+				if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+					return nil, err
+				}
+
+				cmd = newCommand(CmdGroupRemove)
+				cmd.GroupName = &groupName
+
+				// デバイス指定子のパース
+				var deviceSpecs []client.DeviceSpecifier
+				argIndex := 3
+				for argIndex < len(parts) {
+					devs, nextArgIndex, err := p.parseDeviceSpecifiers(parts, argIndex, true)
+					if err != nil {
+						return nil, err
+					}
+					deviceSpecs = append(deviceSpecs, devs...)
+					argIndex = nextArgIndex
+				}
+
+				if len(deviceSpecs) == 0 {
+					return nil, fmt.Errorf("group remove コマンドには少なくとも1つのデバイスが必要です")
+				}
+
+				cmd.DeviceSpecs = deviceSpecs
+
+			case "delete":
+				if len(parts) != 3 {
+					return nil, fmt.Errorf("group delete コマンドにはグループ名のみが必要です")
+				}
+				groupName := parts[2]
+				if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+					return nil, err
+				}
+
+				cmd = newCommand(CmdGroupDelete)
+				cmd.GroupName = &groupName
+
+			case "list":
+				cmd = newCommand(CmdGroupList)
+				if len(parts) > 2 {
+					groupName := parts[2]
+					if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+						return nil, err
+					}
+					cmd.GroupName = &groupName
+				}
+
+			default:
+				return nil, fmt.Errorf("不明なサブコマンド: %s", parts[1])
 			}
 
 			return cmd, nil

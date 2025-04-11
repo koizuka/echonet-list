@@ -1,15 +1,22 @@
 package echonet_lite
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	// EPC
-	EPC_FH_RoomTemperature  EPCType = 0xE2 // 室内温度計測値
-	EPC_FH_FloorTemperature EPCType = 0xE3 // 床温度計測値
-	EPC_FH_OnTimerEnabled   EPCType = 0x90 // ONタイマ予約設定
-	EPC_FH_OnTimerHHMM      EPCType = 0x91 // ONタイマ設定値
-	EPC_FH_OffTimerEnabled  EPCType = 0x94 // OFFタイマ予約設定
-	EPC_FH_OffTimerHHMM     EPCType = 0x95 // OFFタイマ設定値
+	EPC_FH_TemperatureLevel  EPCType = 0xE1 // 温度設定値
+	EPC_FH_RoomTemperature   EPCType = 0xE2 // 室内温度計測値
+	EPC_FH_FloorTemperature  EPCType = 0xE3 // 床温度計測値
+	EPC_FH_DailyTimerEnabled EPCType = 0xE6 // デイリータイマー設定
+	EPC_FH_DailyTimer1       EPCType = 0xE7 // デイリータイマー1設定値
+	EPC_FH_DailyTimer2       EPCType = 0xE8 // デイリータイマー2設定値
+	EPC_FH_OnTimerEnabled    EPCType = 0x90 // ONタイマ予約設定
+	EPC_FH_OnTimerHHMM       EPCType = 0x91 // ONタイマ設定値
+	EPC_FH_OffTimerEnabled   EPCType = 0x94 // OFFタイマ予約設定
+	EPC_FH_OffTimerHHMM      EPCType = 0x95 // OFFタイマ設定値
 )
 
 func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
@@ -17,8 +24,12 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 		ClassCode: FloorHeating_ClassCode,
 		PropertyTable: PropertyTable{
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_FH_RoomTemperature:  {"Room temperature", Decoder(FH_DecodeTemperature), nil},
-				EPC_FH_FloorTemperature: {"Floor temperature", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_TemperatureLevel:  {"Temperature setting(level)", Decoder(FH_DecodeTemperatureLevel), TemperatureLevelAliases()},
+				EPC_FH_RoomTemperature:   {"Room temperature", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_FloorTemperature:  {"Floor temperature", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_DailyTimerEnabled: {"Daily timer enabled", Decoder(FH_DecodeDailyTimerEnabled), FH_DailyTimerEnabledAliases},
+				EPC_FH_DailyTimer1:       {"Daily timer1", Decoder(FH_DecodeDailyTimer), nil},
+				EPC_FH_DailyTimer2:       {"Daily timer2", Decoder(FH_DecodeDailyTimer), nil},
 
 				EPC_FH_OnTimerEnabled:  {"ON timer enabled", Decoder(FH_DecodeOnOff), nil},
 				EPC_FH_OnTimerHHMM:     {"ON timer setting", Decoder(FH_DecodeHHMM), nil},
@@ -27,6 +38,61 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 			},
 		},
 	}
+}
+
+type TemperatureLevel int8 // 0x30-0x3f: 1-15, 0x41: auto
+
+func FH_IsValidTemperatureLevel(t TemperatureLevel) bool {
+	if t >= 0x30 && t <= 0x3f {
+		return true
+	}
+	if t == 0x41 {
+		return true
+	}
+	return false
+}
+
+func FH_DecodeTemperatureLevel(EDT []byte) *TemperatureLevel {
+	if len(EDT) < 1 {
+		return nil
+	}
+	temp := TemperatureLevel(EDT[0])
+	return &temp
+}
+func (t *TemperatureLevel) String() string {
+	if t == nil {
+		return "nil"
+	}
+	if *t >= 0x31 && *t <= 0x3f {
+		return fmt.Sprintf("%d", *t-0x30)
+	}
+	switch *t {
+	case 0x41:
+		return "auto"
+	default:
+		return fmt.Sprintf("unknown(%d)", *t)
+	}
+}
+
+func (t *TemperatureLevel) EDT() []byte {
+	if t == nil {
+		return nil
+	}
+	if FH_IsValidTemperatureLevel(*t) {
+		return []byte{byte(*t)}
+	}
+	return nil
+}
+
+func TemperatureLevelAliases() map[string][]byte {
+	result := make(map[string][]byte)
+	for b := 0; b <= 255; b++ {
+		tl := TemperatureLevel(b)
+		if FH_IsValidTemperatureLevel(tl) {
+			result[tl.String()] = []byte{byte(b)}
+		}
+	}
+	return result
 }
 
 type Temperature int8
@@ -110,4 +176,106 @@ func (t *FH_HHMM) String() string {
 
 func (t *FH_HHMM) EDT() []byte {
 	return []byte{byte(t.Hour), byte(t.Minute)}
+}
+
+// デイリータイマー有効状態: 0x40=切, 0x41=デイリータイマー1, 0x42=デイリータイマー2
+type FH_DailyTimerEnabled int8
+
+func FH_DecodeDailyTimerEnabled(EDT []byte) *FH_DailyTimerEnabled {
+	if len(EDT) < 1 {
+		return nil
+	}
+	timer := FH_DailyTimerEnabled(EDT[0])
+	return &timer
+}
+func (t *FH_DailyTimerEnabled) String() string {
+	if t == nil {
+		return "nil"
+	}
+	switch *t {
+	case 0x40:
+		return "off"
+	case 0x41:
+		return "dailyTimer1"
+	case 0x42:
+		return "dailyTimer2"
+	default:
+		return fmt.Sprintf("Unknown(%d)", *t)
+	}
+}
+
+func (t *FH_DailyTimerEnabled) EDT() []byte {
+	if t == nil {
+		return nil
+	}
+	switch *t {
+	case 0x40, 0x41, 0x42:
+		return []byte{byte(*t)}
+	default:
+		return nil
+	}
+}
+
+var FH_DailyTimerEnabledAliases = map[string][]byte{
+	"off":         []byte{0x40},
+	"dailyTimer1": []byte{0x41},
+	"dailyTimer2": []byte{0x42},
+}
+
+// デイリータイマー設定値: 各ビットが30分で24時間を表す(6バイト, 0x01=0:0-0:30) -> [0-47]bool
+type FH_DailyTimer [48]bool
+
+func FH_DecodeDailyTimer(EDT []byte) *FH_DailyTimer {
+	if len(EDT) < 6 {
+		return nil
+	}
+	timer := FH_DailyTimer{}
+	for i := 0; i < 6; i++ {
+		for j := 0; j < 8; j++ {
+			timer[i*8+j] = (EDT[i]>>j)&0x01 == 1
+		}
+	}
+	return &timer
+}
+func (t *FH_DailyTimer) String() string {
+	if t == nil {
+		return "nil"
+	}
+
+	type range_t struct{ start, end int }
+	var ranges []range_t
+	for i := 0; i < len(*t); i++ {
+		if (*t)[i] {
+			start := i
+			for i < len(*t) && (*t)[i] {
+				i++
+			}
+			end := i
+			ranges = append(ranges, range_t{start, end})
+		}
+	}
+
+	s := make([]string, 0, len(ranges))
+	for _, r := range ranges {
+		s = append(s, fmt.Sprintf("%02d:%02d-%02d:%02d",
+			r.start/2, (r.start%2)*30,
+			r.end/2, (r.end%2)*30,
+		))
+	}
+
+	return strings.Join([]string{"[", strings.Join(s, ", "), "]"}, "")
+}
+func (t *FH_DailyTimer) EDT() []byte {
+	if t == nil {
+		return nil
+	}
+	EDT := make([]byte, 6)
+	for i := 0; i < 6; i++ {
+		for j := 0; j < 8; j++ {
+			if (*t)[i*8+j] {
+				EDT[i] |= (1 << j)
+			}
+		}
+	}
+	return EDT
 }
