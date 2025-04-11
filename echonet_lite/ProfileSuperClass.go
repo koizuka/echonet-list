@@ -55,12 +55,20 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			"Panasonic":    {0x00, 0x00, 0x0b},
 			"Experimental": {0xff, 0xff, 0xff},
 		}},
-		EPCBusinessFacilityCode:          {"Business facility code", nil, nil},
-		EPCProductCode:                   {"Product code", Decoder(DecodeProductCode), nil},
-		EPCProductionNumber:              {"Production number", nil, nil},
-		EPCProductionDate:                {"Production date", Decoder(DecodeDate), nil},
-		EPCPowerSavingOperationSetting:   {"Power saving operation setting", nil, nil},
-		EPCRemoteControlSetting:          {"Remote control setting", nil, nil},
+		EPCBusinessFacilityCode: {"Business facility code", nil, nil},
+		EPCProductCode:          {"Product code", Decoder(DecodeProductCode), nil},
+		EPCProductionNumber:     {"Production number", nil, nil},
+		EPCProductionDate:       {"Production date", Decoder(DecodeDate), nil},
+		EPCPowerSavingOperationSetting: {"Power saving operation setting", nil, map[string][]byte{
+			"power_saving": {0x41},
+			"normal":       {0x42},
+		}},
+		EPCRemoteControlSetting: {"Remote control setting", nil, map[string][]byte{
+			"not_public_line":       {0x41}, // 公衆回線を経由しない制御
+			"public_line":           {0x42}, // 公衆回線経由の制御
+			"not_pubic_line_normal": {0x61}, // 通信回線正常（公衆回線経由の操作不可）
+			"public_line_normal":    {0x62}, // 通信回線正常（公衆回線経由の操作可能）
+		}},
 		EPCCurrentDate:                   {"Current date", Decoder(DecodeDate), nil},
 		EPCStatusAnnouncementPropertyMap: {"Status announcement property map", Decoder(DecodePropertyMap), nil},
 		EPCSetPropertyMap:                {"Set property map", Decoder(DecodePropertyMap), nil},
