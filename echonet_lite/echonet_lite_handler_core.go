@@ -100,10 +100,18 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 	}
 
 	localDevices := make(DeviceProperties)
-	operationStatusOn := OperationStatus(true)
-	manufacturerCode := ManufacturerCodeExperimental
+	operationStatusOn, ok := ProfileSuperClass_PropertyTable.FindAlias("on")
+	if !ok {
+		cancel() // エラーの場合はコンテキストをキャンセル
+		return nil, fmt.Errorf("プロパティテーブルに on が見つかりません")
+	}
+	manufacturerCode, ok := ProfileSuperClass_PropertyTable.FindAlias("Experimental")
+	if !ok {
+		cancel() // エラーの場合はコンテキストをキャンセル
+		return nil, fmt.Errorf("プロパティテーブルに Experimental が見つかりません")
+	}
 	identificationNumber := IdentificationNumber{
-		ManufacturerCode: manufacturerCode,
+		ManufacturerCode: manufacturerCode.EDT,
 		UniqueIdentifier: make([]byte, 13), // 識別番号未設定は13バイトの0
 	}
 

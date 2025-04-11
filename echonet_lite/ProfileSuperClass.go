@@ -3,7 +3,6 @@ package echonet_lite
 import (
 	"fmt"
 	"sort"
-	"strings"
 )
 
 const (
@@ -32,38 +31,29 @@ const (
 	EPCGetPropertyMap                        EPCType = 0x9f // Get プロパティマップ
 )
 
-const (
-	// Manufacturer code
-	ManufacturerCodeSharp        ManufacturerCode = 0x000005
-	ManufacturerCodeDaikin       ManufacturerCode = 0x000008
-	ManufacturerCodePanasonic    ManufacturerCode = 0x00000b
-	ManufacturerCodeExperimental ManufacturerCode = 0xffffff
-)
-
 var ProfileSuperClass_PropertyTable = PropertyTable{
 	EPCInfo: map[EPCType]PropertyInfo{
-		EPCOperationStatus: {"Operation status", Decoder(DecodeOperationStatus), map[string][]byte{
+		EPCOperationStatus: {"Operation status", nil, map[string][]byte{
 			"on":  {0x30},
 			"off": {0x31},
 		}},
-		EPCInstallationLocation: {"Installation location", Decoder(DecodeInstallationLocation),
-			InstallationLocationAliases()},
+		EPCInstallationLocation:                  {"Installation location", nil, InstallationLocationAliases()},
 		EPCStandardVersion:                       {"Standard version", Decoder(DecodeStandardVersion), nil},
 		EPCIdentificationNumber:                  {"Identification number", Decoder(DecodeIdentificationNumber), nil},
 		EPCMeasuredInstantaneousPowerConsumption: {"Measured instantaneous power consumption", Decoder(DecodeInstantaneousPowerConsumption), nil},
 		EPCMeasuredCumulativePowerConsumption:    {"Measured cumulative power consumption", Decoder(DecodeCumulativePowerConsumption), nil},
 		EPCManufacturerFaultCode:                 {"Manufacturer fault code", nil, nil},
 		EPCCurrentLimitSetting:                   {"Current limit setting", nil, nil},
-		EPCFaultStatus: {"Fault occurrence status", Decoder(DecodeFaultStatus), map[string][]byte{
+		EPCFaultStatus: {"Fault occurrence status", nil, map[string][]byte{
 			"fault":    {0x41},
 			"no_fault": {0x42},
 		}},
 		EPCFaultDescription: {"Fault description", nil, nil},
-		EPCManufacturerCode: {"Manufacturer code", Decoder(DecodeManufacturerCode), map[string][]byte{
-			"Sharp":        ManufacturerCodeSharp.EDT(),
-			"Daikin":       ManufacturerCodeDaikin.EDT(),
-			"Panasonic":    ManufacturerCodePanasonic.EDT(),
-			"Experimental": ManufacturerCodeExperimental.EDT(),
+		EPCManufacturerCode: {"Manufacturer code", nil, map[string][]byte{
+			"Sharp":        {0x00, 0x00, 0x05},
+			"Daikin":       {0x00, 0x00, 0x08},
+			"Panasonic":    {0x00, 0x00, 0x0b},
+			"Experimental": {0xff, 0xff, 0xff},
 		}},
 		EPCBusinessFacilityCode:          {"Business facility code", nil, nil},
 		EPCProductCode:                   {"Product code", Decoder(DecodeProductCode), nil},
@@ -84,135 +74,45 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 	},
 }
 
-type OperationStatus bool
-
-func DecodeOperationStatus(EDT []byte) OperationStatus {
-	if len(EDT) < 1 {
-		return false
-	}
-	return EDT[0] == 0x30
-}
-
-func (s OperationStatus) String() string {
-	return fmt.Sprintf("%t", s)
-}
-
-func (s OperationStatus) Property() *Property {
-	var EDT byte
-	if s {
-		EDT = 0x30
-	} else {
-		EDT = 0x31
-	}
-	return &Property{EPC: EPCOperationStatus, EDT: []byte{EDT}}
-}
-
-type InstallationLocation struct {
-	PlaceCode  byte // 0..15 or 0x80..0xff
-	RoomNumber byte // 0..7
-}
-
-func DecodeInstallationLocation(EDT []byte) *InstallationLocation {
-	if len(EDT) < 1 {
-		return nil
-	}
-	location := EDT[0]
-	if (location & 0x80) == 0 {
-		return &InstallationLocation{
-			PlaceCode:  (location & 0x78) >> 3,
-			RoomNumber: location & 0x07,
-		}
-	} else {
-		// When bit 7 is set, use the raw value as PlaceCode
-		return &InstallationLocation{
-			PlaceCode:  location,
-			RoomNumber: 0,
-		}
-	}
-}
-
-func (s *InstallationLocation) String() string {
-	if s == nil {
-		return "nil"
-	}
-	place := ""
-	if (s.PlaceCode & 0x80) == 0 {
-		placeCode := s.PlaceCode
-		roomNumber := s.RoomNumber
-		switch placeCode {
-		case 0:
-			switch roomNumber {
-			case 0:
-				place = "unspecified"
-			default:
-				place = "reserved"
-			}
-
-		case 1:
-			place = "living"
-		case 2:
-			place = "dining"
-		case 3:
-			place = "kitchen"
-		case 4:
-			place = "bathroom"
-		case 5:
-			place = "lavatory"
-		case 6:
-			place = "washroom"
-		case 7:
-			place = "passageway"
-		case 8:
-			place = "room"
-		case 9:
-			place = "storeroom"
-		case 10:
-			place = "entrance"
-		case 11:
-			place = "storage"
-		case 12:
-			place = "garden"
-		case 13:
-			place = "garage"
-		case 14:
-			place = "balcony"
-		case 15:
-			place = "others"
-		}
-		if roomNumber != 0 {
-			place = fmt.Sprintf("%s%d", place, roomNumber)
-		}
-	} else {
-		if s.PlaceCode == 0xff {
-			place = "undetermined"
-		} else {
-			place = fmt.Sprintf("unknown(%X)", s.PlaceCode)
-		}
-	}
-	return place
-}
-
-func (s *InstallationLocation) Property() *Property {
-	var location byte
-	if (s.PlaceCode & 0x80) == 0 {
-		// Normal case: combine PlaceCode and RoomNumber
-		location = (s.PlaceCode << 3) | (s.RoomNumber & 0x07)
-	} else {
-		// Special case: use PlaceCode directly
-		location = s.PlaceCode
-	}
-	return &Property{EPC: EPCInstallationLocation, EDT: []byte{location}}
-}
-
+// InstallationLocationAliases は、設置場所コードに対応するエイリアス文字列とEDTのマップを生成します。
 func InstallationLocationAliases() map[string][]byte {
 	aliases := make(map[string][]byte)
-	for b := 0; b < 256; b++ {
-		loc := DecodeInstallationLocation([]byte{byte(b)})
-		if loc != nil {
-			name := loc.String()
-			if !strings.HasPrefix(name, "unknown") && !strings.HasPrefix(name, "reserved") {
-				aliases[name] = []byte{byte(b)}
+	placeNames := map[byte]string{
+		1: "living", 2: "dining", 3: "kitchen", 4: "bathroom",
+		5: "lavatory", 6: "washroom", 7: "passageway", 8: "room",
+		9: "storeroom", 10: "entrance", 11: "storage", 12: "garden",
+		13: "garage", 14: "balcony", 15: "others",
+	}
+
+	for b := range 256 {
+		locationByte := byte(b)
+		var place string
+
+		if (locationByte & 0x80) == 0 { // 通常の場所コード (ビット7が0)
+			placeCode := (locationByte & 0x78) >> 3
+			roomNumber := locationByte & 0x07
+
+			if placeCode == 0 {
+				if roomNumber == 0 {
+					place = "unspecified"
+				}
+				// roomNumber > 0 は予約済みなので何もしない
+			} else if baseName, ok := placeNames[placeCode]; ok {
+				place = baseName
+				if roomNumber != 0 {
+					place = fmt.Sprintf("%s%d", place, roomNumber)
+				}
 			}
+		} else { // 特殊な場所コード (ビット7が1)
+			if locationByte == 0xff {
+				place = "undetermined"
+			}
+			// その他の特殊コード (0x80-0xfe) はエイリアスに含めない
+		}
+
+		// 有効な名前が生成された場合のみエイリアスに追加
+		if place != "" {
+			aliases[place] = []byte{locationByte}
 		}
 	}
 	return aliases
@@ -246,7 +146,7 @@ func (s *StandardVersion) Property() *Property {
 }
 
 type IdentificationNumber struct {
-	ManufacturerCode ManufacturerCode
+	ManufacturerCode []byte // 3 bytes
 	UniqueIdentifier []byte // 13 bytes
 }
 
@@ -255,19 +155,22 @@ func DecodeIdentificationNumber(EDT []byte) *IdentificationNumber {
 		return nil
 	}
 	return &IdentificationNumber{
-		ManufacturerCode: ManufacturerCode(uint32(EDT[0])<<16 | uint32(EDT[1])<<8 | uint32(EDT[2])),
+		ManufacturerCode: EDT[0:3],
 		UniqueIdentifier: EDT[3:16],
 	}
 }
 
 func (s *IdentificationNumber) String() string {
-	return fmt.Sprintf("%v:%X", s.ManufacturerCode, s.UniqueIdentifier)
+	return fmt.Sprintf("%X:%X", s.ManufacturerCode, s.UniqueIdentifier)
 }
 
 func (s *IdentificationNumber) Property() *Property {
+	EDT := make([]byte, 0, 16)
+	EDT = append(EDT, s.ManufacturerCode...)
+	EDT = append(EDT, s.UniqueIdentifier...)
 	return &Property{
 		EPC: EPCIdentificationNumber,
-		EDT: append(s.ManufacturerCode.EDT(), s.UniqueIdentifier...),
+		EDT: EDT,
 	}
 }
 
@@ -311,59 +214,6 @@ func (s *CumulativePowerConsumption) String() string {
 
 func (s *CumulativePowerConsumption) Property() *Property {
 	return &Property{EPC: EPCMeasuredCumulativePowerConsumption, EDT: []byte{byte(s.Power >> 24), byte(s.Power >> 16), byte(s.Power >> 8), byte(s.Power & 0xff)}}
-}
-
-type FaultStatus struct {
-	Fault bool
-}
-
-func DecodeFaultStatus(EDT []byte) *FaultStatus {
-	if len(EDT) != 1 {
-		return nil
-	}
-	switch EDT[0] {
-	case 0x41:
-		return &FaultStatus{Fault: true}
-	case 0x42:
-		return &FaultStatus{Fault: false}
-	}
-	return nil
-}
-
-func (s *FaultStatus) String() string {
-	p := s.Property()
-	return fmt.Sprintf("%X", p.EDT)
-}
-
-func (s *FaultStatus) Property() *Property {
-	var EDT byte
-	if s.Fault {
-		EDT = 0x41
-	} else {
-		EDT = 0x42
-	}
-	return &Property{EPC: EPCFaultStatus, EDT: []byte{EDT}}
-}
-
-type ManufacturerCode uint32
-
-func DecodeManufacturerCode(EDT []byte) ManufacturerCode {
-	if len(EDT) < 3 {
-		return 0
-	}
-	return ManufacturerCode(uint32(EDT[0])<<16 | uint32(EDT[1])<<8 | uint32(EDT[2]))
-}
-
-func (c ManufacturerCode) String() string {
-	return fmt.Sprintf("%X", uint32(c))
-}
-
-func (c ManufacturerCode) EDT() []byte {
-	return []byte{byte(c >> 16), byte(c >> 8), byte(c)}
-}
-
-func (c ManufacturerCode) Property() *Property {
-	return &Property{EPC: EPCManufacturerCode, EDT: c.EDT()}
 }
 
 type ProductCode string

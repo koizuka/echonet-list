@@ -21,7 +21,7 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyRegistryEntry {
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_SF_Illuminance: {"Illuminance level", Decoder(props.DecodeIlluminance), nil},
 
-				EPC_SF_Panasonic_OperationStatus: {"Panasonic Operation Status", Decoder(SF_Panasonic_DecodeOperationStatus), map[string][]byte{
+				EPC_SF_Panasonic_OperationStatus: {"Panasonic Operation Status", nil, map[string][]byte{
 					"on":  {0x30},
 					"off": {0x31},
 				}},
@@ -34,25 +34,6 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyRegistryEntry {
 			},
 		},
 	}
-}
-
-// TODO Manufacturer codeがPanasonicの場合にのみ使うようにする
-
-type SF_Panasonic_OperationStatus uint8 // 0x31:OFF, 0x30:ON
-
-func SF_Panasonic_DecodeOperationStatus(EDT []byte) *SF_Panasonic_OperationStatus {
-	if len(EDT) < 1 {
-		return nil
-	}
-	operationStatus := SF_Panasonic_OperationStatus(EDT[0])
-	return &operationStatus
-}
-
-func (s *SF_Panasonic_OperationStatus) String() string {
-	if s == nil {
-		return "nil"
-	}
-	return "Panasonic Operation Status: " + string(*s)
 }
 
 type SF_Panasonic_UnknownString string
