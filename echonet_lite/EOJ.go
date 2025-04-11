@@ -24,10 +24,11 @@ func (c EOJClassCode) ClassCode() ClassCodeType {
 	return ClassCodeType(c)
 }
 func (c EOJClassCode) Encode() []byte {
-	return []byte{byte(c >> 8), byte(c)}
+	return Uint32ToBytes(uint32(c), 2)
 }
 
 func MakeEOJClassCode(classGroupCode ClassGroupCodeType, classCode ClassCodeType) EOJClassCode {
+	// Note: This function is kept for compatibility, but direct byte conversion is preferred.
 	return EOJClassCode(uint16(classGroupCode)<<8 | uint16(classCode))
 }
 func MakeEOJ(classCode EOJClassCode, instanceCode EOJInstanceCode) EOJ {
@@ -35,19 +36,15 @@ func MakeEOJ(classCode EOJClassCode, instanceCode EOJInstanceCode) EOJ {
 }
 
 func DecodeEOJ(data []byte) EOJ {
-	if len(data) < 3 {
+	if len(data) != 3 {
 		return 0
 	}
-	return MakeEOJ(
-		MakeEOJClassCode(
-			ClassGroupCodeType(data[0]),
-			ClassCodeType(data[1]),
-		),
-		EOJInstanceCode(data[2]),
-	)
+	classCode := EOJClassCode(BytesToUint32(data[0:2]))
+	instanceCode := EOJInstanceCode(data[2])
+	return MakeEOJ(classCode, instanceCode)
 }
 func (e EOJ) Encode() []byte {
-	return []byte{byte(e >> 16), byte(e >> 8), byte(e)}
+	return Uint32ToBytes(uint32(e), 3)
 }
 
 const (

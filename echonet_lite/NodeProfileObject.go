@@ -89,11 +89,10 @@ func (s *NPO_VersionInfo) String() string {
 type SelfNodeInstances uint32
 
 func DecodeSelfNodeInstances(EDT []byte) *SelfNodeInstances {
-	if len(EDT) < 3 {
+	if len(EDT) != 3 {
 		return nil
 	}
-
-	result := uint32(EDT[0])<<16 | uint32(EDT[1])<<8 | uint32(EDT[2])
+	result := BytesToUint32(EDT)
 	return (*SelfNodeInstances)(&result)
 }
 
@@ -108,18 +107,17 @@ func (s *SelfNodeInstances) Property() *Property {
 	if s == nil {
 		return nil
 	}
-	return &Property{EPC_NPO_SelfNodeInstances, []byte{byte(*s >> 16), byte(*s >> 8), byte(*s)}}
+	return &Property{EPC_NPO_SelfNodeInstances, Uint32ToBytes(uint32(*s), 3)}
 }
 
 type SelfNodeClasses uint16
 
 func DecodeSelfNodeClasses(EDT []byte) *SelfNodeClasses {
-	if len(EDT) < 2 {
+	if len(EDT) != 2 {
 		return nil
 	}
-
-	result := uint16(EDT[0])<<8 | uint16(EDT[1])
-	return (*SelfNodeClasses)(&result)
+	classes := SelfNodeClasses(BytesToUint32(EDT))
+	return &classes
 }
 
 func (s *SelfNodeClasses) String() string {
@@ -133,7 +131,7 @@ func (s *SelfNodeClasses) Property() *Property {
 	if s == nil {
 		return nil
 	}
-	return &Property{EPC_NPO_SelfNodeClasses, []byte{byte(*s >> 8), byte(*s)}}
+	return &Property{EPC_NPO_SelfNodeClasses, Uint32ToBytes(uint32(*s), 2)}
 }
 
 type InstanceList []EOJ

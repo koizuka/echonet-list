@@ -187,11 +187,11 @@ type InstantaneousPowerConsumption struct {
 }
 
 func DecodeInstantaneousPowerConsumption(EDT []byte) *InstantaneousPowerConsumption {
-	if len(EDT) < 2 {
+	if len(EDT) != 2 {
 		return nil
 	}
 	return &InstantaneousPowerConsumption{
-		Power: uint16(EDT[0])<<8 | uint16(EDT[1]),
+		Power: uint16(BytesToUint32(EDT)),
 	}
 }
 
@@ -200,7 +200,7 @@ func (s *InstantaneousPowerConsumption) String() string {
 }
 
 func (s *InstantaneousPowerConsumption) Property() *Property {
-	return &Property{EPC: EPCMeasuredInstantaneousPowerConsumption, EDT: []byte{byte(s.Power >> 8), byte(s.Power & 0xff)}}
+	return &Property{EPC: EPCMeasuredInstantaneousPowerConsumption, EDT: Uint32ToBytes(uint32(s.Power), 2)}
 }
 
 type CumulativePowerConsumption struct {
@@ -208,11 +208,11 @@ type CumulativePowerConsumption struct {
 }
 
 func DecodeCumulativePowerConsumption(EDT []byte) *CumulativePowerConsumption {
-	if len(EDT) < 4 {
+	if len(EDT) != 4 {
 		return nil
 	}
 	return &CumulativePowerConsumption{
-		Power: uint32(EDT[0])<<24 | uint32(EDT[1])<<16 | uint32(EDT[2])<<8 | uint32(EDT[3]),
+		Power: BytesToUint32(EDT),
 	}
 }
 
@@ -221,7 +221,7 @@ func (s *CumulativePowerConsumption) String() string {
 }
 
 func (s *CumulativePowerConsumption) Property() *Property {
-	return &Property{EPC: EPCMeasuredCumulativePowerConsumption, EDT: []byte{byte(s.Power >> 24), byte(s.Power >> 16), byte(s.Power >> 8), byte(s.Power & 0xff)}}
+	return &Property{EPC: EPCMeasuredCumulativePowerConsumption, EDT: Uint32ToBytes(s.Power, 4)}
 }
 
 type ProductCode string
@@ -245,11 +245,11 @@ type Date struct {
 }
 
 func DecodeDate(EDT []byte) *Date {
-	if len(EDT) < 4 {
+	if len(EDT) != 4 {
 		return nil
 	}
 	return &Date{
-		Year:  uint16(EDT[0])<<8 | uint16(EDT[1]),
+		Year:  uint16(BytesToUint32(EDT[0:2])),
 		Month: EDT[2],
 		Day:   EDT[3],
 	}
@@ -260,7 +260,8 @@ func (s *Date) String() string {
 }
 
 func (s *Date) EDT() []byte {
-	return []byte{byte(s.Year >> 8), byte(s.Year & 0xff), s.Month, s.Day}
+	yearBytes := Uint32ToBytes(uint32(s.Year), 2)
+	return []byte{yearBytes[0], yearBytes[1], s.Month, s.Day}
 }
 
 type PropertyMap map[EPCType]struct{}

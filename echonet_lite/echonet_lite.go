@@ -30,13 +30,13 @@ const (
 type EHDType uint16
 
 func DecodeEHD(data []byte) EHDType {
-	if len(data) < 2 {
+	if len(data) != 2 {
 		return 0
 	}
-	return EHDType(data[0])<<8 + EHDType(data[1])
+	return EHDType(BytesToUint32(data))
 }
 func (e EHDType) Encode() []byte {
-	return []byte{byte(e >> 8), byte(e & 0xff)}
+	return Uint32ToBytes(uint32(e), 2)
 }
 
 func (e EHDType) String() string {
@@ -51,13 +51,13 @@ func (e EHDType) String() string {
 type TIDType uint16
 
 func DecodeTID(data []byte) TIDType {
-	if len(data) < 2 {
+	if len(data) != 2 {
 		return 0
 	}
-	return TIDType(data[0])<<8 + TIDType(data[1])
+	return TIDType(BytesToUint32(data))
 }
 func (t TIDType) Encode() []byte {
-	return []byte{byte(t >> 8), byte(t & 0xff)}
+	return Uint32ToBytes(uint32(t), 2)
 }
 
 func (m *ECHONETLiteMessage) EOJ() EOJ {
@@ -292,4 +292,29 @@ func (e TooManyDevicesError) Error() string {
 		errMsg = append(errMsg, fmt.Sprintf("  %v", device))
 	}
 	return strings.Join(errMsg, "\n")
+}
+
+func Uint32ToBytes(n uint32, size int) []byte {
+	if size < 2 || size > 4 {
+		panic("size must be 2, 3, or 4")
+	}
+	b := make([]byte, size)
+	for i := 0; i < size; i++ {
+		shift := uint((size - 1 - i) * 8)
+		b[i] = byte(n >> shift)
+	}
+	return b
+}
+
+func BytesToUint32(b []byte) uint32 {
+	size := len(b)
+	if size < 2 || size > 4 {
+		panic("slice length must be 2, 3, or 4")
+	}
+	var n uint32
+	for i := 0; i < size; i++ {
+		shift := uint((size - 1 - i) * 8)
+		n |= uint32(b[i]) << shift
+	}
+	return n
 }
