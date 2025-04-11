@@ -10,6 +10,7 @@ const (
 	EPC_FH_TemperatureLevel  EPCType = 0xE1 // 温度設定値
 	EPC_FH_RoomTemperature   EPCType = 0xE2 // 室内温度計測値
 	EPC_FH_FloorTemperature  EPCType = 0xE3 // 床温度計測値
+	EPC_FH_SpecialMode       EPCType = 0xE5 // 特別運転設定
 	EPC_FH_DailyTimerEnabled EPCType = 0xE6 // デイリータイマー設定
 	EPC_FH_DailyTimer1       EPCType = 0xE7 // デイリータイマー1設定値
 	EPC_FH_DailyTimer2       EPCType = 0xE8 // デイリータイマー2設定値
@@ -24,9 +25,14 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 		ClassCode: FloorHeating_ClassCode,
 		PropertyTable: PropertyTable{
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_FH_TemperatureLevel:  {"Temperature setting(level)", Decoder(FH_DecodeTemperatureLevel), TemperatureLevelAliases()},
-				EPC_FH_RoomTemperature:   {"Room temperature", Decoder(FH_DecodeTemperature), nil},
-				EPC_FH_FloorTemperature:  {"Floor temperature", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_TemperatureLevel: {"Temperature setting(level)", Decoder(FH_DecodeTemperatureLevel), TemperatureLevelAliases()},
+				EPC_FH_RoomTemperature:  {"Room temperature", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_FloorTemperature: {"Floor temperature", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_SpecialMode: {"Special mode", Decoder(FH_DecodeSpecialMode), map[string][]byte{
+					"normal": {byte(FH_SpecialModeNormal)},
+					"low":    {byte(FH_SpecialModeLow)},
+					"high":   {byte(FH_SpecialModeHigh)},
+				}},
 				EPC_FH_DailyTimerEnabled: {"Daily timer enabled", Decoder(FH_DecodeDailyTimerEnabled), FH_DailyTimerEnabledAliases},
 				EPC_FH_DailyTimer1:       {"Daily timer1", Decoder(FH_DecodeDailyTimer), nil},
 				EPC_FH_DailyTimer2:       {"Daily timer2", Decoder(FH_DecodeDailyTimer), nil},
@@ -35,6 +41,11 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 				EPC_FH_OnTimerHHMM:     {"ON timer setting", Decoder(FH_DecodeHHMM), nil},
 				EPC_FH_OffTimerEnabled: {"OFF timer enabled", Decoder(FH_DecodeOnOff), nil},
 				EPC_FH_OffTimerHHMM:    {"OFF timer setting", Decoder(FH_DecodeHHMM), nil},
+			},
+			DefaultEPCs: []EPCType{
+				EPC_FH_TemperatureLevel,
+				EPC_FH_RoomTemperature,
+				EPC_FH_SpecialMode,
 			},
 		},
 	}
@@ -176,6 +187,25 @@ func (t *FH_HHMM) String() string {
 
 func (t *FH_HHMM) EDT() []byte {
 	return []byte{byte(t.Hour), byte(t.Minute)}
+}
+
+type FH_SpecialMode int8 // 0x41=通常運転, 0x42=ひかえめ運転, 0x43=ハイパワー運転
+const (
+	FH_SpecialModeNormal FH_SpecialMode = 0x41
+	FH_SpecialModeLow    FH_SpecialMode = 0x42
+	FH_SpecialModeHigh   FH_SpecialMode = 0x43
+)
+
+func FH_DecodeSpecialMode(EDT []byte) *FH_SpecialMode {
+	if len(EDT) < 1 {
+		return nil
+	}
+	mode := FH_SpecialMode(EDT[0])
+	return &mode
+}
+
+func (t *FH_SpecialMode) String() string {
+	return fmt.Sprintf("Unknown(%X)", byte(*t))
 }
 
 // デイリータイマー有効状態: 0x40=切, 0x41=デイリータイマー1, 0x42=デイリータイマー2
