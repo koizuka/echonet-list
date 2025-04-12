@@ -25,21 +25,12 @@ This file provides details about the technical environment and constraints of th
 - Must maintain compatibility with the ECHONET Lite protocol specification
 - Needs to work with various ECHONET Lite device types
 - Requires UDP network access for device discovery and communication
-- Needs file system access for persistent storage of discovered devices
+- Needs file system access for persistent storage of discovered devices and configuration.
 
-## WebSocket Communication (Planned)
+## WebSocket Communication
 
-- **Architecture**: Client/Server model over WebSocket.
-- **Server**: Handles ECHONET Lite communication, manages device state, and broadcasts updates.
-- **Client**: Connects to the server, sends commands, receives updates. Console UI can act as a client.
-- **Startup Options**:
-  - `-websocket`: Enable WebSocket server mode.
-  - `-ws-addr string`: Specify WebSocket server address (default: `localhost:8080`).
-  - `-ws-client`: Enable WebSocket client mode.
-  - `-ws-client-addr string`: Specify server address for the client (default: `localhost:8080`).
-  - `-ws-both`: Enable both server and client for dogfooding.
-
-- **Protocol**: Custom JSON-based protocol.
+- **Documentation**: Detailed client developer documentation available in `docs/websocket_client_protocol.md`.
+- **Protocol**: Custom JSON-based protocol over WebSocket (defined in `protocol/protocol.go`).
   - **Base Message Structure**:
 
     ```json
@@ -50,79 +41,43 @@ This file provides details about the technical environment and constraints of th
     }
     ```
 
-  - **Device Identification**: Devices identified by a string: `"IP_ADDRESS EOJ_CLASS:EOJ_INSTANCE"`, e.g., `"192.168.0.1 0130:01"`. EOJ parts are hex encoded.
-  - **Device Representation**:
+  - **Device Identification**: Devices are identified using a string format combining IP address and EOJ (Class Group Code:Class Code:Instance Code), e.g., `"192.168.0.1 0130:01"`. The EOJ parts are hex encoded. The full identifier string (including IP) is also available in the `id` field of the `Device` object.
+  - **Device Representation (`Device`)**:
 
     ```json
     {
-      "ip": "string",
-      "eoj": "string", // e.g., "0130:01"
-      "name": "string", // Device class name
-      "properties": { "EPC_HEX": "EDT_HEX", ... }, // Map of property EPC (hex) to value (hex)
-      "lastSeen": "timestamp" // ISO 8601 format
-    }
-    ```
-
-  - **Aliases Representation**: Map of alias name (string) to device identifier string.
-
-    ```json
-    { "alias_name": "device_identifier_string", ... }
-    ```
-
-  - **Error Representation**:
-
-    ```json
-    {
-      "code": "ERROR_CODE_STRING",
-      "message": "string"
+      "ip": "string", // IP Address
+      "eoj": "string", // EOJ (e.g., "0130:01")
+      "name": "string", // Device class name (e.g., "HomeAirConditioner")
+      "id": "string", // Full device identifier (e.g., "192.168.0.1 0130:01")
+      "properties": { "EPC_HEX": "EDT_BASE64", ... }, // Map of property EPC (hex) to value (Base64 encoded string)
+      "lastSeen": "timestamp" // ISO 8601 format (e.g., "2023-10-27T10:00:00Z")
     }
     ```
 
   - **Server -> Client Message Types**:
-    - `initial_state`: Sends current devices and aliases upon connection.
-      - Payload: `{ "devices": [Device, ...], "aliases": Aliases }`
-    - `device_added`: New device discovered.
-      - Payload: `{ "device": Device }`
-    - `device_updated`: Device properties or status changed. Includes `lastSeen`.
-      - Payload: `{ "device": Device }`
-    - `device_removed`: Device no longer available (timeout, etc.).
-      - Payload: `{ "ip": "string", "eoj": "string" }`
-    - `alias_changed`: Alias added, updated, or deleted.
-      - Payload: `{ "change_type": "added"|"updated"|"deleted", "alias": "string", "target": "device_identifier_string" }`
-    - `property_changed`: Specific property value changed.
-      - Payload: `{ "ip": "string", "eoj": "string", "epc": "EPC_HEX", "value": "EDT_HEX" }`
-    - `timeout_notification`: Communication timeout with a device.
-      - Payload: `{ "ip": "string", "eoj": "string", "code": "ECHONET_TIMEOUT", "message": "string" }`
-    - `error_notification`: General server-side error.
-      - Payload: `{ "code": "ERROR_CODE_STRING", "message": "string" }`
-    - `command_result`: Response to a client request.
-      - Payload: `{ "success": bool, "data": any, "error": Error }` (data/error depends on success)
-
+    - `initial_state`: Sends current devices, aliases, and groups upon connection. Payload: `InitialStatePayload` (`{ "devices": { "device_id": Device, ... }, "aliases": { "alias_name": "device_id", ... }, "groups": { "group_name": ["device_id", ...], ... } }`)
+    - `device_added`: New device discovered. Payload: `DeviceAddedPayload` (`{ "device": Device }`)
+    - `device_updated`: Device properties or status changed. Includes `lastSeen`. Payload: `DeviceUpdatedPayload` (`{ "device": Device }`)
+    - `device_removed`: Device no longer available (timeout, etc.). Payload: `DeviceRemovedPayload` (`{ "ip": "string", "eoj": "string" }`)
+    - `alias_changed`: Alias added, updated, or deleted. Payload: `AliasChangedPayload` (`{ "change_type": "added"|"updated"|"deleted", "alias": "string", "target": "device_id" }`)
+    - `group_changed`: Group created, updated (members added/removed), or deleted. Payload: `GroupChangedPayload` (`{ "change_type": "added"|"updated"|"deleted", "group": "string", "devices": ["device_id", ...] }`)
+    - `property_changed`: Specific property value changed. Payload: `PropertyChangedPayload` (`{ "ip": "string", "eoj": "string", "epc": "EPC_HEX", "value": "EDT_BASE64" }`)
+    - `timeout_notification`: Communication timeout with a device. Payload: `TimeoutNotificationPayload` (`{ "ip": "string", "eoj": "string", "code": "ECHONET_TIMEOUT", "message": "string" }`)
+    - `error_notification`: General server-side error. Payload: `ErrorNotificationPayload` (`{ "code": "ERROR_CODE_STRING", "message": "string" }`)
+    - `command_result`: Response to a client request. Payload: `CommandResultPayload` (`{ "success": bool, "data": any, "error": Error }`) (data/error depends on success)
+    - `property_aliases_result`: Response to `get_property_aliases`. Payload: `PropertyAliasesResultPayload` (`{ "success": bool, "data": PropertyAliasesData, "error": Error }`)
   - **Client -> Server Message Types**:
-    - `get_properties`: Request property values.
-      - Payload: `{ "targets": ["device_identifier_string", ...], "epcs": ["EPC_HEX", ...] }`
-    - `set_properties`: Set property values.
-      - Payload: `{ "target": "device_identifier_string", "properties": { "EPC_HEX": "EDT_HEX", ... } }`
-    - `update_properties`: Request refresh of device properties (e.g., after discovery).
-      - Payload: `{ "targets": ["device_identifier_string", ...] }`
-    - `manage_alias`: Add or delete an alias.
-      - Payload: `{ "action": "add"|"delete", "alias": "string", "target": "device_identifier_string" }` (target needed for add)
-    - `discover_devices`: Trigger ECHONET Lite device discovery.
-      - Payload: `{}` (empty)
-
-  - **Error Codes (Examples)**:
-    - Client Request Related: `INVALID_REQUEST_FORMAT`, `INVALID_PARAMETERS`, `TARGET_NOT_FOUND`, `ALIAS_OPERATION_FAILED`, `ALIAS_ALREADY_EXISTS`, `INVALID_ALIAS_NAME`, `ALIAS_NOT_FOUND`
-    - Server/Communication Related: `ECHONET_TIMEOUT`, `ECHONET_DEVICE_ERROR`, `ECHONET_COMMUNICATION_ERROR`, `INTERNAL_SERVER_ERROR`
-
-## WebSocket Communication
-
-- **Documentation**: Detailed client developer documentation available in `docs/websocket_client_protocol.md`
-- **Protocol**: Custom JSON-based protocol over WebSocket (defined in `protocol/protocol.go`)
-  - **Message Types**: `initial_state`, `device_added`, `device_updated`, `device_removed`, `alias_changed`, `property_changed`, `timeout_notification`, `error_notification`, `command_result`, `get_properties`, `set_properties`, `update_properties`, `manage_alias`, `discover_devices`
-  - **Payloads**: Defined for each message type (e.g., `InitialStatePayload`, `DeviceAddedPayload`)
-  - **Device Identification**: Devices are identified using a string format combining IP address and EOJ, e.g., `192.168.0.1 0130:1`.
-- **Server**: Listens for WebSocket connections, communicates with ECHONET Lite devices, and broadcasts state changes to clients.
-- **Client**: Connects to the WebSocket server, sends commands, and receives state updates.
+    - `get_properties`: Request property values. Payload: `GetPropertiesPayload` (`{ "targets": ["device_id_or_alias_or_group", ...], "epcs": ["EPC_HEX", ...] }`)
+    - `set_properties`: Set property values. Payload: `SetPropertiesPayload` (`{ "target": "device_id_or_alias_or_group", "properties": { "EPC_HEX": "EDT_BASE64", ... } }`)
+    - `update_properties`: Request refresh of device properties. Payload: `UpdatePropertiesPayload` (`{ "targets": ["device_id_or_alias_or_group", ...] }`)
+    - `manage_alias`: Add or delete an alias. Payload: `ManageAliasPayload` (`{ "action": "add"|"delete", "alias": "string", "target": "device_id" }`) (target needed for add)
+    - `manage_group`: Add/remove devices from a group, or delete a group. Payload: `ManageGroupPayload` (`{ "action": "add"|"remove"|"delete"|"list", "group": "string", "devices": ["device_id_or_alias", ...] }`) (devices needed for add/remove)
+    - `discover_devices`: Trigger ECHONET Lite device discovery. Payload: `DiscoverDevicesPayload` (`{}`)
+    - `get_property_aliases`: Request property aliases for a device class. Payload: `GetPropertyAliasesPayload` (`{ "classCode": "CLASS_CODE_HEX" }`) (e.g., "0130")
+  - **Error Codes**: Defined in `protocol/protocol.go` (e.g., `INVALID_REQUEST_FORMAT`, `TARGET_NOT_FOUND`, `ECHONET_TIMEOUT`).
+- **Server**: Listens for WebSocket connections, communicates with ECHONET Lite devices via the `echonet_lite` package, manages device state (including aliases and groups), and broadcasts state changes to connected clients.
+- **Client**: Connects to the WebSocket server, sends command messages (like `get_properties`, `set_properties`, `manage_alias`, `manage_group`), and receives notification messages (like `device_added`, `property_changed`, `group_changed`).
 - **Startup Options**:
   - `-websocket`: Enable WebSocket server mode.
   - `-ws-addr`: Specify WebSocket server address (default: `localhost:8080`).
