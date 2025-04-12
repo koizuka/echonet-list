@@ -425,7 +425,7 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 				s.unregisterCallback(key)
 
 				if retryCount > 0 {
-					fmt.Printf("%v: リトライ後に完了\n", desc) // DEBUG
+					// fmt.Printf("%v: リトライ後に完了\n", desc) // DEBUG
 				}
 				return
 
@@ -447,7 +447,7 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 				if logger != nil {
 					logger.Log("%v: リクエストを再送します (試行 %d/%d)", desc, retryCount, s.MaxRetries)
 				}
-				fmt.Printf("%v: リクエストを再送します (試行 %d/%d)\n", desc, retryCount, s.MaxRetries) // DEBUG
+				// fmt.Printf("%v: リクエストを再送します (試行 %d/%d)\n", desc, retryCount, s.MaxRetries) // DEBUG
 
 				// 再送
 				if err := s.sendMessage(device.IP, msg); err != nil {
