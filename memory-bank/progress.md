@@ -24,7 +24,8 @@ This file tracks the implementation progress of the project features defined in 
   - 実装予定: 新しいパッケージ構造の設計と実装
   - 状態: 依存関係の整理中
 - **Web UI開発**: 上記分割が済んだら、web UIを作成する
-  - 実装予定: フロントエンドの設計と実装
+  - **配信方法:** `echonet-list` アプリケーション自体にHTTPサーバー機能を追加し、Web UIファイルを配信する計画（詳細は `activeContext.md` を参照）。
+  - 実装予定: フロントエンドの設計と実装、Go側でのHTTPサーバー実装。
   - 状態: 未着手（アーキテクチャ分割後に開始）
   - **詳細な機能要件:**
     - デバイス一覧を設置場所 (EPC 0x81) でグルーピング表示

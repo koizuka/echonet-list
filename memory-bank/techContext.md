@@ -146,5 +146,9 @@ This file provides details about the technical environment and constraints of th
   - Log settings (filename)
   - WebSocket server settings (enabled, address, TLS)
   - WebSocket client settings (enabled, address)
+  - HTTP server settings (planned for Web UI):
+    - `http_enabled = true/false`
+    - `http_port = 8081` (example)
+    - `http_webroot = "server/webroot"` (example)
 - **Priority**: Command line arguments take precedence over configuration file settings
 - **Sample File**: `config.toml.sample` is provided as a template
