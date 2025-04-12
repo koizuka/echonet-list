@@ -133,10 +133,15 @@ func (m *mockECHONETListClient) FindPropertyAlias(classCode echonet_lite.EOJClas
 
 func (m *mockECHONETListClient) AvailablePropertyAliases(classCode echonet_lite.EOJClassCode) map[string]string {
 	// テスト用のエイリアスマップを返す
-	if classCode == echonet_lite.HomeAirConditioner_ClassCode {
+	if classCode == 0 { // 共通プロパティを要求された場合
 		return map[string]string{
-			"on":      "80(Operation status):30",
-			"off":     "80(Operation status):31",
+			"on":  "80(Operation status):30",
+			"off": "80(Operation status):31",
+			// 必要に応じて他の共通プロパティエイリアスを追加
+			"living": "81(Installation location):01",
+		}
+	} else if classCode == echonet_lite.HomeAirConditioner_ClassCode { // デバイス固有プロパティ
+		return map[string]string{
 			"auto":    "B0(Operation mode setting):41",
 			"cooling": "B0(Operation mode setting):42",
 			"heating": "B0(Operation mode setting):43",
@@ -144,6 +149,7 @@ func (m *mockECHONETListClient) AvailablePropertyAliases(classCode echonet_lite.
 			"fan":     "B0(Operation mode setting):45",
 		}
 	}
+	// その他のクラスコードの場合は空マップを返す
 	return map[string]string{}
 }
 
@@ -206,13 +212,10 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 			wantError:  nil,
 		},
 		{
-			name:       "Empty class code",
+			name:       "Empty class code (requests common properties)",
 			classCode:  "",
-			wantStatus: false,
-			wantError: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidParameters,
-				Message: "No class code specified",
-			},
+			wantStatus: true, // 修正: 空のclassCodeは有効なリクエスト
+			wantError:  nil,  // 修正: エラーは発生しない
 		},
 		{
 			name:       "Invalid class code format",
@@ -314,22 +317,43 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 						t.Errorf("Response data.properties is nil, want non-nil")
 					}
 
-					// HomeAirConditionerの場合、特定のEPCとエイリアスが含まれていることを確認
-					if tt.classCode == "0130" {
+					switch tt.classCode {
+					case "0130": // HomeAirConditionerの場合
+						// "B0" EPCが含まれていることを確認 (デバイス固有)
+						epcInfo, ok := responsePayload.Data.Properties["B0"]
+						if !ok {
+							t.Errorf("Response data.properties does not contain 'B0' EPC for HomeAirConditioner")
+						} else {
+							if epcInfo.Description != "Operation mode setting" {
+								t.Errorf("Response data.properties['B0'].description = %v, want %v", epcInfo.Description, "Operation mode setting")
+							}
+							if _, ok := epcInfo.Aliases["auto"]; !ok {
+								t.Errorf("Response data.properties['B0'].aliases does not contain 'auto' alias")
+							}
+						}
+					case "": // 共通プロパティの場合
 						// "80" EPCが含まれていることを確認
 						epcInfo, ok := responsePayload.Data.Properties["80"]
 						if !ok {
-							t.Errorf("Response data.properties does not contain '80' EPC")
+							t.Errorf("Response data.properties does not contain '80' EPC for common properties")
 						} else {
-							// 説明が"Operation status"であることを確認
 							if epcInfo.Description != "Operation status" {
 								t.Errorf("Response data.properties['80'].description = %v, want %v", epcInfo.Description, "Operation status")
 							}
-
-							// "on"エイリアスが含まれていることを確認
-							_, ok := epcInfo.Aliases["on"]
-							if !ok {
+							if _, ok := epcInfo.Aliases["on"]; !ok {
 								t.Errorf("Response data.properties['80'].aliases does not contain 'on' alias")
+							}
+						}
+						// "81" EPCが含まれていることを確認
+						epcInfo81, ok81 := responsePayload.Data.Properties["81"]
+						if !ok81 {
+							t.Errorf("Response data.properties does not contain '81' EPC for common properties")
+						} else {
+							if epcInfo81.Description != "Installation location" {
+								t.Errorf("Response data.properties['81'].description = %v, want %v", epcInfo81.Description, "Installation location")
+							}
+							if _, ok := epcInfo81.Aliases["living"]; !ok {
+								t.Errorf("Response data.properties['81'].aliases does not contain 'living' alias")
 							}
 						}
 					}

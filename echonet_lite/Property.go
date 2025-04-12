@@ -50,14 +50,22 @@ func (pt PropertyTableMap) FindAlias(classCode EOJClassCode, alias string) (Prop
 
 func (pt PropertyTableMap) AvailableAliases(classCode EOJClassCode) map[string]string {
 	aliases := map[string]string{}
-	if table, ok := pt[classCode]; ok {
-		for alias, desc := range table.AvailableAliases() {
+
+	if classCode == 0 {
+		// classCodeがゼロ値の場合、共通プロパティのみを返す
+		for alias, desc := range ProfileSuperClass_PropertyTable.AvailableAliases() {
 			aliases[alias] = desc
 		}
+	} else {
+		// classCodeが指定されている場合、デバイス固有プロパティのみを返す
+		if table, ok := pt[classCode]; ok {
+			for alias, desc := range table.AvailableAliases() {
+				aliases[alias] = desc
+			}
+		}
+		// Note: ここでは共通プロパティは含めない
 	}
-	for alias, desc := range ProfileSuperClass_PropertyTable.AvailableAliases() {
-		aliases[alias] = desc
-	}
+
 	return aliases
 }
 

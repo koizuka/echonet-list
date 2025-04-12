@@ -171,40 +171,38 @@ func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(connID string, msg
 		return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, errorPayload, msg.RequestID)
 	}
 
-	// Validate the payload
+	var classCode echonet_lite.EOJClassCode
+	var err error
+
+	// classCodeが空文字列の場合は共通プロパティを要求すると解釈
 	if payload.ClassCode == "" {
-		if logger != nil {
-			logger.Log("Error: no class code specified")
+		classCode = 0 // 共通プロパティを示すゼロ値
+		if logger != nil && ws.handler.IsDebug() {
+			logger.Log("Requesting common property aliases (classCode is empty)")
 		}
-		// エラー応答を送信
-		errorPayload := protocol.PropertyAliasesResultPayload{
-			Success: false,
-			Error: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidParameters,
-				Message: "No class code specified",
-			},
+	} else {
+		// Parse the class code if not empty
+		classCode, err = echonet_lite.ParseEOJClassCodeString(payload.ClassCode)
+		if err != nil {
+			if logger != nil {
+				logger.Log("Error: invalid class code: %v", err)
+			}
+			// エラー応答を送信
+			errorPayload := protocol.PropertyAliasesResultPayload{
+				Success: false,
+				Error: &protocol.Error{
+					Code:    protocol.ErrorCodeInvalidParameters,
+					Message: fmt.Sprintf("Invalid class code: %v", err),
+				},
+			}
+			return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, errorPayload, msg.RequestID)
 		}
-		return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, errorPayload, msg.RequestID)
+		if logger != nil && ws.handler.IsDebug() {
+			logger.Log("Requesting property aliases for class code: %s", payload.ClassCode)
+		}
 	}
 
-	// Parse the class code
-	classCode, err := echonet_lite.ParseEOJClassCodeString(payload.ClassCode)
-	if err != nil {
-		if logger != nil {
-			logger.Log("Error: invalid class code: %v", err)
-		}
-		// エラー応答を送信
-		errorPayload := protocol.PropertyAliasesResultPayload{
-			Success: false,
-			Error: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidParameters,
-				Message: fmt.Sprintf("Invalid class code: %v", err),
-			},
-		}
-		return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, errorPayload, msg.RequestID)
-	}
-
-	// Get property aliases from client
+	// Get property aliases from client using the determined classCode
 	aliases := ws.echonetClient.AvailablePropertyAliases(classCode)
 
 	// Convert to protocol format
