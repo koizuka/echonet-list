@@ -23,21 +23,25 @@ func (c *WebSocketClient) Discover() error {
 
 // UpdateProperties sends an update_properties message to the server
 func (c *WebSocketClient) UpdateProperties(criteria FilterCriteria, force bool) error {
-	// Get devices matching the criteria
-	devices := c.GetDevices(criteria.Device)
-	if len(devices) == 0 {
-		return fmt.Errorf("no devices match the criteria")
+	// criteriaに基づいてターゲットデバイスのリストを作成
+	// criteriaが空の場合、targetsは空のまま送信される
+	targets := make([]string, 0)
+	// criteria.Device のいずれかのフィールドが設定されているか、PropertyValues が空でないかを確認
+	if criteria.Device.IP != nil || criteria.Device.ClassCode != nil || criteria.Device.InstanceCode != nil || len(criteria.PropertyValues) > 0 {
+		devices := c.ListDevices(criteria) // FilterCriteriaを直接使うListDevicesに変更
+		if len(devices) == 0 {
+			// criteriaが指定されているが見つからない場合はエラー
+			return fmt.Errorf("no devices match the criteria: %v", criteria)
+		}
+		for _, dev := range devices {
+			targets = append(targets, dev.Device.Specifier())
+		}
 	}
-
-	// Create the payload
-	targets := make([]string, 0, len(devices))
-	for _, device := range devices {
-		targets = append(targets, device.Specifier())
-	}
+	// criteriaが空の場合は targets は空のまま
 
 	payload := protocol.UpdatePropertiesPayload{
-		Targets: targets,
-		Force:   force, // forceフラグを追加
+		Targets: targets, // criteriaが空なら空配列、そうでなければフィルタ結果
+		Force:   force,
 	}
 
 	// Send the message

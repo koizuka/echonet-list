@@ -271,28 +271,55 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *
 		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing update_properties payload: %v", err)
 	}
 
-	// Validate the payload
+	// ターゲットデバイスのリストを準備
+	var targetDevices []echonet_lite.IPAndEOJ
+
 	if len(payload.Targets) == 0 {
-		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "No targets specified")
+		// targetsが空の場合、全デバイスを取得
+		allDevices := ws.echonetClient.ListDevices(echonet_lite.FilterCriteria{})
+		targetDevices = make([]echonet_lite.IPAndEOJ, 0, len(allDevices)) // スライスを事前に確保
+		for _, d := range allDevices {
+			targetDevices = append(targetDevices, d.Device)
+		}
+		// デバイスが1つもない場合は早期リターン（エラーではなく成功）
+		if len(targetDevices) == 0 {
+			return ws.sendSuccessResponse(connID, msg.RequestID, nil)
+		}
+	} else {
+		// targetsが指定されている場合、パースしてリストに追加
+		targetDevices = make([]echonet_lite.IPAndEOJ, 0, len(payload.Targets)) // スライスを事前に確保
+		for _, target := range payload.Targets {
+			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
+			if err != nil {
+				// エラーが発生しても処理を継続せず、エラー応答を返す
+				return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
+			}
+			targetDevices = append(targetDevices, ipAndEOJ)
+		}
 	}
 
-	// Process each target
-	for _, target := range payload.Targets {
-		// Parse the target
-		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
-		if err != nil {
-			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
-		}
-
-		// Create filter criteria
+	// 各ターゲットデバイスのプロパティを更新 (共通ループ)
+	var firstError error
+	for _, device := range targetDevices {
+		// Create filter criteria for each device
 		criteria := echonet_lite.FilterCriteria{
-			Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(ipAndEOJ),
+			Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(device),
 		}
 
-		// Update properties
-		if err := ws.echonetClient.UpdateProperties(criteria, payload.Force); err != nil { // payload.Force を渡す
-			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error updating properties: %v", err)
+		// Update properties for the specific device
+		if err := ws.echonetClient.UpdateProperties(criteria, payload.Force); err != nil {
+			// エラーが発生しても処理を継続し、最初のエラーを記録
+			if firstError == nil {
+				firstError = fmt.Errorf("error updating properties for %v: %w", device, err)
+			}
+			// TODO: Consider logging the error here using log package if needed
+			// log.Printf("Error updating properties for %v: %v", device, err)
 		}
+	}
+
+	// 処理中にエラーが発生した場合はエラー応答を返す
+	if firstError != nil {
+		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, firstError.Error())
 	}
 
 	// Send the success response
