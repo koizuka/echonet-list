@@ -16,7 +16,7 @@ type AliasManager interface {
 
 type DeviceManager interface {
 	Discover() error
-	UpdateProperties(criteria FilterCriteria) error
+	UpdateProperties(criteria FilterCriteria, force bool) error
 	GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ
 	ListDevices(criteria FilterCriteria) []DeviceAndProperties
 	GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error)

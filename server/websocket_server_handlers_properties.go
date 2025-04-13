@@ -290,7 +290,7 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *
 		}
 
 		// Update properties
-		if err := ws.echonetClient.UpdateProperties(criteria); err != nil {
+		if err := ws.echonetClient.UpdateProperties(criteria, payload.Force); err != nil { // payload.Force を渡す
 			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error updating properties: %v", err)
 		}
 	}

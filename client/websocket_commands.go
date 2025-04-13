@@ -22,7 +22,7 @@ func (c *WebSocketClient) Discover() error {
 }
 
 // UpdateProperties sends an update_properties message to the server
-func (c *WebSocketClient) UpdateProperties(criteria FilterCriteria) error {
+func (c *WebSocketClient) UpdateProperties(criteria FilterCriteria, force bool) error {
 	// Get devices matching the criteria
 	devices := c.GetDevices(criteria.Device)
 	if len(devices) == 0 {
@@ -37,6 +37,7 @@ func (c *WebSocketClient) UpdateProperties(criteria FilterCriteria) error {
 
 	payload := protocol.UpdatePropertiesPayload{
 		Targets: targets,
+		Force:   force, // forceフラグを追加
 	}
 
 	// Send the message

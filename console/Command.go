@@ -57,6 +57,7 @@ type Command struct {
 	Properties  client.Properties        // set/devicesコマンドのプロパティリスト
 	GroupByEPC  *client.EPCType          // devicesコマンドのグループ化に使用するEPC
 	DebugMode   *string                  // debugコマンドのモード ("on" または "off")
+	ForceUpdate bool                     // updateコマンドの強制更新フラグ
 	Done        chan struct{}            // コマンド実行完了を通知するチャネル
 	Error       error                    // コマンド実行中に発生したエラー
 }

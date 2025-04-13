@@ -95,7 +95,7 @@ func (m *mockECHONETListClient) Discover() error {
 	return nil
 }
 
-func (m *mockECHONETListClient) UpdateProperties(criteria echonet_lite.FilterCriteria) error {
+func (m *mockECHONETListClient) UpdateProperties(criteria echonet_lite.FilterCriteria, force bool) error {
 	return nil
 }
 

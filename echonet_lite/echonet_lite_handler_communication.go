@@ -513,7 +513,8 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 }
 
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
-func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
+// force が true の場合、最終更新時刻に関わらず強制的に更新する
+func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
 	// フィルタリングを実行
 	filtered := h.devices.Filter(criteria)
 
@@ -546,6 +547,15 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria) error {
 
 	// 各デバイスに対して処理を実行
 	for _, device := range filtered.ListIPAndEOJ() {
+		// forceがfalseの場合、最終更新時刻をチェック
+		if !force {
+			lastUpdateTime := h.devices.GetLastUpdateTime(device)
+			if !lastUpdateTime.IsZero() && time.Since(lastUpdateTime) < UpdateIntervalThreshold {
+				fmt.Printf("デバイス %v は最近更新されたためスキップします (最終更新: %v)\n", device, lastUpdateTime.Format(time.RFC3339))
+				continue // 更新をスキップ
+			}
+		}
+
 		wg.Add(1)
 
 		propMap := h.devices.GetPropertyMap(device, GetPropertyMap)

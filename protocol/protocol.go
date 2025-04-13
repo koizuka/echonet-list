@@ -169,6 +169,7 @@ type SetPropertiesPayload struct {
 // UpdatePropertiesPayload is the payload for the update_properties message
 type UpdatePropertiesPayload struct {
 	Targets []string `json:"targets"`
+	Force   bool     `json:"force,omitempty"`
 }
 
 // ManageAliasPayload is the payload for the manage_alias message

@@ -14,7 +14,8 @@ const (
 	DeviceAliasesFileName = "aliases.json"
 	DeviceGroupsFileName  = "groups.json"
 
-	CommandTimeout = 3 * time.Second // コマンド実行のタイムアウト時間
+	CommandTimeout          = 3 * time.Second // コマンド実行のタイムアウト時間
+	UpdateIntervalThreshold = 5 * time.Second // プロパティ更新をスキップする閾値
 )
 
 // NotificationType は通知の種類を表す型
