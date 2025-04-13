@@ -254,22 +254,22 @@ var CommandTable = []CommandDefinition{
 	{
 		Name:    "update",
 		Summary: "デバイスのプロパティキャッシュを更新",
-		Syntax:  "update [ipAddress] [classCode[:instanceCode]] [-f|--force]",
+		Syntax:  "update [ipAddress] [classCode[:instanceCode]] [-force]",
 		Description: []string{
 			"ipAddress: 対象デバイスのIPアドレス（省略可能、省略時は全デバイスが対象）",
 			"classCode: クラスコード（4桁の16進数、省略時は全クラスが対象）",
 			"instanceCode: インスタンスコード（1-255の数字、省略時は指定クラスの全インスタンスが対象）",
-			"-f, --force: 最終更新時刻に関わらず強制的に更新",
+			"-force: 最終更新時刻に関わらず強制的に更新",
 		},
 		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
 			if wordCount == 2 {
 				// デバイスエイリアスとオプションを表示
 				candidates := dc.getDeviceCandidates()
-				candidates = append(candidates, "-f", "--force")
+				candidates = append(candidates, "-force")
 				return candidates
 			} else if wordCount > 2 {
 				// オプションのみ表示
-				return []string{"-f", "--force"}
+				return []string{"-force"}
 			}
 			return []string{}
 		},
@@ -287,7 +287,7 @@ var CommandTable = []CommandDefinition{
 			// 残りの引数を解析
 			for i := argIndex; i < len(parts); i++ {
 				switch parts[i] {
-				case "-f", "--force":
+				case "-f", "-force":
 					cmd.ForceUpdate = true
 				default:
 					return nil, &InvalidArgument{Argument: parts[i]}
