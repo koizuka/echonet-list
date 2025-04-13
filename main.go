@@ -159,10 +159,26 @@ func main() {
 			}
 		}()
 
-		// TLS設定を準備
+		// 定期更新間隔をパース
+		updateIntervalStr := cfg.WebSocket.PeriodicUpdateInterval
+		updateInterval, err := time.ParseDuration(updateIntervalStr)
+		if err != nil || updateIntervalStr == "" {
+			fmt.Printf("警告: 設定ファイル 'websocket.periodic_update_interval' の値 '%s' は無効です。デフォルトの1分を使用します。\n", updateIntervalStr)
+			updateInterval = 1 * time.Minute // パース失敗時はデフォルト値
+		}
+
+		// TLSと定期更新間隔の設定を準備
 		startOptions := server.StartOptions{
-			CertFile: cfg.WebSocket.TLS.CertFile,
-			KeyFile:  cfg.WebSocket.TLS.KeyFile,
+			CertFile:               cfg.WebSocket.TLS.CertFile,
+			KeyFile:                cfg.WebSocket.TLS.KeyFile,
+			PeriodicUpdateInterval: updateInterval,
+		}
+
+		// 設定された定期更新間隔を表示
+		if updateInterval > 0 {
+			fmt.Printf("WebSocketサーバーの定期更新間隔: %v\n", updateInterval)
+		} else {
+			fmt.Println("WebSocketサーバーの定期更新は無効です。")
 		}
 
 		// TLSが有効かどうかを表示

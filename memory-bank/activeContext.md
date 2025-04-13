@@ -204,6 +204,13 @@ ECHONET Liteデバイスからのプロパティ値変化通知（INF）を受�
 
 ## Recent Changes
 
+- WebSocketサーバーの定期的なプロパティ自動更新機能を設定ファイルで指定可能にしました
+  - `config/config.go` の `Config.WebSocket` に `PeriodicUpdateInterval` (string) を追加し、デフォルト値を "1m" に設定しました。
+  - `main.go` で設定ファイルからこの値を読み込み、`time.ParseDuration` でパースして `server.StartOptions` に渡すように修正しました (パース失敗時はデフォルト1分)。
+  - `server/websocket_server.go` の `StartOptions` に `PeriodicUpdateInterval` (time.Duration) フィールドを追加しました。
+  - `server/websocket_server.go` の `Start` および `Stop` メソッドを修正し、Tickerの開始・停止を `PeriodicUpdateInterval` の値に基づいて制御するようにしました。
+  - これにより、`config.toml` で `websocket.periodic_update_interval = "30s"` のように更新間隔を指定できます (0以下または無効な値で無効化)。
+
 - プロパティ変化通知機能を実装・修正しました
   - `echonet_lite/ECHONETLiteHandler.go` に `PropertyChangeNotification` 構造体を定義しました
   - `ECHONETLiteHandler` 構造体に `PropertyChangeCh` フィールドを追加しました

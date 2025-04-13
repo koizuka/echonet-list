@@ -17,6 +17,7 @@ This file tracks the implementation progress of the project features defined in 
   - `@`プレフィックスによるグループ指定
   - グループ内の全デバイスに対する一括操作
 - `devices`コマンドのグループ化機能（`-group-by <epc>`オプション）
+- WebSocketサーバーの定期的なプロパティ自動更新機能（クライアント接続時、設定ファイルで指定可能な間隔、デフォルト1分）
 
 ## What's Left to Build
 
@@ -41,3 +42,4 @@ This file tracks the implementation progress of the project features defined in 
 - ✅ **デバイスグループ管理機能**: グループ作成と一括操作の実装
 - ✅ **Devices Command Grouping Enhancement**: EPCの値でデバイスをグループ化表示
 - ✅ **デバイスプロパティ更新タイムスタンプ機能**: デバイスごとにプロパティが最後に更新された時刻を記録し、WebSocketプロトコルを通じてクライアントに提供
+- ✅ **WebSocketサーバーの定期的なプロパティ自動更新機能**: クライアント接続時に設定ファイルで指定可能な間隔（デフォルト1分）でプロパティを自動更新

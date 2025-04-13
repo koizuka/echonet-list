@@ -9,6 +9,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
+	"time"
 )
 
 // StartOptions は WebSocketServer の起動オプションを表す
@@ -17,6 +19,8 @@ type StartOptions struct {
 	CertFile string
 	// TLS秘密鍵ファイルのパス (TLSを使用する場合)
 	KeyFile string
+	// 定期的なプロパティ更新の間隔 (0以下で無効)
+	PeriodicUpdateInterval time.Duration
 }
 
 // WebSocketServer implements a WebSocket server for ECHONET Lite
@@ -26,6 +30,9 @@ type WebSocketServer struct {
 	transport     WebSocketTransport
 	echonetClient client.ECHONETListClient
 	handler       *echonet_lite.ECHONETLiteHandler
+	activeClients atomic.Int32 // Number of currently connected clients
+	updateTicker  *time.Ticker // Ticker for periodic updates
+	tickerDone    chan bool    // Channel to stop the ticker goroutine
 }
 
 // NewWebSocketServer creates a new WebSocket server
@@ -42,6 +49,7 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 		transport:     transport,
 		echonetClient: echonetClient,
 		handler:       handler,
+		tickerDone:    make(chan bool), // Initialize the done channel
 	}
 
 	// Set up the transport handlers
@@ -55,11 +63,62 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 	return ws, nil
 }
 
+// periodicUpdater runs in a goroutine, triggering property updates every minute
+// if at least one client is connected.
+func (ws *WebSocketServer) periodicUpdater() {
+	logger := log.GetLogger()
+	if logger != nil && ws.handler.IsDebug() {
+		logger.Log("Periodic updater started")
+	}
+	defer func() {
+		if logger != nil && ws.handler.IsDebug() {
+			logger.Log("Periodic updater stopped")
+		}
+	}()
+
+	for {
+		select {
+		case <-ws.updateTicker.C:
+			// Check if any clients are connected
+			if ws.activeClients.Load() > 0 {
+				if logger != nil && ws.handler.IsDebug() {
+					logger.Log("Ticker triggered: Updating all device properties (clients connected)")
+				}
+				// Run update in a separate goroutine to avoid blocking the ticker
+				go func() {
+					// Use an empty FilterCriteria to target all devices
+					err := ws.handler.UpdateProperties(echonet_lite.FilterCriteria{}, false)
+					if err != nil && logger != nil {
+						// Log the error but don't stop the ticker
+						logger.Log("Error during periodic property update: %v", err)
+					}
+				}()
+			} else {
+				if logger != nil && ws.handler.IsDebug() {
+					logger.Log("Ticker triggered: Skipping update (no clients connected)")
+				}
+			}
+		case <-ws.tickerDone:
+			ws.updateTicker.Stop()
+			return
+		case <-ws.ctx.Done(): // Ensure goroutine exits if server context is cancelled
+			ws.updateTicker.Stop()
+			return
+		}
+	}
+}
+
 // handleClientConnect is called when a new client connects
 func (ws *WebSocketServer) handleClientConnect(connID string) error {
 	logger := log.GetLogger()
 	if logger != nil && ws.handler.IsDebug() {
 		logger.Log("New WebSocket connection established: %s", connID)
+	}
+
+	// Increment active client count
+	ws.activeClients.Add(1)
+	if logger != nil && ws.handler.IsDebug() {
+		logger.Log("Active clients: %d", ws.activeClients.Load())
 	}
 
 	// Send initial state to the client
@@ -119,16 +178,41 @@ func (ws *WebSocketServer) handleClientDisconnect(connID string) {
 	if logger != nil && ws.handler.IsDebug() {
 		logger.Log("WebSocket connection closed: %s", connID)
 	}
+	// Decrement active client count
+	ws.activeClients.Add(-1)
+	if logger != nil && ws.handler.IsDebug() {
+		logger.Log("Active clients: %d", ws.activeClients.Load())
+	}
 }
 
-// Start starts the WebSocket server
+// Start starts the WebSocket server and optionally the periodic updater
 func (ws *WebSocketServer) Start(options StartOptions) error {
+	// Start the periodic updater ticker if interval is positive
+	if options.PeriodicUpdateInterval > 0 {
+		ws.updateTicker = time.NewTicker(options.PeriodicUpdateInterval)
+		go ws.periodicUpdater()
+		logger := log.GetLogger()
+		if logger != nil && ws.handler.IsDebug() {
+			logger.Log("Periodic property updater enabled with interval: %v", options.PeriodicUpdateInterval)
+		}
+	} else {
+		logger := log.GetLogger()
+		if logger != nil && ws.handler.IsDebug() {
+			logger.Log("Periodic property updater disabled.")
+		}
+	}
+
 	return ws.transport.Start(options)
 }
 
-// Stop stops the WebSocket server
+// Stop stops the WebSocket server and the periodic updater
 func (ws *WebSocketServer) Stop() error {
-	ws.cancel()
+	// Signal the periodic updater to stop if it was started
+	if ws.updateTicker != nil {
+		close(ws.tickerDone)
+	}
+
+	ws.cancel() // Cancel the server context
 	return ws.transport.Stop()
 }
 
