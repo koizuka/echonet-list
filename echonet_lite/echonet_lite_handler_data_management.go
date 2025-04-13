@@ -50,7 +50,7 @@ func (h *ECHONETLiteHandler) registerProperties(device IPAndEOJ, properties Prop
 	}
 
 	// デバイスのプロパティを登録
-	h.devices.RegisterProperties(device, properties)
+	h.devices.RegisterProperties(device, properties, time.Now())
 
 	// 変更されたプロパティについて通知を送信
 	for _, prop := range changedProperties {
