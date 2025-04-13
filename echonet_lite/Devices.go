@@ -160,16 +160,16 @@ func (d Devices) RegisterDevice(device IPAndEOJ) {
 	d.ensureDeviceExists(device)
 }
 
-func (d Devices) RegisterProperty(device IPAndEOJ, property Property) {
+func (d Devices) RegisterProperty(device IPAndEOJ, property Property, now time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.ensureDeviceExists(device)
 	d.data[device.IP.String()][device.EOJ][property.EPC] = property
 	// プロパティが更新されたタイムスタンプを記録
-	d.timestamps[device.Key()] = time.Now()
+	d.timestamps[device.Key()] = now
 }
 
-func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties) {
+func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties, now time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.ensureDeviceExists(device)
@@ -179,7 +179,7 @@ func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties) {
 		props[p.EPC] = p
 	}
 	// プロパティが更新されたタイムスタンプを記録
-	d.timestamps[device.Key()] = time.Now()
+	d.timestamps[device.Key()] = now
 }
 
 // GetLastUpdateTime は、指定されたデバイスの最終更新タイムスタンプを取得します

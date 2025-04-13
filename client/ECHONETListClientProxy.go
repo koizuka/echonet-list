@@ -39,8 +39,8 @@ func (c *ECHONETListClientProxy) SetDebug(debug bool) {
 	c.handler.SetDebug(debug)
 }
 
-func (c *ECHONETListClientProxy) UpdateProperties(criteria FilterCriteria) error {
-	return c.handler.UpdateProperties(criteria)
+func (c *ECHONETListClientProxy) UpdateProperties(criteria FilterCriteria, force bool) error {
+	return c.handler.UpdateProperties(criteria, force)
 }
 
 func (c *ECHONETListClientProxy) AliasList() []AliasIDStringPair {

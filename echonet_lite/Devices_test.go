@@ -40,7 +40,7 @@ func TestDevices_SaveToFile(t *testing.T) {
 
 	// Register the test property
 	ip1eoj := IPAndEOJ{ip1, eoj}
-	devices.RegisterProperty(ip1eoj, property)
+	devices.RegisterProperty(ip1eoj, property, time.Now())
 
 	// Save to file
 	err := devices.SaveToFile(tempFile)
@@ -97,7 +97,7 @@ func TestDevices_LoadFromFile(t *testing.T) {
 	ip1eoj := IPAndEOJ{ip1, eoj}
 
 	// Register the test property
-	tempDevices.RegisterProperty(ip1eoj, property)
+	tempDevices.RegisterProperty(ip1eoj, property, time.Now())
 
 	// Save to the temporary file
 	err := tempDevices.SaveToFile(tempFile)
@@ -162,8 +162,8 @@ func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 	ip2eoj2 := IPAndEOJ{ip2, eoj2}
 
 	// Register the test properties
-	originalDevices.RegisterProperty(ip1eoj1, property1)
-	originalDevices.RegisterProperty(ip2eoj2, property2)
+	originalDevices.RegisterProperty(ip1eoj1, property1, time.Now())
+	originalDevices.RegisterProperty(ip2eoj2, property2, time.Now())
 
 	// Save to file
 	err := originalDevices.SaveToFile(tempFile)
@@ -291,7 +291,7 @@ func TestDevices_DeviceEvents(t *testing.T) {
 	device2 := IPAndEOJ{IP: ip2, EOJ: eoj2}
 	property := Property{EPC: EPCType(0x80), EDT: []byte{0x30}}
 
-	devices.RegisterProperty(device2, property)
+	devices.RegisterProperty(device2, property, time.Now())
 
 	// イベントチャンネルからイベントを受信
 	select {
@@ -445,9 +445,10 @@ func TestDevices_SaveLoadToFile_EOJFormat(t *testing.T) {
 	eoj3 := MakeEOJ(NodeProfile_ClassCode, 0) // インスタンスコード 0 のケース
 
 	// プロパティを登録
-	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj1}, Property{EPC: EPCType(0x80), EDT: []byte{0x30}})
-	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj2}, Property{EPC: EPCType(0x81), EDT: []byte{0x41, 0x42}})
-	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj3}, Property{EPC: EPCType(0x82), EDT: []byte{0x50}})
+	now := time.Now()
+	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj1}, Property{EPC: EPCType(0x80), EDT: []byte{0x30}}, now)
+	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj2}, Property{EPC: EPCType(0x81), EDT: []byte{0x41, 0x42}}, now)
+	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj3}, Property{EPC: EPCType(0x82), EDT: []byte{0x50}}, now)
 
 	// ファイルに保存
 	err := devices.SaveToFile(tempFile)
@@ -512,5 +513,37 @@ func TestDevices_SaveLoadToFile_EOJFormat(t *testing.T) {
 
 	if !HasPropertyWithValue(loadedDevices, device3, EPCType(0x82), []byte{0x50}) {
 		t.Errorf("Property value for device %v was not correctly loaded", device3)
+	}
+}
+
+func TestDevices_TimestampUpdate(t *testing.T) {
+	devices := NewDevices()
+	device := IPAndEOJ{IP: net.ParseIP("192.168.1.10"), EOJ: MakeEOJ(HomeAirConditioner_ClassCode, 1)}
+	prop1 := Property{EPC: EPCOperationStatus, EDT: []byte{0x30}}
+	prop2 := Property{EPC: EPC_HAC_OperationModeSetting, EDT: []byte{0x41}}
+
+	// 1. RegisterProperty でタイムスタンプが設定されるか確認
+	testTime1 := time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)
+	devices.RegisterProperty(device, prop1, testTime1)
+
+	lastUpdate1 := devices.GetLastUpdateTime(device)
+	if !lastUpdate1.Equal(testTime1) {
+		t.Errorf("Expected timestamp %v after RegisterProperty, got %v", testTime1, lastUpdate1)
+	}
+
+	// 2. RegisterProperties でタイムスタンプが更新されるか確認
+	testTime2 := testTime1.Add(time.Hour)
+	devices.RegisterProperties(device, []Property{prop2}, testTime2) // 別のプロパティで更新
+
+	lastUpdate2 := devices.GetLastUpdateTime(device)
+	if !lastUpdate2.Equal(testTime2) {
+		t.Errorf("Expected timestamp %v after RegisterProperties, got %v", testTime2, lastUpdate2)
+	}
+
+	// 3. 存在しないデバイスのタイムスタンプはゼロ値か確認
+	nonExistentDevice := IPAndEOJ{IP: net.ParseIP("192.168.1.11"), EOJ: MakeEOJ(HomeAirConditioner_ClassCode, 2)}
+	lastUpdate3 := devices.GetLastUpdateTime(nonExistentDevice)
+	if !lastUpdate3.IsZero() {
+		t.Errorf("Expected zero timestamp for non-existent device, got %v", lastUpdate3)
 	}
 }
