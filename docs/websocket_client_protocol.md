@@ -365,11 +365,16 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "targets": ["192.168.1.10 0130:1", "192.168.1.11 0290:1"]
   },
+  "payload": {
+    "targets": ["192.168.1.10 0130:1", "192.168.1.11 0290:1"],
+    "force": true // オプショナル: 強制更新フラグ
+  },
   "requestId": "req-125"
 }
 ```
 
 - `targets`: デバイスID文字列（IP EOJ形式）の配列
+- `force`: (オプショナル) `true` の場合、デバイスの最終更新時刻に関わらず強制的にプロパティを更新します。デフォルトは `false` です。
 
 ### manage_alias
 
