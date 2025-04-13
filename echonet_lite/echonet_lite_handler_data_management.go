@@ -18,8 +18,8 @@ func (h *ECHONETLiteHandler) saveDeviceInfo() {
 	}
 }
 
-// registerDevice は、デバイスのプロパティを登録し、追加・変更されたプロパティ数を返します。
-func (h *ECHONETLiteHandler) registerProperties(device IPAndEOJ, properties Properties) int {
+// registerDevice は、デバイスのプロパティを登録し、追加・変更されたプロパティを返します。
+func (h *ECHONETLiteHandler) registerProperties(device IPAndEOJ, properties Properties) []EPCType {
 	h.propMutex.Lock()
 	defer h.propMutex.Unlock()
 
@@ -69,7 +69,11 @@ func (h *ECHONETLiteHandler) registerProperties(device IPAndEOJ, properties Prop
 		}
 	}
 
-	return len(changedProperties)
+	result := make([]EPCType, 0, len(changedProperties))
+	for _, prop := range changedProperties {
+		result = append(result, prop.EPC)
+	}
+	return result
 }
 
 type DeviceAndProperties struct {

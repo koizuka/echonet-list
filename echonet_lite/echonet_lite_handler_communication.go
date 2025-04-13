@@ -582,7 +582,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 				return
 			}
 
-			changed := 0
+			var changed []EPCType
 
 			// 成功したプロパティを登録（部分的な成功の場合も含む）
 			if len(properties) > 0 {
@@ -592,8 +592,8 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 			}
 
 			// 結果を記録
-			if changed > 0 {
-				fmt.Printf("デバイス %v のプロパティを %v個 更新しました\n", device, changed)
+			if len(changed) > 0 {
+				fmt.Printf("デバイス %v のプロパティを %v個 更新しました: %v\n", device, len(changed), changed)
 			}
 
 			// 全体の成功/失敗を判定
