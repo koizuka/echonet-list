@@ -23,15 +23,12 @@ This file tracks the implementation progress of the project features defined in 
 - **アーキテクチャ分割**: ECHONET Liteに関する処理は web(WebSocket) サーバーにして、コンソールUIアプリはそれにアクセスするように分割する
   - 実装予定: 新しいパッケージ構造の設計と実装
   - 状態: 依存関係の整理中
-- **Web UI開発**: 上記分割が済んだら、web UIを作成する
-  - **配信方法:** `echonet-list` アプリケーション自体にHTTPサーバー機能を追加し、Web UIファイルを配信する計画（詳細は `activeContext.md` を参照）。
-  - 実装予定: フロントエンドの設計と実装、Go側でのHTTPサーバー実装。
-  - 状態: 未着手（アーキテクチャ分割後に開始）
-  - **詳細な機能要件:**
-    - デバイス一覧を設置場所 (EPC 0x81) でグルーピング表示
-    - Web UI から設置場所 (EPC 0x81) を設定・変更
-    - デバイスの主要な状態 (ON/OFF, 温度等) を一覧で可視化
-    - 複数デバイスのグループ操作機能 (グループ設定はサーバー側/設定ファイルで管理)
+- **Web UI開発**: 上記アーキテクチャ分割が完了次第、Web UIの開発に着手します。
+  - **アーキテクチャ:** WebSocketサーバーと通信するSPAとして実装。Goアプリケーション内のHTTPサーバーから静的ファイルを配信します。詳細は `systemPatterns.md` を参照。
+  - **フロントエンド技術:** React, Vue, Svelteなどのフレームワークを検討。試行錯誤のしやすさを重視します。詳細は `techContext.md` を参照。
+  - **開発ワークフロー:** `webui/` ディレクトリで開発・ビルドし、成果物をサーバーの `http_webroot` に配置。開発中はサーバー再起動で更新。将来的にはConsole UIコマンドでのサーバー側リロードと、WebSocket通知によるクライアント側自動リロードを検討。詳細は `techContext.md` および `activeContext.md` を参照。
+  - **機能要件:** デバイス一覧（設置場所グルーピング、状態可視化）、設置場所管理、グループ操作（既存API利用）、リアルタイム更新。詳細は `productContext.md` を参照。
+  - **状態:** 未着手（アーキテクチャ分割後に開始）
 
 ## Completed Features
 

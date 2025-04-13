@@ -158,3 +158,21 @@ The WebSocket protocol supports the following message types:
 - `error_notification`: Notification of an error
 
 This architecture allows for better separation of concerns, easier testing, and improved maintainability.
+
+## Web UI Architecture (Planned)
+
+将来的に計画されているWeb UIは、既存のWebSocketサーバー/クライアントアーキテクチャの上に構築されます。
+
+-   **Client Role**: Web UIは、WebSocketサーバーに接続するクライアントとして機能します。ユーザーはWebブラウザを通じてデバイスの監視と操作を行います。
+-   **Communication**: Web UIは、`docs/websocket_client_protocol.md` で定義されたプロトコルを使用してWebSocketサーバーと通信します。これにより、デバイスの状態取得、プロパティ設定、グループ管理などの操作を行います。また、サーバーからのリアルタイム通知（デバイス追加、プロパティ変更、グループ変更など）を受信してUIを更新します。
+-   **Serving Mechanism**: Web UIの静的ファイル（HTML, CSS, JavaScript）は、`echonet-list` アプリケーション自体に組み込まれたHTTPサーバーによって配信されます。
+    -   Goの `net/http` パッケージと `http.FileServer` を使用します。
+    -   HTTPサーバーのポートとWebルートディレクトリ (`http_webroot`) は `config.toml` で設定可能です。
+    -   これにより、Web UIはWebSocketサーバーと同じオリジンから提供され、CORSの問題を回避できます。
+-   **Development & Deployment**:
+    -   Web UIのソースコードは独立したディレクトリ（例: `webui/`）で管理され、フロントエンドフレームワーク（React, Vue, Svelteなど検討中）を使用してビルドされます。
+    -   ビルドされた静的アセットは、サーバーの `http_webroot` ディレクトリに配置されます。
+-   **UI Update Workflow**:
+    -   サーバー側でUIアセットが更新された場合、Console UIコマンド（例: `reload-webui`）などでHTTPサーバーに再読み込みを指示できます（将来的な実装）。
+    -   サーバーはアセット再読み込み後、`ui_updated` 通知（別途定義）をWebSocketでブロードキャストします。
+    -   Webクライアントはこの通知を受け取り、自動的にページをリロードして最新のUIを表示します。

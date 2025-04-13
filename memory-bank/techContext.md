@@ -63,3 +63,27 @@ This file provides details about the technical environment and constraints of th
     - `http_webroot = "server/webroot"` (example)
 - **Priority**: Command line arguments take precedence over configuration file settings
 - **Sample File**: `config.toml.sample` is provided as a template
+
+## Web UI Development (Planned)
+
+将来的に計画されているWeb UIの開発に関する技術的な考慮事項とワークフローは以下の通りです。
+
+### Frontend Technology
+
+- **Framework Consideration**: UIの試行錯誤とメンテナンスを容易にするため、React, Vue, SvelteなどのコンポーネントベースのJavaScriptフレームワークの採用を検討します。これらのフレームワークは、UIパーツの再利用、状態管理、開発時のホットリロード機能を提供し、開発効率を高めることが期待されます。
+
+### Development Workflow
+
+1.  **Source Code Location**: Web UIのフロントエンドコード（HTML, CSS, JavaScript/TypeScript, フレームワーク関連ファイル）は、プロジェクトルート直下の `webui/` ディレクトリ（仮称）で管理します。
+2.  **Build Process**: `webui/` ディレクトリ内で、選択したフレームワークのビルドコマンド（例: `npm run build`）を実行し、静的なHTML, CSS, JavaScriptファイルを生成します。
+3.  **Asset Deployment**: ビルドされた静的ファイルを、GoサーバーがWebコンテンツを提供するために設定されたディレクトリ（`config.toml` の `http_webroot` で指定。例: `server/webroot/`）にコピーします。このプロセスはMakefileやスクリプトで自動化することを検討します。
+
+### Server-side Asset Reload
+
+- **Development Phase**: 開発中は、Web UIの静的ファイルを更新した後、Goサーバーを再起動して変更を反映させるのが最も簡単な方法です。
+- **Future Enhancement**: UI更新の頻度が高くなった場合、サーバーを停止せずにUIアセットを再読み込みする機能の導入を検討します。有力な方法として、Console UIに新しいコマンド（例: `reload-webui`）を追加し、実行時にHTTPサーバーに `http_webroot` の内容を再読み込みさせる方式が考えられます。SIGHUPシグナルや専用のWebSocketメッセージも代替案として考慮できますが、Consoleコマンドが既存インターフェースとの親和性が高い可能性があります。
+
+### Client-side Auto-Reload
+
+- **Mechanism**: サーバーがWeb UIアセットの再読み込みを完了した後、接続中の全WebSocketクライアントに新しい通知メッセージ (`ui_updated` など、別途定義) を送信します。
+- **Client Action**: Webクライアント（ブラウザのJavaScript）は、この通知を受信したら自動的にページをリロード (`window.location.reload()`) し、最新のUIアセットを取得します。これにより、ユーザーは手動でリロードすることなく、常に最新のUIを利用できます。
