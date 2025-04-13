@@ -492,7 +492,7 @@ func (p *CommandProcessor) processUpdateCommand(cmd *Command) error {
 				criteria := client.FilterCriteria{
 					Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(*device),
 				}
-				err := p.handler.UpdateProperties(criteria, cmd.ForceUpdate) // forceフラグを渡す
+				err := p.handler.UpdateProperties(criteria, cmd.ForceUpdate)
 				if err != nil {
 					fmt.Printf("デバイス %v のプロパティ更新に失敗しました: %v\n", device, err)
 				} else {
@@ -506,7 +506,7 @@ func (p *CommandProcessor) processUpdateCommand(cmd *Command) error {
 		criteria := client.FilterCriteria{
 			Device: cmd.DeviceSpec,
 		}
-		return p.handler.UpdateProperties(criteria, cmd.ForceUpdate) // forceフラグを渡す
+		return p.handler.UpdateProperties(criteria, cmd.ForceUpdate)
 	}
 	return nil
 }

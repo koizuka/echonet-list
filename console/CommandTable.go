@@ -271,7 +271,7 @@ var CommandTable = []CommandDefinition{
 				// オプションのみ表示
 				return []string{"-f", "--force"}
 			}
-			return []string{} // 最初の引数には候補なし
+			return []string{}
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdUpdate)
