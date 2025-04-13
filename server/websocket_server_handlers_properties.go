@@ -271,49 +271,41 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *
 		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing update_properties payload: %v", err)
 	}
 
-	// ターゲットデバイスのリストを準備
-	var targetDevices []echonet_lite.IPAndEOJ
+	// フィルター基準のリストを準備
+	var filterCriteriaList []echonet_lite.FilterCriteria
 
 	if len(payload.Targets) == 0 {
-		// targetsが空の場合、全デバイスを取得
-		allDevices := ws.echonetClient.ListDevices(echonet_lite.FilterCriteria{})
-		targetDevices = make([]echonet_lite.IPAndEOJ, 0, len(allDevices)) // スライスを事前に確保
-		for _, d := range allDevices {
-			targetDevices = append(targetDevices, d.Device)
-		}
-		// デバイスが1つもない場合は早期リターン（エラーではなく成功）
-		if len(targetDevices) == 0 {
-			return ws.sendSuccessResponse(connID, msg.RequestID, nil)
-		}
+		// targetsが空の場合、全デバイスを対象とするフィルター基準を追加
+		filterCriteriaList = append(filterCriteriaList, echonet_lite.FilterCriteria{})
 	} else {
-		// targetsが指定されている場合、パースしてリストに追加
-		targetDevices = make([]echonet_lite.IPAndEOJ, 0, len(payload.Targets)) // スライスを事前に確保
+		// targetsが指定されている場合、各ターゲットに対応するフィルター基準を作成
+		filterCriteriaList = make([]echonet_lite.FilterCriteria, 0, len(payload.Targets)) // スライスを事前に確保
 		for _, target := range payload.Targets {
 			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
 			if err != nil {
-				// エラーが発生しても処理を継続せず、エラー応答を返す
+				// エラーが発生した場合、エラー応答を返す
 				return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
 			}
-			targetDevices = append(targetDevices, ipAndEOJ)
+			// 各デバイスに対応するフィルター基準を作成
+			criteria := echonet_lite.FilterCriteria{
+				Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(ipAndEOJ),
+			}
+			filterCriteriaList = append(filterCriteriaList, criteria)
 		}
 	}
 
-	// 各ターゲットデバイスのプロパティを更新 (共通ループ)
+	// 各フィルター基準に基づいてプロパティを更新
 	var firstError error
-	for _, device := range targetDevices {
-		// Create filter criteria for each device
-		criteria := echonet_lite.FilterCriteria{
-			Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(device),
-		}
-
-		// Update properties for the specific device
+	for _, criteria := range filterCriteriaList {
+		// Update properties based on the criteria
 		if err := ws.echonetClient.UpdateProperties(criteria, payload.Force); err != nil {
 			// エラーが発生しても処理を継続し、最初のエラーを記録
 			if firstError == nil {
-				firstError = fmt.Errorf("error updating properties for %v: %w", device, err)
+				// エラーメッセージにcriteriaを含める (%v を使用)
+				firstError = fmt.Errorf("error updating properties for criteria '%v': %w", criteria, err)
 			}
 			// TODO: Consider logging the error here using log package if needed
-			// log.Printf("Error updating properties for %v: %v", device, err)
+			// log.Printf("Error updating properties for criteria %v: %v", criteria, err)
 		}
 	}
 
