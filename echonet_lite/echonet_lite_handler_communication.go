@@ -570,6 +570,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 		// 各デバイスに対して並列処理を実行
 		go func(device IPAndEOJ, propMap PropertyMap) {
 			defer wg.Done()
+			deviceName := h.DeviceStringWithAlias(device)
 
 			success, properties, failedEPCs, err := h.session.GetProperties(
 				timeoutCtx,
@@ -578,7 +579,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 			)
 
 			if err != nil {
-				storeError(fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err))
+				storeError(fmt.Errorf("%v のプロパティ取得に失敗: %w", deviceName, err))
 				return
 			}
 
@@ -593,12 +594,20 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 
 			// 結果を記録
 			if len(changed) > 0 {
-				fmt.Printf("デバイス %v のプロパティを %v個 更新しました: %v\n", device, len(changed), changed)
+				epcNames := make([]string, len(changed))
+				for i, epc := range changed {
+					epcNames[i] = epc.StringForClass(device.EOJ.ClassCode())
+				}
+				fmt.Printf("%v のプロパティを %v個更新: %v\n", deviceName, len(changed), epcNames)
 			}
 
 			// 全体の成功/失敗を判定
 			if !success && len(failedEPCs) > 0 {
-				storeError(fmt.Errorf("デバイス %v の一部のプロパティ取得に失敗: %v", device, failedEPCs))
+				epcNames := make([]string, len(failedEPCs))
+				for i, epc := range failedEPCs {
+					epcNames[i] = epc.StringForClass(device.EOJ.ClassCode())
+				}
+				storeError(fmt.Errorf("%v の一部のプロパティ取得に失敗: %v", deviceName, epcNames))
 			}
 		}(device, propMap)
 	}

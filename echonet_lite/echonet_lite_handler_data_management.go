@@ -5,6 +5,7 @@ import (
 	"echonet-list/echonet_lite/log"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -119,6 +120,12 @@ func (h *ECHONETLiteHandler) GetAliases(device IPAndEOJ) []string {
 		return nil
 	}
 	return h.DeviceAliases.FindAliasesByIDString(ids)
+}
+
+func (h *ECHONETLiteHandler) DeviceStringWithAlias(device IPAndEOJ) string {
+	names := h.GetAliases(device)
+	names = append(names, device.String())
+	return (strings.Join(names, " "))
 }
 
 func (h *ECHONETLiteHandler) AliasSet(alias *string, criteria FilterCriteria) error {
