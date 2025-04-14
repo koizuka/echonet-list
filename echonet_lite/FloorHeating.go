@@ -18,6 +18,8 @@ const (
 	EPC_FH_OnTimerHHMM       EPCType = 0x91 // ONタイマ設定値
 	EPC_FH_OffTimerEnabled   EPCType = 0x94 // OFFタイマ予約設定
 	EPC_FH_OffTimerHHMM      EPCType = 0x95 // OFFタイマ設定値
+	EPC_FH_Temperature1      EPCType = 0xf3 // Daikin: 温度センサ1(行きの水温?)
+	EPC_FH_Temperature2      EPCType = 0xf4 // Daikin: 温度センサ2(戻りの水温?)
 )
 
 func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
@@ -45,6 +47,9 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 				EPC_FH_OnTimerHHMM:     {"ON timer setting", Decoder(FH_DecodeHHMM), nil},
 				EPC_FH_OffTimerEnabled: {"OFF timer enabled", nil, FH_OnOffAlias},
 				EPC_FH_OffTimerHHMM:    {"OFF timer setting", Decoder(FH_DecodeHHMM), nil},
+
+				EPC_FH_Temperature1: {"Temperature sensor 1", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_Temperature2: {"Temperature sensor 2", Decoder(FH_DecodeTemperature), nil},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_FH_TemperatureLevel,
