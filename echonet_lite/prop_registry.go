@@ -17,10 +17,10 @@ func BuildPropertyTableMap() PropertyTableMap {
 
 	result := PropertyTableMap{}
 
-	var registry interface{} = &PropertyRegistry{}
+	var registry any = &PropertyRegistry{}
 	t := reflect.TypeOf(registry)
 	v := reflect.ValueOf(registry)
-	for i := 0; i < t.NumMethod(); i++ {
+	for i := range t.NumMethod() {
 		method := t.Method(i)
 		if method.Type.Out(0) == reflect.TypeOf(PropertyRegistryEntry{}) {
 			entry := v.Method(i).Call(nil)[0].Interface().(PropertyRegistryEntry)

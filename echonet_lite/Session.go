@@ -36,9 +36,6 @@ func (e ErrMaxRetriesReached) Error() string {
 	return fmt.Sprintf("maximum retries reached (%d) for device %v", e.MaxRetries, e.Device)
 }
 
-var NodeProfileObject = MakeEOJ(NodeProfile_ClassCode, 1)
-var NodeProfileObject_SendOnly = MakeEOJ(NodeProfile_ClassCode, 2)
-
 // ブロードキャストアドレスの設定
 var BroadcastIP = network.GetIPv4BroadcastIP()
 

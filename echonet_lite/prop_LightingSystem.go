@@ -23,6 +23,7 @@ func (r PropertyRegistry) LightingSystem() PropertyRegistryEntry {
 	return PropertyRegistryEntry{
 		ClassCode: LightingSystem_ClassCode,
 		PropertyTable: PropertyTable{
+			Description: "Lighting System",
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_LS_Illuminance:     {"Illuminance level", Decoder(props.DecodeIlluminance), nil},
 				EPC_LS_SceneControl:    {"Scene control", Decoder(LS_DecodeSceneControl), nil},

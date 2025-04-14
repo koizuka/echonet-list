@@ -26,6 +26,7 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 	return PropertyRegistryEntry{
 		ClassCode: FloorHeating_ClassCode,
 		PropertyTable: PropertyTable{
+			Description: "Floor Heating",
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_FH_TemperatureLevel: {"Temperature setting(level)", nil, TemperatureLevelAliases()},
 				EPC_FH_RoomTemperature:  {"Room temperature", Decoder(FH_DecodeTemperature), nil},

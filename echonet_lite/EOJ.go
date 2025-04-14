@@ -30,10 +30,6 @@ func (c EOJClassCode) Encode() []byte {
 	return utils.Uint32ToBytes(uint32(c), 2)
 }
 
-func MakeEOJClassCode(classGroupCode ClassGroupCodeType, classCode ClassCodeType) EOJClassCode {
-	// Note: This function is kept for compatibility, but direct byte conversion is preferred.
-	return EOJClassCode(uint16(classGroupCode)<<8 | uint16(classCode))
-}
 func MakeEOJ(classCode EOJClassCode, instanceCode EOJInstanceCode) EOJ {
 	return EOJ(uint32(classCode)<<8 | uint32(instanceCode))
 }
@@ -50,49 +46,11 @@ func (e EOJ) Encode() []byte {
 	return utils.Uint32ToBytes(uint32(e), 3)
 }
 
-const (
-	HomeAirConditioner_ClassCode     EOJClassCode = 0x0130 // 家庭用エアコン
-	VentingFan_ClassCode             EOJClassCode = 0x0133 // 換気扇
-	FloorHeating_ClassCode           EOJClassCode = 0x027b // 床暖房
-	SingleFunctionLighting_ClassCode EOJClassCode = 0x0291 // 単機能照明
-	LightingSystem_ClassCode         EOJClassCode = 0x02a3 // 照明システム
-	Refrigerator_ClassCode           EOJClassCode = 0x03b7 // 冷凍冷蔵庫
-	Switch_ClassCode                 EOJClassCode = 0x05fd // スイッチ
-	PortableTerminal_ClassCode       EOJClassCode = 0x05fe // 携帯端末
-	Controller_ClassCode             EOJClassCode = 0x05ff // コントローラ
-	NodeProfile_ClassCode            EOJClassCode = 0x0ef0 // ノードプロファイル
-)
-
 func (c EOJClassCode) String() string {
 	var s string
-	switch c {
-	case HomeAirConditioner_ClassCode:
-		s = "Home air conditioner"
-	case VentingFan_ClassCode:
-		s = "Ventilation fan"
-	case FloorHeating_ClassCode:
-		// 床暖房
-		s = "Floor heating"
-	case SingleFunctionLighting_ClassCode:
-		// 単機能照明
-		s = "Single-function lighting"
-	case LightingSystem_ClassCode:
-		// 照明システム
-		s = "Lighting system"
-	case Refrigerator_ClassCode:
-		// 冷凍冷蔵庫
-		s = "Refrigerator"
-	case Switch_ClassCode:
-		s = "Switch"
-	case PortableTerminal_ClassCode:
-		// 携帯端末
-		s = "Portable terminal"
-	case Controller_ClassCode:
-		s = "Controller"
-	case NodeProfile_ClassCode:
-		s = "Node profile"
-
-	default:
+	if p, ok := PropertyTables[c]; ok {
+		s = p.Description
+	} else {
 		switch c.ClassGroupCode() {
 		case 0x00:
 			s = "Sensor-related device"

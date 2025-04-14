@@ -94,6 +94,7 @@ func Decoder[T fmt.Stringer](f func(EDT []byte) T) PropertyDecoderFunc {
 }
 
 type PropertyTable struct {
+	Description string
 	EPCInfo     map[EPCType]PropertyInfo
 	DefaultEPCs []EPCType
 }

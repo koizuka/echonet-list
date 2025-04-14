@@ -33,6 +33,7 @@ const (
 )
 
 var ProfileSuperClass_PropertyTable = PropertyTable{
+	Description: "Profile Super Class",
 	EPCInfo: map[EPCType]PropertyInfo{
 		EPCOperationStatus: {"Operation status", nil, map[string][]byte{
 			"on":  {0x30},

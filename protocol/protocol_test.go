@@ -33,7 +33,7 @@ func TestDeviceToProtocol(t *testing.T) {
 			want: Device{
 				IP:   "192.168.1.10",
 				EOJ:  "0130:1",
-				Name: "0130[Home air conditioner]",
+				Name: "0130[Home Air Conditioner]",
 				Properties: map[string]string{
 					"80": base64.StdEncoding.EncodeToString([]byte{0x30}),
 					"81": base64.StdEncoding.EncodeToString([]byte{0x01, 0x02}),
@@ -52,7 +52,7 @@ func TestDeviceToProtocol(t *testing.T) {
 			want: Device{
 				IP:         "192.168.1.20",
 				EOJ:        "0EF0:1",
-				Name:       "0EF0[Node profile]",
+				Name:       "0EF0[Node Profile]",
 				Properties: map[string]string{},
 				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},

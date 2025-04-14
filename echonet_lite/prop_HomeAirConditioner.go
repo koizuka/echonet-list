@@ -19,6 +19,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
 	return PropertyRegistryEntry{
 		ClassCode: HomeAirConditioner_ClassCode,
 		PropertyTable: PropertyTable{
+			Description: "Home Air Conditioner",
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_HAC_AirVolumeSetting: {"Air volume setting", nil, HAC_AirVolumeAliases()},
 				EPC_HAC_AirDirectionSwingSetting: {"Air direction swing setting", nil, map[string][]byte{

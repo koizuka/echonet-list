@@ -18,6 +18,7 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyRegistryEntry {
 	return PropertyRegistryEntry{
 		ClassCode: SingleFunctionLighting_ClassCode,
 		PropertyTable: PropertyTable{
+			Description: "Single Function Lighting",
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_SF_Illuminance: {"Illuminance level", Decoder(props.DecodeIlluminance), nil},
 

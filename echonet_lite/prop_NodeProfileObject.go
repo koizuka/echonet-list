@@ -17,6 +17,9 @@ const (
 	EPC_NPO_SelfNodeClassListS       EPCType = 0xd7
 )
 
+var NodeProfileObject = MakeEOJ(NodeProfile_ClassCode, 1)
+var NodeProfileObject_SendOnly = MakeEOJ(NodeProfile_ClassCode, 2)
+
 var ECHONETLite_Version NPO_VersionInfo = NPO_VersionInfo{
 	MajorVersion: 1,
 	MinorVersion: 14,
@@ -28,6 +31,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyRegistryEntry {
 	return PropertyRegistryEntry{
 		ClassCode: NodeProfile_ClassCode,
 		PropertyTable: PropertyTable{
+			Description: "Node Profile",
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_NPO_VersionInfo:              {"Version information", Decoder(NPO_DecodeVersionInfo), nil},
 				EPC_NPO_IDNumber:                 {"Identification number", nil, nil},

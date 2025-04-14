@@ -17,6 +17,7 @@ func (r PropertyRegistry) Refrigerator() PropertyRegistryEntry {
 	return PropertyRegistryEntry{
 		ClassCode: Refrigerator_ClassCode,
 		PropertyTable: PropertyTable{
+			Description: "Refrigerator",
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_RF_DoorOpenStatus: {"Door open status", nil, doorStatusAliases},
 				EPC_RF_DoorOpenAlertStatus: {"Door open alert status", nil, map[string][]byte{
