@@ -55,6 +55,8 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 				EPC_FH_TemperatureLevel,
 				EPC_FH_RoomTemperature,
 				EPC_FH_SpecialMode,
+				EPC_FH_Temperature1,
+				EPC_FH_Temperature2,
 			},
 		},
 	}
