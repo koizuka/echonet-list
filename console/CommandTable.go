@@ -52,12 +52,17 @@ var CommandTable = []CommandDefinition{
 			"※-all, -props, epc は最後に指定されたものが有効になります",
 		},
 		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			words := splitWords(d.TextBeforeCursor())
+			if len(words) >= 2 && words[len(words)-2] == "-group-by" {
+				// EPCを要求するが、サジェストはしない
+				return []prompt.Suggest{}
+			}
+
 			suggestions := []prompt.Suggest{
 				{Text: "-all", Description: "全てのEPCを表示"},
 				{Text: "-props", Description: "既知のEPCのみを表示"},
 				{Text: "-group-by", Description: "指定EPCでグループ化"},
 			}
-			// デバイス候補を追加 (Completer.go の関数を呼び出す想定)
 			suggestions = append(suggestions, getDeviceCandidates(c)...)
 			suggestions = append(suggestions, getPropertyAliasCandidates(c)...)
 			return suggestions
