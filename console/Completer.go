@@ -2,103 +2,55 @@ package console
 
 import (
 	"echonet-list/client"
-	"strings"
 
-	"golang.org/x/exp/slices"
+	"github.com/c-bata/go-prompt"
 )
 
-// カスタム補完機能を実装する構造体
-type dynamicCompleter struct {
-	client client.ECHONETListClient
-}
+// --- 補完候補生成のためのヘルパー関数群 ---
+// これらは CommandTable.go 内の GetCandidatesFunc や ConsoleProcess.go の completer から呼び出される
 
-// CompleterInterface を実装していることを確認
-var _ CompleterInterface = (*dynamicCompleter)(nil)
-
-// Do メソッドを実装して readline.AutoCompleter インターフェースを満たす
-func (dc *dynamicCompleter) Do(line []rune, pos int) (newLine [][]rune, length int) {
-	// 現在の入力行を解析して、入力段階を判断する
-	lineStr := string(line[:pos])
-	words := splitWords(lineStr)
-	wordCount := len(words)
-
-	// 最後の単語を取得
-	lastWord := ""
-	if wordCount > 0 {
-		lastWord = words[wordCount-1]
-	}
-
-	// 候補を取得
-	var candidates []string
-	if wordCount <= 1 {
-		// コマンド名の補完
-		candidates = dc.getCommandCandidates()
-	} else {
-		// コマンド引数の補完
-		cmd := words[0]
-		candidates = getCandidatesForCommand(dc, cmd, wordCount, words)
-	}
-
-	// 最後の単語でフィルタリングして返す
-	result := [][]rune{}
-	for _, candidate := range candidates {
-		if strings.HasPrefix(candidate, lastWord) {
-			result = append(result, []rune(candidate[len(lastWord):]+" "))
-		}
-	}
-	return result, len(lastWord)
-}
-
-// コマンド名の候補を返す
-func (dc *dynamicCompleter) getCommandCandidates() []string {
-	var candidates []string
-	for _, cmdDef := range CommandTable {
-		candidates = append(candidates, cmdDef.Name)
-		candidates = append(candidates, cmdDef.Aliases...)
-	}
-	return candidates
-}
-
-// デバイスエイリアスの候補を返す
-func (dc *dynamicCompleter) getDeviceAliasCandidates() []string {
-	// aliasList からエイリアスを取得
-	aliasList := dc.client.AliasList()
-	aliases := make([]string, 0, len(aliasList))
+// getDeviceAliasCandidates はデバイスエイリアスの候補を返す
+func getDeviceAliasCandidates(c client.ECHONETListClient) []prompt.Suggest {
+	aliasList := c.AliasList()
+	suggests := make([]prompt.Suggest, 0, len(aliasList))
 	for _, pair := range aliasList {
-		aliases = append(aliases, pair.Alias)
+		suggests = append(suggests, prompt.Suggest{
+			Text: pair.Alias,
+		})
 	}
-	return aliases
+	return suggests
 }
 
-// デバイスの候補を返す
-func (dc *dynamicCompleter) getDeviceCandidates() []string {
-	// aliasList からエイリアスを取得
-	aliases := dc.getDeviceAliasCandidates()
+// getDeviceCandidates はデバイス指定子の候補（エイリアス、グループ、IP、EOJ）を返す
+func getDeviceCandidates(c client.ECHONETListClient) []prompt.Suggest {
+	aliases := getDeviceAliasCandidates(c)
+	groups := getGroupCandidates(c)
 
-	// グループ名を取得
-	groups := dc.getGroupCandidates()
-
-	// IPアドレスを取得
+	// IPアドレスとEOJを取得
 	deviceSpec := client.DeviceSpecifier{}
-	devices := dc.client.GetDevices(deviceSpec)
-	ips := make([]string, 0, len(devices))
+	devices := c.GetDevices(deviceSpec)
+	ips := make([]prompt.Suggest, 0, len(devices))
+	eojs := make([]prompt.Suggest, 0, len(devices))
+
+	uniqueIPs := make(map[string]struct{})
+	uniqueEOJs := make(map[string]struct{})
+
 	for _, device := range devices {
-		ip := device.IP.String()
-		if !slices.Contains(ips, ip) {
-			ips = append(ips, ip)
+		ipStr := device.IP.String()
+		if _, exists := uniqueIPs[ipStr]; !exists {
+			ips = append(ips, prompt.Suggest{Text: ipStr})
+			uniqueIPs[ipStr] = struct{}{}
+		}
+
+		eojStr := device.EOJ.Specifier()
+		if _, exists := uniqueEOJs[eojStr]; !exists {
+			eojs = append(eojs, prompt.Suggest{Text: eojStr})
+			uniqueEOJs[eojStr] = struct{}{}
 		}
 	}
 
-	// EOJを取得
-	eojs := make([]string, 0, len(devices))
-	for _, device := range devices {
-		eoj := device.EOJ.Specifier()
-		if !slices.Contains(eojs, eoj) {
-			eojs = append(eojs, eoj)
-		}
-	}
-
-	candidates := make([]string, 0, len(aliases)+len(ips)+len(eojs))
+	// 候補を結合
+	candidates := make([]prompt.Suggest, 0, len(aliases)+len(groups)+len(ips)+len(eojs))
 	candidates = append(candidates, groups...)
 	candidates = append(candidates, aliases...)
 	candidates = append(candidates, ips...)
@@ -107,44 +59,58 @@ func (dc *dynamicCompleter) getDeviceCandidates() []string {
 	return candidates
 }
 
-// プロパティエイリアスの候補を返す
-func (dc *dynamicCompleter) getPropertyAliasCandidates() []string {
-	return dc.client.GetAllPropertyAliases()
-}
-
-func (dc *dynamicCompleter) getGroupCandidates() []string {
-	// グループ名を取得
-	groups := dc.client.GroupList(nil)
-	groupNames := make([]string, 0, len(groups))
-	for _, group := range groups {
-		groupNames = append(groupNames, group.Group)
+// getPropertyAliasCandidates はプロパティエイリアスの候補を返す
+func getPropertyAliasCandidates(c client.ECHONETListClient) []prompt.Suggest {
+	aliases := c.GetAllPropertyAliases()
+	suggests := make([]prompt.Suggest, 0, len(aliases))
+	for _, alias := range aliases {
+		classCode := client.EOJClassCode(0) // TODO
+		prop, _ := c.FindPropertyAlias(classCode, alias)
+		suggests = append(suggests, prompt.Suggest{
+			Text:        alias,
+			Description: prop.String(classCode),
+		})
 	}
-	return groupNames
+	return suggests
 }
 
-// 入力行を単語に分割する補助関数
+// getGroupCandidates はグループ名の候補を返す
+func getGroupCandidates(c client.ECHONETListClient) []prompt.Suggest {
+	groups := c.GroupList(nil)
+	suggests := make([]prompt.Suggest, 0, len(groups))
+	for _, group := range groups {
+		suggests = append(suggests, prompt.Suggest{
+			Text: group.Group,
+		})
+	}
+	return suggests
+}
+
+// splitWords は入力行を単語に分割する補助関数
+// go-prompt の Document.GetWordBeforeCursor や Document.TextBeforeCursor と組み合わせて使う
 func splitWords(line string) []string {
 	// 空の入力の場合は空のスライスを返す
 	if line == "" {
 		return []string{}
 	}
 
-	var words []string
+	words := make([]string, 0) // non-nil スライスとして初期化
 	var word string
 	inQuote := false
-	lastWasSpace := false
+	lastWasSpace := true // 最初はスペースとみなす
 
 	for _, r := range line {
 		switch r {
 		case ' ', '\t':
 			if !inQuote {
-				if word != "" {
+				if !lastWasSpace && word != "" { // 直前がスペースでなく、単語がある場合のみ追加
 					words = append(words, word)
 					word = ""
 				}
 				lastWasSpace = true
-			} else if inQuote {
+			} else { // inQuote
 				word += string(r)
+				lastWasSpace = false // クォート内ではスペースも単語の一部
 			}
 		case '"', '\'':
 			inQuote = !inQuote
@@ -155,6 +121,7 @@ func splitWords(line string) []string {
 		}
 	}
 
+	// 最後の単語を追加
 	if word != "" {
 		words = append(words, word)
 	}
@@ -165,19 +132,4 @@ func splitWords(line string) []string {
 	}
 
 	return words
-}
-
-// getCandidatesForCommand はコマンドと引数位置に応じた候補を返す
-func getCandidatesForCommand(dc CompleterInterface, cmd string, wordCount int, words []string) []string {
-	// コマンド名に一致するCommandDefinitionを検索
-	for _, cmdDef := range CommandTable {
-		if cmdDef.Name == cmd || slices.Contains(cmdDef.Aliases, cmd) {
-			// 該当するコマンドの補完関数が定義されていれば呼び出す
-			if cmdDef.GetCandidatesFunc != nil {
-				return cmdDef.GetCandidatesFunc(dc, wordCount, words)
-			}
-			break
-		}
-	}
-	return []string{} // デフォルトは空リスト
 }

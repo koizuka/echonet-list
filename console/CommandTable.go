@@ -7,26 +7,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/c-bata/go-prompt"
 	"golang.org/x/exp/slices"
 )
 
-// CompleterInterface は補完機能を提供するインターフェース
-type CompleterInterface interface {
-	getDeviceCandidates() []string
-	getDeviceAliasCandidates() []string
-	getPropertyAliasCandidates() []string
-	getCommandCandidates() []string
-}
-
 // CommandDefinition はコマンドの定義を保持する構造体
 type CommandDefinition struct {
-	Name              string                                                              // コマンド名
-	Aliases           []string                                                            // 別名（例: devicesとlistなど）
-	Summary           string                                                              // 概要（短い説明）
-	Syntax            string                                                              // 構文
-	Description       []string                                                            // 詳細説明（各行が1つの要素）
-	ParseFunc         func(p CommandParser, parts []string, debug bool) (*Command, error) // パース関数
-	GetCandidatesFunc func(dc CompleterInterface, wordCount int, words []string) []string // 補完候補生成関数
+	Name              string                                                               // コマンド名
+	Aliases           []string                                                             // 別名（例: devicesとlistなど）
+	Summary           string                                                               // 概要（短い説明）
+	Syntax            string                                                               // 構文
+	Description       []string                                                             // 詳細説明（各行が1つの要素）
+	ParseFunc         func(p CommandParser, parts []string, debug bool) (*Command, error)  // パース関数
+	GetCandidatesFunc func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest // 補完候補生成関数
 }
 
 // CommandTable はコマンドの定義を格納するテーブル
@@ -58,10 +51,16 @@ var CommandTable = []CommandDefinition{
 			"-group-by epc: 指定したEPCの値でデバイスをグループ化して表示（例: -group-by 80）",
 			"※-all, -props, epc は最後に指定されたものが有効になります",
 		},
-		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
-			// オプションとエイリアスを表示
-			options := []string{"-all", "-props", "-group-by"}
-			return append(options, dc.getDeviceCandidates()...)
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			suggestions := []prompt.Suggest{
+				{Text: "-all", Description: "全てのEPCを表示"},
+				{Text: "-props", Description: "既知のEPCのみを表示"},
+				{Text: "-group-by", Description: "指定EPCでグループ化"},
+			}
+			// デバイス候補を追加 (Completer.go の関数を呼び出す想定)
+			suggestions = append(suggestions, getDeviceCandidates(c)...)
+			suggestions = append(suggestions, getPropertyAliasCandidates(c)...)
+			return suggestions
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdDevices)
@@ -132,15 +131,17 @@ var CommandTable = []CommandDefinition{
 			"epc: 取得するプロパティのEPC（2桁の16進数、例: 80）。複数指定可能",
 			"-skip-validation: デバイスの存在チェックをスキップ（タイムアウト動作確認用）",
 		},
-		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
-			if wordCount == 2 {
-				// デバイスエイリアスのみを表示
-				return dc.getDeviceCandidates()
-			} else if wordCount >= 3 {
-				// プロパティエイリアスのみを表示
-				return dc.getPropertyAliasCandidates()
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			words := splitWords(d.TextBeforeCursor())
+			wordCount := len(words)
+
+			if wordCount <= 2 { // コマンド名 or デバイス指定子
+				return getDeviceCandidates(c)
+			} else { // EPC or プロパティエイリアス or オプション
+				suggestions := getPropertyAliasCandidates(c)
+				suggestions = append(suggestions, prompt.Suggest{Text: "-skip-validation"})
+				return suggestions
 			}
-			return []string{}
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdGet)
@@ -191,15 +192,15 @@ var CommandTable = []CommandDefinition{
 			"  - 80:off（OperationStatus{false}と同等）",
 			"  - b0:auto（エアコンの自動モードと同等）",
 		},
-		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
-			if wordCount == 2 {
-				// デバイスエイリアスのみを表示
-				return dc.getDeviceCandidates()
-			} else if wordCount >= 3 {
-				// プロパティエイリアスのみを表示
-				return dc.getPropertyAliasCandidates()
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			words := splitWords(d.TextBeforeCursor())
+			wordCount := len(words)
+
+			if wordCount <= 2 { // コマンド名 or デバイス指定子
+				return getDeviceCandidates(c)
+			} else { // プロパティ指定 (EPC:EDT or Alias)
+				return getPropertyAliasCandidates(c)
 			}
-			return []string{}
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdSet)
@@ -261,17 +262,16 @@ var CommandTable = []CommandDefinition{
 			"instanceCode: インスタンスコード（1-255の数字、省略時は指定クラスの全インスタンスが対象）",
 			"-force: 最終更新時刻に関わらず強制的に更新",
 		},
-		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
-			if wordCount == 2 {
-				// デバイスエイリアスとオプションを表示
-				candidates := dc.getDeviceCandidates()
-				candidates = append(candidates, "-force")
-				return candidates
-			} else if wordCount > 2 {
-				// オプションのみ表示
-				return []string{"-force"}
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			words := splitWords(d.TextBeforeCursor())
+			wordCount := len(words)
+
+			suggestions := []prompt.Suggest{}
+			if wordCount <= 2 {
+				suggestions = append(suggestions, getDeviceCandidates(c)...)
 			}
-			return []string{}
+			suggestions = append(suggestions, prompt.Suggest{Text: "-force"})
+			return suggestions
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdUpdate)
@@ -315,19 +315,21 @@ var CommandTable = []CommandDefinition{
 			"例: alias ac - 「ac」というエイリアスの情報を表示",
 			"例: alias -delete ac - 「ac」というエイリアスを削除",
 		},
-		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
-			if wordCount == 2 {
-				// -delete オプションとエイリアス名を表示
-				return append([]string{"-delete"}, dc.getDeviceAliasCandidates()...)
-			} else if wordCount == 3 && words[1] == "-delete" {
-				// alias -delete の後にはエイリアス名
-				return dc.getDeviceAliasCandidates()
-			} else if wordCount >= 3 {
-				// alias <name> の後にはデバイス指定子（IPアドレスやクラスコード）
-				// ここではIPアドレスの補完は難しいので、デバイスエイリアスのみ提供
-				return dc.getDeviceCandidates()
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			words := splitWords(d.TextBeforeCursor())
+			wordCount := len(words)
+			suggestions := []prompt.Suggest{}
+
+			if wordCount == 2 { // サブコマンド (-delete) or 新しいエイリアス名 or 既存エイリアス名
+				suggestions = append(suggestions, prompt.Suggest{Text: "-delete"})
+				suggestions = append(suggestions, getDeviceAliasCandidates(c)...)
+			} else if wordCount == 3 && words[1] == "-delete" { // alias -delete <alias_to_delete>
+				suggestions = append(suggestions, getDeviceAliasCandidates(c)...)
+			} else if wordCount >= 3 && words[1] != "-delete" { // alias <name> <device_specifier>...
+				suggestions = append(suggestions, getDeviceCandidates(c)...)
+				// TODO: プロパティによる絞り込みの補完 (例: 'living1')
 			}
-			return []string{}
+			return suggestions
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdAliasList)
@@ -404,12 +406,16 @@ var CommandTable = []CommandDefinition{
 			"on: デバッグモードを有効にする",
 			"off: デバッグモードを無効にする",
 		},
-		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			words := splitWords(d.TextBeforeCursor())
+			wordCount := len(words)
 			if wordCount == 2 {
-				// on/off オプションを表示
-				return []string{"on", "off"}
+				return []prompt.Suggest{
+					{Text: "on", Description: "デバッグモード有効"},
+					{Text: "off", Description: "デバッグモード無効"},
+				}
 			}
-			return []string{}
+			return []prompt.Suggest{}
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdDebug)
@@ -437,13 +443,6 @@ var CommandTable = []CommandDefinition{
 		Description: []string{
 			"引数なし: 全コマンドの概要を表示",
 			"command: 指定したコマンドの詳細を表示",
-		},
-		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
-			if wordCount == 2 {
-				// コマンド名を表示
-				return dc.getCommandCandidates()
-			}
-			return []string{}
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			cmd := newCommand(CmdHelp)
@@ -473,16 +472,24 @@ var CommandTable = []CommandDefinition{
 			"例: group list",
 			"例: group list @livingroom",
 		},
-		GetCandidatesFunc: func(dc CompleterInterface, wordCount int, words []string) []string {
-			if wordCount == 2 {
-				// サブコマンドを表示
-				return []string{"add", "remove", "delete", "list"}
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			words := splitWords(d.TextBeforeCursor())
+			wordCount := len(words)
+			suggestions := []prompt.Suggest{}
+
+			if wordCount == 2 { // サブコマンド (add, remove, delete, list)
+				suggestions = []prompt.Suggest{
+					{Text: "add", Description: "グループ作成/デバイス追加"},
+					{Text: "remove", Description: "グループからデバイス削除"},
+					{Text: "delete", Description: "グループ削除"},
+					{Text: "list", Description: "グループ一覧/詳細表示"},
+				}
+			} else if wordCount == 3 { // グループ名 (@group)
+				suggestions = append(suggestions, getGroupCandidates(c)...)
+			} else if wordCount >= 4 && (words[1] == "add" || words[1] == "remove") { // デバイス指定子
+				suggestions = append(suggestions, getDeviceCandidates(c)...)
 			}
-			if wordCount >= 3 {
-				// デバイスエイリアスを表示
-				return dc.getDeviceCandidates()
-			}
-			return []string{}
+			return suggestions
 		},
 		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
 			if len(parts) < 2 {
