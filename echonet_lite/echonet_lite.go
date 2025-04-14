@@ -1,6 +1,7 @@
 package echonet_lite
 
 import (
+	"echonet-list/echonet_lite/utils"
 	"fmt"
 	"strings"
 )
@@ -33,10 +34,10 @@ func DecodeEHD(data []byte) EHDType {
 	if len(data) != 2 {
 		return 0
 	}
-	return EHDType(BytesToUint32(data))
+	return EHDType(utils.BytesToUint32(data))
 }
 func (e EHDType) Encode() []byte {
-	return Uint32ToBytes(uint32(e), 2)
+	return utils.Uint32ToBytes(uint32(e), 2)
 }
 
 func (e EHDType) String() string {
@@ -54,10 +55,10 @@ func DecodeTID(data []byte) TIDType {
 	if len(data) != 2 {
 		return 0
 	}
-	return TIDType(BytesToUint32(data))
+	return TIDType(utils.BytesToUint32(data))
 }
 func (t TIDType) Encode() []byte {
-	return Uint32ToBytes(uint32(t), 2)
+	return utils.Uint32ToBytes(uint32(t), 2)
 }
 
 func (m *ECHONETLiteMessage) EOJ() EOJ {
@@ -242,24 +243,6 @@ func ParseECHONETLiteMessage(data []byte) (*ECHONETLiteMessage, error) {
 	return msg, nil
 }
 
-func flattenBytes(chunks [][]byte) []byte {
-	// 合計サイズを計算
-	totalSize := 0
-	for _, chunk := range chunks {
-		totalSize += len(chunk)
-	}
-
-	// 必要なサイズを確保
-	result := make([]byte, 0, totalSize)
-
-	// バイト列を結合
-	for _, chunk := range chunks {
-		result = append(result, chunk...)
-	}
-
-	return result
-}
-
 type IEncodable interface {
 	Encode() []byte
 }
@@ -269,7 +252,7 @@ func encode(encodables ...IEncodable) []byte {
 	for i, encodable := range encodables {
 		data[i] = encodable.Encode()
 	}
-	return flattenBytes(data)
+	return utils.FlattenBytes(data)
 }
 
 func (m *ECHONETLiteMessage) Encode() []byte {
@@ -292,29 +275,4 @@ func (e TooManyDevicesError) Error() string {
 		errMsg = append(errMsg, fmt.Sprintf("  %v", device))
 	}
 	return strings.Join(errMsg, "\n")
-}
-
-func Uint32ToBytes(n uint32, size int) []byte {
-	if size < 2 || size > 4 {
-		panic("size must be 2, 3, or 4")
-	}
-	b := make([]byte, size)
-	for i := 0; i < size; i++ {
-		shift := uint((size - 1 - i) * 8)
-		b[i] = byte(n >> shift)
-	}
-	return b
-}
-
-func BytesToUint32(b []byte) uint32 {
-	size := len(b)
-	if size < 2 || size > 4 {
-		panic("slice length must be 2, 3, or 4")
-	}
-	var n uint32
-	for i := 0; i < size; i++ {
-		shift := uint((size - 1 - i) * 8)
-		n |= uint32(b[i]) << shift
-	}
-	return n
 }

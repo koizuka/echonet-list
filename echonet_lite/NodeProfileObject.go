@@ -1,6 +1,9 @@
 package echonet_lite
 
-import "fmt"
+import (
+	"echonet-list/echonet_lite/utils"
+	"fmt"
+)
 
 const (
 	// EPC
@@ -92,7 +95,7 @@ func DecodeSelfNodeInstances(EDT []byte) *SelfNodeInstances {
 	if len(EDT) != 3 {
 		return nil
 	}
-	result := BytesToUint32(EDT)
+	result := utils.BytesToUint32(EDT)
 	return (*SelfNodeInstances)(&result)
 }
 
@@ -107,7 +110,7 @@ func (s *SelfNodeInstances) Property() *Property {
 	if s == nil {
 		return nil
 	}
-	return &Property{EPC_NPO_SelfNodeInstances, Uint32ToBytes(uint32(*s), 3)}
+	return &Property{EPC_NPO_SelfNodeInstances, utils.Uint32ToBytes(uint32(*s), 3)}
 }
 
 type SelfNodeClasses uint16
@@ -116,7 +119,7 @@ func DecodeSelfNodeClasses(EDT []byte) *SelfNodeClasses {
 	if len(EDT) != 2 {
 		return nil
 	}
-	classes := SelfNodeClasses(BytesToUint32(EDT))
+	classes := SelfNodeClasses(utils.BytesToUint32(EDT))
 	return &classes
 }
 
@@ -131,7 +134,7 @@ func (s *SelfNodeClasses) Property() *Property {
 	if s == nil {
 		return nil
 	}
-	return &Property{EPC_NPO_SelfNodeClasses, Uint32ToBytes(uint32(*s), 2)}
+	return &Property{EPC_NPO_SelfNodeClasses, utils.Uint32ToBytes(uint32(*s), 2)}
 }
 
 type InstanceList []EOJ

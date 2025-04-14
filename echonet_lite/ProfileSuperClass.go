@@ -1,6 +1,7 @@
 package echonet_lite
 
 import (
+	"echonet-list/echonet_lite/utils"
 	"fmt"
 	"sort"
 )
@@ -191,7 +192,7 @@ func DecodeInstantaneousPowerConsumption(EDT []byte) *InstantaneousPowerConsumpt
 		return nil
 	}
 	return &InstantaneousPowerConsumption{
-		Power: uint16(BytesToUint32(EDT)),
+		Power: uint16(utils.BytesToUint32(EDT)),
 	}
 }
 
@@ -200,7 +201,7 @@ func (s *InstantaneousPowerConsumption) String() string {
 }
 
 func (s *InstantaneousPowerConsumption) Property() *Property {
-	return &Property{EPC: EPCMeasuredInstantaneousPowerConsumption, EDT: Uint32ToBytes(uint32(s.Power), 2)}
+	return &Property{EPC: EPCMeasuredInstantaneousPowerConsumption, EDT: utils.Uint32ToBytes(uint32(s.Power), 2)}
 }
 
 type CumulativePowerConsumption struct {
@@ -212,7 +213,7 @@ func DecodeCumulativePowerConsumption(EDT []byte) *CumulativePowerConsumption {
 		return nil
 	}
 	return &CumulativePowerConsumption{
-		Power: BytesToUint32(EDT),
+		Power: utils.BytesToUint32(EDT),
 	}
 }
 
@@ -221,7 +222,7 @@ func (s *CumulativePowerConsumption) String() string {
 }
 
 func (s *CumulativePowerConsumption) Property() *Property {
-	return &Property{EPC: EPCMeasuredCumulativePowerConsumption, EDT: Uint32ToBytes(s.Power, 4)}
+	return &Property{EPC: EPCMeasuredCumulativePowerConsumption, EDT: utils.Uint32ToBytes(s.Power, 4)}
 }
 
 type ProductCode string
@@ -249,7 +250,7 @@ func DecodeDate(EDT []byte) *Date {
 		return nil
 	}
 	return &Date{
-		Year:  uint16(BytesToUint32(EDT[0:2])),
+		Year:  uint16(utils.BytesToUint32(EDT[0:2])),
 		Month: EDT[2],
 		Day:   EDT[3],
 	}
@@ -260,7 +261,7 @@ func (s *Date) String() string {
 }
 
 func (s *Date) EDT() []byte {
-	yearBytes := Uint32ToBytes(uint32(s.Year), 2)
+	yearBytes := utils.Uint32ToBytes(uint32(s.Year), 2)
 	return []byte{yearBytes[0], yearBytes[1], s.Month, s.Day}
 }
 

@@ -1,0 +1,44 @@
+package utils
+
+func Uint32ToBytes(n uint32, size int) []byte {
+	if size < 2 || size > 4 {
+		panic("size must be 2, 3, or 4")
+	}
+	b := make([]byte, size)
+	for i := 0; i < size; i++ {
+		shift := uint((size - 1 - i) * 8)
+		b[i] = byte(n >> shift)
+	}
+	return b
+}
+
+func BytesToUint32(b []byte) uint32 {
+	size := len(b)
+	if size < 2 || size > 4 {
+		panic("slice length must be 2, 3, or 4")
+	}
+	var n uint32
+	for i := 0; i < size; i++ {
+		shift := uint((size - 1 - i) * 8)
+		n |= uint32(b[i]) << shift
+	}
+	return n
+}
+
+func FlattenBytes(chunks [][]byte) []byte {
+	// 合計サイズを計算
+	totalSize := 0
+	for _, chunk := range chunks {
+		totalSize += len(chunk)
+	}
+
+	// 必要なサイズを確保
+	result := make([]byte, 0, totalSize)
+
+	// バイト列を結合
+	for _, chunk := range chunks {
+		result = append(result, chunk...)
+	}
+
+	return result
+}

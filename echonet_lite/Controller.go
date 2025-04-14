@@ -1,6 +1,9 @@
 package echonet_lite
 
-import "fmt"
+import (
+	"echonet-list/echonet_lite/utils"
+	"fmt"
+)
 
 const (
 	// EPC
@@ -43,7 +46,7 @@ func C_DecodeNumberOfDevices(data []byte) C_NumberOfDevices {
 	if len(data) != 2 {
 		return 0
 	}
-	return C_NumberOfDevices(BytesToUint32(data))
+	return C_NumberOfDevices(utils.BytesToUint32(data))
 }
 
 func (n C_NumberOfDevices) String() string {
@@ -56,7 +59,7 @@ func C_DecodeIndex(data []byte) C_Index {
 	if len(data) != 2 {
 		return 0
 	}
-	return C_Index(BytesToUint32(data))
+	return C_Index(utils.BytesToUint32(data))
 }
 func (i C_Index) String() string {
 	return fmt.Sprintf("%d", i)
@@ -68,7 +71,7 @@ func C_DecodeClassCode(data []byte) C_ClassCode {
 	if len(data) != 2 {
 		return 0
 	}
-	return C_ClassCode(EOJClassCode(BytesToUint32(data)))
+	return C_ClassCode(EOJClassCode(utils.BytesToUint32(data)))
 }
 func (c C_ClassCode) String() string {
 	return fmt.Sprintf("%v", EOJClassCode(c))

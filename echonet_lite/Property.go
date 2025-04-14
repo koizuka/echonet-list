@@ -1,6 +1,7 @@
 package echonet_lite
 
 import (
+	"echonet-list/echonet_lite/utils"
 	"fmt"
 	"slices"
 )
@@ -122,7 +123,7 @@ func (ps Properties) Encode() []byte {
 	for i, p := range ps {
 		data[i+1] = p.Encode()
 	}
-	return flattenBytes(data)
+	return utils.FlattenBytes(data)
 }
 
 func (ps Properties) GetIdentificationNumber() *IdentificationNumber {

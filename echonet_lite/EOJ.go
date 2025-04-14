@@ -1,6 +1,9 @@
 package echonet_lite
 
-import "fmt"
+import (
+	"echonet-list/echonet_lite/utils"
+	"fmt"
+)
 
 type EOJ uint32
 
@@ -24,7 +27,7 @@ func (c EOJClassCode) ClassCode() ClassCodeType {
 	return ClassCodeType(c)
 }
 func (c EOJClassCode) Encode() []byte {
-	return Uint32ToBytes(uint32(c), 2)
+	return utils.Uint32ToBytes(uint32(c), 2)
 }
 
 func MakeEOJClassCode(classGroupCode ClassGroupCodeType, classCode ClassCodeType) EOJClassCode {
@@ -39,12 +42,12 @@ func DecodeEOJ(data []byte) EOJ {
 	if len(data) != 3 {
 		return 0
 	}
-	classCode := EOJClassCode(BytesToUint32(data[0:2]))
+	classCode := EOJClassCode(utils.BytesToUint32(data[0:2]))
 	instanceCode := EOJInstanceCode(data[2])
 	return MakeEOJ(classCode, instanceCode)
 }
 func (e EOJ) Encode() []byte {
-	return Uint32ToBytes(uint32(e), 3)
+	return utils.Uint32ToBytes(uint32(e), 3)
 }
 
 const (
