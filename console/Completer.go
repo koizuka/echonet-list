@@ -44,7 +44,7 @@ func getDeviceCandidates(c client.ECHONETListClient) []prompt.Suggest {
 
 		eojStr := device.EOJ.Specifier()
 		if _, exists := uniqueEOJs[eojStr]; !exists {
-			eojs = append(eojs, prompt.Suggest{Text: eojStr})
+			eojs = append(eojs, prompt.Suggest{Text: eojStr, Description: device.EOJ.String()})
 			uniqueEOJs[eojStr] = struct{}{}
 		}
 	}
