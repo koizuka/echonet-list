@@ -10,7 +10,49 @@ import (
 	"time"
 )
 
-func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessage) error {
+// CommunicationHandler は、ECHONET Lite 通信機能を担当する構造体
+type CommunicationHandler struct {
+	session      *Session          // セッション
+	localDevices DeviceProperties  // 自ノードが所有するデバイスのプロパティ
+	dataAccessor DataAccessor      // データアクセス機能
+	notifier     NotificationRelay // 通知中継
+	ctx          context.Context   // コンテキスト
+	Debug        bool              // デバッグモード
+}
+
+// NewCommunicationHandler は、CommunicationHandlerの新しいインスタンスを作成する
+func NewCommunicationHandler(
+	ctx context.Context,
+	session *Session,
+	localDevices DeviceProperties,
+	dataAccessor DataAccessor,
+	notifier NotificationRelay,
+	debug bool,
+) *CommunicationHandler {
+	return &CommunicationHandler{
+		session:      session,
+		localDevices: localDevices,
+		dataAccessor: dataAccessor,
+		notifier:     notifier,
+		ctx:          ctx,
+		Debug:        debug,
+	}
+}
+
+// SetDebug は、デバッグモードを設定する
+func (h *CommunicationHandler) SetDebug(debug bool) {
+	h.Debug = debug
+	h.session.Debug = debug
+}
+
+// NotifyNodeList は、自ノードのインスタンスリストを通知する
+func (h *CommunicationHandler) NotifyNodeList() error {
+	list := InstanceListNotification(h.localDevices.GetInstanceList())
+	return h.session.Broadcast(NodeProfileObject, ESVINF, Properties{*list.Property()})
+}
+
+// onReceiveMessage は、メッセージを受信したときのコールバック
+func (h *CommunicationHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessage) error {
 	if msg == nil {
 		return nil
 	}
@@ -90,7 +132,7 @@ func (h *ECHONETLiteHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessage
 }
 
 // onInfMessage は、INFメッセージを受信したときのコールバック
-func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) error {
+func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) error {
 	logger := log.GetLogger()
 	if msg == nil {
 		if logger != nil {
@@ -162,7 +204,7 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) er
 		// その他のオブジェクトからのメッセージ
 
 		// IPアドレスが未登録の場合、デバイス情報を取得
-		if !h.devices.HasIP(ip) {
+		if !h.dataAccessor.HasIP(ip) {
 			if logger != nil {
 				logger.Log("情報: 未登録のIPアドレスからのメッセージ: %v", ip)
 			}
@@ -178,7 +220,7 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) er
 		device := IPAndEOJ{ip, msg.SEOJ}
 
 		// 未知のデバイスの場合、プロパティマップを取得
-		if !h.devices.IsKnownDevice(device) {
+		if !h.dataAccessor.IsKnownDevice(device) {
 			err := h.GetGetPropertyMap(device)
 			if err != nil {
 				if logger != nil {
@@ -191,18 +233,18 @@ func (h *ECHONETLiteHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) er
 		// プロパティの通知を処理
 		if len(msg.Properties) > 0 {
 			// Propertyの通知 -> 値を更新する
-			h.registerProperties(device, msg.Properties)
+			h.dataAccessor.RegisterProperties(device, msg.Properties)
 			fmt.Printf("%v: Propertyの通知: %v\n", device, msg.Properties)
 
 			// デバイス情報を保存
-			h.saveDeviceInfo()
+			h.dataAccessor.SaveDeviceInfo()
 		}
 	}
 	return nil
 }
 
 // onSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを受信したときのコールバック
-func (h *ECHONETLiteHandler) onSelfNodeInstanceListS(device IPAndEOJ, success bool, p Property) error {
+func (h *CommunicationHandler) onSelfNodeInstanceListS(device IPAndEOJ, success bool, p Property) error {
 	if !success {
 		return fmt.Errorf("SelfNodeInstanceListSプロパティの取得に失敗しました: %v", device)
 	}
@@ -218,17 +260,15 @@ func (h *ECHONETLiteHandler) onSelfNodeInstanceListS(device IPAndEOJ, success bo
 	return h.onInstanceList(device.IP, InstanceList(*il))
 }
 
-func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, il InstanceList) error {
-	h.propMutex.Lock()
-	defer h.propMutex.Unlock()
-
+// onInstanceList は、インスタンスリストを受信したときのコールバック
+func (h *CommunicationHandler) onInstanceList(ip net.IP, il InstanceList) error {
 	// デバイスの登録
 	for _, eoj := range il {
-		h.devices.RegisterDevice(IPAndEOJ{ip, eoj})
+		h.dataAccessor.RegisterDevice(IPAndEOJ{ip, eoj})
 	}
 
 	// デバイス情報の保存
-	h.saveDeviceInfo()
+	h.dataAccessor.SaveDeviceInfo()
 
 	// 各デバイスのプロパティマップを取得
 	var errors []error
@@ -252,7 +292,7 @@ func (h *ECHONETLiteHandler) onInstanceList(ip net.IP, il InstanceList) error {
 }
 
 // onGetPropertyMap は、GetPropertyMapプロパティを受信したときのコールバック
-func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, properties Properties, _ []EPCType) (CallbackCompleteStatus, error) {
+func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, properties Properties, _ []EPCType) (CallbackCompleteStatus, error) {
 	logger := log.GetLogger()
 	if !success {
 		if logger != nil {
@@ -302,19 +342,19 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 			}
 
 			// プロパティを登録
-			h.registerProperties(device, properties)
+			h.dataAccessor.RegisterProperties(device, properties)
 
 			// failedEPCs は GetPropertyMap から取り除くことで、次回以降取得しないようにする
 			for _, epc := range failedEPCs {
 				props.Delete(epc)
 			}
-			h.registerProperties(device, []Property{{
+			h.dataAccessor.RegisterProperties(device, []Property{{
 				EPC: EPCGetPropertyMap,
 				EDT: props.Encode(),
 			}})
 
 			// デバイス情報を保存
-			h.saveDeviceInfo()
+			h.dataAccessor.SaveDeviceInfo()
 
 			return CallbackFinished, nil
 		},
@@ -328,7 +368,7 @@ func (h *ECHONETLiteHandler) onGetPropertyMap(device IPAndEOJ, success bool, pro
 }
 
 // GetSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを取得する
-func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
+func (h *CommunicationHandler) GetSelfNodeInstanceListS(ip net.IP) error {
 	isBroadcast := ip.Equal(BroadcastIP)
 	// broadcastの場合、1秒無通信で完了とする
 	// タイマーを作る
@@ -367,37 +407,18 @@ func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
 }
 
 // GetGetPropertyMap は、GetPropertyMapプロパティを取得する
-func (h *ECHONETLiteHandler) GetGetPropertyMap(device IPAndEOJ) error {
+func (h *CommunicationHandler) GetGetPropertyMap(device IPAndEOJ) error {
 	return h.session.StartGetPropertiesWithRetry(h.ctx, device, []EPCType{EPCGetPropertyMap}, h.onGetPropertyMap)
 }
 
 // Discover は、ECHONET Liteデバイスを検出する
-func (h *ECHONETLiteHandler) Discover() error {
+func (h *CommunicationHandler) Discover() error {
 	return h.GetSelfNodeInstanceListS(BroadcastIP)
-}
-
-// validateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
-func (h *ECHONETLiteHandler) validateEPCsInPropertyMap(device IPAndEOJ, epcs []EPCType, mapType PropertyMapType) (bool, []EPCType, error) {
-	invalidEPCs := []EPCType{}
-
-	// デバイスが存在するか確認
-	if !h.devices.IsKnownDevice(device) {
-		return false, invalidEPCs, fmt.Errorf("デバイスが見つかりません: %v", device)
-	}
-
-	// 各EPCがプロパティマップに含まれているか確認
-	for _, epc := range epcs {
-		if !h.devices.HasEPCInPropertyMap(device, mapType, epc) {
-			invalidEPCs = append(invalidEPCs, epc)
-		}
-	}
-
-	return len(invalidEPCs) == 0, invalidEPCs, nil
 }
 
 // GetProperties は、プロパティ値を取得する
 // 成功時には ip, eoj と properties を返す
-func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error) {
+func (h *CommunicationHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error) {
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
@@ -430,10 +451,10 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skip
 	// 成功したプロパティを登録（部分的な成功の場合も含む）
 	if len(properties) > 0 {
 		// プロパティの登録
-		h.registerProperties(device, properties)
+		h.dataAccessor.RegisterProperties(device, properties)
 
 		// デバイス情報を保存
-		h.saveDeviceInfo()
+		h.dataAccessor.SaveDeviceInfo()
 	}
 
 	// 結果を設定
@@ -453,7 +474,7 @@ func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skip
 }
 
 // SetProperties は、プロパティ値を設定する
-func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error) {
+func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error) {
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
@@ -490,10 +511,10 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 	// 成功したプロパティを登録（部分的な成功の場合も含む）
 	if len(successProperties) > 0 {
 		// プロパティの登録
-		h.registerProperties(device, successProperties)
+		h.dataAccessor.RegisterProperties(device, successProperties)
 
 		// デバイス情報を保存
-		h.saveDeviceInfo()
+		h.dataAccessor.SaveDeviceInfo()
 	}
 
 	// 結果を設定
@@ -514,9 +535,9 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
 // force が true の場合、最終更新時刻に関わらず強制的に更新する
-func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
+func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
 	// フィルタリングを実行
-	filtered := h.devices.Filter(criteria)
+	filtered := h.dataAccessor.Filter(criteria)
 
 	// フィルタリング結果が空の場合
 	if filtered.Len() == 0 {
@@ -551,7 +572,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 	for _, device := range filtered.ListIPAndEOJ() {
 		// forceがfalseの場合、最終更新時刻をチェック
 		if !force {
-			lastUpdateTime := h.devices.GetLastUpdateTime(device)
+			lastUpdateTime := h.dataAccessor.GetLastUpdateTime(device)
 			if !lastUpdateTime.IsZero() && time.Since(lastUpdateTime) < UpdateIntervalThreshold {
 				// fmt.Printf("デバイス %v は最近更新されたためスキップします (最終更新: %v)\n", device, lastUpdateTime.Format(time.RFC3339))
 				continue // 更新をスキップ
@@ -560,7 +581,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 
 		wg.Add(1)
 
-		propMap := h.devices.GetPropertyMap(device, GetPropertyMap)
+		propMap := h.dataAccessor.GetPropertyMap(device, GetPropertyMap)
 		if propMap == nil {
 			storeError(fmt.Errorf("プロパティマップが見つかりません: %v", device))
 			wg.Done()
@@ -570,7 +591,7 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 		// 各デバイスに対して並列処理を実行
 		go func(device IPAndEOJ, propMap PropertyMap) {
 			defer wg.Done()
-			deviceName := h.DeviceStringWithAlias(device)
+			deviceName := h.dataAccessor.DeviceStringWithAlias(device)
 
 			success, properties, failedEPCs, err := h.session.GetProperties(
 				timeoutCtx,
@@ -587,9 +608,9 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 
 			// 成功したプロパティを登録（部分的な成功の場合も含む）
 			if len(properties) > 0 {
-				changed = h.registerProperties(device, properties)
+				changed = h.dataAccessor.RegisterProperties(device, properties)
 				// デバイス情報を保存
-				h.saveDeviceInfo()
+				h.dataAccessor.SaveDeviceInfo()
 			}
 
 			// 結果を記録
@@ -621,4 +642,23 @@ func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force boo
 	}
 
 	return nil
+}
+
+// validateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
+func (h *CommunicationHandler) validateEPCsInPropertyMap(device IPAndEOJ, epcs []EPCType, mapType PropertyMapType) (bool, []EPCType, error) {
+	invalidEPCs := []EPCType{}
+
+	// デバイスが存在するか確認
+	if !h.dataAccessor.IsKnownDevice(device) {
+		return false, invalidEPCs, fmt.Errorf("デバイスが見つかりません: %v", device)
+	}
+
+	// 各EPCがプロパティマップに含まれているか確認
+	for _, epc := range epcs {
+		if !h.dataAccessor.HasEPCInPropertyMap(device, mapType, epc) {
+			invalidEPCs = append(invalidEPCs, epc)
+		}
+	}
+
+	return len(invalidEPCs) == 0, invalidEPCs, nil
 }

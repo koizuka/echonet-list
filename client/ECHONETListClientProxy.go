@@ -102,35 +102,23 @@ func (c *ECHONETListClientProxy) AvailablePropertyAliases(classCode EOJClassCode
 // GroupManager インターフェースの実装
 
 func (c *ECHONETListClientProxy) GroupList(groupName *string) []GroupDevicePair {
-	return c.handler.DeviceGroups.GroupList(groupName)
+	return c.handler.GroupList(groupName)
 }
 
 func (c *ECHONETListClientProxy) GroupAdd(groupName string, devices []IDString) error {
-	err := c.handler.DeviceGroups.GroupAdd(groupName, devices)
-	if err != nil {
-		return err
-	}
-	return c.handler.SaveGroupFile()
+	return c.handler.GroupAdd(groupName, devices)
 }
 
 func (c *ECHONETListClientProxy) GroupRemove(groupName string, devices []IDString) error {
-	err := c.handler.DeviceGroups.GroupRemove(groupName, devices)
-	if err != nil {
-		return err
-	}
-	return c.handler.SaveGroupFile()
+	return c.handler.GroupRemove(groupName, devices)
 }
 
 func (c *ECHONETListClientProxy) GroupDelete(groupName string) error {
-	err := c.handler.DeviceGroups.GroupDelete(groupName)
-	if err != nil {
-		return err
-	}
-	return c.handler.SaveGroupFile()
+	return c.handler.GroupDelete(groupName)
 }
 
 func (c *ECHONETListClientProxy) GetDevicesByGroup(groupName string) ([]IDString, bool) {
-	return c.handler.DeviceGroups.GetDevicesByGroup(groupName)
+	return c.handler.GetDevicesByGroup(groupName)
 }
 
 func (c *ECHONETListClientProxy) FindDeviceByIDString(id IDString) *IPAndEOJ {
