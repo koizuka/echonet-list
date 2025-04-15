@@ -14,8 +14,13 @@ func getDeviceAliasCandidates(c client.ECHONETListClient) []prompt.Suggest {
 	aliasList := c.AliasList()
 	suggests := make([]prompt.Suggest, 0, len(aliasList))
 	for _, pair := range aliasList {
+		desc := ""
+		if device := c.FindDeviceByIDString(pair.ID); device != nil {
+			desc = device.String()
+		}
 		suggests = append(suggests, prompt.Suggest{
-			Text: pair.Alias,
+			Text:        pair.Alias,
+			Description: desc,
 		})
 	}
 	return suggests
