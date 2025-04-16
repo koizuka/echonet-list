@@ -619,7 +619,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				for i, epc := range changed {
 					epcNames[i] = epc.StringForClass(device.EOJ.ClassCode())
 				}
-				fmt.Printf("%v のプロパティを %v個更新: %v\n", deviceName, len(changed), epcNames)
+				fmt.Printf("%v: %v のプロパティを %v個更新: %v\n", time.Now().Format(time.RFC3339), deviceName, len(changed), epcNames)
 			}
 
 			// 全体の成功/失敗を判定
