@@ -345,7 +345,7 @@ type GetPropertiesCallbackFunc func(device IPAndEOJ, success bool, properties Pr
 func (s *Session) CreateGetPropertyMessage(device IPAndEOJ, EPCs []EPCType) *ECHONETLiteMessage {
 	props := make([]Property, 0, len(EPCs))
 	for _, epc := range EPCs {
-		props = append(props, *epc.PropertyForGet())
+		props = append(props, Property{EPC: epc})
 	}
 	return &ECHONETLiteMessage{
 		TID:        s.newTID(),

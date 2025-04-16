@@ -138,10 +138,6 @@ func (ps Properties) GetIdentificationNumber() *IdentificationNumber {
 // プロパティコードは、Echonet Lite のプロパティを識別するための 1 バイトの値です。
 type EPCType byte
 
-func (e EPCType) PropertyForGet() *Property {
-	return &Property{EPC: e}
-}
-
 func (e EPCType) String() string {
 	return fmt.Sprintf("%02X", byte(e))
 }
@@ -166,17 +162,13 @@ func GetPropertyInfo(c EOJClassCode, e EPCType) (*PropertyInfo, bool) {
 }
 
 func IsPropertyDefaultEPC(c EOJClassCode, epc EPCType) bool {
-	isDefaultEPC := func(table PropertyTable) bool {
-		return slices.Contains(table.DefaultEPCs, epc)
-	}
-
 	if table, ok := PropertyTables[c]; ok {
-		if isDefaultEPC(table) {
+		if slices.Contains(table.DefaultEPCs, epc) {
 			return true
 		}
 	}
 	table := ProfileSuperClass_PropertyTable
-	return isDefaultEPC(table)
+	return slices.Contains(table.DefaultEPCs, epc)
 }
 
 func (p Property) String(c EOJClassCode) string {
