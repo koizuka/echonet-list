@@ -112,15 +112,16 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 			return
 		}
 
-		if c.LocalAddr.IP.Equal(addr.(*net.UDPAddr).IP) {
-			// ローカルアドレスからのパケットは無視
+		remoteAddr := addr.(*net.UDPAddr)
+		if c.LocalAddr.IP.Equal(remoteAddr.IP) && remoteAddr.Port == c.Port {
+			// ローカルアドレスかつ同じポートからのパケットは無視
 			return
 		}
 
 		// 結果をコピー（受信データのスライスだけを返す）
 		result = make([]byte, n)
 		copy(result, buffer[:n])
-		udpAddr = addr.(*net.UDPAddr)
+		udpAddr = remoteAddr
 	}()
 
 	// contextのキャンセルとReadFromの完了を待つ
