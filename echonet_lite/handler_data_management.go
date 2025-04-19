@@ -66,16 +66,27 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 					beforeEDT: currentProp.EDT,
 					afterEDT:  prop.EDT,
 				})
-
-				if logger != nil {
-					if !exists {
-						logger.Log("%v: プロパティ追加: %v", device, prop.String(device.EOJ.ClassCode()))
-					} else {
-						desc := prop.EPCString(device.EOJ.ClassCode())
-						logger.Log("%v: %v(%v): %v -> %v", device, prop.EPC, desc, before, after)
-					}
-				}
 			}
+		}
+	}
+
+	if logger != nil {
+		changed := changedProperties
+		if len(changed) > 0 {
+			classCode := device.EOJ.ClassCode()
+			changes := make([]string, len(changed))
+			for i, p := range changed {
+				changes[i] = fmt.Sprintf("%s: %v -> %v",
+					p.EPC.StringForClass(classCode),
+					p.Before().EDTString(classCode),
+					p.After().EDTString(classCode),
+				)
+			}
+			logger.Log("%v のプロパティを %v個更新: [%v]\n",
+				device,
+				len(changed),
+				strings.Join(changes, ", "),
+			)
 		}
 	}
 
