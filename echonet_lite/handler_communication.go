@@ -548,6 +548,10 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		errMutex.Unlock()
 	}
 
+	sameIPDelay := 0
+	lastIP := net.IP{}
+	SameIPDelayDuration := 100 * time.Millisecond
+
 	// 各デバイスに対して処理を実行
 	for _, device := range filtered.ListIPAndEOJ() {
 		// forceがfalseの場合、最終更新時刻をチェック
@@ -568,10 +572,23 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 			continue
 		}
 
+		// 同じIPアドレスのデバイスに対しては、遅延を追加(床暖房が連続送信していると再送が発生しているため)
+		if device.IP.Equal(lastIP) {
+			sameIPDelay++
+		} else {
+			sameIPDelay = 0
+			lastIP = device.IP
+		}
+
 		// 各デバイスに対して並列処理を実行
-		go func(device IPAndEOJ, propMap PropertyMap) {
+		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration) {
 			defer wg.Done()
 			deviceName := h.dataAccessor.DeviceStringWithAlias(device)
+
+			// 同じIPアドレスのデバイスに対して遅延を追加
+			if delay > 0 {
+				time.Sleep(delay)
+			}
 
 			success, properties, failedEPCs, err := h.session.GetProperties(
 				h.ctx,
@@ -620,7 +637,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				}
 				storeError(fmt.Errorf("%v の一部のプロパティ取得に失敗: %v", deviceName, epcNames))
 			}
-		}(device, propMap)
+		}(device, propMap, time.Duration(sameIPDelay)*SameIPDelayDuration)
 	}
 
 	// 全てのデバイスの更新が完了するまで待つ
