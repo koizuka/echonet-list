@@ -424,7 +424,9 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 				s.unregisterCallback(key)
 
 				if retryCount > 0 {
-					// fmt.Printf("%v: リトライ後に完了\n", desc) // DEBUG
+					if logger := log.GetLogger(); logger != nil {
+						logger.Log("%v: リトライ後に完了", desc)
+					}
 				}
 				return
 
@@ -553,6 +555,11 @@ func (s *Session) sendRequestWithContext(
 			return nil, ctx.Err()
 
 		case respMsg := <-responseCh:
+			if retryCount > 0 {
+				if logger := log.GetLogger(); logger != nil {
+					logger.Log("%v: リトライ後に完了", device)
+				}
+			}
 			// 応答を受信した場合
 			callbackUnregistered = true // コールバックは既に登録解除されている
 			return respMsg, nil
@@ -565,7 +572,7 @@ func (s *Session) sendRequestWithContext(
 			if retryCount >= s.MaxRetries {
 				// 最大再送回数に達した場合
 				if logger != nil {
-					logger.Log("最大再送回数(%d)に達しました", s.MaxRetries)
+					logger.Log("%v: 最大再送回数(%d)に達しました", device, s.MaxRetries)
 				}
 
 				// タイムアウト通知をチャンネルに送信
@@ -574,7 +581,7 @@ func (s *Session) sendRequestWithContext(
 
 			// ログ出力
 			if logger != nil {
-				logger.Log("タイムアウト: リクエストを再送します (試行 %d/%d)", retryCount+1, s.MaxRetries)
+				logger.Log("%v: タイムアウト: リクエストを再送します (試行 %d/%d)", device, retryCount+1, s.MaxRetries)
 			}
 
 			// 再送

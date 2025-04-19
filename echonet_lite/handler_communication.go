@@ -536,18 +536,6 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		return fmt.Errorf("条件に一致するデバイスが見つかりません")
 	}
 
-	/*
-		fmt.Println("更新対象のデバイス:")
-		for _, d := range filtered.ListIPAndEOJ() {
-			fmt.Println("  ", d)
-		}
-		fmt.Println("プロパティの更新を開始します...")
-	*/
-
-	// タイムアウト付きのコンテキストを作成（親コンテキストを使用）
-	timeoutCtx, cancel := context.WithTimeout(h.ctx, CommandTimeout)
-	defer cancel()
-
 	// 全てのデバイスの更新完了を待つためのWaitGroup
 	var wg sync.WaitGroup
 	var errMutex sync.Mutex
@@ -586,7 +574,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 			deviceName := h.dataAccessor.DeviceStringWithAlias(device)
 
 			success, properties, failedEPCs, err := h.session.GetProperties(
-				timeoutCtx,
+				h.ctx,
 				device,
 				propMap.EPCs(),
 			)

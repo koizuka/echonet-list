@@ -343,9 +343,8 @@ func (c *WebSocketClient) handleTimeoutNotification(msg *protocol.Message) {
 		return
 	}
 
-	if c.debug {
-		fmt.Printf("Timeout notification: %s %s: %s\n", payload.IP, payload.EOJ, payload.Message)
-	}
+	// Always print the timeout notification, regardless of debug flag
+	fmt.Printf("[TIMEOUT] Device %s %s: %s\n", payload.IP, payload.EOJ, payload.Message)
 }
 
 // handleErrorNotification handles an error_notification message
