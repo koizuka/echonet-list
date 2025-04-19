@@ -19,7 +19,7 @@ type DataAccessor interface {
 	GetPropertyMap(device IPAndEOJ, mapType PropertyMapType) PropertyMap
 
 	// プロパティ関連
-	RegisterProperties(device IPAndEOJ, properties Properties) []EPCType
+	RegisterProperties(device IPAndEOJ, properties Properties) []ChangedProperty
 	GetProperty(device IPAndEOJ, epc EPCType) (*Property, bool)
 
 	// デバイス情報
@@ -45,4 +45,24 @@ type NotificationRelay interface {
 
 	// プロパティ変更イベントの中継
 	RelayPropertyChangeEvent(device IPAndEOJ, property Property)
+}
+
+type ChangedProperty struct {
+	EPC       EPCType
+	beforeEDT []byte
+	afterEDT  []byte
+}
+
+func (c ChangedProperty) Before() Property {
+	return Property{
+		EPC: c.EPC,
+		EDT: c.beforeEDT,
+	}
+}
+
+func (c ChangedProperty) After() Property {
+	return Property{
+		EPC: c.EPC,
+		EDT: c.afterEDT,
+	}
 }

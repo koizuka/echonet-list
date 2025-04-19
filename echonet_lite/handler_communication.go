@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -344,15 +345,6 @@ func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, p
 			// プロパティを登録
 			h.dataAccessor.RegisterProperties(device, properties)
 
-			// failedEPCs は GetPropertyMap から取り除くことで、次回以降取得しないようにする
-			for _, epc := range failedEPCs {
-				props.Delete(epc)
-			}
-			h.dataAccessor.RegisterProperties(device, []Property{{
-				EPC: EPCGetPropertyMap,
-				EDT: props.Encode(),
-			}})
-
 			// デバイス情報を保存
 			h.dataAccessor.SaveDeviceInfo()
 
@@ -604,7 +596,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				return
 			}
 
-			var changed []EPCType
+			var changed []ChangedProperty
 
 			// 成功したプロパティを登録（部分的な成功の場合も含む）
 			if len(properties) > 0 {
@@ -615,11 +607,21 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 
 			// 結果を記録
 			if len(changed) > 0 {
-				epcNames := make([]string, len(changed))
-				for i, epc := range changed {
-					epcNames[i] = epc.StringForClass(device.EOJ.ClassCode())
+				classCode := device.EOJ.ClassCode()
+				changes := make([]string, len(changed))
+				for i, p := range changed {
+					changes[i] = fmt.Sprintf("%s: %v -> %v",
+						p.EPC.StringForClass(classCode),
+						p.Before().EDTString(classCode),
+						p.After().EDTString(classCode),
+					)
 				}
-				fmt.Printf("%v: %v のプロパティを %v個更新: %v\n", time.Now().Format(time.RFC3339), deviceName, len(changed), epcNames)
+				fmt.Printf("%v: %v のプロパティを %v個更新: [%v]\n",
+					time.Now().Format(time.RFC3339),
+					deviceName,
+					len(changed),
+					strings.Join(changes, ", "),
+				)
 			}
 
 			// 全体の成功/失敗を判定

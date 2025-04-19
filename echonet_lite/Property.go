@@ -171,11 +171,20 @@ func IsPropertyDefaultEPC(c EOJClassCode, epc EPCType) bool {
 	return slices.Contains(table.DefaultEPCs, epc)
 }
 
-func (p Property) String(c EOJClassCode) string {
-	var EPC, EDT string
-
+func (p Property) EPCString(c EOJClassCode) string {
+	var EPC string
 	if info, ok := GetPropertyInfo(c, p.EPC); ok {
 		EPC = info.EPCs
+	} else {
+		EPC = fmt.Sprintf("? (ClassCode:%v)", c)
+	}
+	return EPC
+}
+
+func (p Property) EDTString(c EOJClassCode) string {
+	var EDT string
+
+	if info, ok := GetPropertyInfo(c, p.EPC); ok {
 		if info.Aliases != nil {
 			for alias, value := range info.Aliases {
 				if string(p.EDT) == string(value) {
@@ -192,11 +201,15 @@ func (p Property) String(c EOJClassCode) string {
 			}
 		}
 	} else {
-		EPC = fmt.Sprintf("? (ClassCode:%v)", c)
 		EDT = fmt.Sprintf("%X", p.EDT)
 	}
 
-	return fmt.Sprintf("%s(%s): %s", p.EPC, EPC, EDT)
+	return EDT
+}
+
+func (p Property) String(c EOJClassCode) string {
+	EPC := p.EPCString(c)
+	return fmt.Sprintf("%s(%s): %s", p.EPC, EPC, p.EDTString(c))
 }
 
 func (ps Properties) String(ClassCode EOJClassCode) string {

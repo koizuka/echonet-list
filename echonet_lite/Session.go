@@ -87,6 +87,7 @@ type Session struct {
 	MaxRetries      int                      // 最大再送回数
 	RetryInterval   time.Duration            // 再送間隔
 	TimeoutCh       chan SessionTimeoutEvent // タイムアウト通知用チャンネル
+	failedEPCs      map[string][]EPCType     // 失敗したEPCsを保持するマップ
 }
 
 // SetTimeoutChannel はタイムアウト通知用チャンネルを設定する
@@ -115,6 +116,7 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Sessio
 		cancel:        cancel,
 		MaxRetries:    3,               // デフォルトの最大再送回数
 		RetryInterval: 3 * time.Second, // デフォルトの再送間隔
+		failedEPCs:    make(map[string][]EPCType),
 	}, nil
 }
 
@@ -586,6 +588,61 @@ func (s *Session) sendRequestWithContext(
 	}
 }
 
+func (s *Session) updateFailedEPCs(device IPAndEOJ, success Properties, failed []EPCType) []EPCType {
+	key := device.Key()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 既存の失敗リストを取得 (存在しない場合は空のスライス)
+	existingFailedEPCs := make([]EPCType, 0)
+	if f, ok := s.failedEPCs[key]; ok {
+		existingFailedEPCs = append(existingFailedEPCs, f...) // コピーを作成
+	}
+
+	// 1. 今回成功したEPCを既存の失敗リストから削除する
+	if len(success) > 0 {
+		remainingFailedEPCs := make([]EPCType, 0, len(existingFailedEPCs))
+		successEPCs := make(map[EPCType]struct{}, len(success))
+		for _, p := range success {
+			successEPCs[p.EPC] = struct{}{}
+		}
+		for _, epc := range existingFailedEPCs {
+			if _, found := successEPCs[epc]; !found {
+				remainingFailedEPCs = append(remainingFailedEPCs, epc)
+			}
+		}
+		existingFailedEPCs = remainingFailedEPCs // 更新
+	}
+
+	// 2. 今回失敗したEPCのうち、まだ記録されていないものを追加し、戻り値リストを作成する
+	newlyFailedForReturn := make([]EPCType, 0, len(failed))
+	if len(failed) > 0 {
+		currentFailedSet := make(map[EPCType]struct{}, len(existingFailedEPCs))
+		for _, epc := range existingFailedEPCs {
+			currentFailedSet[epc] = struct{}{}
+		}
+
+		for _, epc := range failed {
+			if _, found := currentFailedSet[epc]; !found {
+				// まだ記録されていない失敗
+				existingFailedEPCs = append(existingFailedEPCs, epc)     // 内部状態に追加
+				newlyFailedForReturn = append(newlyFailedForReturn, epc) // 戻り値リストに追加
+				currentFailedSet[epc] = struct{}{}                       // Setにも追加して重複を防ぐ
+			}
+		}
+	}
+
+	// 3. 更新された失敗リストをマップに保存（空なら削除）
+	if len(existingFailedEPCs) == 0 {
+		delete(s.failedEPCs, key)
+	} else {
+		s.failedEPCs[key] = existingFailedEPCs
+	}
+
+	return newlyFailedForReturn // 今回新たに失敗として記録されたEPCのみを返す
+}
+
 // GetProperties - プロパティ取得
 func (s *Session) GetProperties(
 	ctx context.Context,
@@ -618,6 +675,8 @@ func (s *Session) GetProperties(
 			failedEPCs = append(failedEPCs, p.EPC)
 		}
 	}
+
+	failedEPCs = s.updateFailedEPCs(device, successProperties, failedEPCs)
 
 	return success, successProperties, failedEPCs, nil
 }

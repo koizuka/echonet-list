@@ -41,14 +41,14 @@ func (h *DataManagementHandler) SaveDeviceInfo() {
 }
 
 // RegisterProperties は、デバイスのプロパティを登録し、追加・変更されたプロパティを返す
-func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties Properties) []EPCType {
+func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties Properties) []ChangedProperty {
 	h.propMutex.Lock()
 	defer h.propMutex.Unlock()
 
 	logger := log.GetLogger()
 
 	// 変更されたプロパティを追跡
-	var changedProperties []Property
+	var changedProperties []ChangedProperty
 
 	// 各プロパティについて処理
 	for _, prop := range properties {
@@ -57,16 +57,23 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 
 		// プロパティが新規または値が変更された場合
 		if !exists || !bytes.Equal(currentProp.EDT, prop.EDT) {
-			// 変更されたプロパティとして追加
-			changedProperties = append(changedProperties, prop)
+			before := currentProp.EDTString(device.EOJ.ClassCode())
+			after := prop.EDTString(device.EOJ.ClassCode())
+			if before != after {
+				// 変更されたプロパティとして追加
+				changedProperties = append(changedProperties, ChangedProperty{
+					EPC:       prop.EPC,
+					beforeEDT: currentProp.EDT,
+					afterEDT:  prop.EDT,
+				})
 
-			if logger != nil {
-				if !exists {
-					logger.Log("%v: プロパティ追加: %v", device, prop.String(device.EOJ.ClassCode()))
-				} else {
-					logger.Log("%v: プロパティ変更: %v -> %v", device,
-						currentProp.String(device.EOJ.ClassCode()),
-						prop.String(device.EOJ.ClassCode()))
+				if logger != nil {
+					if !exists {
+						logger.Log("%v: プロパティ追加: %v", device, prop.String(device.EOJ.ClassCode()))
+					} else {
+						desc := prop.EPCString(device.EOJ.ClassCode())
+						logger.Log("%v: %v(%v): %v -> %v", device, prop.EPC, desc, before, after)
+					}
 				}
 			}
 		}
@@ -77,14 +84,10 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 
 	// 変更されたプロパティについて通知を送信
 	for _, prop := range changedProperties {
-		h.notifier.RelayPropertyChangeEvent(device, prop)
+		h.notifier.RelayPropertyChangeEvent(device, prop.After())
 	}
 
-	result := make([]EPCType, 0, len(changedProperties))
-	for _, prop := range changedProperties {
-		result = append(result, prop.EPC)
-	}
-	return result
+	return changedProperties
 }
 
 // ListDevices は、検出されたデバイスの一覧を表示する
