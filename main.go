@@ -53,8 +53,8 @@ func main() {
 	// 設定ファイルの読み込み
 	cfg, err := config.LoadConfig(*configFileFlag)
 	if err != nil {
-		fmt.Printf("設定ファイルの読み込みに失敗しました: %v\n", err)
-		return
+		fmt.Fprintf(os.Stderr, "設定ファイルの読み込みに失敗しました: %v\n", err)
+		os.Exit(1)
 	}
 
 	// コマンドライン引数を設定に適用
@@ -106,8 +106,8 @@ func main() {
 	// ロガーのセットアップ
 	logger, err := server.NewLogManager(logFilename)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "ログ設定エラー: %v\n", err)
-		return
+		fmt.Fprintf(os.Stderr, "ログ設定エラー: %v\n", err)
+		os.Exit(1)
 	}
 
 	// ログファイルを閉じる
@@ -136,8 +136,8 @@ func main() {
 		// ECHONETLiteHandlerの作成
 		s, err := server.NewServer(ctx, debug)
 		if err != nil {
-			fmt.Println(err)
-			return
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
 		}
 		defer func() {
 			if err := s.Close(); err != nil {
@@ -148,8 +148,8 @@ func main() {
 		// WebSocketサーバーの作成と起動
 		wsServer, err := server.NewWebSocketServer(ctx, wsAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler())
 		if err != nil {
-			fmt.Printf("WebSocketサーバーの作成に失敗しました: %v\n", err)
-			return
+			fmt.Fprintf(os.Stderr, "WebSocketサーバーの作成に失敗しました: %v\n", err)
+			os.Exit(1)
 		}
 
 		// プログラム終了時にWebSocketサーバーを停止する
@@ -182,13 +182,13 @@ func main() {
 		}
 
 		// TLSが有効かどうかを表示
-		if cfg.WebSocket.TLS.Enabled && startOptions.CertFile != "" && startOptions.KeyFile != "" {
-			fmt.Printf("TLSが有効です。証明書: %s, 秘密鍵: %s\n", startOptions.CertFile, startOptions.KeyFile)
-		} else if cfg.WebSocket.TLS.Enabled {
-			fmt.Println("TLSが有効ですが、証明書または秘密鍵が指定されていません。TLSなしで起動します。")
-			// TLSが有効だが証明書または秘密鍵が指定されていない場合は、TLSを無効にする
-			startOptions.CertFile = ""
-			startOptions.KeyFile = ""
+		if cfg.WebSocket.TLS.Enabled {
+			if startOptions.CertFile != "" && startOptions.KeyFile != "" {
+				fmt.Printf("TLSが有効です。証明書: %s, 秘密鍵: %s\n", startOptions.CertFile, startOptions.KeyFile)
+			} else {
+				fmt.Fprintln(os.Stderr, "TLSが有効ですが、証明書または秘密鍵が指定されていません。")
+				os.Exit(1)
+			}
 		}
 
 		// WebSocketサーバーを起動
@@ -196,7 +196,8 @@ func main() {
 		go func() {
 			defer wg.Done()
 			if err := wsServer.Start(startOptions); err != nil && err != http.ErrServerClosed {
-				fmt.Printf("WebSocketサーバーの起動に失敗しました: %v\n", err)
+				fmt.Fprintf(os.Stderr, "WebSocketサーバーの起動に失敗しました: %v\n", err)
+				os.Exit(1)
 			}
 		}()
 
@@ -230,14 +231,14 @@ func main() {
 		var err error
 		wsClientInstance, err = client.NewWebSocketClient(ctx, wsClientAddr, debug)
 		if err != nil {
-			fmt.Printf("WebSocketクライアントの作成に失敗しました: %v\n", err)
-			return
+			fmt.Fprintf(os.Stderr, "WebSocketクライアントの作成に失敗しました: %v\n", err)
+			os.Exit(1)
 		}
 
 		// WebSocketサーバーに接続
 		if err := wsClientInstance.Connect(); err != nil {
-			fmt.Printf("WebSocketサーバーへの接続に失敗しました: %v\n", err)
-			return
+			fmt.Fprintf(os.Stderr, "WebSocketサーバーへの接続に失敗しました: %v\n", err)
+			os.Exit(1)
 		}
 
 		fmt.Printf("WebSocketサーバーに接続しました: %s\n", wsClientAddr)
@@ -258,8 +259,8 @@ func main() {
 		// ECHONETLiteHandlerの作成
 		s, err := server.NewServer(ctx, debug)
 		if err != nil {
-			fmt.Println(err)
-			return
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
 		}
 		defer func() {
 			if err := s.Close(); err != nil {
