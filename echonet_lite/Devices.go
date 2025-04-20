@@ -81,10 +81,11 @@ type DeviceEvent struct {
 }
 
 type DevicesImpl struct {
-	mu         sync.RWMutex
-	data       map[string]DeviceProperties // key is IP address string
-	timestamps map[string]time.Time        // key is "IP EOJ" format string (IPAndEOJ.Key())
-	EventCh    chan DeviceEvent            // デバイスイベント通知用チャンネル
+	mu             sync.RWMutex
+	data           map[string]DeviceProperties // key is IP address string
+	timestamps     map[string]time.Time        // key is "IP EOJ" format string (IPAndEOJ.Key())
+	EventCh        chan DeviceEvent            // デバイスイベント通知用チャンネル
+	offlineDevices map[string]struct{}         // オフライン状態のデバイス (key: IPAndEOJ.Key())
 }
 
 type Devices struct {
@@ -94,9 +95,10 @@ type Devices struct {
 func NewDevices() Devices {
 	return Devices{
 		DevicesImpl: &DevicesImpl{
-			data:       make(map[string]DeviceProperties),
-			timestamps: make(map[string]time.Time),
-			EventCh:    nil, // 初期値はnil、後で設定する
+			data:           make(map[string]DeviceProperties),
+			timestamps:     make(map[string]time.Time),
+			EventCh:        nil, // 初期値はnil、後で設定する
+			offlineDevices: make(map[string]struct{}),
 		},
 	}
 }
@@ -127,6 +129,26 @@ func (d Devices) IsKnownDevice(device IPAndEOJ) bool {
 		return false
 	}
 	return true
+}
+
+// IsOffline は指定したデバイスがオフラインかどうかを返します
+func (d Devices) IsOffline(device IPAndEOJ) bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	_, exists := d.offlineDevices[device.Key()]
+	return exists
+}
+
+// SetOffline は指定したデバイスのオフライン状態を設定します
+func (d Devices) SetOffline(device IPAndEOJ, offline bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	key := device.Key()
+	if offline {
+		d.offlineDevices[key] = struct{}{}
+	} else {
+		delete(d.offlineDevices, key)
+	}
 }
 
 // ensureDeviceExists ensures the map structure exists for the given IP and EOJ

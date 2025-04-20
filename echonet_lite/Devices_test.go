@@ -547,3 +547,25 @@ func TestDevices_TimestampUpdate(t *testing.T) {
 		t.Errorf("Expected zero timestamp for non-existent device, got %v", lastUpdate3)
 	}
 }
+
+func TestDevices_OfflineStatus(t *testing.T) {
+	devices := NewDevices()
+	device := IPAndEOJ{IP: net.ParseIP("192.168.0.10"), EOJ: EOJ(0x013001)}
+
+	// 初期状態はオンライン (false)
+	if devices.IsOffline(device) {
+		t.Errorf("Expected device to be online initially, but IsOffline returned true")
+	}
+
+	// オフラインに設定
+	devices.SetOffline(device, true)
+	if !devices.IsOffline(device) {
+		t.Errorf("Expected device to be offline after SetOffline(true), but IsOffline returned false")
+	}
+
+	// オンラインに戻す
+	devices.SetOffline(device, false)
+	if devices.IsOffline(device) {
+		t.Errorf("Expected device to be online after SetOffline(false), but IsOffline returned true")
+	}
+}
