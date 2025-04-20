@@ -168,7 +168,9 @@ func main() {
 		}
 
 		// TLSと定期更新間隔の設定を準備
+		readyChan := make(chan struct{})
 		startOptions := server.StartOptions{
+			Ready:                  readyChan,
 			CertFile:               cfg.WebSocket.TLS.CertFile,
 			KeyFile:                cfg.WebSocket.TLS.KeyFile,
 			PeriodicUpdateInterval: updateInterval,
@@ -203,10 +205,9 @@ func main() {
 
 		fmt.Printf("WebSocketサーバーを起動しました: %s\n", wsAddr)
 
-		// WebSocketクライアントモードも有効な場合は、少し待ってからクライアントを起動
+		// WebSocketクライアントモードも有効な場合は、サーバーの Ready チャネルを待機
 		if wsClient {
-			// サーバーが起動するまで少し待つ
-			time.Sleep(500 * time.Millisecond)
+			<-readyChan
 		} else {
 			// クライアントモードでない場合は、ECHONETListClientProxyを使用
 			c = client.NewECHONETListClientProxy(s.GetHandler())

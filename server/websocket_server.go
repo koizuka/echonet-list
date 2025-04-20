@@ -21,6 +21,8 @@ type StartOptions struct {
 	KeyFile string
 	// 定期的なプロパティ更新の間隔 (0以下で無効)
 	PeriodicUpdateInterval time.Duration
+	// サーバーの待ち受け完了を通知するチャネル
+	Ready chan struct{}
 }
 
 // WebSocketServer implements a WebSocket server for ECHONET Lite

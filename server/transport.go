@@ -4,6 +4,7 @@ import (
 	"context"
 	"echonet-list/echonet_lite/log"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 
@@ -82,6 +83,15 @@ func NewDefaultWebSocketTransport(ctx context.Context, addr string) *DefaultWebS
 // Start はWebSocketサーバーを起動する
 func (t *DefaultWebSocketTransport) Start(options StartOptions) error {
 	logger := log.GetLogger()
+	// 先にリスナーをバインド
+	listener, err := net.Listen("tcp", t.server.Addr)
+	if err != nil {
+		return err
+	}
+	// 待ち受け完了を通知
+	if options.Ready != nil {
+		close(options.Ready)
+	}
 	if logger != nil {
 		logger.Log("WebSocket server starting on %s", t.server.Addr)
 	} else {
@@ -95,11 +105,11 @@ func (t *DefaultWebSocketTransport) Start(options StartOptions) error {
 		} else {
 			fmt.Printf("Using TLS with certificate: %s\n", options.CertFile)
 		}
-		return t.server.ListenAndServeTLS(options.CertFile, options.KeyFile)
+		return t.server.ServeTLS(listener, options.CertFile, options.KeyFile)
 	}
 
 	// 通常のHTTP (証明書なし)
-	return t.server.ListenAndServe()
+	return t.server.Serve(listener)
 }
 
 // Stop はWebSocketサーバーを停止する
