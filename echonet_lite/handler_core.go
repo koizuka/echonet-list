@@ -19,7 +19,7 @@ type HandlerCore struct {
 func NewHandlerCore(ctx context.Context, cancel context.CancelFunc, debug bool) *HandlerCore {
 	// 通知チャンネルを作成
 	notificationCh := make(chan DeviceNotification, 100)           // バッファサイズは100に設定
-	propertyChangeCh := make(chan PropertyChangeNotification, 100) // バッファサイズは100に設定
+	propertyChangeCh := make(chan PropertyChangeNotification, 400) // バッファサイズは400に設定
 
 	return &HandlerCore{
 		ctx:              ctx,

@@ -20,74 +20,60 @@ type UDPConnectionOptions struct {
 	DefaultTimeout time.Duration
 }
 
-// CreateUDPConnection は IPv4/IPv6 両対応で UDP ソケットを作成します。
-// broadcastIP がマルチキャストアドレスの場合は ListenMulticastUDP を使います。
-func CreateUDPConnection(ctx context.Context, ip net.IP, port int, broadcastIP net.IP, opt UDPConnectionOptions) (*UDPConnection, error) {
-	// ネットワーク種別を判定 (broadcastIP優先)
-	network := "udp4"
-	if broadcastIP != nil {
-		if broadcastIP.To4() == nil {
-			network = "udp6"
-		}
-	} else if ip.To4() == nil {
-		network = "udp6"
+// CreateUDPConnection は IPv4 の unicast と multicast (マルチキャスト) を受信対応します。
+// ip が nil の場合はワイルドカード listen、multicastIP がブロードキャストかつIPv4の場合は broadcast として受信。
+// multicastIP が真のマルチキャストかつIPv4の場合はグループ参加。
+// ip または multicastIP がIPv6の場合はエラーになります。
+func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP net.IP, opt UDPConnectionOptions) (*UDPConnection, error) {
+	// IPv6 非対応チェック
+	if ip != nil && ip.To4() == nil {
+		return nil, fmt.Errorf("IPv6 not supported for unicast ip")
+	}
+	if multicastIP != nil && multicastIP.To4() == nil {
+		return nil, fmt.Errorf("IPv6 not supported for multicastIP")
+	}
+
+	// IPv4 broadcast 指定時は multicastIP を無視して listen
+	if multicastIP != nil && multicastIP.Equal(net.IPv4bcast) {
+		multicastIP = nil
 	}
 
 	var conn *net.UDPConn
 	var err error
-	var iface *net.Interface
 
-	if broadcastIP != nil && broadcastIP.IsMulticast() {
-		if network == "udp6" {
-			// IPv6マルチキャスト受信: 利用可能なインターフェースを選択し、グループに参加
-			ifaces, _ := net.Interfaces()
-			// iface は外側で宣言済み
-			for _, i := range ifaces {
-				if i.Flags&net.FlagUp != 0 && i.Flags&net.FlagMulticast != 0 {
-					iface = &i
-					break
-				}
-			}
-			if iface == nil {
-				return nil, fmt.Errorf("no suitable interface for IPv6 multicast")
-			}
-			group := &net.UDPAddr{IP: broadcastIP, Port: port, Zone: iface.Name}
-			conn, err = net.ListenMulticastUDP(network, iface, group)
-		} else {
-			group := &net.UDPAddr{IP: broadcastIP, Port: port}
-			conn, err = net.ListenMulticastUDP(network, nil, group)
+	if multicastIP != nil {
+		// IPv4 マルチキャスト
+		if !multicastIP.IsMulticast() {
+			return nil, fmt.Errorf("multicastIP is not a multicast address")
+		}
+		conn, err = net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{IP: multicastIP, Port: port})
+		if err != nil {
+			return nil, fmt.Errorf("failed to ListenMulticastUDP: %w", err)
 		}
 	} else {
-		laddr := &net.UDPAddr{IP: ip, Port: port}
-		conn, err = net.ListenUDP(network, laddr)
-	}
-	if err != nil {
-		return nil, err
+		// IPv4 unicast or wildcard listen (broadcast received via WriteToUDP)
+		bindIP := ip
+		if bindIP == nil || bindIP.IsUnspecified() {
+			bindIP = net.IPv4zero
+		}
+		conn, err = net.ListenUDP("udp4", &net.UDPAddr{IP: bindIP, Port: port})
+		if err != nil {
+			return nil, err
+		}
 	}
 
+	// デフォルトタイムアウト
 	if opt.DefaultTimeout == 0 {
 		opt.DefaultTimeout = 30 * time.Second
 	}
-
+	// ReadDeadline 設定
 	if deadline, ok := ctx.Deadline(); ok {
-		if err := conn.SetReadDeadline(deadline); err != nil {
-			conn.Close()
-			return nil, fmt.Errorf("failed to set read deadline: %w", err)
-		}
+		conn.SetReadDeadline(deadline)
 	} else {
-		if err := conn.SetReadDeadline(time.Time{}); err != nil {
-			conn.Close()
-			return nil, fmt.Errorf("failed to clear read deadline: %w", err)
-		}
+		conn.SetReadDeadline(time.Time{})
 	}
 
-	// LocalAddr を設定 (IPv6 マルチキャスト時はゾーン付き)
-	var localAddr *net.UDPAddr
-	if broadcastIP != nil && broadcastIP.IsMulticast() && network == "udp6" && iface != nil {
-		localAddr = &net.UDPAddr{IP: net.IPv6unspecified, Port: port, Zone: iface.Name}
-	} else {
-		localAddr = conn.LocalAddr().(*net.UDPAddr)
-	}
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	return &UDPConnection{UdpConn: conn, LocalAddr: localAddr, Port: port}, nil
 }
 
@@ -97,9 +83,8 @@ func (c *UDPConnection) Close() error {
 }
 
 // SendTo は指定先にデータを送信します
-func (c *UDPConnection) SendTo(ip net.IP, data []byte) (int, error) {
-	dst := &net.UDPAddr{IP: ip, Port: c.Port}
-	return c.UdpConn.WriteTo(data, dst)
+func (c *UDPConnection) SendTo(dstIP net.IP, data []byte) (int, error) {
+	return c.UdpConn.WriteTo(data, &net.UDPAddr{IP: dstIP, Port: c.Port})
 }
 
 // bufferPool は受信バッファのプールです
@@ -108,16 +93,12 @@ var bufferPool = sync.Pool{
 }
 
 // Receive は UDP パケットを受信し、送信元アドレスとデータを返します。
-// コンテキストキャンセルで ReadDeadline をリセットして停止します。
+// 自送信パケットを除外し、コンテキストキャンセルに対応します。
 func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, error) {
 	if deadline, ok := ctx.Deadline(); ok {
-		if err := c.UdpConn.SetReadDeadline(deadline); err != nil {
-			return nil, nil, fmt.Errorf("failed to set read deadline: %w", err)
-		}
+		c.UdpConn.SetReadDeadline(deadline)
 	} else {
-		if err := c.UdpConn.SetReadDeadline(time.Time{}); err != nil {
-			return nil, nil, fmt.Errorf("failed to clear read deadline: %w", err)
-		}
+		c.UdpConn.SetReadDeadline(time.Time{})
 	}
 
 	type result struct {
@@ -134,14 +115,14 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 			ch <- result{nil, nil, err}
 			return
 		}
-		udpAddr := addr.(*net.UDPAddr)
-		if udpAddr.IP.Equal(c.LocalAddr.IP) && udpAddr.Port == c.LocalAddr.Port {
+		src := addr.(*net.UDPAddr)
+		if src.IP.Equal(c.LocalAddr.IP) && src.Port == c.LocalAddr.Port {
 			ch <- result{nil, nil, nil}
 			return
 		}
 		data := make([]byte, n)
 		copy(data, buf[:n])
-		ch <- result{data, udpAddr, nil}
+		ch <- result{data, src, nil}
 	}()
 
 	select {

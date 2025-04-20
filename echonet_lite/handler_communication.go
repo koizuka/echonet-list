@@ -209,7 +209,7 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 			if logger != nil {
 				logger.Log("情報: 未登録のIPアドレスからのメッセージ: %v", ip)
 			}
-			err := h.GetSelfNodeInstanceListS(ip)
+			err := h.GetSelfNodeInstanceListS(ip, false)
 			if err != nil {
 				if logger != nil {
 					logger.Log("エラー: SelfNodeInstanceListSの取得に失敗: %v", err)
@@ -364,13 +364,12 @@ func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, p
 }
 
 // GetSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを取得する
-func (h *CommunicationHandler) GetSelfNodeInstanceListS(ip net.IP) error {
-	isBroadcast := ip.Equal(BroadcastIP)
+func (h *CommunicationHandler) GetSelfNodeInstanceListS(ip net.IP, isMulti bool) error {
 	// broadcastの場合、1秒無通信で完了とする
 	// タイマーを作る
 	var timer *time.Timer
 	idleTimeout := time.Duration(2 * time.Second)
-	if isBroadcast {
+	if isMulti {
 		timer = time.NewTimer(idleTimeout)
 		defer timer.Stop()
 	}
@@ -378,7 +377,7 @@ func (h *CommunicationHandler) GetSelfNodeInstanceListS(ip net.IP) error {
 		IPAndEOJ{ip, NodeProfileObject}, []EPCType{EPC_NPO_SelfNodeInstanceListS},
 		func(ie IPAndEOJ, b bool, p Properties, f []EPCType) (CallbackCompleteStatus, error) {
 			var completeStatus CallbackCompleteStatus
-			if isBroadcast {
+			if isMulti {
 				completeStatus = CallbackContinue
 				timer.Reset(idleTimeout)
 			} else {
@@ -389,7 +388,7 @@ func (h *CommunicationHandler) GetSelfNodeInstanceListS(ip net.IP) error {
 	if err != nil {
 		return err
 	}
-	if isBroadcast {
+	if isMulti {
 		defer h.session.unregisterCallback(key)
 
 		select {
@@ -409,7 +408,7 @@ func (h *CommunicationHandler) GetGetPropertyMap(device IPAndEOJ) error {
 
 // Discover は、ECHONET Liteデバイスを検出する
 func (h *CommunicationHandler) Discover() error {
-	return h.GetSelfNodeInstanceListS(BroadcastIP)
+	return h.GetSelfNodeInstanceListS(BroadcastIP, true)
 }
 
 // GetProperties は、プロパティ値を取得する

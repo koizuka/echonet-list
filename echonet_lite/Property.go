@@ -79,7 +79,7 @@ func (p Property) Encode() []byte {
 	return data
 }
 
-type PropertyDecoderFunc func(EDT []byte) fmt.Stringer
+type PropertyDecoderFunc func(EDT []byte) (fmt.Stringer, bool)
 
 type PropertyInfo struct {
 	EPCs    string
@@ -88,8 +88,16 @@ type PropertyInfo struct {
 }
 
 func Decoder[T fmt.Stringer](f func(EDT []byte) T) PropertyDecoderFunc {
-	return func(EDT []byte) fmt.Stringer {
-		return f(EDT)
+	return func(EDT []byte) (fmt.Stringer, bool) {
+		if len(EDT) == 0 {
+			return nil, false
+		}
+		result := f(EDT)
+		// if T is a pointer, nil check
+		if _, ok := any(result).(fmt.Stringer); !ok {
+			return nil, false
+		}
+		return result, true
 	}
 }
 
@@ -182,6 +190,9 @@ func (p Property) EPCString(c EOJClassCode) string {
 }
 
 func (p Property) EDTString(c EOJClassCode) string {
+	if p.EDT == nil {
+		return "nil"
+	}
 	var EDT string
 
 	if info, ok := GetPropertyInfo(c, p.EPC); ok {
@@ -195,7 +206,11 @@ func (p Property) EDTString(c EOJClassCode) string {
 		}
 		if EDT == "" {
 			if info.Decoder != nil {
-				EDT = info.Decoder(p.EDT).String()
+				if decoded, ok := info.Decoder(p.EDT); ok {
+					EDT = decoded.String()
+				} else {
+					EDT = fmt.Sprintf("%X", p.EDT)
+				}
 			} else {
 				EDT = fmt.Sprintf("%X", p.EDT)
 			}

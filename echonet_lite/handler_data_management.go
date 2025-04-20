@@ -57,6 +57,9 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 
 		// プロパティが新規または値が変更された場合
 		if !exists || !bytes.Equal(currentProp.EDT, prop.EDT) {
+			if !exists {
+				currentProp = &Property{EPC: prop.EPC, EDT: []byte{}}
+			}
 			before := currentProp.EDTString(device.EOJ.ClassCode())
 			after := prop.EDTString(device.EOJ.ClassCode())
 			if before != after {

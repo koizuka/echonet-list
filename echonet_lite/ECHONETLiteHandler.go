@@ -164,8 +164,8 @@ func (h *ECHONETLiteHandler) NotifyNodeList() error {
 }
 
 // GetSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを取得する
-func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP) error {
-	return h.comm.GetSelfNodeInstanceListS(ip)
+func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP, isMulti bool) error {
+	return h.comm.GetSelfNodeInstanceListS(ip, isMulti)
 }
 
 // GetGetPropertyMap は、GetPropertyMapプロパティを取得する

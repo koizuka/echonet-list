@@ -37,11 +37,7 @@ func (e ErrMaxRetriesReached) Error() string {
 }
 
 // ブロードキャストアドレスの設定
-var BroadcastIP = ECHONETLiteMulticastIPv4
-
-// var BroadcastIP = network.GetIPv4BroadcastIP()
-
-// var BroadcastIP = net.ParseIP("ff02::1")
+var BroadcastIP = network.GetIPv4BroadcastIP()
 
 type Key struct {
 	TID TIDType
@@ -83,6 +79,7 @@ type Session struct {
 	tid             TIDType
 	eoj             EOJ
 	conn            *network.UDPConnection
+	MulticastIP     net.IP
 	Debug           bool
 	ctx             context.Context          // コンテキスト
 	cancel          context.CancelFunc       // コンテキストのキャンセル関数
@@ -103,7 +100,9 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Sessio
 	// タイムアウトなしのコンテキストを作成（キャンセルのみ可能）
 	sessionCtx, cancel := context.WithCancel(ctx)
 
-	conn, err := network.CreateUDPConnection(sessionCtx, ip, ECHONETLitePort, BroadcastIP, network.UDPConnectionOptions{DefaultTimeout: 30 * time.Second})
+	multicastIP := ECHONETLiteMulticastIPv4
+
+	conn, err := network.CreateUDPConnection(sessionCtx, ip, ECHONETLitePort, multicastIP, network.UDPConnectionOptions{DefaultTimeout: 30 * time.Second})
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		return nil, err
@@ -113,6 +112,7 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Sessio
 		tid:           TIDType(1),
 		eoj:           EOJ,
 		conn:          conn,
+		MulticastIP:   multicastIP,
 		Debug:         debug,
 		ctx:           sessionCtx,
 		cancel:        cancel,
@@ -340,7 +340,11 @@ func (s *Session) Broadcast(SEOJ EOJ, ESV ESVType, property Properties) error {
 		ESV:        ESV,
 		Properties: property,
 	}
-	return s.sendMessage(BroadcastIP, msg)
+	ip := s.MulticastIP
+	if ip == nil {
+		ip = BroadcastIP
+	}
+	return s.sendMessage(ip, msg)
 }
 
 // GetPropertiesCallbackFunc はプロパティ取得のコールバック関数の型。

@@ -30,7 +30,7 @@ const (
 )
 
 var ECHONETLiteMulticastIPv4 = net.ParseIP("224.0.23.0")
-var ECHONETLiteMulticastIPv6 = net.ParseIP("ff02:1")
+var ECHONETLiteMulticastIPv6 = net.ParseIP("ff02:1") // 将来IPv6 に対応したときに使う
 
 type EHDType uint16
 

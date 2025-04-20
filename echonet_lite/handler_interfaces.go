@@ -69,9 +69,15 @@ func (c ChangedProperty) After() Property {
 }
 
 func (c ChangedProperty) StringForClass(classCode EOJClassCode) string {
-	return fmt.Sprintf("%s: %v -> %v",
-		c.EPC.StringForClass(classCode),
-		c.Before().EDTString(classCode),
-		c.After().EDTString(classCode),
-	)
+	class := c.EPC.StringForClass(classCode)
+	before := c.Before().EDTString(classCode)
+	after := c.After().EDTString(classCode)
+
+	if before == "" {
+		return fmt.Sprintf("%s: %v", class, after)
+	}
+	if c.afterEDT == nil {
+		return fmt.Sprintf("%s: -%v", class, before)
+	}
+	return fmt.Sprintf("%s: %v -> %v", class, before, after)
 }
