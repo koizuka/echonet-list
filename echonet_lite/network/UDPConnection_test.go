@@ -104,7 +104,60 @@ func TestUDPConnection_ReceiveMulticast(t *testing.T) {
 			_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_MULTICAST_LOOP, 1)
 			_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_MULTICAST_TTL, 1)
 		})
-		_, err = sender.WriteToUDP(payload, &net.UDPAddr{IP: multicastIP, Port: port})
+		dst := &net.UDPAddr{IP: multicastIP, Port: port, Zone: receiver.LocalAddr.Zone}
+		_, err = sender.WriteToUDP(payload, dst)
+		errCh <- err
+	}()
+
+	recvCtx, recvCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer recvCancel()
+
+	assert.NoError(t, <-errCh)
+	data, src, err := receiver.Receive(recvCtx)
+	require.NoError(t, err)
+	assert.Equal(t, payload, data)
+	assert.NotNil(t, src)
+}
+
+// TestUDPConnection_ReceiveMulticastIPv6 verifies that UDPConnection can receive IPv6 multicast packets.
+func TestUDPConnection_ReceiveMulticastIPv6(t *testing.T) {
+	const multicastIPStr = "ff02::1"
+	multicastIP := net.ParseIP(multicastIPStr)
+	require.NotNil(t, multicastIP, "invalid IPv6 multicast IP")
+
+	port, err := getFreePort()
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	receiver, err := CreateUDPConnection(ctx, net.IPv6unspecified, port, multicastIP, UDPConnectionOptions{DefaultTimeout: 1 * time.Second})
+	require.NoError(t, err)
+	defer receiver.Close()
+
+	payload := []byte("multicast ipv6 test")
+	errCh := make(chan error, 1)
+	go func() {
+		defer close(errCh)
+		sender, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6unspecified, Port: 0})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		defer sender.Close()
+		rc, err := sender.SyscallConn()
+		if err != nil {
+			errCh <- err
+			return
+		}
+		rc.Control(func(fd uintptr) {
+			ifi, _ := net.InterfaceByName(receiver.LocalAddr.Zone)
+			_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_MULTICAST_IF, ifi.Index)
+			_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_MULTICAST_LOOP, 1)
+			_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_MULTICAST_HOPS, 1)
+		})
+		dst := &net.UDPAddr{IP: multicastIP, Port: port, Zone: receiver.LocalAddr.Zone}
+		_, err = sender.WriteToUDP(payload, dst)
 		errCh <- err
 	}()
 

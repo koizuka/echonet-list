@@ -29,7 +29,8 @@ const (
 	ECHONETLitePort = 3610 // ECHONET Liteのポート番号
 )
 
-var ECHONETLiteMulticastIPv4 = net.IPv4(224, 0, 23, 0)
+var ECHONETLiteMulticastIPv4 = net.ParseIP("224.0.23.0")
+var ECHONETLiteMulticastIPv6 = net.ParseIP("ff02:1")
 
 type EHDType uint16
 
