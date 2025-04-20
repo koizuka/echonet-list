@@ -74,10 +74,10 @@ func (c ChangedProperty) StringForClass(classCode EOJClassCode) string {
 	after := c.After().EDTString(classCode)
 
 	if before == "" {
-		return fmt.Sprintf("%s: %v", class, after)
+		return fmt.Sprintf("%s:%v", class, after)
 	}
 	if c.afterEDT == nil {
-		return fmt.Sprintf("%s: -%v", class, before)
+		return fmt.Sprintf("%s:-%v", class, before)
 	}
-	return fmt.Sprintf("%s: %v -> %v", class, before, after)
+	return fmt.Sprintf("%s:%v->%v", class, before, after)
 }

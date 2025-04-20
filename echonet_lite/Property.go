@@ -180,11 +180,9 @@ func IsPropertyDefaultEPC(c EOJClassCode, epc EPCType) bool {
 }
 
 func (p Property) EPCString(c EOJClassCode) string {
-	var EPC string
+	EPC := p.EPC.String()
 	if info, ok := GetPropertyInfo(c, p.EPC); ok {
-		EPC = info.EPCs
-	} else {
-		EPC = fmt.Sprintf("? (ClassCode:%v)", c)
+		EPC = fmt.Sprintf("%s(%s)", EPC, info.EPCs)
 	}
 	return EPC
 }
@@ -223,8 +221,7 @@ func (p Property) EDTString(c EOJClassCode) string {
 }
 
 func (p Property) String(c EOJClassCode) string {
-	EPC := p.EPCString(c)
-	return fmt.Sprintf("%s(%s): %s", p.EPC, EPC, p.EDTString(c))
+	return fmt.Sprintf("%s:%s", p.EPCString(c), p.EDTString(c))
 }
 
 func (ps Properties) String(ClassCode EOJClassCode) string {
