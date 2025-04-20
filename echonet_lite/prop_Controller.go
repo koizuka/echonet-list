@@ -21,6 +21,7 @@ func (r PropertyRegistry) Controller() PropertyRegistryEntry {
 	return PropertyRegistryEntry{
 		ClassCode: Controller_ClassCode,
 		PropertyTable: PropertyTable{
+			Description: "Controller",
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_C_ControllerID:    {"コントローラID", nil, nil},
 				EPC_C_NumberOfDevices: {"管理台数", Decoder(C_DecodeNumberOfDevices), nil},
