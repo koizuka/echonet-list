@@ -76,11 +76,7 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 			classCode := device.EOJ.ClassCode()
 			changes := make([]string, len(changed))
 			for i, p := range changed {
-				changes[i] = fmt.Sprintf("%s: %v -> %v",
-					p.EPC.StringForClass(classCode),
-					p.Before().EDTString(classCode),
-					p.After().EDTString(classCode),
-				)
+				changes[i] = p.StringForClass(classCode)
 			}
 			logger.Log("%v のプロパティを %v個更新: [%v]\n",
 				device,

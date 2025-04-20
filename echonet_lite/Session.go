@@ -37,7 +37,9 @@ func (e ErrMaxRetriesReached) Error() string {
 }
 
 // ブロードキャストアドレスの設定
-var BroadcastIP = network.GetIPv4BroadcastIP()
+var BroadcastIP = ECHONETLiteMulticastIPv4
+
+// var BroadcastIP = network.GetIPv4BroadcastIP()
 
 // var BroadcastIP = net.ParseIP("ff02::1")
 

@@ -24,7 +24,13 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, port int, broadcastIP n
 		IP:   ip,
 		Port: port,
 	}
-	conn, err := net.ListenUDP("udp", addr)
+	var conn *net.UDPConn
+	var err error
+	if broadcastIP != nil && broadcastIP.IsMulticast() {
+		conn, err = net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{IP: broadcastIP, Port: port})
+	} else {
+		conn, err = net.ListenUDP("udp", addr)
+	}
 	if err != nil {
 		return nil, err
 	}

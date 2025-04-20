@@ -3,6 +3,7 @@ package echonet_lite
 import (
 	"echonet-list/echonet_lite/utils"
 	"fmt"
+	"net"
 	"strings"
 )
 
@@ -27,6 +28,8 @@ const (
 
 	ECHONETLitePort = 3610 // ECHONET Liteのポート番号
 )
+
+var ECHONETLiteMulticastIPv4 = net.IPv4(224, 0, 23, 0)
 
 type EHDType uint16
 

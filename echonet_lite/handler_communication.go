@@ -145,7 +145,7 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 	if logger != nil {
 		logger.Log("INFメッセージを受信: %v, SEOJ:%v, DEOJ:%v", ip, msg.SEOJ, msg.DEOJ)
 	}
-	fmt.Printf("INFメッセージを受信: %v %v, DEOJ:%v\n", ip, msg.SEOJ, msg.DEOJ) // DEBUG
+	// fmt.Printf("INFメッセージを受信: %v %v, DEOJ:%v\n", ip, msg.SEOJ, msg.DEOJ) // DEBUG
 
 	// DEOJ は instanceCode = 0 (ワイルドカード) の場合がある
 	if found := h.localDevices.FindEOJ(msg.DEOJ); len(found) == 0 {
@@ -235,7 +235,11 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 		if len(msg.Properties) > 0 {
 			// Propertyの通知 -> 値を更新する
 			h.dataAccessor.RegisterProperties(device, msg.Properties)
-			fmt.Printf("%v: Propertyの通知: %v\n", device, msg.Properties)
+			fmt.Printf("%s: Propertyの通知: %v %v\n",
+				time.Now().Format(time.RFC3339),
+				device,
+				msg.Properties.String(device.EOJ.ClassCode()),
+			)
 
 			// デバイス情報を保存
 			h.dataAccessor.SaveDeviceInfo()
@@ -615,11 +619,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				classCode := device.EOJ.ClassCode()
 				changes := make([]string, len(changed))
 				for i, p := range changed {
-					changes[i] = fmt.Sprintf("%s: %v -> %v",
-						p.EPC.StringForClass(classCode),
-						p.Before().EDTString(classCode),
-						p.After().EDTString(classCode),
-					)
+					changes[i] = p.StringForClass(classCode)
 				}
 				fmt.Printf("%v: %v のプロパティを %v個更新: [%v]\n",
 					time.Now().Format(time.RFC3339),

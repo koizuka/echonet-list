@@ -1,6 +1,7 @@
 package echonet_lite
 
 import (
+	"fmt"
 	"net"
 	"time"
 )
@@ -65,4 +66,12 @@ func (c ChangedProperty) After() Property {
 		EPC: c.EPC,
 		EDT: c.afterEDT,
 	}
+}
+
+func (c ChangedProperty) StringForClass(classCode EOJClassCode) string {
+	return fmt.Sprintf("%s: %v -> %v",
+		c.EPC.StringForClass(classCode),
+		c.Before().EDTString(classCode),
+		c.After().EDTString(classCode),
+	)
 }
