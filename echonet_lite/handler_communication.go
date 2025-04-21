@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 )
@@ -628,12 +627,6 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				for i, p := range changed {
 					changes[i] = p.StringForClass(classCode)
 				}
-				fmt.Printf("%v: %v のプロパティを %v個更新: [%v]\n",
-					time.Now().Format(time.RFC3339),
-					deviceName,
-					len(changed),
-					strings.Join(changes, ", "),
-				)
 			}
 
 			// 全体の成功/失敗を判定
