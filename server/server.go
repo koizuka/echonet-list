@@ -4,7 +4,6 @@ import (
 	"context"
 	"echonet-list/echonet_lite"
 	"fmt"
-	"net"
 )
 
 type Server struct {
@@ -13,14 +12,8 @@ type Server struct {
 }
 
 func NewServer(ctx context.Context, debug bool) (*Server, error) {
-	// Controller Object
-	SEOJ := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
-
-	// local address （ECHONET Liteの既定ポートを使用）
-	var localIP net.IP = nil // nilはすべてのインターフェースをリッスンする
-
 	// ECHONETLiteHandlerの作成
-	handler, err := echonet_lite.NewECHONETLiteHandler(ctx, localIP, SEOJ, debug)
+	handler, err := echonet_lite.NewECHONETLiteHandler(ctx, nil, debug)
 	if err != nil {
 		return nil, err
 	}

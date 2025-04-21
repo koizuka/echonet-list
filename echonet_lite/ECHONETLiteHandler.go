@@ -18,9 +18,12 @@ type ECHONETLiteHandler struct {
 }
 
 // NewECHONETLiteHandler は、ECHONETLiteHandler の新しいインスタンスを作成する
-func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool) (*ECHONETLiteHandler, error) {
+func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONETLiteHandler, error) {
 	// タイムアウト付きのコンテキストを作成
 	handlerCtx, cancel := context.WithCancel(ctx)
+
+	// Controller Object
+	seoj := MakeEOJ(Controller_ClassCode, 1)
 
 	// 自ノードのセッションを作成
 	session, err := CreateSession(handlerCtx, ip, seoj, debug)
@@ -67,12 +70,12 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 	operationStatusOn, ok := ProfileSuperClass_PropertyTable.FindAlias("on")
 	if !ok {
 		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("プロパティテーブルに on が見つかりません")
+		panic("プロパティテーブルに on が見つかりません")
 	}
 	manufacturerCode, ok := ProfileSuperClass_PropertyTable.FindAlias("Experimental")
 	if !ok {
 		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("プロパティテーブルに Experimental が見つかりません")
+		panic("プロパティテーブルに Experimental が見つかりません")
 	}
 	identificationNumber := IdentificationNumber{
 		ManufacturerCode: manufacturerCode.EDT,
