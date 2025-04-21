@@ -148,7 +148,12 @@ func main() {
 	}()
 
 	// ルートコンテキストの作成
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	signals := []os.Signal{os.Interrupt, syscall.SIGTERM}
+	if !cfg.Daemon.Enabled {
+		// コンソールUIモードではSIGHUPでも終了する
+		signals = append(signals, syscall.SIGHUP)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), signals...)
 	defer stop() // プログラム終了時にコンテキストをキャンセル
 
 	var wg sync.WaitGroup

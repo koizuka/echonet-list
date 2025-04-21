@@ -150,9 +150,6 @@ func (s *Session) MainLoop() {
 		// コンテキストがキャンセルされていないか確認
 		select {
 		case <-s.ctx.Done():
-			if logger != nil {
-				logger.Log("コンテキストがキャンセルされました: %v", s.ctx.Err())
-			}
 			return
 		default:
 			// 継続
