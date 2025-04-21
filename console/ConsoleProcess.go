@@ -117,12 +117,9 @@ func ConsoleProcess(ctx context.Context, c client.ECHONETListClient) {
 		}),
 	)
 
-	fmt.Println("Starting interactive console...")
 	pt.Run()
 
 	saveHistory(historyFilePath, initialHistory)
-
-	fmt.Println("Console finished.")
 }
 
 // findCommandDefinition は CommandTable からコマンド定義を検索するヘルパー関数
