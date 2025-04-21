@@ -44,8 +44,10 @@ func NewServer(ctx context.Context, debug bool) (*Server, error) {
 	// ノードリストの通知
 	_ = handler.NotifyNodeList()
 
-	// デバイスの発見
-	_ = handler.Discover()
+	// 起動時に　discover をするが、時間がかかるので goroutineで実行する
+	go func() {
+		_ = handler.Discover()
+	}()
 
 	return &Server{
 		ctx:     ctx,
