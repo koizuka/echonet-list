@@ -26,6 +26,7 @@ func NewLogManager(logFilename string) (*LogManager, error) {
 			<-rotateSignalCh
 			fmt.Fprintln(os.Stderr, "SIGHUPを受信しました。ログファイルをローテーションします...")
 			logger := log.GetLogger()
+			logger.Log("SIGHUPを受信しました。ログファイルをローテーションします...")
 			if err := logger.Rotate(); err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "ログローテーションエラー: %v\n", err)
 			}
