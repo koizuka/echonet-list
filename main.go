@@ -131,7 +131,7 @@ func main() {
 	wsClientAddr := cfg.WebSocketClient.Addr
 
 	// ロガーのセットアップ
-	logger, err := server.NewLogManager(logFilename)
+	logManager, err := server.NewLogManager(logFilename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ログ設定エラー: %v\n", err)
 		os.Exit(1)
@@ -139,12 +139,12 @@ func main() {
 
 	// デーモンモードのときにのみ、SIGHUP でlog rotate を実行
 	if cfg.Daemon.Enabled {
-		logger.AutoRotate()
+		logManager.AutoRotate()
 	}
 
 	// ログファイルを閉じる
 	defer func() {
-		_ = logger.Close()
+		_ = logManager.Close()
 	}()
 
 	// ルートコンテキストの作成
