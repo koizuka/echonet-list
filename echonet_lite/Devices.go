@@ -71,7 +71,8 @@ func (d *DeviceProperties) UnmarshalJSON(data []byte) error {
 type DeviceEventType int
 
 const (
-	DeviceEventAdded DeviceEventType = iota // デバイスが追加された
+	DeviceEventAdded   DeviceEventType = iota // デバイスが追加された
+	DeviceEventOffline                        // デバイスがオフラインになった
 )
 
 // DeviceEvent はデバイスに関するイベントを表す構造体
@@ -146,6 +147,19 @@ func (d Devices) SetOffline(device IPAndEOJ, offline bool) {
 	key := device.Key()
 	if offline {
 		d.offlineDevices[key] = struct{}{}
+
+		// ベントをチャンネルに送信
+		if d.EventCh != nil {
+			select {
+			case d.EventCh <- DeviceEvent{
+				Device: device,
+				Type:   DeviceEventOffline,
+			}:
+				// 送信成功
+			default:
+				// チャンネルがブロックされている場合は無視
+			}
+		}
 	} else {
 		delete(d.offlineDevices, key)
 	}

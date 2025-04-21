@@ -60,35 +60,9 @@ func (c *HandlerCore) IsDebug() bool {
 	return c.Debug
 }
 
-// RelayDeviceEvent は、DeviceEventをDeviceNotificationに変換して中継する
-func (c *HandlerCore) RelayDeviceEvent(event DeviceEvent) {
-	// DeviceEventをDeviceNotificationに変換して中継
-	switch event.Type {
-	case DeviceEventAdded:
-		select {
-		case c.NotificationCh <- DeviceNotification{
-			Device: event.Device,
-			Type:   DeviceAdded,
-		}:
-			// 送信成功
-		default:
-			// チャンネルがブロックされている場合は無視
-			if logger := log.GetLogger(); logger != nil {
-				logger.Log("警告: 通知チャネルがブロックされています")
-			}
-		}
-	}
-}
-
-// RelaySessionTimeoutEvent は、SessionTimeoutEventをDeviceNotificationに変換して中継する
-func (c *HandlerCore) RelaySessionTimeoutEvent(event SessionTimeoutEvent) {
-	// SessionTimeoutEventをDeviceNotificationに変換して中継
+func (c *HandlerCore) notify(notification DeviceNotification) {
 	select {
-	case c.NotificationCh <- DeviceNotification{
-		Device: event.Device,
-		Type:   DeviceTimeout,
-		Error:  event.Error,
-	}:
+	case c.NotificationCh <- notification:
 		// 送信成功
 	default:
 		// チャンネルがブロックされている場合は無視
@@ -96,6 +70,33 @@ func (c *HandlerCore) RelaySessionTimeoutEvent(event SessionTimeoutEvent) {
 			logger.Log("警告: 通知チャネルがブロックされています")
 		}
 	}
+}
+
+// RelayDeviceEvent は、DeviceEventをDeviceNotificationに変換して中継する
+func (c *HandlerCore) RelayDeviceEvent(event DeviceEvent) {
+	// DeviceEventをDeviceNotificationに変換して中継
+	switch event.Type {
+	case DeviceEventAdded:
+		c.notify(DeviceNotification{
+			Device: event.Device,
+			Type:   DeviceAdded,
+		})
+	case DeviceEventOffline:
+		c.notify(DeviceNotification{
+			Device: event.Device,
+			Type:   DeviceOffline,
+		})
+	}
+}
+
+// RelaySessionTimeoutEvent は、SessionTimeoutEventをDeviceNotificationに変換して中継する
+func (c *HandlerCore) RelaySessionTimeoutEvent(event SessionTimeoutEvent) {
+	// SessionTimeoutEventをDeviceNotificationに変換して中継
+	c.notify(DeviceNotification{
+		Device: event.Device,
+		Type:   DeviceTimeout,
+		Error:  event.Error,
+	})
 }
 
 // RelayPropertyChangeEvent は、プロパティ変更通知を中継する

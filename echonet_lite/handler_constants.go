@@ -16,6 +16,7 @@ type NotificationType int
 const (
 	DeviceAdded NotificationType = iota
 	DeviceTimeout
+	DeviceOffline
 )
 
 // DeviceNotification はデバイスに関する通知を表す構造体
