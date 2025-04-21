@@ -27,6 +27,8 @@ type DataAccessor interface {
 	GetIDString(device IPAndEOJ) IDString
 	GetLastUpdateTime(device IPAndEOJ) time.Time
 	DeviceStringWithAlias(device IPAndEOJ) string
+	IsOffline(device IPAndEOJ) bool
+	SetOffline(device IPAndEOJ, offline bool)
 
 	// フィルタリング
 	Filter(criteria FilterCriteria) Devices

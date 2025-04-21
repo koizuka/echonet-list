@@ -28,6 +28,12 @@ This file describes the system architecture and code organization patterns used 
   - Device addition notifications inform when new devices are discovered
   - Timeout notifications alert when device communication fails
   - Property change notifications (planned) will enable real-time state updates
+- Device offline handling:
+  - When Session detects a timeout, it emits a SessionTimeoutEvent.
+  - ECHONETLiteHandler wraps NotificationCh to catch DeviceTimeout notifications.
+  - On DeviceTimeout, DataManagementHandler.MarkOffline adds the device to offlineDevices.
+  - CommunicationHandler.UpdateProperties skips devices marked offline.
+  - Recovery from offline requires explicit SetOffline(false) or a future automatic re-detection.
 - **WebSocket Client/Server Architecture**:
   - The application can be split into a server and a client communicating via WebSocket.
   - **Server**: Handles ECHONET Lite communication (discovery, property get/set) and manages device state. It exposes a WebSocket endpoint.

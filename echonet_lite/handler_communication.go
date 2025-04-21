@@ -243,6 +243,7 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 
 			// デバイス情報を保存
 			h.dataAccessor.SaveDeviceInfo()
+			h.dataAccessor.SetOffline(device, false)
 		}
 	}
 	return nil
@@ -351,6 +352,7 @@ func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, p
 
 			// デバイス情報を保存
 			h.dataAccessor.SaveDeviceInfo()
+			h.dataAccessor.SetOffline(device, false)
 
 			return CallbackFinished, nil
 		},
@@ -450,6 +452,7 @@ func (h *CommunicationHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, sk
 
 		// デバイス情報を保存
 		h.dataAccessor.SaveDeviceInfo()
+		h.dataAccessor.SetOffline(device, false)
 	}
 
 	// 結果を設定
@@ -510,6 +513,7 @@ func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Propert
 
 		// デバイス情報を保存
 		h.dataAccessor.SaveDeviceInfo()
+		h.dataAccessor.SetOffline(device, false)
 	}
 
 	// 結果を設定
@@ -564,6 +568,9 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				// fmt.Printf("デバイス %v は最近更新されたためスキップします (最終更新: %v)\n", device, lastUpdateTime.Format(time.RFC3339))
 				continue // 更新をスキップ
 			}
+			if h.dataAccessor.IsOffline(device) {
+				continue // オフラインのデバイスはスキップ
+			}
 		}
 
 		wg.Add(1)
@@ -611,6 +618,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				changed = h.dataAccessor.RegisterProperties(device, properties)
 				// デバイス情報を保存
 				h.dataAccessor.SaveDeviceInfo()
+				h.dataAccessor.SetOffline(device, false)
 			}
 
 			// 結果を記録

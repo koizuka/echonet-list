@@ -125,12 +125,25 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, seoj EOJ, debug bool)
 	session.OnInf(comm.onInfMessage)
 	session.OnReceive(comm.onReceiveMessage)
 
+	// NotificationCh を中継用にラップし、タイムアウト時にオフライン状態を設定
+	wrappedCh := make(chan DeviceNotification, 100)
+	go func() {
+		for ev := range core.NotificationCh {
+			if ev.Type == DeviceTimeout {
+				// デバイスをオフラインに設定
+				data.SetOffline(ev.Device, true)
+			}
+			wrappedCh <- ev
+		}
+		close(wrappedCh)
+	}()
+
 	// ECHONETLiteHandlerを作成
 	handler := &ECHONETLiteHandler{
 		core:             core,
 		comm:             comm,
 		data:             data,
-		NotificationCh:   core.NotificationCh,
+		NotificationCh:   wrappedCh,
 		PropertyChangeCh: core.PropertyChangeCh,
 	}
 

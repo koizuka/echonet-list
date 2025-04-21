@@ -204,6 +204,10 @@ ECHONET Liteデバイスからのプロパティ値変化通知（INF）を受�
 
 ## Recent Changes
 
+- デバイスのオフライン状態管理機能を追加しました
+  - `echonet_lite/Devices.go` に `IsOffline` と `SetOffline` メソッドを追加しました。
+  - `echonet_lite/ECHONETLiteHandler.go` で `Session` からのタイムアウト通知 (`DeviceTimeout`) を受け取った際に、`DataManagementHandler.SetOffline` を呼び出して該当デバイスをオフラインとしてマークするようにしました。
+
 - WebSocketサーバーの定期的なプロパティ自動更新機能を設定ファイルで指定可能にしました
   - `config/config.go` の `Config.WebSocket` に `PeriodicUpdateInterval` (string) を追加し、デフォルト値を "1m" に設定しました。
   - `main.go` で設定ファイルからこの値を読み込み、`time.ParseDuration` でパースして `server.StartOptions` に渡すように修正しました (パース失敗時はデフォルト1分)。

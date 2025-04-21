@@ -150,6 +150,19 @@ func (h *DataManagementHandler) DeviceStringWithAlias(device IPAndEOJ) string {
 	return (strings.Join(names, " "))
 }
 
+func (h *DataManagementHandler) IsOffline(device IPAndEOJ) bool {
+	return h.devices.IsOffline(device)
+}
+
+func (h *DataManagementHandler) SetOffline(device IPAndEOJ, offline bool) {
+	if offline {
+		if logger := log.GetLogger(); logger != nil {
+			logger.Log("デバイス %s をオフラインに設定", device)
+		}
+	}
+	h.devices.SetOffline(device, offline)
+}
+
 // AliasSet は、デバイスにエイリアスを設定する
 func (h *DataManagementHandler) AliasSet(alias *string, criteria FilterCriteria) error {
 	devices := h.devices.Filter(criteria)
