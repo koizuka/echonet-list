@@ -17,6 +17,11 @@ This file describes the system architecture and code organization patterns used 
 
 ## Key Technical Decisions
 
+- **Daemon Mode**: WebSocketサーバーをバックグラウンドで実行し、コンソールUIを起動しないモード
+  - PIDファイルを作成して管理
+  - SIGHUPシグナルによるログローテーション
+  - WebSocketサーバーを必須とし、クライアントモードは無効
+
 - Go language for cross-platform compatibility and performance
 - UDP for network communication with ECHONET Lite devices
 - JSON for persistent storage of discovered devices

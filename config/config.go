@@ -42,6 +42,12 @@ type Config struct {
 		Enabled bool   `toml:"enabled"`
 		Addr    string `toml:"addr"`
 	} `toml:"websocket_client"`
+
+	// Daemon mode settings
+	Daemon struct {
+		Enabled bool   `toml:"enabled"`
+		PIDFile string `toml:"pid_file"`
+	} `toml:"daemon"`
 }
 
 // NewConfig はデフォルト設定を持つConfigを作成する
@@ -53,6 +59,9 @@ func NewConfig() *Config {
 	cfg.WebSocket.Addr = "localhost:8080"
 	cfg.WebSocket.PeriodicUpdateInterval = "1m" // Default to 1 minute
 	cfg.WebSocketClient.Addr = "ws://localhost:8080/ws"
+	// Default daemon settings
+	cfg.Daemon.Enabled = false
+	cfg.Daemon.PIDFile = ""
 	return cfg
 }
 
@@ -122,6 +131,13 @@ func (c *Config) ApplyCommandLineArgs(args CommandLineArgs) {
 		c.WebSocket.Enabled = true
 		c.WebSocketClient.Enabled = true
 	}
+	// Daemon mode flags
+	if args.DaemonEnabledSpecified {
+		c.Daemon.Enabled = args.DaemonEnabled
+	}
+	if args.PIDFileSpecified {
+		c.Daemon.PIDFile = args.PIDFile
+	}
 }
 
 // CommandLineArgs はコマンドライン引数からの値を保持する
@@ -161,6 +177,11 @@ type CommandLineArgs struct {
 	// 特殊フラグ
 	WebSocketBoth          bool
 	WebSocketBothSpecified bool
+	// Daemon mode flags
+	DaemonEnabled          bool
+	DaemonEnabledSpecified bool
+	PIDFile                string
+	PIDFileSpecified       bool
 }
 
 // ParseCommandLineArgs はコマンドライン引数をパースする
@@ -184,6 +205,8 @@ func ParseCommandLineArgs() CommandLineArgs {
 	wsClientAddrFlag := flag.String("ws-client-addr", "ws://localhost:8080/ws", "WebSocketクライアントの接続先アドレスを指定する")
 
 	wsBothFlag := flag.Bool("ws-both", false, "WebSocketサーバーとクライアントの両方を有効にする（テスト用）")
+	daemonFlag := flag.Bool("daemon", false, "デーモンモードを有効にする")
+	pidFileFlag := flag.String("pidfile", "", "PIDファイルのパスを指定する")
 
 	// コマンドライン引数を解析
 	flag.Parse()
@@ -248,6 +271,10 @@ func ParseCommandLineArgs() CommandLineArgs {
 
 	args.WebSocketBoth = *wsBothFlag
 	args.WebSocketBothSpecified = argsMap["ws-both"]
+	args.DaemonEnabled = *daemonFlag
+	args.DaemonEnabledSpecified = argsMap["daemon"]
+	args.PIDFile = *pidFileFlag
+	args.PIDFileSpecified = argsMap["pidfile"]
 
 	return args
 }

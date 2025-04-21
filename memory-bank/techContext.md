@@ -47,6 +47,15 @@ This file provides details about the technical environment and constraints of th
   - When TLS is enabled, WebSocket clients should connect using `wss://` instead of `ws://`.
   - The application automatically updates client connection URLs when TLS is enabled.
 
+## Daemon Mode
+
+- **Purpose**: バックグラウンドでWebSocketサーバーを実行し、コンソールUIを起動しないモード
+- **Activation**: `-daemon` フラグまたは設定ファイルの `daemon.enabled = true` で有効化
+- **PID File**: `-pidfile <path>` または設定ファイルの `daemon.pid_file` で指定
+- **Log Rotation**: デーモンモード時のみ SIGHUP シグナルによるログローテーションが有効
+- **WebSocket Server**: デーモンモードでは WebSocket サーバーが必須（自動的に有効化）
+- **Client Mode**: デーモンモードでは WebSocket クライアントモードは無効
+
 ## Configuration File
 
 - **Format**: TOML (Tom's Obvious, Minimal Language)

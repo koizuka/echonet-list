@@ -22,3 +22,10 @@ key_file = "certs/key.pem"
 [websocket_client]
 enabled = false
 addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
+
+# Daemon mode settings
+[daemon]
+# デーモンモードを有効にする
+enabled = false
+# プロセスIDを保存するファイルのパス
+pid_file = ""

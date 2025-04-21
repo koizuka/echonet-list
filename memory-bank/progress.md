@@ -39,6 +39,7 @@ This file tracks the implementation progress of the project features defined in 
 **注記:** 当初の計画にあった「アーキテクチャ分割（CLIクライアントの分離）」は、現時点では優先度を下げ、実装を省略します。
 
 ## Completed Features
+<!-- 完了した機能は実装順(古い順)に並んでいます -->
 
 - ✅ **デバイス通知機能**: デバイスの追加通知とタイムアウト通知の実装
 - ✅ **プロパティ変化通知機能**: デバイスのプロパティ値変化をリアルタイム通知
@@ -51,3 +52,4 @@ This file tracks the implementation progress of the project features defined in 
 - ✅ **デバイスプロパティ更新タイムスタンプ機能**: デバイスごとにプロパティが最後に更新された時刻を記録し、WebSocketプロトコルを通じてクライアントに提供
 - ✅ **WebSocketサーバーの定期的なプロパティ自動更新機能**: クライアント接続時に設定ファイルで指定可能な間隔（デフォルト1分）でプロパティを自動更新
 - ✅ **デバイスオフライン状態管理 (基本)**: タイムアウト時の自動マークと `UpdateProperties` でのスキップ
+- ✅ **デーモンモード機能の実装**: `-daemon` フラグ、`daemon.pid_file`、SIGHUPによるログローテーション、コンソールUI無効化を含む

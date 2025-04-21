@@ -18,6 +18,11 @@ func NewLogManager(logFilename string) (*LogManager, error) {
 	}
 	log.SetLogger(logger)
 
+	return &LogManager{}, nil
+}
+
+// AutoRotateは、SIGHUPシグナルを受信したときにログファイルをローテーションします。
+func (lm *LogManager) AutoRotate() {
 	// ログローテーション用のシグナルハンドリング (SIGHUP)
 	rotateSignalCh := make(chan os.Signal, 1)
 	signal.Notify(rotateSignalCh, syscall.SIGHUP)
@@ -33,7 +38,6 @@ func NewLogManager(logFilename string) (*LogManager, error) {
 		}
 	}()
 
-	return &LogManager{}, nil
 }
 
 func (lm *LogManager) Close() error {

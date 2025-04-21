@@ -46,6 +46,8 @@ func main() {
 	wsTLSFlag := flag.Bool("ws-tls", false, "WebSocketサーバーでTLSを有効にする")
 	wsCertFileFlag := flag.String("ws-cert-file", "", "TLS証明書ファイルのパスを指定する")
 	wsKeyFileFlag := flag.String("ws-key-file", "", "TLS秘密鍵ファイルのパスを指定する")
+	daemonFlag := flag.Bool("daemon", false, "デーモンモードを有効にする")
+	pidFileFlag := flag.String("pidfile", "", "PIDファイルのパスを指定する")
 
 	// コマンドライン引数の解析
 	flag.Parse()
@@ -91,9 +93,31 @@ func main() {
 
 		WebSocketBoth:          *wsBothFlag,
 		WebSocketBothSpecified: flag.Lookup("ws-both").Value.String() != "false",
+		DaemonEnabled:          *daemonFlag,
+		DaemonEnabledSpecified: flag.Lookup("daemon").Value.String() != "false",
+		PIDFile:                *pidFileFlag,
+		PIDFileSpecified:       flag.Lookup("pidfile").Value.String() != "",
 	}
 
 	cfg.ApplyCommandLineArgs(cmdArgs)
+
+	// Daemon mode pre-checks and PID file handling
+	if cfg.Daemon.Enabled {
+		if !cfg.WebSocket.Enabled {
+			fmt.Fprintln(os.Stderr, "デーモンモードでは WebSocket サーバーを有効にする必要があります。-websocket を指定してください。")
+			os.Exit(1)
+		}
+		if cfg.Daemon.PIDFile == "" {
+			fmt.Fprintln(os.Stderr, "デーモンモードでは pidfile を指定する必要があります。-pidfile を指定してください。")
+			os.Exit(1)
+		}
+		pid := os.Getpid()
+		if err := os.WriteFile(cfg.Daemon.PIDFile, []byte(fmt.Sprintf("%d\n", pid)), 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "PIDファイルの作成に失敗しました: %v\n", err)
+			os.Exit(1)
+		}
+		defer os.Remove(cfg.Daemon.PIDFile)
+	}
 
 	// 設定値を取得
 	debug := cfg.Debug
@@ -101,6 +125,9 @@ func main() {
 	websocket := cfg.WebSocket.Enabled
 	wsAddr := cfg.WebSocket.Addr
 	wsClient := cfg.WebSocketClient.Enabled
+	if cfg.Daemon.Enabled {
+		wsClient = false // Daemon modeではクライアントモードを無効にする
+	}
 	wsClientAddr := cfg.WebSocketClient.Addr
 
 	// ロガーのセットアップ
@@ -110,23 +137,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// デーモンモードのときにのみ、SIGHUP でlog rotate を実行
+	if cfg.Daemon.Enabled {
+		logger.AutoRotate()
+	}
+
 	// ログファイルを閉じる
 	defer func() {
 		_ = logger.Close()
 	}()
 
 	// ルートコンテキストの作成
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel() // プログラム終了時にコンテキストをキャンセル
-
-	// シグナルハンドリングの設定 (SIGINT, SIGTERM)
-	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-signalCh
-		fmt.Println("\nシグナルを受信しました。終了します...")
-		cancel() // シグナル受信時にコンテキストをキャンセル
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop() // プログラム終了時にコンテキストをキャンセル
 
 	var wg sync.WaitGroup
 	var c client.ECHONETListClient
@@ -273,15 +296,16 @@ func main() {
 		c = client.NewECHONETListClientProxy(s.GetHandler())
 	}
 
-	// コンソールUIの終了を通知するチャネル
-	consoleDone := make(chan struct{})
-
-	// コンソールUIを開始
-	go func() {
+	if !cfg.Daemon.Enabled {
+		// コンソールUIモード
 		console.ConsoleProcess(ctx, c)
-		close(consoleDone) // コンソールUIが終了したことを通知
-	}()
-
-	// コンソールUIの終了を待つ
-	<-consoleDone
+	} else {
+		// デーモンモード
+		// wg.Wait() または ctx.Done() を待機
+		go func() {
+			wg.Wait()
+			stop()
+		}()
+		<-ctx.Done()
+	}
 }
