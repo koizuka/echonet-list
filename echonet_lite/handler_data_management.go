@@ -82,7 +82,7 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 				changes[i] = p.StringForClass(classCode)
 			}
 			logger.Log("%v のプロパティを %v個更新: [%v]\n",
-				device,
+				h.DeviceStringWithAlias(device),
 				len(changed),
 				strings.Join(changes, ", "),
 			)
