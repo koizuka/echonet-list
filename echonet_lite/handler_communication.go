@@ -143,7 +143,7 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 	}
 
 	if logger != nil {
-		logger.Log("INFメッセージを受信: %v, SEOJ:%v, DEOJ:%v", ip, msg.SEOJ, msg.DEOJ)
+		logger.Log("INFメッセージを受信: %v, SEOJ:%v, DEOJ:%v, ESV:%v, Properties:%v", ip, msg.SEOJ, msg.DEOJ, msg.ESV, msg.Properties.String(msg.SEOJ.ClassCode()))
 	}
 	// fmt.Printf("INFメッセージを受信: %v %v, DEOJ:%v\n", ip, msg.SEOJ, msg.DEOJ) // DEBUG
 
