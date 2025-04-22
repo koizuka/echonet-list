@@ -32,7 +32,8 @@ This file describes the system architecture and code organization patterns used 
 - Notification system for loose coupling, allowing frontend components to receive state changes:
   - Device addition notifications inform when new devices are discovered
   - Timeout notifications alert when device communication fails
-  - Property change notifications (planned) will enable real-time state updates
+  - Device offline notifications inform when a device is marked as offline
+  - Property change notifications enable real-time state updates
 - Device offline handling:
   - When Session detects a timeout, it emits a SessionTimeoutEvent.
   - ECHONETLiteHandler wraps NotificationCh to catch DeviceTimeout notifications.
@@ -166,6 +167,7 @@ The WebSocket protocol supports the following message types:
 - `group_changed`: Notification when a device group is changed
 - `property_changed`: Notification when a property value changes
 - `timeout_notification`: Notification when a device communication times out
+- `device_offline`: Notification when a device is marked as offline
 - `error_notification`: Notification of an error
 
 This architecture allows for better separation of concerns, easier testing, and improved maintainability.

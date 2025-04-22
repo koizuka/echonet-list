@@ -18,14 +18,14 @@ This file tracks the implementation progress of the project features defined in 
   - グループ内の全デバイスに対する一括操作
 - `devices`コマンドのグループ化機能（`-group-by <epc>`オプション）
 - WebSocketサーバーの定期的なプロパティ自動更新機能（クライアント接続時、設定ファイルで指定可能な間隔、デフォルト1分）
-- デバイスのオフライン状態管理（タイムアウト時に自動マーク、`UpdateProperties` でのスキップ）
+- デバイスのオフライン状態管理（タイムアウト時に自動マーク、`UpdateProperties` でのスキップ、WebSocketクライアントへのオフライン通知）
 
 ## What's Left to Build
 
 - **デバイスのオフライン状態管理**:
-  - 実装済み: タイムアウト時に自動マーク、`UpdateProperties` でのスキップ
-  - 実装予定: オフライン状態のコマンド/通知/UIへの反映、復帰条件の定義と実装
-  - 状態: 基本機能実装済み、詳細な挙動定義と実装が必要
+  - 実装済み: タイムアウト時に自動マーク、`UpdateProperties` でのスキップ、WebSocketクライアントへのオフライン通知
+  - 実装予定: オフライン状態のコマンド/UIへの反映、復帰条件の定義と実装
+  - 状態: 基本機能とWebSocket通知機能実装済み、詳細な挙動定義と実装が必要
 - **WebSocketクライアントの機能改善**: コンソールUI（WebSocketクライアント）のコマンド実装とテスト、オフライン状態対応
   - 実装予定: `discover`, `get`, `set`, `update`, `alias`, `group` コマンドのWebSocket経由での実装、テスト追加、オフライン状態ハンドリング
   - 状態: 一部実装済み、残りのコマンド実装とテストが必要

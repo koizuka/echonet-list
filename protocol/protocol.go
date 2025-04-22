@@ -21,6 +21,7 @@ const (
 	MessageTypeGroupChanged          MessageType = "group_changed"
 	MessageTypePropertyChanged       MessageType = "property_changed"
 	MessageTypeTimeoutNotification   MessageType = "timeout_notification"
+	MessageTypeDeviceOffline         MessageType = "device_offline"
 	MessageTypeErrorNotification     MessageType = "error_notification"
 	MessageTypeCommandResult         MessageType = "command_result"
 	MessageTypePropertyAliasesResult MessageType = "property_aliases_result"
@@ -139,6 +140,12 @@ type TimeoutNotificationPayload struct {
 	EOJ     string    `json:"eoj"`
 	Code    ErrorCode `json:"code"`
 	Message string    `json:"message"`
+}
+
+// DeviceOfflinePayload is the payload for the device_offline message
+type DeviceOfflinePayload struct {
+	IP  string `json:"ip"`
+	EOJ string `json:"eoj"`
 }
 
 // ErrorNotificationPayload is the payload for the error_notification message

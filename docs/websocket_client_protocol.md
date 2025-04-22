@@ -279,6 +279,23 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 }
 ```
 
+### device_offline
+
+デバイスがオフラインとしてマークされたことを通知します。クライアントはこのデバイスを管理リストから削除するべきです。
+
+```json
+{
+  "type": "device_offline",
+  "payload": {
+    "ip": "192.168.1.10",
+    "eoj": "0130:1"
+  }
+}
+```
+
+- `ip`: デバイスのIPアドレス（文字列）
+- `eoj`: ECHONET Lite オブジェクト識別子（文字列、形式: "CCCC:I"）
+
 ### group_changed
 
 デバイスグループが追加・更新・削除されたことを通知します。

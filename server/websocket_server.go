@@ -384,6 +384,21 @@ func (ws *WebSocketServer) listenForNotifications() {
 
 				// Broadcast the message
 				ws.broadcastMessageToClients(protocol.MessageTypeTimeoutNotification, payload)
+
+			case echonet_lite.DeviceOffline:
+				if logger != nil && ws.handler.IsDebug() {
+					logger.Log("Device offline: %s", notification.Device.Specifier())
+				}
+
+				// Create device offline payload
+				device := notification.Device
+				payload := protocol.DeviceOfflinePayload{
+					IP:  device.IP.String(),
+					EOJ: device.EOJ.Specifier(),
+				}
+
+				// Broadcast the message
+				ws.broadcastMessageToClients(protocol.MessageTypeDeviceOffline, payload)
 			}
 		case propertyChange := <-ws.handler.PropertyChangeCh:
 			// プロパティ変化通知を処理

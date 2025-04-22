@@ -27,6 +27,8 @@ func (c *WebSocketClient) handleNotification(msg *protocol.Message) {
 		c.handlePropertyChanged(msg)
 	case protocol.MessageTypeTimeoutNotification:
 		c.handleTimeoutNotification(msg)
+	case protocol.MessageTypeDeviceOffline:
+		c.handleDeviceOffline(msg)
 	case protocol.MessageTypeErrorNotification:
 		c.handleErrorNotification(msg)
 	}
@@ -345,6 +347,42 @@ func (c *WebSocketClient) handleTimeoutNotification(msg *protocol.Message) {
 
 	// Always print the timeout notification, regardless of debug flag
 	fmt.Printf("[TIMEOUT] Device %s %s: %s\n", payload.IP, payload.EOJ, payload.Message)
+}
+
+// handleDeviceOffline handles a device_offline message
+func (c *WebSocketClient) handleDeviceOffline(msg *protocol.Message) {
+	var payload protocol.DeviceOfflinePayload
+	if err := protocol.ParsePayload(msg, &payload); err != nil {
+		if c.debug {
+			fmt.Printf("Error parsing device_offline payload: %v\n", err)
+		}
+		return
+	}
+
+	// Parse the device identifier
+	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
+	if err != nil {
+		if c.debug {
+			fmt.Printf("Error parsing device identifier for offline notification: %v\n", err)
+		}
+		return
+	}
+
+	deviceID := ipAndEOJ.Specifier()
+
+	// Remove from devices and lastSeenTimes
+	c.devicesMutex.Lock()
+	c.lastSeenMutex.Lock()
+
+	delete(c.devices, deviceID)
+	delete(c.lastSeenTimes, deviceID)
+
+	c.lastSeenMutex.Unlock()
+	c.devicesMutex.Unlock()
+
+	if c.debug {
+		fmt.Printf("[OFFLINE] Device removed due to offline status: %s\n", deviceID)
+	}
 }
 
 // handleErrorNotification handles an error_notification message
