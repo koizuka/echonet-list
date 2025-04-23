@@ -173,7 +173,11 @@ func (p CommandParser) GetEDTFromValue(c client.EOJClassCode, e client.EPCType, 
 			}
 		}
 		if info.Number != nil {
-			if num, err := strconv.Atoi(value); err == nil {
+			v := value
+			if strings.HasSuffix(value, info.Number.Unit) {
+				v = strings.TrimSuffix(value, info.Number.Unit)
+			}
+			if num, err := strconv.Atoi(v); err == nil {
 				return info.Number.FromInt(num)
 			}
 		}
@@ -223,9 +227,8 @@ func (p CommandParser) parsePropertyString(propertyStr string, classCode client.
 				fmt.Printf("エイリアス '%s' を EPC:%s, EDT:%X に展開します\n", alias, p.EPC, p.EDT)
 			}
 			return p, nil
-		} else {
-			return client.Property{}, fmt.Errorf("エイリアス '%s' が見つかりません。EPC:EDT 形式を使用してください", alias)
 		}
+		return client.Property{}, fmt.Errorf("エイリアス '%s' が見つかりません。EPC:EDT 形式を使用してください", alias)
 	}
 }
 

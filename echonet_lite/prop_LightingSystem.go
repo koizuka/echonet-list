@@ -2,7 +2,6 @@ package echonet_lite
 
 import (
 	"bytes"
-	"echonet-list/echonet_lite/props"
 	"fmt"
 	"strings"
 )
@@ -20,12 +19,14 @@ const (
 )
 
 func (r PropertyRegistry) LightingSystem() PropertyRegistryEntry {
+	Illuminance := NumberValueDesc{Min: 0, Max: 100, Unit: "%", EDTLen: 1}
+
 	return PropertyRegistryEntry{
 		ClassCode: LightingSystem_ClassCode,
 		PropertyTable: PropertyTable{
 			Description: "Lighting System",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_LS_Illuminance:     {"Illuminance level", Decoder(props.DecodeIlluminance), nil, nil},
+				EPC_LS_Illuminance:     {"Illuminance level", nil, nil, &Illuminance},
 				EPC_LS_SceneControl:    {"Scene control", Decoder(LS_DecodeSceneControl), nil, nil},
 				EPC_LS_MaxSceneControl: {"Max scene control", Decoder(LS_DecodeMaxSceneControl), nil, nil},
 				EPC_LS_PanasonicF1:     {"Panasonic F1", Decoder(LS_DecodePanasonicFx), nil, nil},
