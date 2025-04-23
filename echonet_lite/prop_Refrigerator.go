@@ -19,13 +19,13 @@ func (r PropertyRegistry) Refrigerator() PropertyRegistryEntry {
 		PropertyTable: PropertyTable{
 			Description: "Refrigerator",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_RF_DoorOpenStatus: {"Door open status", nil, doorStatusAliases},
+				EPC_RF_DoorOpenStatus: {"Door open status", nil, doorStatusAliases, nil},
 				EPC_RF_DoorOpenAlertStatus: {"Door open alert status", nil, map[string][]byte{
 					"alert":  {0x41},
 					"normal": {0x42},
-				}},
-				EPC_RF_RefrigeratorDoorOpenStatus: {"Refrigerator door open status", nil, doorStatusAliases},
-				EPC_RF_FreezerDoorOpenStatus:      {"Freezer door open status", nil, doorStatusAliases},
+				}, nil},
+				EPC_RF_RefrigeratorDoorOpenStatus: {"Refrigerator door open status", nil, doorStatusAliases, nil},
+				EPC_RF_FreezerDoorOpenStatus:      {"Freezer door open status", nil, doorStatusAliases, nil},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_RF_DoorOpenStatus,

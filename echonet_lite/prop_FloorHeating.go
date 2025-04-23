@@ -28,29 +28,29 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 		PropertyTable: PropertyTable{
 			Description: "Floor Heating",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_FH_TemperatureLevel: {"Temperature setting(level)", nil, TemperatureLevelAliases()},
-				EPC_FH_RoomTemperature:  {"Room temperature", Decoder(FH_DecodeTemperature), nil},
-				EPC_FH_FloorTemperature: {"Floor temperature", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_TemperatureLevel: {"Temperature setting(level)", nil, TemperatureLevelAliases(), nil},
+				EPC_FH_RoomTemperature:  {"Room temperature", Decoder(FH_DecodeTemperature), nil, nil},
+				EPC_FH_FloorTemperature: {"Floor temperature", Decoder(FH_DecodeTemperature), nil, nil},
 				EPC_FH_SpecialMode: {"Special mode", nil, map[string][]byte{
 					"normal": {0x41}, // 通常運転
 					"low":    {0x42}, // ひかえめ運転
 					"high":   {0x43}, // ハイパワー運転
-				}},
+				}, nil},
 				EPC_FH_DailyTimerEnabled: {"Daily timer enabled", nil, map[string][]byte{
 					"off":         {0x40},
 					"dailyTimer1": {0x41},
 					"dailyTimer2": {0x42},
-				}},
-				EPC_FH_DailyTimer1: {"Daily timer1", Decoder(FH_DecodeDailyTimer), nil},
-				EPC_FH_DailyTimer2: {"Daily timer2", Decoder(FH_DecodeDailyTimer), nil},
+				}, nil},
+				EPC_FH_DailyTimer1: {"Daily timer1", Decoder(FH_DecodeDailyTimer), nil, nil},
+				EPC_FH_DailyTimer2: {"Daily timer2", Decoder(FH_DecodeDailyTimer), nil, nil},
 
-				EPC_FH_OnTimerEnabled:  {"ON timer enabled", nil, FH_OnOffAlias},
-				EPC_FH_OnTimerHHMM:     {"ON timer setting", Decoder(FH_DecodeHHMM), nil},
-				EPC_FH_OffTimerEnabled: {"OFF timer enabled", nil, FH_OnOffAlias},
-				EPC_FH_OffTimerHHMM:    {"OFF timer setting", Decoder(FH_DecodeHHMM), nil},
+				EPC_FH_OnTimerEnabled:  {"ON timer enabled", nil, FH_OnOffAlias, nil},
+				EPC_FH_OnTimerHHMM:     {"ON timer setting", Decoder(FH_DecodeHHMM), nil, nil},
+				EPC_FH_OffTimerEnabled: {"OFF timer enabled", nil, FH_OnOffAlias, nil},
+				EPC_FH_OffTimerHHMM:    {"OFF timer setting", Decoder(FH_DecodeHHMM), nil, nil},
 
-				EPC_FH_Temperature1: {"Temperature sensor 1", Decoder(FH_DecodeTemperature), nil},
-				EPC_FH_Temperature2: {"Temperature sensor 2", Decoder(FH_DecodeTemperature), nil},
+				EPC_FH_Temperature1: {"Temperature sensor 1", Decoder(FH_DecodeTemperature), nil, nil},
+				EPC_FH_Temperature2: {"Temperature sensor 2", Decoder(FH_DecodeTemperature), nil, nil},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_FH_TemperatureLevel,

@@ -1,5 +1,6 @@
 #
 devices.json
+devices.json.*
 aliases.json
 groups.json
 echonet-list

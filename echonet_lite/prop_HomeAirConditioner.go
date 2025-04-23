@@ -1,7 +1,5 @@
 package echonet_lite
 
-import "fmt"
-
 const (
 	// EPC
 	EPC_HAC_AirVolumeSetting          EPCType = 0xA0 // 風量設定
@@ -16,18 +14,29 @@ const (
 )
 
 func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
+	TemperatureSetting := NumberValueDesc{Min: 0, Max: 50, Unit: "℃", EDTLen: 1}
+	MeasuredTemperature := NumberValueDesc{Min: -127, Max: 125, Unit: "℃", EDTLen: 1}
+	ExtraValueAlias := map[string][]byte{
+		"unknown":   {0xFD},
+		"underflow": {0xFE},
+		"overflow":  {0xFF},
+	}
+	Humidity := NumberValueDesc{Min: 0, Max: 100, Unit: "%", EDTLen: 1}
+
 	return PropertyRegistryEntry{
 		ClassCode: HomeAirConditioner_ClassCode,
 		PropertyTable: PropertyTable{
 			Description: "Home Air Conditioner",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_HAC_AirVolumeSetting: {"Air volume setting", nil, HAC_AirVolumeAliases()},
+				EPC_HAC_AirVolumeSetting: {"Air volume setting", nil, map[string][]byte{
+					"auto": {0x41},
+				}, &NumberValueDesc{Min: 1, Max: 8, Offset: 0x30, EDTLen: 1}},
 				EPC_HAC_AirDirectionSwingSetting: {"Air direction swing setting", nil, map[string][]byte{
 					"off":        {0x31},
 					"vertical":   {0x41},
 					"horizontal": {0x42},
 					"both":       {0x43},
-				}},
+				}, nil},
 				EPC_HAC_OperationModeSetting: {"Operation mode setting", nil, map[string][]byte{
 					"auto":    {0x41},
 					"cooling": {0x42},
@@ -35,16 +44,16 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
 					"dry":     {0x44},
 					"fan":     {0x45},
 					"other":   {0x40},
-				}},
-				EPC_HAC_TemperatureSetting:        {"Temperature setting", Decoder(HAC_DecodeTemperature), nil},
-				EPC_HAC_RelativeHumiditySetting:   {"Relative humidity setting", Decoder(HAC_DecodeHumidity), nil},
-				EPC_HAC_CurrentRoomHumidity:       {"Current room humidity", Decoder(HAC_DecodeHumidity), nil},
-				EPC_HAC_CurrentRoomTemperature:    {"Current room temperature", Decoder(HAC_DecodeTemperature), nil},
-				EPC_HAC_CurrentOutsideTemperature: {"Current outside temperature", Decoder(HAC_DecodeTemperature), nil},
+				}, nil},
+				EPC_HAC_TemperatureSetting:        {"Temperature setting", nil, ExtraValueAlias, &TemperatureSetting},
+				EPC_HAC_RelativeHumiditySetting:   {"Relative humidity setting", nil, ExtraValueAlias, &Humidity},
+				EPC_HAC_CurrentRoomHumidity:       {"Current room humidity", nil, ExtraValueAlias, &Humidity},
+				EPC_HAC_CurrentRoomTemperature:    {"Current room temperature", nil, ExtraValueAlias, &MeasuredTemperature},
+				EPC_HAC_CurrentOutsideTemperature: {"Current outside temperature", nil, ExtraValueAlias, &MeasuredTemperature},
 				EPC_HAC_HumidificationModeSetting: {"Humidification mode setting", nil, map[string][]byte{
 					"on":  {0x41},
 					"off": {0x42},
-				}},
+				}, nil},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_HAC_OperationModeSetting,
@@ -55,63 +64,4 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
 			},
 		},
 	}
-}
-
-func HAC_AirVolumeAliases() map[string][]byte {
-	result := make(map[string][]byte)
-	result["auto"] = []byte{0x41}
-	for i := 1; i <= 8; i++ {
-		result[fmt.Sprintf("%d", i)] = []byte{byte(0x30 + i)}
-	}
-	return result
-}
-
-type HAC_Humidity uint8
-
-func HAC_DecodeHumidity(EDT []byte) *HAC_Humidity {
-	if len(EDT) < 1 {
-		return nil
-	}
-	humidity := HAC_Humidity(EDT[0])
-	return &humidity
-}
-
-func (s *HAC_Humidity) String() string {
-	if s == nil {
-		return "nil"
-	}
-	return fmt.Sprintf("%d%%", *s)
-}
-
-func (s *HAC_Humidity) EDT() []byte {
-	if s == nil {
-		return nil
-	}
-	return []byte{byte(*s)}
-}
-
-type HAC_Temperature uint8
-
-func HAC_DecodeTemperature(EDT []byte) *HAC_Temperature {
-	if len(EDT) < 1 {
-		return nil
-	}
-	temp := HAC_Temperature(EDT[0])
-	return &temp
-}
-func (s *HAC_Temperature) EDT() []byte {
-	if s == nil {
-		return nil
-	}
-	return []byte{byte(*s)}
-}
-
-func (s *HAC_Temperature) String() string {
-	if s == nil {
-		return "nil"
-	}
-	if *s == 0xfd {
-		return "unknown"
-	}
-	return fmt.Sprintf("%d℃", *s)
 }

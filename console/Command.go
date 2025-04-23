@@ -165,10 +165,17 @@ func parseHexBytes(hexStr string) ([]byte, error) {
 	return bytes, nil
 }
 
-func (p CommandParser) GetEDTFromAlias(c client.EOJClassCode, e client.EPCType, alias string) ([]byte, bool) {
-	if info, ok := p.propertyInfoProvider.GetPropertyInfo(c, e); ok && info.Aliases != nil {
-		if aliases, ok := info.Aliases[alias]; ok {
-			return aliases, true
+func (p CommandParser) GetEDTFromValue(c client.EOJClassCode, e client.EPCType, value string) ([]byte, bool) {
+	if info, ok := p.propertyInfoProvider.GetPropertyInfo(c, e); ok {
+		if info.Aliases != nil {
+			if aliases, ok := info.Aliases[value]; ok {
+				return aliases, true
+			}
+		}
+		if info.Number != nil {
+			if num, err := strconv.Atoi(value); err == nil {
+				return info.Number.FromInt(num)
+			}
 		}
 	}
 	return nil, false
@@ -191,7 +198,7 @@ func (p CommandParser) parsePropertyString(propertyStr string, classCode client.
 
 		var edt []byte
 
-		if aliasEDT, ok := p.GetEDTFromAlias(classCode, epc, propParts[1]); ok {
+		if aliasEDT, ok := p.GetEDTFromValue(classCode, epc, propParts[1]); ok {
 			if debug {
 				fmt.Printf("エイリアス '%s' を EDT:%X に展開します\n", propParts[1], aliasEDT)
 			}

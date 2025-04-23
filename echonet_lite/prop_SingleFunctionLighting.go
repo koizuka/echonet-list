@@ -20,15 +20,15 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyRegistryEntry {
 		PropertyTable: PropertyTable{
 			Description: "Single Function Lighting",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_SF_Illuminance: {"Illuminance level", Decoder(props.DecodeIlluminance), nil},
+				EPC_SF_Illuminance: {"Illuminance level", Decoder(props.DecodeIlluminance), nil, nil},
 
 				EPC_SF_Panasonic_OperationStatus: {"Panasonic Operation Status", nil, map[string][]byte{
 					"on":  {0x30},
 					"off": {0x31},
-				}},
-				EPC_SF_Panasonic_Illuminance:     {"Panasonic Illuminance", Decoder(props.DecodeIlluminance), nil},
-				EPC_SF_Panasonic_UnknownStringFD: {"Panasonic Unknown String FD", Decoder(SF_Panasonic_DecodeUnknownString), nil},
-				EPC_SF_Panasonic_UnknownStringFE: {"Panasonic Unknown String FE", Decoder(SF_Panasonic_DecodeUnknownString), nil},
+				}, nil},
+				EPC_SF_Panasonic_Illuminance:     {"Panasonic Illuminance", Decoder(props.DecodeIlluminance), nil, nil},
+				EPC_SF_Panasonic_UnknownStringFD: {"Panasonic Unknown String FD", Decoder(SF_Panasonic_DecodeUnknownString), nil, nil},
+				EPC_SF_Panasonic_UnknownStringFE: {"Panasonic Unknown String FE", Decoder(SF_Panasonic_DecodeUnknownString), nil, nil},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_SF_Illuminance,

@@ -81,10 +81,41 @@ func (p Property) Encode() []byte {
 
 type PropertyDecoderFunc func(EDT []byte) (fmt.Stringer, bool)
 
+type NumberValueDesc struct {
+	Min    int
+	Max    int
+	Offset int    // 値が 0のときにEDTに格納する値
+	Unit   string // Unit of the value (e.g., "C", "F", "V")
+	EDTLen int    // Length of the EDT in bytes
+}
+
+func (n NumberValueDesc) FromInt(num int) ([]byte, bool) {
+	if num >= n.Min && num <= n.Max {
+		return utils.Uint32ToBytes(uint32(num+n.Offset), n.EDTLen), true
+	}
+	return nil, false
+}
+
+func (n NumberValueDesc) ToInt(EDT []byte) (int, string, bool) {
+	if len(EDT) == n.EDTLen {
+		var num int32
+		if n.Min >= 0 {
+			num = int32(utils.BytesToUint32(EDT)) - int32(n.Offset)
+		} else {
+			num = utils.BytesToInt32(EDT) - int32(n.Offset)
+		}
+		if num >= int32(n.Min) && num <= int32(n.Max) {
+			return int(num), n.Unit, true
+		}
+	}
+	return 0, "", false
+}
+
 type PropertyInfo struct {
 	EPCs    string
 	Decoder PropertyDecoderFunc
 	Aliases map[string][]byte // Alias names for EDT values (e.g., "on" -> []byte{0x30})
+	Number  *NumberValueDesc
 }
 
 func Decoder[T fmt.Stringer](f func(EDT []byte) T) PropertyDecoderFunc {
@@ -200,6 +231,11 @@ func (p Property) EDTString(c EOJClassCode) string {
 					EDT = alias
 					break
 				}
+			}
+		}
+		if EDT == "" && info.Number != nil {
+			if num, unit, ok := info.Number.ToInt(p.EDT); ok {
+				EDT = fmt.Sprintf("%d%s", num, unit)
 			}
 		}
 		if EDT == "" {
