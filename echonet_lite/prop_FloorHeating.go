@@ -23,14 +23,29 @@ const (
 )
 
 func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
+	var FH_OnOffAlias = map[string][]byte{
+		"on":  {0x41},
+		"off": {0x42},
+	}
+
+	TemperatureLevel := NumberValueDesc{Min: 1, Max: 15, Offset: 0x30}
+	MeasuredTemperature := NumberValueDesc{Min: -127, Max: 125, Unit: "℃"}
+	ExtraValueAlias := map[string][]byte{
+		"N/A":       {0x7e},
+		"overflow":  {0x7f},
+		"underflow": {0x80},
+	}
+
 	return PropertyRegistryEntry{
 		ClassCode: FloorHeating_ClassCode,
 		PropertyTable: PropertyTable{
 			Description: "Floor Heating",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_FH_TemperatureLevel: {"Temperature setting(level)", nil, TemperatureLevelAliases(), nil},
-				EPC_FH_RoomTemperature:  {"Room temperature", Decoder(FH_DecodeTemperature), nil, nil},
-				EPC_FH_FloorTemperature: {"Floor temperature", Decoder(FH_DecodeTemperature), nil, nil},
+				EPC_FH_TemperatureLevel: {"Temperature setting(level)", nil, map[string][]byte{
+					"auto": {0x41},
+				}, &TemperatureLevel},
+				EPC_FH_RoomTemperature:  {"Room temperature", nil, ExtraValueAlias, &MeasuredTemperature},
+				EPC_FH_FloorTemperature: {"Floor temperature", nil, ExtraValueAlias, &MeasuredTemperature},
 				EPC_FH_SpecialMode: {"Special mode", nil, map[string][]byte{
 					"normal": {0x41}, // 通常運転
 					"low":    {0x42}, // ひかえめ運転
@@ -49,8 +64,8 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 				EPC_FH_OffTimerEnabled: {"OFF timer enabled", nil, FH_OnOffAlias, nil},
 				EPC_FH_OffTimerHHMM:    {"OFF timer setting", Decoder(FH_DecodeHHMM), nil, nil},
 
-				EPC_FH_Temperature1: {"Temperature sensor 1", Decoder(FH_DecodeTemperature), nil, nil},
-				EPC_FH_Temperature2: {"Temperature sensor 2", Decoder(FH_DecodeTemperature), nil, nil},
+				EPC_FH_Temperature1: {"Temperature sensor 1", nil, ExtraValueAlias, &MeasuredTemperature},
+				EPC_FH_Temperature2: {"Temperature sensor 2", nil, ExtraValueAlias, &MeasuredTemperature},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_FH_TemperatureLevel,
@@ -61,50 +76,6 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 			},
 		},
 	}
-}
-
-func TemperatureLevelAliases() map[string][]byte {
-	result := make(map[string][]byte)
-	for level := 1; level <= 15; level++ {
-		result[fmt.Sprintf("%d", level)] = []byte{byte(level + 0x30)}
-	}
-	result["auto"] = []byte{0x41}
-	return result
-}
-
-type Temperature int8
-
-func FH_DecodeTemperature(EDT []byte) *Temperature {
-	if len(EDT) < 1 {
-		return nil
-	}
-	temp := Temperature(EDT[0])
-	return &temp
-}
-
-func (t *Temperature) String() string {
-	if t == nil {
-		return "nil"
-	}
-	switch *t {
-	case -128:
-		return "Underflow"
-	case 127:
-		return "Overflow"
-	case 0x7e:
-		return "N/A"
-	default:
-		return fmt.Sprintf("%d℃", *t)
-	}
-}
-
-func (t *Temperature) EDT() []byte {
-	return []byte{byte(*t)}
-}
-
-var FH_OnOffAlias = map[string][]byte{
-	"on":  {0x41},
-	"off": {0x42},
 }
 
 type FH_HHMM struct {
