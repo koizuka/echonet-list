@@ -11,7 +11,7 @@ const (
 )
 
 func (r PropertyRegistry) SingleFunctionLighting() PropertyRegistryEntry {
-	Illuminance := NumberValueDesc{Min: 0, Max: 100, Unit: "%", EDTLen: 1}
+	Illuminance := NumberValueDesc{Min: 0, Max: 100, Unit: "%"}
 
 	return PropertyRegistryEntry{
 		ClassCode: SingleFunctionLighting_ClassCode,

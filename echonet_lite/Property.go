@@ -86,18 +86,25 @@ type NumberValueDesc struct {
 	Max    int
 	Offset int    // 値が 0のときにEDTに格納する値
 	Unit   string // Unit of the value (e.g., "C", "F", "V")
-	EDTLen int    // Length of the EDT in bytes
+	EDTLen int    // Length of the EDT in bytes(0のときは1扱い)
+}
+
+func (n NumberValueDesc) GetEDTLen() int {
+	if n.EDTLen == 0 {
+		return 1
+	}
+	return n.EDTLen
 }
 
 func (n NumberValueDesc) FromInt(num int) ([]byte, bool) {
 	if num >= n.Min && num <= n.Max {
-		return utils.Uint32ToBytes(uint32(num+n.Offset), n.EDTLen), true
+		return utils.Uint32ToBytes(uint32(num+n.Offset), n.GetEDTLen()), true
 	}
 	return nil, false
 }
 
 func (n NumberValueDesc) ToInt(EDT []byte) (int, string, bool) {
-	if len(EDT) == n.EDTLen {
+	if len(EDT) == n.GetEDTLen() {
 		var num int32
 		if n.Min >= 0 {
 			num = int32(utils.BytesToUint32(EDT)) - int32(n.Offset)

@@ -14,14 +14,14 @@ const (
 )
 
 func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
-	TemperatureSetting := NumberValueDesc{Min: 0, Max: 50, Unit: "℃", EDTLen: 1}
-	MeasuredTemperature := NumberValueDesc{Min: -127, Max: 125, Unit: "℃", EDTLen: 1}
+	TemperatureSetting := NumberValueDesc{Min: 0, Max: 50, Unit: "℃"}
+	MeasuredTemperature := NumberValueDesc{Min: -127, Max: 125, Unit: "℃"}
 	ExtraValueAlias := map[string][]byte{
 		"unknown":   {0xFD},
 		"underflow": {0xFE},
 		"overflow":  {0xFF},
 	}
-	Humidity := NumberValueDesc{Min: 0, Max: 100, Unit: "%", EDTLen: 1}
+	Humidity := NumberValueDesc{Min: 0, Max: 100, Unit: "%"}
 
 	return PropertyRegistryEntry{
 		ClassCode: HomeAirConditioner_ClassCode,
@@ -30,7 +30,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_HAC_AirVolumeSetting: {"Air volume setting", nil, map[string][]byte{
 					"auto": {0x41},
-				}, &NumberValueDesc{Min: 1, Max: 8, Offset: 0x30, EDTLen: 1}},
+				}, &NumberValueDesc{Min: 1, Max: 8, Offset: 0x30}},
 				EPC_HAC_AirDirectionSwingSetting: {"Air direction swing setting", nil, map[string][]byte{
 					"off":        {0x31},
 					"vertical":   {0x41},
