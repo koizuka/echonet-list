@@ -28,32 +28,32 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
 		PropertyTable: PropertyTable{
 			Description: "Home Air Conditioner",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_HAC_AirVolumeSetting: {"Air volume setting", nil, map[string][]byte{
+				EPC_HAC_AirVolumeSetting: {Desc: "Air volume setting", Aliases: map[string][]byte{
 					"auto": {0x41},
-				}, &NumberValueDesc{Min: 1, Max: 8, Offset: 0x30}},
-				EPC_HAC_AirDirectionSwingSetting: {"Air direction swing setting", nil, map[string][]byte{
+				}, Number: &NumberValueDesc{Min: 1, Max: 8, Offset: 0x30}},
+				EPC_HAC_AirDirectionSwingSetting: {Desc: "Air direction swing setting", Aliases: map[string][]byte{
 					"off":        {0x31},
 					"vertical":   {0x41},
 					"horizontal": {0x42},
 					"both":       {0x43},
-				}, nil},
-				EPC_HAC_OperationModeSetting: {"Operation mode setting", nil, map[string][]byte{
+				}},
+				EPC_HAC_OperationModeSetting: {Desc: "Operation mode setting", Aliases: map[string][]byte{
 					"auto":    {0x41},
 					"cooling": {0x42},
 					"heating": {0x43},
 					"dry":     {0x44},
 					"fan":     {0x45},
 					"other":   {0x40},
-				}, nil},
-				EPC_HAC_TemperatureSetting:        {"Temperature setting", nil, ExtraValueAlias, &TemperatureSetting},
-				EPC_HAC_RelativeHumiditySetting:   {"Relative humidity setting", nil, ExtraValueAlias, &Humidity},
-				EPC_HAC_CurrentRoomHumidity:       {"Current room humidity", nil, ExtraValueAlias, &Humidity},
-				EPC_HAC_CurrentRoomTemperature:    {"Current room temperature", nil, ExtraValueAlias, &MeasuredTemperature},
-				EPC_HAC_CurrentOutsideTemperature: {"Current outside temperature", nil, ExtraValueAlias, &MeasuredTemperature},
-				EPC_HAC_HumidificationModeSetting: {"Humidification mode setting", nil, map[string][]byte{
+				}},
+				EPC_HAC_TemperatureSetting:        {Desc: "Temperature setting", Aliases: ExtraValueAlias, Number: &TemperatureSetting},
+				EPC_HAC_RelativeHumiditySetting:   {Desc: "Relative humidity setting", Aliases: ExtraValueAlias, Number: &Humidity},
+				EPC_HAC_CurrentRoomHumidity:       {Desc: "Current room humidity", Aliases: ExtraValueAlias, Number: &Humidity},
+				EPC_HAC_CurrentRoomTemperature:    {Desc: "Current room temperature", Aliases: ExtraValueAlias, Number: &MeasuredTemperature},
+				EPC_HAC_CurrentOutsideTemperature: {Desc: "Current outside temperature", Aliases: ExtraValueAlias, Number: &MeasuredTemperature},
+				EPC_HAC_HumidificationModeSetting: {Desc: "Humidification mode setting", Aliases: map[string][]byte{
 					"on":  {0x41},
 					"off": {0x42},
-				}, nil},
+				}},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_HAC_OperationModeSetting,

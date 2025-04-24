@@ -23,18 +23,18 @@ func (r PropertyRegistry) Controller() PropertyRegistryEntry {
 		PropertyTable: PropertyTable{
 			Description: "Controller",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_C_ControllerID:    {"コントローラID", nil, nil, nil},
-				EPC_C_NumberOfDevices: {"管理台数", Decoder(C_DecodeNumberOfDevices), nil, nil},
-				EPC_C_Index:           {"インデックス", Decoder(C_DecodeIndex), nil, nil},
-				EPC_C_DeviceID:        {"機器ID", nil, nil, nil},
-				EPC_C_ClassCode:       {"機種", Decoder(C_DecodeClassCode), nil, nil},
-				EPC_C_Name:            {"名称", Decoder(C_DecodeName), nil, nil},
-				EPC_C_ConnectionStatus: {"接続状態", nil, map[string][]byte{
+				EPC_C_ControllerID:    {Desc: "コントローラID"},
+				EPC_C_NumberOfDevices: {Desc: "管理台数", Decoder: Decoder(C_DecodeNumberOfDevices)},
+				EPC_C_Index:           {Desc: "インデックス", Decoder: Decoder(C_DecodeIndex)},
+				EPC_C_DeviceID:        {Desc: "機器ID"},
+				EPC_C_ClassCode:       {Desc: "機種", Decoder: Decoder(C_DecodeClassCode)},
+				EPC_C_Name:            {Desc: "名称", Decoder: Decoder(C_DecodeName)},
+				EPC_C_ConnectionStatus: {Desc: "接続状態", Aliases: map[string][]byte{
 					"connected":    {0x41}, // 接続中
 					"disconnected": {0x42}, // 離脱中
 					"unregistered": {0x43}, // 未登録
 					"deleted":      {0x44}, // 削除
-				}, nil},
+				}},
 			},
 			DefaultEPCs: []EPCType{},
 		},

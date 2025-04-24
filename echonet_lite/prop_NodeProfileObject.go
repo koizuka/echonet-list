@@ -33,14 +33,14 @@ func (r PropertyRegistry) NodeProfileObject() PropertyRegistryEntry {
 		PropertyTable: PropertyTable{
 			Description: "Node Profile",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_NPO_VersionInfo:              {"Version information", Decoder(NPO_DecodeVersionInfo), nil, nil},
-				EPC_NPO_IDNumber:                 {"Identification number", nil, nil, nil},
-				EPC_NPO_IndividualID:             {"Individual identification information", nil, nil, nil},
-				EPC_NPO_SelfNodeInstances:        {"Self-node instances number", Decoder(DecodeSelfNodeInstances), nil, nil},
-				EPC_NPO_SelfNodeClasses:          {"Self-node classes number", Decoder(DecodeSelfNodeClasses), nil, nil},
-				EPC_NPO_InstanceListNotification: {"instance list notification", Decoder(DecodeInstanceListNotification), nil, nil},
-				EPC_NPO_SelfNodeInstanceListS:    {"Self-node instance list S", Decoder(DecodeSelfNodeInstanceListS), nil, nil},
-				EPC_NPO_SelfNodeClassListS:       {"Self-node class list S", Decoder(DecodeSelfNodeClassListS), nil, nil},
+				EPC_NPO_VersionInfo:              {Desc: "Version information", Decoder: Decoder(NPO_DecodeVersionInfo)},
+				EPC_NPO_IDNumber:                 {Desc: "Identification number"},
+				EPC_NPO_IndividualID:             {Desc: "Individual identification information"},
+				EPC_NPO_SelfNodeInstances:        {Desc: "Self-node instances number", Decoder: Decoder(DecodeSelfNodeInstances)},
+				EPC_NPO_SelfNodeClasses:          {Desc: "Self-node classes number", Decoder: Decoder(DecodeSelfNodeClasses)},
+				EPC_NPO_InstanceListNotification: {Desc: "instance list notification", Decoder: Decoder(DecodeInstanceListNotification)},
+				EPC_NPO_SelfNodeInstanceListS:    {Desc: "Self-node instance list S", Decoder: Decoder(DecodeSelfNodeInstanceListS)},
+				EPC_NPO_SelfNodeClassListS:       {Desc: "Self-node class list S", Decoder: Decoder(DecodeSelfNodeClassListS)},
 			},
 		},
 	}

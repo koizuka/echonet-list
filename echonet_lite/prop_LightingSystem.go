@@ -26,13 +26,13 @@ func (r PropertyRegistry) LightingSystem() PropertyRegistryEntry {
 		PropertyTable: PropertyTable{
 			Description: "Lighting System",
 			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_LS_Illuminance:     {"Illuminance level", nil, nil, &Illuminance},
-				EPC_LS_SceneControl:    {"Scene control", Decoder(LS_DecodeSceneControl), nil, nil},
-				EPC_LS_MaxSceneControl: {"Max scene control", Decoder(LS_DecodeMaxSceneControl), nil, nil},
-				EPC_LS_PanasonicF1:     {"Panasonic F1", Decoder(LS_DecodePanasonicFx), nil, nil},
-				EPC_LS_PanasonicF2:     {"Panasonic F2", Decoder(LS_DecodePanasonicFx), nil, nil},
-				EPC_LS_PanasonicF3:     {"Panasonic F3", Decoder(LS_DecodePanasonicFx), nil, nil},
-				EPC_LS_PanasonicF4:     {"Panasonic F4", Decoder(LS_DecodePanasonicFx), nil, nil},
+				EPC_LS_Illuminance:     {Desc: "Illuminance level", Number: &Illuminance},
+				EPC_LS_SceneControl:    {Desc: "Scene control", Decoder: Decoder(LS_DecodeSceneControl)},
+				EPC_LS_MaxSceneControl: {Desc: "Max scene control", Decoder: Decoder(LS_DecodeMaxSceneControl)},
+				EPC_LS_PanasonicF1:     {Desc: "Panasonic F1", Decoder: Decoder(LS_DecodePanasonicFx)},
+				EPC_LS_PanasonicF2:     {Desc: "Panasonic F2", Decoder: Decoder(LS_DecodePanasonicFx)},
+				EPC_LS_PanasonicF3:     {Desc: "Panasonic F3", Decoder: Decoder(LS_DecodePanasonicFx)},
+				EPC_LS_PanasonicF4:     {Desc: "Panasonic F4", Decoder: Decoder(LS_DecodePanasonicFx)},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_LS_Illuminance,

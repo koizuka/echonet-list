@@ -35,46 +35,46 @@ const (
 var ProfileSuperClass_PropertyTable = PropertyTable{
 	Description: "Profile Super Class",
 	EPCInfo: map[EPCType]PropertyInfo{
-		EPCOperationStatus: {"Operation status", nil, map[string][]byte{
+		EPCOperationStatus: {Desc: "Operation status", Aliases: map[string][]byte{
 			"on":  {0x30},
 			"off": {0x31},
-		}, nil},
-		EPCInstallationLocation:                  {"Installation location", nil, InstallationLocationAliases(), nil},
-		EPCStandardVersion:                       {"Standard version", Decoder(DecodeStandardVersion), nil, nil},
-		EPCIdentificationNumber:                  {"Identification number", Decoder(DecodeIdentificationNumber), nil, nil},
-		EPCMeasuredInstantaneousPowerConsumption: {"Measured instantaneous power consumption", Decoder(DecodeInstantaneousPowerConsumption), nil, nil},
-		EPCMeasuredCumulativePowerConsumption:    {"Measured cumulative power consumption", Decoder(DecodeCumulativePowerConsumption), nil, nil},
-		EPCManufacturerFaultCode:                 {"Manufacturer fault code", nil, nil, nil},
-		EPCCurrentLimitSetting:                   {"Current limit setting", nil, nil, nil},
-		EPCFaultStatus: {"Fault occurrence status", nil, map[string][]byte{
+		}},
+		EPCInstallationLocation:                  {Desc: "Installation location", Aliases: InstallationLocationAliases()},
+		EPCStandardVersion:                       {Desc: "Standard version", Decoder: Decoder(DecodeStandardVersion)},
+		EPCIdentificationNumber:                  {Desc: "Identification number", Decoder: Decoder(DecodeIdentificationNumber)},
+		EPCMeasuredInstantaneousPowerConsumption: {Desc: "Measured instantaneous power consumption", Decoder: Decoder(DecodeInstantaneousPowerConsumption)},
+		EPCMeasuredCumulativePowerConsumption:    {Desc: "Measured cumulative power consumption", Decoder: Decoder(DecodeCumulativePowerConsumption)},
+		EPCManufacturerFaultCode:                 {Desc: "Manufacturer fault code"},
+		EPCCurrentLimitSetting:                   {Desc: "Current limit setting"},
+		EPCFaultStatus: {Desc: "Fault occurrence status", Aliases: map[string][]byte{
 			"fault":    {0x41},
 			"no_fault": {0x42},
-		}, nil},
-		EPCFaultDescription: {"Fault description", nil, nil, nil},
-		EPCManufacturerCode: {"Manufacturer code", nil, map[string][]byte{
+		}},
+		EPCFaultDescription: {Desc: "Fault description"},
+		EPCManufacturerCode: {Desc: "Manufacturer code", Aliases: map[string][]byte{
 			"Sharp":        {0x00, 0x00, 0x05},
 			"Daikin":       {0x00, 0x00, 0x08},
 			"Panasonic":    {0x00, 0x00, 0x0b},
 			"Experimental": {0xff, 0xff, 0xff},
-		}, nil},
-		EPCBusinessFacilityCode: {"Business facility code", nil, nil, nil},
-		EPCProductCode:          {"Product code", Decoder(DecodeProductCode), nil, nil},
-		EPCProductionNumber:     {"Production number", nil, nil, nil},
-		EPCProductionDate:       {"Production date", Decoder(DecodeDate), nil, nil},
-		EPCPowerSavingOperationSetting: {"Power saving operation setting", nil, map[string][]byte{
+		}},
+		EPCBusinessFacilityCode: {Desc: "Business facility code"},
+		EPCProductCode:          {Desc: "Product code", Decoder: Decoder(DecodeProductCode)},
+		EPCProductionNumber:     {Desc: "Production number"},
+		EPCProductionDate:       {Desc: "Production date", Decoder: Decoder(DecodeDate)},
+		EPCPowerSavingOperationSetting: {Desc: "Power saving operation setting", Aliases: map[string][]byte{
 			"power_saving": {0x41},
 			"normal":       {0x42},
-		}, nil},
-		EPCRemoteControlSetting: {"Remote control setting", nil, map[string][]byte{
+		}},
+		EPCRemoteControlSetting: {Desc: "Remote control setting", Aliases: map[string][]byte{
 			"not_public_line":       {0x41}, // 公衆回線を経由しない制御
 			"public_line":           {0x42}, // 公衆回線経由の制御
 			"not_pubic_line_normal": {0x61}, // 通信回線正常（公衆回線経由の操作不可）
 			"public_line_normal":    {0x62}, // 通信回線正常（公衆回線経由の操作可能）
-		}, nil},
-		EPCCurrentDate:                   {"Current date", Decoder(DecodeDate), nil, nil},
-		EPCStatusAnnouncementPropertyMap: {"Status announcement property map", Decoder(DecodePropertyMap), nil, nil},
-		EPCSetPropertyMap:                {"Set property map", Decoder(DecodePropertyMap), nil, nil},
-		EPCGetPropertyMap:                {"Get property map", Decoder(DecodePropertyMap), nil, nil},
+		}},
+		EPCCurrentDate:                   {Desc: "Current date", Decoder: Decoder(DecodeDate)},
+		EPCStatusAnnouncementPropertyMap: {Desc: "Status announcement property map", Decoder: Decoder(DecodePropertyMap)},
+		EPCSetPropertyMap:                {Desc: "Set property map", Decoder: Decoder(DecodePropertyMap)},
+		EPCGetPropertyMap:                {Desc: "Get property map", Decoder: Decoder(DecodePropertyMap)},
 	},
 	DefaultEPCs: []EPCType{
 		EPCOperationStatus,

@@ -165,26 +165,6 @@ func parseHexBytes(hexStr string) ([]byte, error) {
 	return bytes, nil
 }
 
-func (p CommandParser) GetEDTFromValue(c client.EOJClassCode, e client.EPCType, value string) ([]byte, bool) {
-	if info, ok := p.propertyInfoProvider.GetPropertyInfo(c, e); ok {
-		if info.Aliases != nil {
-			if aliases, ok := info.Aliases[value]; ok {
-				return aliases, true
-			}
-		}
-		if info.Number != nil {
-			v := value
-			if strings.HasSuffix(value, info.Number.Unit) {
-				v = strings.TrimSuffix(value, info.Number.Unit)
-			}
-			if num, err := strconv.Atoi(v); err == nil {
-				return info.Number.FromInt(num)
-			}
-		}
-	}
-	return nil, false
-}
-
 // プロパティ文字列をパースする
 // propertyStr: プロパティ文字列（"EPC:EDT" 形式または "alias" 形式）
 // classCode: クラスコード
@@ -202,11 +182,13 @@ func (p CommandParser) parsePropertyString(propertyStr string, classCode client.
 
 		var edt []byte
 
-		if aliasEDT, ok := p.GetEDTFromValue(classCode, epc, propParts[1]); ok {
-			if debug {
-				fmt.Printf("エイリアス '%s' を EDT:%X に展開します\n", propParts[1], aliasEDT)
+		if info, ok := p.propertyInfoProvider.GetPropertyInfo(classCode, epc); ok {
+			if valueEDT, ok := info.ToEDT(propParts[1]); ok {
+				if debug {
+					fmt.Printf("'%s' を EDT:%X に展開します\n", propParts[1], valueEDT)
+				}
+				edt = valueEDT
 			}
-			edt = aliasEDT
 		}
 
 		// エイリアスが見つからなかった場合は通常のEDTパース

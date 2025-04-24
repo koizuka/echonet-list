@@ -79,66 +79,6 @@ func (p Property) Encode() []byte {
 	return data
 }
 
-type PropertyDecoderFunc func(EDT []byte) (fmt.Stringer, bool)
-
-type NumberValueDesc struct {
-	Min    int
-	Max    int
-	Offset int    // 値が 0のときにEDTに格納する値
-	Unit   string // Unit of the value (e.g., "C", "F", "V")
-	EDTLen int    // Length of the EDT in bytes(0のときは1扱い)
-}
-
-func (n NumberValueDesc) GetEDTLen() int {
-	if n.EDTLen == 0 {
-		return 1
-	}
-	return n.EDTLen
-}
-
-func (n NumberValueDesc) FromInt(num int) ([]byte, bool) {
-	if num >= n.Min && num <= n.Max {
-		return utils.Uint32ToBytes(uint32(num+n.Offset), n.GetEDTLen()), true
-	}
-	return nil, false
-}
-
-func (n NumberValueDesc) ToInt(EDT []byte) (int, string, bool) {
-	if len(EDT) == n.GetEDTLen() {
-		var num int32
-		if n.Min >= 0 {
-			num = int32(utils.BytesToUint32(EDT)) - int32(n.Offset)
-		} else {
-			num = utils.BytesToInt32(EDT) - int32(n.Offset)
-		}
-		if num >= int32(n.Min) && num <= int32(n.Max) {
-			return int(num), n.Unit, true
-		}
-	}
-	return 0, "", false
-}
-
-type PropertyInfo struct {
-	EPCs    string
-	Decoder PropertyDecoderFunc
-	Aliases map[string][]byte // Alias names for EDT values (e.g., "on" -> []byte{0x30})
-	Number  *NumberValueDesc
-}
-
-func Decoder[T fmt.Stringer](f func(EDT []byte) T) PropertyDecoderFunc {
-	return func(EDT []byte) (fmt.Stringer, bool) {
-		if len(EDT) == 0 {
-			return nil, false
-		}
-		result := f(EDT)
-		// if T is a pointer, nil check
-		if _, ok := any(result).(fmt.Stringer); !ok {
-			return nil, false
-		}
-		return result, true
-	}
-}
-
 type PropertyTable struct {
 	Description string
 	EPCInfo     map[EPCType]PropertyInfo
@@ -158,7 +98,7 @@ func (pt PropertyTable) AvailableAliases() map[string]string {
 	aliases := map[string]string{}
 	for epc, info := range pt.EPCInfo {
 		for alias := range info.Aliases {
-			aliases[alias] = fmt.Sprintf("%s(%s):%X", epc, info.EPCs, info.Aliases[alias])
+			aliases[alias] = fmt.Sprintf("%s(%s):%X", epc, info.Desc, info.Aliases[alias])
 		}
 	}
 	return aliases
@@ -190,7 +130,7 @@ func (e EPCType) String() string {
 
 func (e EPCType) StringForClass(c EOJClassCode) string {
 	if info, ok := GetPropertyInfo(c, e); ok {
-		return fmt.Sprintf("%s(%s)", e.String(), info.EPCs)
+		return fmt.Sprintf("%s(%s)", e.String(), info.Desc)
 	}
 	return e.String()
 }
@@ -220,7 +160,7 @@ func IsPropertyDefaultEPC(c EOJClassCode, epc EPCType) bool {
 func (p Property) EPCString(c EOJClassCode) string {
 	EPC := p.EPC.String()
 	if info, ok := GetPropertyInfo(c, p.EPC); ok {
-		EPC = fmt.Sprintf("%s(%s)", EPC, info.EPCs)
+		EPC = fmt.Sprintf("%s(%s)", EPC, info.Desc)
 	}
 	return EPC
 }
@@ -229,38 +169,15 @@ func (p Property) EDTString(c EOJClassCode) string {
 	if p.EDT == nil {
 		return "nil"
 	}
-	var EDT string
-
+	var result string
 	if info, ok := GetPropertyInfo(c, p.EPC); ok {
-		if info.Aliases != nil {
-			for alias, value := range info.Aliases {
-				if string(p.EDT) == string(value) {
-					EDT = alias
-					break
-				}
-			}
-		}
-		if EDT == "" && info.Number != nil {
-			if num, unit, ok := info.Number.ToInt(p.EDT); ok {
-				EDT = fmt.Sprintf("%d%s", num, unit)
-			}
-		}
-		if EDT == "" {
-			if info.Decoder != nil {
-				if decoded, ok := info.Decoder(p.EDT); ok {
-					EDT = decoded.String()
-				} else {
-					EDT = fmt.Sprintf("%X", p.EDT)
-				}
-			} else {
-				EDT = fmt.Sprintf("%X", p.EDT)
-			}
-		}
-	} else {
-		EDT = fmt.Sprintf("%X", p.EDT)
+		result = info.EDTToString(p.EDT)
+	}
+	if result == "" {
+		result = fmt.Sprintf("%X", p.EDT)
 	}
 
-	return EDT
+	return result
 }
 
 func (p Property) String(c EOJClassCode) string {
