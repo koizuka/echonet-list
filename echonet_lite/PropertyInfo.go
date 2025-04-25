@@ -60,6 +60,24 @@ func (n NumberValueDesc) ToInt(EDT []byte) (int, string, bool) {
 	return 0, "", false
 }
 
+func (n NumberValueDesc) FromString(s string) ([]byte, bool) {
+	v := s
+	if strings.HasSuffix(s, n.Unit) {
+		v = strings.TrimSuffix(s, n.Unit)
+	}
+	if num, err := strconv.Atoi(v); err == nil {
+		return n.FromInt(num)
+	}
+	return nil, false
+}
+
+func (n NumberValueDesc) ToString(EDT []byte) (string, bool) {
+	if num, unit, ok := n.ToInt(EDT); ok {
+		return fmt.Sprintf("%d%s", num, unit), true
+	}
+	return "", false
+}
+
 // PropertyInfo はプロパティの情報を表します。
 type PropertyInfo struct {
 	Desc    string              // 説明
@@ -75,13 +93,7 @@ func (p PropertyInfo) ToEDT(value string) ([]byte, bool) {
 		}
 	}
 	if p.Number != nil {
-		v := value
-		if strings.HasSuffix(value, p.Number.Unit) {
-			v = strings.TrimSuffix(value, p.Number.Unit)
-		}
-		if num, err := strconv.Atoi(v); err == nil {
-			return p.Number.FromInt(num)
-		}
+		return p.Number.FromString(value)
 	}
 	return nil, false
 }
@@ -97,8 +109,8 @@ func (p PropertyInfo) EDTToString(EDT []byte) string {
 		}
 	}
 	if p.Number != nil {
-		if num, unit, ok := p.Number.ToInt(EDT); ok {
-			return fmt.Sprintf("%d%s", num, unit)
+		if decoded, ok := p.Number.ToString(EDT); ok {
+			return decoded
 		}
 	}
 	if p.Decoder != nil {
