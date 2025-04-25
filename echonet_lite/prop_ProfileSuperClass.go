@@ -6,6 +6,7 @@ import (
 	"sort"
 )
 
+// 機器オブジェクトスーパークラス
 const (
 	// EPC
 	// profile super class
@@ -58,8 +59,8 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			"Experimental": {0xff, 0xff, 0xff},
 		}},
 		EPCBusinessFacilityCode: {Desc: "Business facility code"},
-		EPCProductCode:          {Desc: "Product code", Decoder: Decoder(DecodeProductCode)},
-		EPCProductionNumber:     {Desc: "Production number"},
+		EPCProductCode:          {Desc: "Product code", String: &StringValueDesc{MinEDTLen: 12, MaxEDTLen: 12}},
+		EPCProductionNumber:     {Desc: "Production number", String: &StringValueDesc{MinEDTLen: 12, MaxEDTLen: 12}},
 		EPCProductionDate:       {Desc: "Production date", Decoder: Decoder(DecodeDate)},
 		EPCPowerSavingOperationSetting: {Desc: "Power saving operation setting", Aliases: map[string][]byte{
 			"power_saving": {0x41},
@@ -203,20 +204,6 @@ func (s *CumulativePowerConsumption) String() string {
 
 func (s *CumulativePowerConsumption) Property() *Property {
 	return &Property{EPC: EPCMeasuredCumulativePowerConsumption, EDT: utils.Uint32ToBytes(s.Power, 4)}
-}
-
-type ProductCode string
-
-func DecodeProductCode(EDT []byte) ProductCode {
-	return ProductCode(EDT)
-}
-
-func (c ProductCode) String() string {
-	return string(c)
-}
-
-func (c ProductCode) Property() *Property {
-	return &Property{EPC: EPCProductCode, EDT: []byte(c)}
 }
 
 type Date struct {
