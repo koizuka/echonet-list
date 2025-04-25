@@ -147,6 +147,21 @@ func GetPropertyInfo(c EOJClassCode, e EPCType) (*PropertyInfo, bool) {
 	return nil, false
 }
 
+func PropertyFromInt(c EOJClassCode, epc EPCType, value int) (*Property, error) {
+	info, ok := PropertyTables[c].EPCInfo[epc]
+	if !ok || info.Number == nil {
+		return nil, fmt.Errorf("NumberValueDesc not found for EPC %s", epc)
+	}
+	edt, ok := info.Number.FromInt(value)
+	if !ok {
+		return nil, fmt.Errorf("failed to convert %d to EDT for EPC %s", value, epc)
+	}
+	return &Property{
+		EPC: epc,
+		EDT: edt,
+	}, nil
+}
+
 func IsPropertyDefaultEPC(c EOJClassCode, epc EPCType) bool {
 	if table, ok := PropertyTables[c]; ok {
 		if slices.Contains(table.DefaultEPCs, epc) {

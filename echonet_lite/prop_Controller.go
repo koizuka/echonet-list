@@ -24,8 +24,8 @@ func (r PropertyRegistry) Controller() PropertyRegistryEntry {
 			Description: "Controller",
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_C_ControllerID:    {Desc: "コントローラID"},
-				EPC_C_NumberOfDevices: {Desc: "管理台数", Decoder: Decoder(C_DecodeNumberOfDevices)},
-				EPC_C_Index:           {Desc: "インデックス", Decoder: Decoder(C_DecodeIndex)},
+				EPC_C_NumberOfDevices: {Desc: "管理台数", Number: &NumberValueDesc{EDTLen: 2, Max: 65533}},
+				EPC_C_Index:           {Desc: "インデックス", Number: &NumberValueDesc{EDTLen: 2, Max: 65533}},
 				EPC_C_DeviceID:        {Desc: "機器ID"},
 				EPC_C_ClassCode:       {Desc: "機種", Decoder: Decoder(C_DecodeClassCode)},
 				EPC_C_Name:            {Desc: "名称", Decoder: Decoder(C_DecodeName)},
@@ -39,31 +39,6 @@ func (r PropertyRegistry) Controller() PropertyRegistryEntry {
 			DefaultEPCs: []EPCType{},
 		},
 	}
-}
-
-type C_NumberOfDevices uint16
-
-func C_DecodeNumberOfDevices(data []byte) C_NumberOfDevices {
-	if len(data) != 2 {
-		return 0
-	}
-	return C_NumberOfDevices(utils.BytesToUint32(data))
-}
-
-func (n C_NumberOfDevices) String() string {
-	return fmt.Sprintf("%d", n)
-}
-
-type C_Index uint16
-
-func C_DecodeIndex(data []byte) C_Index {
-	if len(data) != 2 {
-		return 0
-	}
-	return C_Index(utils.BytesToUint32(data))
-}
-func (i C_Index) String() string {
-	return fmt.Sprintf("%d", i)
 }
 
 type C_ClassCode EOJClassCode

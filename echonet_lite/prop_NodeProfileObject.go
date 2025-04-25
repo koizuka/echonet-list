@@ -1,7 +1,6 @@
 package echonet_lite
 
 import (
-	"echonet-list/echonet_lite/utils"
 	"fmt"
 )
 
@@ -36,8 +35,8 @@ func (r PropertyRegistry) NodeProfileObject() PropertyRegistryEntry {
 				EPC_NPO_VersionInfo:              {Desc: "Version information", Decoder: Decoder(NPO_DecodeVersionInfo)},
 				EPC_NPO_IDNumber:                 {Desc: "Identification number"},
 				EPC_NPO_IndividualID:             {Desc: "Individual identification information"},
-				EPC_NPO_SelfNodeInstances:        {Desc: "Self-node instances number", Decoder: Decoder(DecodeSelfNodeInstances)},
-				EPC_NPO_SelfNodeClasses:          {Desc: "Self-node classes number", Decoder: Decoder(DecodeSelfNodeClasses)},
+				EPC_NPO_SelfNodeInstances:        {Desc: "Self-node instances number", Number: &NumberValueDesc{EDTLen: 3, Max: 16777215}},
+				EPC_NPO_SelfNodeClasses:          {Desc: "Self-node classes number", Number: &NumberValueDesc{EDTLen: 2, Max: 65535}},
 				EPC_NPO_InstanceListNotification: {Desc: "instance list notification", Decoder: Decoder(DecodeInstanceListNotification)},
 				EPC_NPO_SelfNodeInstanceListS:    {Desc: "Self-node instance list S", Decoder: Decoder(DecodeSelfNodeInstanceListS)},
 				EPC_NPO_SelfNodeClassListS:       {Desc: "Self-node class list S", Decoder: Decoder(DecodeSelfNodeClassListS)},
@@ -91,54 +90,6 @@ func (s *NPO_VersionInfo) String() string {
 		s.MajorVersion, s.MinorVersion,
 		s.Default, s.Optional,
 	)
-}
-
-type SelfNodeInstances uint32
-
-func DecodeSelfNodeInstances(EDT []byte) *SelfNodeInstances {
-	if len(EDT) != 3 {
-		return nil
-	}
-	result := utils.BytesToUint32(EDT)
-	return (*SelfNodeInstances)(&result)
-}
-
-func (s *SelfNodeInstances) String() string {
-	if s == nil {
-		return "nil"
-	}
-	return fmt.Sprintf("%d", *s)
-}
-
-func (s *SelfNodeInstances) Property() *Property {
-	if s == nil {
-		return nil
-	}
-	return &Property{EPC_NPO_SelfNodeInstances, utils.Uint32ToBytes(uint32(*s), 3)}
-}
-
-type SelfNodeClasses uint16
-
-func DecodeSelfNodeClasses(EDT []byte) *SelfNodeClasses {
-	if len(EDT) != 2 {
-		return nil
-	}
-	classes := SelfNodeClasses(utils.BytesToUint32(EDT))
-	return &classes
-}
-
-func (s *SelfNodeClasses) String() string {
-	if s == nil {
-		return "nil"
-	}
-	return fmt.Sprintf("%d", *s)
-}
-
-func (s *SelfNodeClasses) Property() *Property {
-	if s == nil {
-		return nil
-	}
-	return &Property{EPC_NPO_SelfNodeClasses, utils.Uint32ToBytes(uint32(*s), 2)}
 }
 
 type InstanceList []EOJ
@@ -196,7 +147,7 @@ func (s *InstanceListNotification) Property() *Property {
 	if s == nil {
 		return nil
 	}
-	return &Property{EPC_NPO_InstanceListNotification, (*InstanceList)(s).EDT()}
+	return &Property{EPC: EPC_NPO_InstanceListNotification, EDT: (*InstanceList)(s).EDT()}
 }
 
 type SelfNodeInstanceListS InstanceList
@@ -217,7 +168,7 @@ func (s *SelfNodeInstanceListS) Property() *Property {
 	if s == nil {
 		return nil
 	}
-	return &Property{EPC_NPO_SelfNodeInstanceListS, (*InstanceList)(s).EDT()}
+	return &Property{EPC: EPC_NPO_SelfNodeInstanceListS, EDT: (*InstanceList)(s).EDT()}
 }
 
 type SelfNodeClassListS []EOJClassCode
@@ -261,5 +212,5 @@ func (s *SelfNodeClassListS) Property() *Property {
 	if s == nil {
 		return nil
 	}
-	return &Property{EPC_NPO_SelfNodeClassListS, s.EDT()}
+	return &Property{EPC: EPC_NPO_SelfNodeClassListS, EDT: s.EDT()}
 }

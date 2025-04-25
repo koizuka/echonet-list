@@ -650,14 +650,28 @@ func (d DeviceProperties) GetInstanceList() []EOJ {
 
 func (d DeviceProperties) UpdateProfileObjectProperties() error {
 	instanceList := d.GetInstanceList()
-	selfNodeInstances := SelfNodeInstances(len(instanceList))
+	selfNodeInstancesProp, err := PropertyFromInt(
+		NodeProfile_ClassCode,
+		EPC_NPO_SelfNodeInstances,
+		len(instanceList),
+	)
+	if err != nil {
+		return err
+	}
 	selfNodeInstanceListS := SelfNodeInstanceListS(instanceList)
 
 	classes := make(map[EOJClassCode]struct{})
 	for _, e := range instanceList {
 		classes[e.ClassCode()] = struct{}{}
 	}
-	selfNodeClasses := SelfNodeClasses(len(classes))
+	selfNodeClassesProp, err := PropertyFromInt(
+		NodeProfile_ClassCode,
+		EPC_NPO_SelfNodeClasses,
+		len(classes),
+	)
+	if err != nil {
+		return err
+	}
 	classArray := make([]EOJClassCode, 0, len(classes))
 	for c := range classes {
 		classArray = append(classArray, c)
@@ -666,9 +680,9 @@ func (d DeviceProperties) UpdateProfileObjectProperties() error {
 
 	eoj := NodeProfileObject
 	return d.Set(eoj,
-		&selfNodeInstances,
+		selfNodeInstancesProp,
 		&selfNodeInstanceListS,
-		&selfNodeClasses,
+		selfNodeClassesProp,
 		&selfNodeClassListS,
 	)
 }

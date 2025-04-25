@@ -42,7 +42,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		EPCInstallationLocation:                  {Desc: "Installation location", Aliases: InstallationLocationAliases()},
 		EPCStandardVersion:                       {Desc: "Standard version", Decoder: Decoder(DecodeStandardVersion)},
 		EPCIdentificationNumber:                  {Desc: "Identification number", Decoder: Decoder(DecodeIdentificationNumber)},
-		EPCMeasuredInstantaneousPowerConsumption: {Desc: "Measured instantaneous power consumption", Decoder: Decoder(DecodeInstantaneousPowerConsumption)},
+		EPCMeasuredInstantaneousPowerConsumption: {Desc: "Measured instantaneous power consumption", Number: &NumberValueDesc{EDTLen: 2, Max: 65533, Unit: "W"}},
 		EPCMeasuredCumulativePowerConsumption:    {Desc: "Measured cumulative power consumption", Decoder: Decoder(DecodeCumulativePowerConsumption)},
 		EPCManufacturerFaultCode:                 {Desc: "Manufacturer fault code"},
 		EPCCurrentLimitSetting:                   {Desc: "Current limit setting"},
@@ -182,27 +182,6 @@ func (s *IdentificationNumber) Property() *Property {
 		EPC: EPCIdentificationNumber,
 		EDT: EDT,
 	}
-}
-
-type InstantaneousPowerConsumption struct {
-	Power uint16
-}
-
-func DecodeInstantaneousPowerConsumption(EDT []byte) *InstantaneousPowerConsumption {
-	if len(EDT) != 2 {
-		return nil
-	}
-	return &InstantaneousPowerConsumption{
-		Power: uint16(utils.BytesToUint32(EDT)),
-	}
-}
-
-func (s *InstantaneousPowerConsumption) String() string {
-	return fmt.Sprintf("%d W", s.Power)
-}
-
-func (s *InstantaneousPowerConsumption) Property() *Property {
-	return &Property{EPC: EPCMeasuredInstantaneousPowerConsumption, EDT: utils.Uint32ToBytes(uint32(s.Power), 2)}
 }
 
 type CumulativePowerConsumption struct {

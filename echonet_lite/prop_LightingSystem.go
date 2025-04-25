@@ -27,8 +27,8 @@ func (r PropertyRegistry) LightingSystem() PropertyRegistryEntry {
 			Description: "Lighting System",
 			EPCInfo: map[EPCType]PropertyInfo{
 				EPC_LS_Illuminance:     {Desc: "Illuminance level", Number: &Illuminance},
-				EPC_LS_SceneControl:    {Desc: "Scene control", Decoder: Decoder(LS_DecodeSceneControl)},
-				EPC_LS_MaxSceneControl: {Desc: "Max scene control", Decoder: Decoder(LS_DecodeMaxSceneControl)},
+				EPC_LS_SceneControl:    {Desc: "Scene control", Number: &NumberValueDesc{EDTLen: 1, Min: 0, Max: 253}},     // 0:未設定, 1-253:シーン番号
+				EPC_LS_MaxSceneControl: {Desc: "Max scene control", Number: &NumberValueDesc{EDTLen: 1, Min: 1, Max: 253}}, // 1-253:最大シーン番号
 				EPC_LS_PanasonicF1:     {Desc: "Panasonic F1", Decoder: Decoder(LS_DecodePanasonicFx)},
 				EPC_LS_PanasonicF2:     {Desc: "Panasonic F2", Decoder: Decoder(LS_DecodePanasonicFx)},
 				EPC_LS_PanasonicF3:     {Desc: "Panasonic F3", Decoder: Decoder(LS_DecodePanasonicFx)},
@@ -41,48 +41,6 @@ func (r PropertyRegistry) LightingSystem() PropertyRegistryEntry {
 			},
 		},
 	}
-}
-
-type LS_SceneControl uint8 // 0:未設定, 1-253:シーン番号
-
-func LS_DecodeSceneControl(EDT []byte) *LS_SceneControl {
-	if len(EDT) < 1 {
-		return nil
-	}
-	sceneControl := LS_SceneControl(EDT[0])
-	return &sceneControl
-}
-
-func (s *LS_SceneControl) String() string {
-	if s == nil {
-		return "nil"
-	}
-	return fmt.Sprintf("Scene Control: %d", *s)
-}
-
-func (s *LS_SceneControl) EDT() []byte {
-	return []byte{byte(*s)}
-}
-
-type LS_MaxSceneControl uint8 // 1-253:最大シーン番号
-
-func LS_DecodeMaxSceneControl(EDT []byte) *LS_MaxSceneControl {
-	if len(EDT) < 1 {
-		return nil
-	}
-	maxSceneControl := LS_MaxSceneControl(EDT[0])
-	return &maxSceneControl
-}
-
-func (s *LS_MaxSceneControl) String() string {
-	if s == nil {
-		return "nil"
-	}
-	return fmt.Sprintf("Max Scene Control: %d", *s)
-}
-
-func (s *LS_MaxSceneControl) EDT() []byte {
-	return []byte{byte(*s)}
 }
 
 type LS_PanasonicFx struct {
