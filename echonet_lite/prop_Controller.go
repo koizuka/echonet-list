@@ -14,8 +14,7 @@ const (
 	EPC_C_ClassCode        EPCType = 0xc4 // 機種
 	EPC_C_Name             EPCType = 0xc5 // 名称
 	EPC_C_ConnectionStatus EPCType = 0xc6 // 接続状態
-	// TODO
-	EPC_C_InstallAddress EPCType = 0xe0 // 接地住所
+	EPC_C_InstallAddress   EPCType = 0xe0 // 設置住所
 )
 
 func (r PropertyRegistry) Controller() PropertyRegistryEntry {
