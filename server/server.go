@@ -44,6 +44,15 @@ func NewServer(ctx context.Context, debug bool) (*Server, error) {
 		_ = handler.Discover()
 	}()
 
+	// マルチキャスト監視を開始
+	go func() {
+		if err := handler.StartMulticastMonitoring(); err != nil {
+			fmt.Printf("マルチキャスト監視の開始に失敗しました: %v\n", err)
+		} else {
+			fmt.Println("マルチキャスト監視を開始しました")
+		}
+	}()
+
 	return &Server{
 		ctx:     ctx,
 		handler: handler,

@@ -6,19 +6,29 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"golang.org/x/net/ipv4"
 )
 
 // UDPConnection は UDP ソケットを管理します
 type UDPConnection struct {
-	UdpConn   *net.UDPConn
-	LocalAddr *net.UDPAddr
-	localIPs  []net.IP // ローカルインターフェースのIPリスト
-	Port      int
+	UdpConn          *net.UDPConn
+	LocalAddr        *net.UDPAddr
+	localIPs         []net.IP // ローカルインターフェースのIPリスト
+	Port             int
+	SelfPacketBypass PacketFilterFunc // 自己パケットチェックをバイパスするためのフィルター関数
 }
+
+// PacketFilterFunc はパケットをフィルタリングするための関数型です
+// data: 受信したデータ
+// src: 送信元アドレス
+// 戻り値: true の場合、isSelfPacket チェックをスキップします
+type PacketFilterFunc func(data []byte, src *net.UDPAddr) bool
 
 // UDPConnectionOptions は接続オプションを指定します
 type UDPConnectionOptions struct {
-	DefaultTimeout time.Duration
+	DefaultTimeout   time.Duration
+	SelfPacketBypass PacketFilterFunc // 自己パケットチェックをバイパスするためのフィルター関数
 }
 
 // CreateUDPConnection は IPv4 の unicast と multicast (マルチキャスト) を受信対応します。
@@ -51,6 +61,16 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP n
 		if err != nil {
 			return nil, fmt.Errorf("failed to ListenMulticastUDP: %w", err)
 		}
+
+		// マルチキャストループバックを有効にする
+		// net.ListenMulticastUDP はデフォルトでIP_MULTICAST_LOOPを0に設定するため
+		// 自己送信パケットを受信できるように明示的に有効化する
+		pConn := ipv4.NewPacketConn(conn)
+		if err := pConn.SetMulticastLoopback(true); err != nil {
+			conn.Close() // エラーが発生したらコネクションを閉じる
+			return nil, fmt.Errorf("failed to enable multicast loopback: %w", err)
+		}
+		fmt.Println("マルチキャストループバックを有効にしました")
 	} else {
 		// IPv4 unicast or wildcard listen (broadcast received via WriteToUDP)
 		bindIP := ip
@@ -96,11 +116,17 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP n
 	}
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return &UDPConnection{UdpConn: conn, LocalAddr: localAddr, localIPs: localIPs, Port: port}, nil
+	return &UDPConnection{
+		UdpConn:          conn,
+		LocalAddr:        localAddr,
+		localIPs:         localIPs,
+		Port:             port,
+		SelfPacketBypass: opt.SelfPacketBypass,
+	}, nil
 }
 
-// isSelfPacket は指定されたアドレスが自身のいずれかのローカルIPとポートから送信されたものかを確認します
-func (c *UDPConnection) isSelfPacket(src *net.UDPAddr) bool {
+// IsSelfPacket は指定されたアドレスが自身のいずれかのローカルIPとポートから送信されたものかを確認します
+func (c *UDPConnection) IsSelfPacket(src *net.UDPAddr) bool {
 	if src == nil {
 		return false
 	}
@@ -156,12 +182,24 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 			return
 		}
 		src := addr.(*net.UDPAddr)
-		if c.isSelfPacket(src) {
+
+		// 受信データのコピーを作成（フィルター関数用）
+		data := make([]byte, n)
+		copy(data, buf[:n])
+
+		// フィルター関数が設定されていて、バイパスが許可された場合はisSelfPacketチェックをスキップ
+		if c.SelfPacketBypass != nil && c.SelfPacketBypass(data, src) {
+			// フィルター関数がtrueを返した場合、自己パケットでも受け入れる
+			ch <- result{data, src, nil}
+			return
+		}
+
+		// 通常の自己パケットチェック
+		if c.IsSelfPacket(src) {
 			ch <- result{nil, nil, nil}
 			return
 		}
-		data := make([]byte, n)
-		copy(data, buf[:n])
+		// データは既にコピー済み
 		ch <- result{data, src, nil}
 	}()
 

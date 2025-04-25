@@ -298,3 +298,36 @@ func (h *ECHONETLiteHandler) GetIDString(device IPAndEOJ) IDString {
 func (h *ECHONETLiteHandler) GetLastUpdateTime(device IPAndEOJ) time.Time {
 	return h.data.GetLastUpdateTime(device)
 }
+
+// StartMulticastMonitoring はマルチキャスト監視を開始する
+func (h *ECHONETLiteHandler) StartMulticastMonitoring() error {
+	// マルチキャスト監視通知用チャンネルを作成
+	monitoringCh := make(chan MulticastMonitoringEvent, 100)
+
+	// セッションにマルチキャスト監視通知チャンネルを設定
+	h.comm.session.SetMonitoringChannel(monitoringCh)
+
+	// マルチキャスト監視を開始
+	err := h.comm.session.StartMulticastMonitoring()
+	if err != nil {
+		return fmt.Errorf("マルチキャスト監視の開始に失敗: %w", err)
+	}
+
+	// マルチキャスト監視通知を処理するゴルーチン
+	go func() {
+		for event := range monitoringCh {
+			switch event.Status {
+			case MulticastMonitoringOK:
+				// 正常時の処理（必要に応じて）
+				if h.core.IsDebug() {
+					fmt.Printf("マルチキャスト監視: 正常に受信しています\n")
+				}
+			case MulticastMonitoringFailed:
+				// 異常時の処理
+				fmt.Printf("警告: マルチキャスト受信が停止しました: %v\n", event.Error)
+			}
+		}
+	}()
+
+	return nil
+}

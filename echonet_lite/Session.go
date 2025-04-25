@@ -71,22 +71,41 @@ func (dt DispatchTable) Unregister(key Key) {
 	delete(dt, key)
 }
 
+// MulticastMonitoringStatus はマルチキャスト監視の状態を表す型
+type MulticastMonitoringStatus int
+
+const (
+	MulticastMonitoringOK     MulticastMonitoringStatus = iota // マルチキャスト監視正常
+	MulticastMonitoringFailed                                  // マルチキャスト監視失敗
+)
+
+// MulticastMonitoringEvent はマルチキャスト監視イベントを表す構造体
+type MulticastMonitoringEvent struct {
+	Status MulticastMonitoringStatus // 監視ステータス
+	Error  error                     // エラー情報
+}
+
 type Session struct {
-	mu              sync.RWMutex
-	dispatchTable   DispatchTable
-	receiveCallback PersistentCallbackFunc
-	infCallback     PersistentCallbackFunc
-	tid             TIDType
-	eoj             EOJ
-	conn            *network.UDPConnection
-	MulticastIP     net.IP
-	Debug           bool
-	ctx             context.Context          // コンテキスト
-	cancel          context.CancelFunc       // コンテキストのキャンセル関数
-	MaxRetries      int                      // 最大再送回数
-	RetryInterval   time.Duration            // 再送間隔
-	TimeoutCh       chan SessionTimeoutEvent // タイムアウト通知用チャンネル
-	failedEPCs      map[string][]EPCType     // 失敗したEPCsを保持するマップ
+	mu                   sync.RWMutex
+	dispatchTable        DispatchTable
+	receiveCallback      PersistentCallbackFunc
+	infCallback          PersistentCallbackFunc
+	tid                  TIDType
+	eoj                  EOJ
+	conn                 *network.UDPConnection
+	MulticastIP          net.IP
+	Debug                bool
+	ctx                  context.Context               // コンテキスト
+	cancel               context.CancelFunc            // コンテキストのキャンセル関数
+	MaxRetries           int                           // 最大再送回数
+	RetryInterval        time.Duration                 // 再送間隔
+	TimeoutCh            chan SessionTimeoutEvent      // タイムアウト通知用チャンネル
+	failedEPCs           map[string][]EPCType          // 失敗したEPCsを保持するマップ
+	monitoringInterval   time.Duration                 // 監視パケット送信間隔
+	monitoringTimeout    time.Duration                 // 監視パケット受信タイムアウト
+	MonitoringCh         chan MulticastMonitoringEvent // マルチキャスト監視通知用チャンネル
+	monitoringActive     bool                          // 監視アクティブフラグ
+	monitoringResponseCh chan struct{}                 // 監視パケット受信通知用チャンネル
 }
 
 // SetTimeoutChannel はタイムアウト通知用チャンネルを設定する
@@ -96,30 +115,225 @@ func (s *Session) SetTimeoutChannel(ch chan SessionTimeoutEvent) {
 	s.TimeoutCh = ch
 }
 
+// SetMonitoringChannel はマルチキャスト監視通知用チャンネルを設定する
+func (s *Session) SetMonitoringChannel(ch chan MulticastMonitoringEvent) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.MonitoringCh = ch
+}
+
+// 監視パケット用の未定義インスタンス番号
+const MonitoringInstanceCode = 0x03 // インスタンス3は未定義
+
+// isSelfMonitoringPacketFilter は監視パケットかどうかを判断するフィルター関数
+func isSelfMonitoringPacketFilter(data []byte, src *net.UDPAddr) bool {
+	// パケットをパースする
+	msg, err := ParseECHONETLiteMessage(data)
+	if err != nil {
+		return false
+	}
+
+	// DEOJ が NodeProfileObject (0x0EF0) かつ インスタンス番号が MonitoringInstanceCode (0x03) かどうかを確認
+	if msg.DEOJ.ClassCode() == 0x0EF0 && msg.DEOJ.InstanceCode() == MonitoringInstanceCode {
+		return true
+	}
+	return false
+}
+
 func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Session, error) {
 	// タイムアウトなしのコンテキストを作成（キャンセルのみ可能）
 	sessionCtx, cancel := context.WithCancel(ctx)
 
 	multicastIP := ECHONETLiteMulticastIPv4
 
-	conn, err := network.CreateUDPConnection(sessionCtx, ip, ECHONETLitePort, multicastIP, network.UDPConnectionOptions{DefaultTimeout: 30 * time.Second})
+	// UDPConnectionOptions に SelfPacketBypass を設定
+	opts := network.UDPConnectionOptions{
+		DefaultTimeout:   30 * time.Second,
+		SelfPacketBypass: isSelfMonitoringPacketFilter,
+	}
+
+	conn, err := network.CreateUDPConnection(sessionCtx, ip, ECHONETLitePort, multicastIP, opts)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		return nil, err
 	}
 	return &Session{
-		dispatchTable: make(DispatchTable),
-		tid:           TIDType(1),
-		eoj:           EOJ,
-		conn:          conn,
-		MulticastIP:   multicastIP,
-		Debug:         debug,
-		ctx:           sessionCtx,
-		cancel:        cancel,
-		MaxRetries:    3,               // デフォルトの最大再送回数
-		RetryInterval: 3 * time.Second, // デフォルトの再送間隔
-		failedEPCs:    make(map[string][]EPCType),
+		dispatchTable:        make(DispatchTable),
+		tid:                  TIDType(1),
+		eoj:                  EOJ,
+		conn:                 conn,
+		MulticastIP:          multicastIP,
+		Debug:                debug,
+		ctx:                  sessionCtx,
+		cancel:               cancel,
+		MaxRetries:           3,               // デフォルトの最大再送回数
+		RetryInterval:        3 * time.Second, // デフォルトの再送間隔
+		failedEPCs:           make(map[string][]EPCType),
+		monitoringInterval:   60 * time.Second,       // デフォルトの監視間隔
+		monitoringTimeout:    1 * time.Second,        // デフォルトの監視タイムアウト
+		monitoringResponseCh: make(chan struct{}, 1), // 監視パケット受信通知用チャンネル
 	}, nil
+}
+
+// StartMulticastMonitoring はマルチキャスト監視を開始する
+func (s *Session) StartMulticastMonitoring() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 既に監視中の場合は何もしない
+	if s.monitoringActive {
+		return nil
+	}
+
+	// 監視アクティブフラグを設定
+	s.monitoringActive = true
+
+	// 監視用ゴルーチンを起動
+	go s.monitoringLoop()
+
+	return nil
+}
+
+// StopMulticastMonitoring はマルチキャスト監視を停止する
+func (s *Session) StopMulticastMonitoring() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.monitoringActive = false
+}
+
+// SetMulticastMonitoringInterval は監視間隔を設定する
+func (s *Session) SetMulticastMonitoringInterval(interval time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.monitoringInterval = interval
+}
+
+// SetMulticastMonitoringTimeout は監視タイムアウトを設定する
+func (s *Session) SetMulticastMonitoringTimeout(timeout time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.monitoringTimeout = timeout
+}
+
+// monitoringLoop はマルチキャスト監視用のゴルーチン
+func (s *Session) monitoringLoop() {
+	logger := log.GetLogger()
+	if logger != nil {
+		logger.Log("マルチキャスト監視を開始しました (間隔: %v, タイムアウト: %v)", s.monitoringInterval, s.monitoringTimeout)
+	}
+
+	// 監視パケット送信用のタイマー
+	ticker := time.NewTicker(s.monitoringInterval)
+	defer ticker.Stop()
+
+	// 最初の監視パケットを送信
+	s.sendMonitoringPacket()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			// コンテキストがキャンセルされた場合は終了
+			if logger != nil {
+				logger.Log("マルチキャスト監視を終了しました (コンテキストキャンセル)")
+			}
+			return
+
+		case <-ticker.C:
+			// 監視アクティブかどうかを確認
+			s.mu.RLock()
+			active := s.monitoringActive
+			timeout := s.monitoringTimeout
+			s.mu.RUnlock()
+
+			if !active {
+				// 監視が停止された場合は終了
+				if logger != nil {
+					logger.Log("マルチキャスト監視を終了しました (停止要求)")
+				}
+				return
+			}
+
+			// 監視パケットを送信
+			s.sendMonitoringPacket()
+
+			// 監視パケットの応答を待つ
+			select {
+			case <-s.monitoringResponseCh:
+				// 監視パケットの応答を受信した場合
+				if logger != nil && s.Debug {
+					logger.Log("マルチキャスト監視: 正常に受信しています")
+				}
+
+				// 監視チャンネルに通知
+				if s.MonitoringCh != nil {
+					select {
+					case s.MonitoringCh <- MulticastMonitoringEvent{
+						Status: MulticastMonitoringOK,
+					}:
+						// 送信成功
+					default:
+						// チャンネルがブロックされている場合は無視
+					}
+				}
+
+			case <-time.After(timeout):
+				// タイムアウトした場合
+				if logger != nil {
+					logger.Log("マルチキャスト受信タイムアウト: 応答がありません")
+				}
+
+				// 監視チャンネルに通知
+				if s.MonitoringCh != nil {
+					timeoutErr := fmt.Errorf("multicast reception timeout: no response")
+					select {
+					case s.MonitoringCh <- MulticastMonitoringEvent{
+						Status: MulticastMonitoringFailed,
+						Error:  timeoutErr,
+					}:
+						// 送信成功
+					default:
+						// チャンネルがブロックされている場合は無視
+					}
+				}
+
+			case <-s.ctx.Done():
+				// コンテキストがキャンセルされた場合は終了
+				return
+			}
+		}
+	}
+}
+
+// sendMonitoringPacket は監視パケットを送信する
+func (s *Session) sendMonitoringPacket() {
+	// 監視パケットを作成
+	// DEOJ: NodeProfileObject (0x0EF0) + インスタンス番号 MonitoringInstanceCode (0x03)
+	monitoringDEOJ := MakeEOJ(0x0EF0, MonitoringInstanceCode)
+
+	// 監視パケットを送信
+	msg := &ECHONETLiteMessage{
+		TID:        s.newTID(),
+		SEOJ:       s.eoj,
+		DEOJ:       monitoringDEOJ,
+		ESV:        ESVGet,
+		Properties: []Property{
+			// 空のプロパティリスト
+		},
+	}
+
+	// マルチキャストアドレスに送信
+	ip := s.MulticastIP
+	if ip == nil {
+		ip = BroadcastIP
+	}
+
+	err := s.sendMessage(ip, msg)
+	if err != nil {
+		logger := log.GetLogger()
+		if logger != nil {
+			logger.Log("監視パケット送信エラー: %v", err)
+		}
+	}
 }
 
 func (s *Session) OnInf(callback PersistentCallbackFunc) {
@@ -215,6 +429,28 @@ func (s *Session) MainLoop() {
 
 		if s.Debug {
 			fmt.Printf("応答を受信: %s から --- %v\n", addr, msg)
+		}
+
+		// 監視パケットの場合は monitoringResponseCh に通知
+		if msg.DEOJ.ClassCode() == 0x0EF0 && msg.DEOJ.InstanceCode() == MonitoringInstanceCode {
+			// 送信元がローカルIPかどうかを確認
+			if s.conn.IsSelfPacket(addr) {
+				// 自己送信の監視パケットを受信した場合
+				if logger != nil {
+					logger.Log("監視パケットを受信しました: %v", addr.IP)
+				}
+
+				// 監視応答チャンネルに通知
+				select {
+				case s.monitoringResponseCh <- struct{}{}:
+					// 送信成功
+				default:
+					// チャンネルがブロックされている場合は無視
+				}
+
+				// 監視パケットの場合は他の処理をスキップ
+				continue
+			}
 		}
 
 		switch msg.ESV {
