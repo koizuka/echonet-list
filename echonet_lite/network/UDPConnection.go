@@ -12,6 +12,7 @@ import (
 type UDPConnection struct {
 	UdpConn   *net.UDPConn
 	LocalAddr *net.UDPAddr
+	localIPs  []net.IP // ローカルインターフェースのIPリスト
 	Port      int
 }
 
@@ -73,8 +74,47 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP n
 		conn.SetReadDeadline(time.Time{})
 	}
 
+	// ローカルのIPv4アドレスを取得
+	localIPs, err := GetLocalIPv4s()
+	if err != nil {
+		fmt.Printf("Warning: could not reliably determine local IPs for self-message filtering: %v\n", err)
+		localIPs = []net.IP{} // エラー時も空スライスで続行
+	}
+	// Listen したアドレスが Unspecified でない場合、それもリストに追加する（フォールバック）
+	listenAddrIP := conn.LocalAddr().(*net.UDPAddr).IP
+	if listenAddrIP.To4() != nil && !listenAddrIP.IsUnspecified() {
+		isAlreadyAdded := false
+		for _, lip := range localIPs {
+			if lip.Equal(listenAddrIP) {
+				isAlreadyAdded = true
+				break
+			}
+		}
+		if !isAlreadyAdded {
+			localIPs = append(localIPs, listenAddrIP)
+		}
+	}
+
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return &UDPConnection{UdpConn: conn, LocalAddr: localAddr, Port: port}, nil
+	return &UDPConnection{UdpConn: conn, LocalAddr: localAddr, localIPs: localIPs, Port: port}, nil
+}
+
+// isSelfPacket は指定されたアドレスが自身のいずれかのローカルIPとポートから送信されたものかを確認します
+func (c *UDPConnection) isSelfPacket(src *net.UDPAddr) bool {
+	if src == nil {
+		return false
+	}
+	// まずポート番号を確認
+	if src.Port != c.Port {
+		return false
+	}
+	// 次にIPアドレスがローカルIPリストに含まれるか確認
+	for _, localIP := range c.localIPs {
+		if src.IP.Equal(localIP) {
+			return true
+		}
+	}
+	return false
 }
 
 // Close はソケットを閉じます
@@ -116,7 +156,7 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 			return
 		}
 		src := addr.(*net.UDPAddr)
-		if src.IP.Equal(c.LocalAddr.IP) && src.Port == c.LocalAddr.Port {
+		if c.isSelfPacket(src) {
 			ch <- result{nil, nil, nil}
 			return
 		}
