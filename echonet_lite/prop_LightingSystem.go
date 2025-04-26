@@ -19,20 +19,18 @@ const (
 )
 
 func (r PropertyRegistry) LightingSystem() PropertyRegistryEntry {
-	Illuminance := NumberValueDesc{Min: 0, Max: 100, Unit: "%"}
-
 	return PropertyRegistryEntry{
 		ClassCode: LightingSystem_ClassCode,
 		PropertyTable: PropertyTable{
 			Description: "Lighting System",
-			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_LS_Illuminance:     {Desc: "Illuminance level", Number: &Illuminance},
-				EPC_LS_SceneControl:    {Desc: "Scene control", Number: &NumberValueDesc{EDTLen: 1, Min: 0, Max: 253}},     // 0:未設定, 1-253:シーン番号
-				EPC_LS_MaxSceneControl: {Desc: "Max scene control", Number: &NumberValueDesc{EDTLen: 1, Min: 1, Max: 253}}, // 1-253:最大シーン番号
-				EPC_LS_PanasonicF1:     {Desc: "Panasonic F1", Decoder: Decoder(LS_DecodePanasonicFx)},
-				EPC_LS_PanasonicF2:     {Desc: "Panasonic F2", Decoder: Decoder(LS_DecodePanasonicFx)},
-				EPC_LS_PanasonicF3:     {Desc: "Panasonic F3", Decoder: Decoder(LS_DecodePanasonicFx)},
-				EPC_LS_PanasonicF4:     {Desc: "Panasonic F4", Decoder: Decoder(LS_DecodePanasonicFx)},
+			EPCDesc: map[EPCType]PropertyDesc{
+				EPC_LS_Illuminance:     {"Illuminance level", nil, NumberDesc{Min: 0, Max: 100, Unit: "%"}},
+				EPC_LS_SceneControl:    {"Scene control", nil, NumberDesc{EDTLen: 1, Min: 0, Max: 253}},     // 0:未設定, 1-253:シーン番号
+				EPC_LS_MaxSceneControl: {"Max scene control", nil, NumberDesc{EDTLen: 1, Min: 1, Max: 253}}, // 1-253:最大シーン番号
+				EPC_LS_PanasonicF1:     {"Panasonic F1", nil, LS_PanasonicFxDesc{}},
+				EPC_LS_PanasonicF2:     {"Panasonic F2", nil, LS_PanasonicFxDesc{}},
+				EPC_LS_PanasonicF3:     {"Panasonic F3", nil, LS_PanasonicFxDesc{}},
+				EPC_LS_PanasonicF4:     {"Panasonic F4", nil, LS_PanasonicFxDesc{}},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_LS_Illuminance,
@@ -58,6 +56,16 @@ func decodeNulTerminatedString(b []byte) string {
 }
 
 // TODO Manufacturer codeがPanasonicの場合にのみ使うようにする
+
+type LS_PanasonicFxDesc struct{}
+
+func (d LS_PanasonicFxDesc) ToString(EDT []byte) (string, bool) {
+	fx := LS_DecodePanasonicFx(EDT)
+	if fx == nil {
+		return "", false
+	}
+	return fx.String(), true
+}
 
 func LS_DecodePanasonicFx(EDT []byte) *LS_PanasonicFx {
 	// 1バイト目に 01 が入り、そのあと24バイトずつ10個のラベルが入る

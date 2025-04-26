@@ -8,16 +8,16 @@ import (
 func TestPropertyTable_FindAlias(t *testing.T) {
 	// Test data setup
 	testTable := PropertyTable{
-		EPCInfo: map[EPCType]PropertyInfo{
+		EPCDesc: map[EPCType]PropertyDesc{
 			0x80: { // Operation status
-				Desc: "OperationStatus",
+				Name: "OperationStatus",
 				Aliases: map[string][]byte{
 					"on":  {0x30},
 					"off": {0x31},
 				},
 			},
 			0xB0: { // Illuminance level
-				Desc: "IlluminanceLevel",
+				Name: "IlluminanceLevel",
 				Aliases: map[string][]byte{
 					"dark":  {0x41},
 					"light": {0x42},

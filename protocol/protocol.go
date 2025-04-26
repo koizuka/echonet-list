@@ -236,8 +236,8 @@ type PropertyAliasesResultPayload struct {
 	Error   *Error               `json:"error,omitempty"`
 }
 
-// EPCInfo contains information about an EPC, including its description and aliases
-type EPCInfo struct {
+// EPCDesc contains information about an EPC, including its description and aliases
+type EPCDesc struct {
 	Description string            `json:"description"` // EPC description (e.g. "Operation status")
 	Aliases     map[string]string `json:"aliases"`     // Alias name -> EDT in base64 format
 }
@@ -245,7 +245,7 @@ type EPCInfo struct {
 // PropertyAliasesData is the data for the property_aliases_result message
 type PropertyAliasesData struct {
 	ClassCode  string             `json:"classCode"`
-	Properties map[string]EPCInfo `json:"properties"` // EPC in hex format (e.g. "80") -> EPCInfo
+	Properties map[string]EPCDesc `json:"properties"` // EPC in hex format (e.g. "80") -> EPCDesc
 }
 
 // Helper functions for converting between ECHONET Lite types and protocol types

@@ -82,14 +82,14 @@ func (c *Command) GetInstanceCode() *client.EOJInstanceCode {
 }
 
 type CommandParser struct {
-	propertyInfoProvider client.PropertyInfoProvider
+	propertyDescProvider client.PropertyDescProvider
 	aliasManager         client.AliasManager
 	groupManager         client.GroupManager
 }
 
-func NewCommandParser(propertyInfoProvider client.PropertyInfoProvider, aliasManager client.AliasManager, groupManager client.GroupManager) *CommandParser {
+func NewCommandParser(propertyDescProvider client.PropertyDescProvider, aliasManager client.AliasManager, groupManager client.GroupManager) *CommandParser {
 	return &CommandParser{
-		propertyInfoProvider: propertyInfoProvider,
+		propertyDescProvider: propertyDescProvider,
 		aliasManager:         aliasManager,
 		groupManager:         groupManager,
 	}
@@ -182,7 +182,7 @@ func (p CommandParser) parsePropertyString(propertyStr string, classCode client.
 
 		var edt []byte
 
-		if info, ok := p.propertyInfoProvider.GetPropertyInfo(classCode, epc); ok {
+		if info, ok := p.propertyDescProvider.GetPropertyDesc(classCode, epc); ok {
 			if valueEDT, ok := info.ToEDT(propParts[1]); ok {
 				if debug {
 					fmt.Printf("'%s' を EDT:%X に展開します\n", propParts[1], valueEDT)
@@ -204,7 +204,7 @@ func (p CommandParser) parsePropertyString(propertyStr string, classCode client.
 		// エイリアスのみの場合（例: "on"）
 		alias := propertyStr
 
-		if p, ok := p.propertyInfoProvider.FindPropertyAlias(classCode, alias); ok {
+		if p, ok := p.propertyDescProvider.FindPropertyAlias(classCode, alias); ok {
 			if debug {
 				fmt.Printf("エイリアス '%s' を EPC:%s, EDT:%X に展開します\n", alias, p.EPC, p.EDT)
 			}

@@ -25,9 +25,9 @@ type DeviceManager interface {
 	GetIDString(device IPAndEOJ) IDString
 }
 
-type PropertyInfoProvider interface {
+type PropertyDescProvider interface {
 	GetAllPropertyAliases() []string
-	GetPropertyInfo(classCode EOJClassCode, e EPCType) (*PropertyInfo, bool)
+	GetPropertyDesc(classCode EOJClassCode, e EPCType) (*PropertyDesc, bool)
 	IsPropertyDefaultEPC(classCode EOJClassCode, epc EPCType) bool
 	FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool)
 	AvailablePropertyAliases(classCode EOJClassCode) map[string]string

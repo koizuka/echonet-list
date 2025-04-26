@@ -23,13 +23,13 @@ type Property = echonet_lite.Property
 type Properties = echonet_lite.Properties
 type DeviceAndProperties = echonet_lite.DeviceAndProperties
 
-type PropertyInfo = echonet_lite.PropertyInfo
+type PropertyDesc = echonet_lite.PropertyDesc
 
 type ECHONETListClient interface {
 	Debugger
 	AliasManager
 	DeviceManager
-	PropertyInfoProvider
+	PropertyDescProvider
 	GroupManager
 	Close() error
 }

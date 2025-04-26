@@ -27,9 +27,7 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 		"on":  {0x41},
 		"off": {0x42},
 	}
-
-	TemperatureLevel := NumberValueDesc{Min: 1, Max: 15, Offset: 0x30}
-	MeasuredTemperature := NumberValueDesc{Min: -127, Max: 125, Unit: "℃"}
+	MeasuredTemperatureDesc := NumberDesc{Min: -127, Max: 125, Unit: "℃"}
 	ExtraValueAlias := map[string][]byte{
 		"N/A":       {0x7e},
 		"overflow":  {0x7f},
@@ -40,32 +38,32 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 		ClassCode: FloorHeating_ClassCode,
 		PropertyTable: PropertyTable{
 			Description: "Floor Heating",
-			EPCInfo: map[EPCType]PropertyInfo{
-				EPC_FH_TemperatureLevel: {Desc: "Temperature setting(level)", Aliases: map[string][]byte{
+			EPCDesc: map[EPCType]PropertyDesc{
+				EPC_FH_TemperatureLevel: {"Temperature setting(level)", map[string][]byte{
 					"auto": {0x41},
-				}, Number: &TemperatureLevel},
-				EPC_FH_RoomTemperature:  {Desc: "Room temperature", Aliases: ExtraValueAlias, Number: &MeasuredTemperature},
-				EPC_FH_FloorTemperature: {Desc: "Floor temperature", Aliases: ExtraValueAlias, Number: &MeasuredTemperature},
-				EPC_FH_SpecialMode: {Desc: "Special mode", Aliases: map[string][]byte{
+				}, NumberDesc{Min: 1, Max: 15, Offset: 0x30}},
+				EPC_FH_RoomTemperature:  {"Room temperature", ExtraValueAlias, MeasuredTemperatureDesc},
+				EPC_FH_FloorTemperature: {"Floor temperature", ExtraValueAlias, MeasuredTemperatureDesc},
+				EPC_FH_SpecialMode: {"Special mode", map[string][]byte{
 					"normal": {0x41}, // 通常運転
 					"low":    {0x42}, // ひかえめ運転
 					"high":   {0x43}, // ハイパワー運転
-				}},
-				EPC_FH_DailyTimerEnabled: {Desc: "Daily timer enabled", Aliases: map[string][]byte{
+				}, nil},
+				EPC_FH_DailyTimerEnabled: {"Daily timer enabled", map[string][]byte{
 					"off":         {0x40},
 					"dailyTimer1": {0x41},
 					"dailyTimer2": {0x42},
-				}},
-				EPC_FH_DailyTimer1: {Desc: "Daily timer1", Decoder: Decoder(FH_DecodeDailyTimer)},
-				EPC_FH_DailyTimer2: {Desc: "Daily timer2", Decoder: Decoder(FH_DecodeDailyTimer)},
+				}, nil},
+				EPC_FH_DailyTimer1: {"Daily timer1", nil, FH_DailyTimerDesc{}},
+				EPC_FH_DailyTimer2: {"Daily timer2", nil, FH_DailyTimerDesc{}},
 
-				EPC_FH_OnTimerEnabled:  {Desc: "ON timer enabled", Aliases: FH_OnOffAlias},
-				EPC_FH_OnTimerHHMM:     {Desc: "ON timer setting", Decoder: Decoder(FH_DecodeHHMM)},
-				EPC_FH_OffTimerEnabled: {Desc: "OFF timer enabled", Aliases: FH_OnOffAlias},
-				EPC_FH_OffTimerHHMM:    {Desc: "OFF timer setting", Decoder: Decoder(FH_DecodeHHMM)},
+				EPC_FH_OnTimerEnabled:  {"ON timer enabled", FH_OnOffAlias, nil},
+				EPC_FH_OnTimerHHMM:     {"ON timer setting", nil, FH_HHMMDesc{}},
+				EPC_FH_OffTimerEnabled: {"OFF timer enabled", FH_OnOffAlias, nil},
+				EPC_FH_OffTimerHHMM:    {"OFF timer setting", nil, FH_HHMMDesc{}},
 
-				EPC_FH_Temperature1: {Desc: "Temperature sensor 1", Aliases: ExtraValueAlias, Number: &MeasuredTemperature},
-				EPC_FH_Temperature2: {Desc: "Temperature sensor 2", Aliases: ExtraValueAlias, Number: &MeasuredTemperature},
+				EPC_FH_Temperature1: {"Temperature sensor 1", ExtraValueAlias, MeasuredTemperatureDesc},
+				EPC_FH_Temperature2: {"Temperature sensor 2", ExtraValueAlias, MeasuredTemperatureDesc},
 			},
 			DefaultEPCs: []EPCType{
 				EPC_FH_TemperatureLevel,
@@ -76,6 +74,16 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 			},
 		},
 	}
+}
+
+type FH_HHMMDesc struct{}
+
+func (d FH_HHMMDesc) ToString(EDT []byte) (string, bool) {
+	hhmm := FH_DecodeHHMM(EDT)
+	if hhmm == nil {
+		return "", false
+	}
+	return hhmm.String(), true
 }
 
 type FH_HHMM struct {
@@ -102,6 +110,16 @@ func (t *FH_HHMM) String() string {
 
 func (t *FH_HHMM) EDT() []byte {
 	return []byte{byte(t.Hour), byte(t.Minute)}
+}
+
+type FH_DailyTimerDesc struct{}
+
+func (d FH_DailyTimerDesc) ToString(EDT []byte) (string, bool) {
+	timer := FH_DecodeDailyTimer(EDT)
+	if timer == nil {
+		return "", false
+	}
+	return timer.String(), true
 }
 
 // デイリータイマー設定値: 各ビットが30分で24時間を表す(6バイト, 0x01=0:0-0:30) -> [0-47]bool

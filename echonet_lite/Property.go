@@ -81,13 +81,13 @@ func (p Property) Encode() []byte {
 
 type PropertyTable struct {
 	Description string
-	EPCInfo     map[EPCType]PropertyInfo
+	EPCDesc     map[EPCType]PropertyDesc
 	DefaultEPCs []EPCType
 }
 
 func (pt PropertyTable) FindAlias(alias string) (Property, bool) {
-	for epc, info := range pt.EPCInfo {
-		if aliases, ok := info.Aliases[alias]; ok {
+	for epc, desc := range pt.EPCDesc {
+		if aliases, ok := desc.Aliases[alias]; ok {
 			return Property{EPC: epc, EDT: aliases}, true
 		}
 	}
@@ -96,9 +96,9 @@ func (pt PropertyTable) FindAlias(alias string) (Property, bool) {
 
 func (pt PropertyTable) AvailableAliases() map[string]string {
 	aliases := map[string]string{}
-	for epc, info := range pt.EPCInfo {
-		for alias := range info.Aliases {
-			aliases[alias] = fmt.Sprintf("%s(%s):%X", epc, info.Desc, info.Aliases[alias])
+	for epc, desc := range pt.EPCDesc {
+		for alias := range desc.Aliases {
+			aliases[alias] = fmt.Sprintf("%s(%s):%X", epc, desc.Name, desc.Aliases[alias])
 		}
 	}
 	return aliases
@@ -129,30 +129,34 @@ func (e EPCType) String() string {
 }
 
 func (e EPCType) StringForClass(c EOJClassCode) string {
-	if info, ok := GetPropertyInfo(c, e); ok {
-		return fmt.Sprintf("%s(%s)", e.String(), info.Desc)
+	if info, ok := GetPropertyDesc(c, e); ok {
+		return fmt.Sprintf("%s(%s)", e.String(), info.Name)
 	}
 	return e.String()
 }
 
-func GetPropertyInfo(c EOJClassCode, e EPCType) (*PropertyInfo, bool) {
+func GetPropertyDesc(c EOJClassCode, e EPCType) (*PropertyDesc, bool) {
 	if table, ok := PropertyTables[c]; ok {
-		if ps, ok := table.EPCInfo[e]; ok {
+		if ps, ok := table.EPCDesc[e]; ok {
 			return &ps, true
 		}
 	}
-	if ps, ok := ProfileSuperClass_PropertyTable.EPCInfo[e]; ok {
+	if ps, ok := ProfileSuperClass_PropertyTable.EPCDesc[e]; ok {
 		return &ps, true
 	}
 	return nil, false
 }
 
 func PropertyFromInt(c EOJClassCode, epc EPCType, value int) (*Property, error) {
-	info, ok := PropertyTables[c].EPCInfo[epc]
-	if !ok || info.Number == nil {
-		return nil, fmt.Errorf("NumberValueDesc not found for EPC %s", epc)
+	info, ok := PropertyTables[c].EPCDesc[epc]
+	if !ok || info.Decoder == nil {
+		return nil, fmt.Errorf("Decoder not found for EPC %s", epc)
 	}
-	edt, ok := info.Number.FromInt(value)
+	numberConverter, ok := info.Decoder.(PropertyIntConverter)
+	if !ok {
+		return nil, fmt.Errorf("PropertyIntConverter not found for EPC %s", epc)
+	}
+	edt, ok := numberConverter.FromInt(value)
 	if !ok {
 		return nil, fmt.Errorf("failed to convert %d to EDT for EPC %s", value, epc)
 	}
@@ -174,8 +178,8 @@ func IsPropertyDefaultEPC(c EOJClassCode, epc EPCType) bool {
 
 func (p Property) EPCString(c EOJClassCode) string {
 	EPC := p.EPC.String()
-	if info, ok := GetPropertyInfo(c, p.EPC); ok {
-		EPC = fmt.Sprintf("%s(%s)", EPC, info.Desc)
+	if info, ok := GetPropertyDesc(c, p.EPC); ok {
+		EPC = fmt.Sprintf("%s(%s)", EPC, info.Name)
 	}
 	return EPC
 }
@@ -185,7 +189,7 @@ func (p Property) EDTString(c EOJClassCode) string {
 		return "nil"
 	}
 	var result string
-	if info, ok := GetPropertyInfo(c, p.EPC); ok {
+	if info, ok := GetPropertyDesc(c, p.EPC); ok {
 		result = info.EDTToString(p.EDT)
 	}
 	if result == "" {

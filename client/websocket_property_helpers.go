@@ -9,9 +9,9 @@ func (c *WebSocketClient) GetAllPropertyAliases() []string {
 	return echonet_lite.GetAllAliases()
 }
 
-// GetPropertyInfo gets information about a property
-func (c *WebSocketClient) GetPropertyInfo(classCode EOJClassCode, e EPCType) (*PropertyInfo, bool) {
-	return echonet_lite.GetPropertyInfo(classCode, e)
+// GetPropertyDesc gets information about a property
+func (c *WebSocketClient) GetPropertyDesc(classCode EOJClassCode, e EPCType) (*PropertyDesc, bool) {
+	return echonet_lite.GetPropertyDesc(classCode, e)
 }
 
 // IsPropertyDefaultEPC checks if a property is a default property

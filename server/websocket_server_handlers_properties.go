@@ -206,7 +206,7 @@ func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(connID string, msg
 	aliases := ws.echonetClient.AvailablePropertyAliases(classCode)
 
 	// Convert to protocol format
-	propertiesMap := make(map[string]protocol.EPCInfo)
+	propertiesMap := make(map[string]protocol.EPCDesc)
 
 	// Process each alias
 	for alias, desc := range aliases {
@@ -236,18 +236,18 @@ func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(connID string, msg
 			continue
 		}
 
-		// EPCInfoを取得または作成
-		epcInfo, exists := propertiesMap[epc]
+		// EPCDescを取得または作成
+		epcDesc, exists := propertiesMap[epc]
 		if !exists {
-			epcInfo = protocol.EPCInfo{
+			epcDesc = protocol.EPCDesc{
 				Description: description,
 				Aliases:     make(map[string]string),
 			}
 		}
 
 		// エイリアスを追加
-		epcInfo.Aliases[alias] = base64.StdEncoding.EncodeToString(edt)
-		propertiesMap[epc] = epcInfo
+		epcDesc.Aliases[alias] = base64.StdEncoding.EncodeToString(edt)
+		propertiesMap[epc] = epcDesc
 	}
 
 	// Create response payload

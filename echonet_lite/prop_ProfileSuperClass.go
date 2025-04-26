@@ -35,47 +35,47 @@ const (
 
 var ProfileSuperClass_PropertyTable = PropertyTable{
 	Description: "Profile Super Class",
-	EPCInfo: map[EPCType]PropertyInfo{
-		EPCOperationStatus: {Desc: "Operation status", Aliases: map[string][]byte{
+	EPCDesc: map[EPCType]PropertyDesc{
+		EPCOperationStatus: {"Operation status", map[string][]byte{
 			"on":  {0x30},
 			"off": {0x31},
-		}},
-		EPCInstallationLocation:                  {Desc: "Installation location", Aliases: InstallationLocationAliases()},
-		EPCStandardVersion:                       {Desc: "Standard version", Decoder: Decoder(DecodeStandardVersion)},
-		EPCIdentificationNumber:                  {Desc: "Identification number", Decoder: Decoder(DecodeIdentificationNumber)},
-		EPCMeasuredInstantaneousPowerConsumption: {Desc: "Measured instantaneous power consumption", Number: &NumberValueDesc{EDTLen: 2, Max: 65533, Unit: "W"}},
-		EPCMeasuredCumulativePowerConsumption:    {Desc: "Measured cumulative power consumption", Decoder: Decoder(DecodeCumulativePowerConsumption)},
-		EPCManufacturerFaultCode:                 {Desc: "Manufacturer fault code"},
-		EPCCurrentLimitSetting:                   {Desc: "Current limit setting"},
-		EPCFaultStatus: {Desc: "Fault occurrence status", Aliases: map[string][]byte{
+		}, nil},
+		EPCInstallationLocation:                  {"Installation location", InstallationLocationAliases(), nil},
+		EPCStandardVersion:                       {"Standard version", nil, StandardVersionDesc{}},
+		EPCIdentificationNumber:                  {"Identification number", nil, IdentificationNumberDesc{}},
+		EPCMeasuredInstantaneousPowerConsumption: {"Measured instantaneous power consumption", nil, NumberDesc{EDTLen: 2, Max: 65533, Unit: "W"}},
+		EPCMeasuredCumulativePowerConsumption:    {"Measured cumulative power consumption", nil, CumulativePowerConsumptionDesc{}},
+		EPCManufacturerFaultCode:                 {"Manufacturer fault code", nil, nil},
+		EPCCurrentLimitSetting:                   {"Current limit setting", nil, nil},
+		EPCFaultStatus: {"Fault occurrence status", map[string][]byte{
 			"fault":    {0x41},
 			"no_fault": {0x42},
-		}},
-		EPCFaultDescription: {Desc: "Fault description"},
-		EPCManufacturerCode: {Desc: "Manufacturer code", Aliases: map[string][]byte{
+		}, nil},
+		EPCFaultDescription: {"Fault description", nil, nil},
+		EPCManufacturerCode: {"Manufacturer code", map[string][]byte{
 			"Sharp":        {0x00, 0x00, 0x05},
 			"Daikin":       {0x00, 0x00, 0x08},
 			"Panasonic":    {0x00, 0x00, 0x0b},
 			"Experimental": {0xff, 0xff, 0xff},
-		}},
-		EPCBusinessFacilityCode: {Desc: "Business facility code"},
-		EPCProductCode:          {Desc: "Product code", String: &StringValueDesc{MinEDTLen: 12, MaxEDTLen: 12}},
-		EPCProductionNumber:     {Desc: "Production number", String: &StringValueDesc{MinEDTLen: 12, MaxEDTLen: 12}},
-		EPCProductionDate:       {Desc: "Production date", Decoder: Decoder(DecodeDate)},
-		EPCPowerSavingOperationSetting: {Desc: "Power saving operation setting", Aliases: map[string][]byte{
+		}, nil},
+		EPCBusinessFacilityCode: {"Business facility code", nil, nil},
+		EPCProductCode:          {"Product code", nil, StringDesc{MinEDTLen: 12, MaxEDTLen: 12}},
+		EPCProductionNumber:     {"Production number", nil, StringDesc{MinEDTLen: 12, MaxEDTLen: 12}},
+		EPCProductionDate:       {"Production date", nil, DateDesc{}},
+		EPCPowerSavingOperationSetting: {"Power saving operation setting", map[string][]byte{
 			"power_saving": {0x41},
 			"normal":       {0x42},
-		}},
-		EPCRemoteControlSetting: {Desc: "Remote control setting", Aliases: map[string][]byte{
+		}, nil},
+		EPCRemoteControlSetting: {"Remote control setting", map[string][]byte{
 			"not_public_line":       {0x41}, // 公衆回線を経由しない制御
 			"public_line":           {0x42}, // 公衆回線経由の制御
 			"not_pubic_line_normal": {0x61}, // 通信回線正常（公衆回線経由の操作不可）
 			"public_line_normal":    {0x62}, // 通信回線正常（公衆回線経由の操作可能）
-		}},
-		EPCCurrentDate:                   {Desc: "Current date", Decoder: Decoder(DecodeDate)},
-		EPCStatusAnnouncementPropertyMap: {Desc: "Status announcement property map", Decoder: Decoder(DecodePropertyMap)},
-		EPCSetPropertyMap:                {Desc: "Set property map", Decoder: Decoder(DecodePropertyMap)},
-		EPCGetPropertyMap:                {Desc: "Get property map", Decoder: Decoder(DecodePropertyMap)},
+		}, nil},
+		EPCCurrentDate:                   {"Current date", nil, DateDesc{}},
+		EPCStatusAnnouncementPropertyMap: {"Status announcement property map", nil, PropertyMapDesc{}},
+		EPCSetPropertyMap:                {"Set property map", nil, PropertyMapDesc{}},
+		EPCGetPropertyMap:                {"Get property map", nil, PropertyMapDesc{}},
 	},
 	DefaultEPCs: []EPCType{
 		EPCOperationStatus,
@@ -129,6 +129,16 @@ func InstallationLocationAliases() map[string][]byte {
 	return aliases
 }
 
+type StandardVersionDesc struct{}
+
+func (d StandardVersionDesc) ToString(EDT []byte) (string, bool) {
+	s := DecodeStandardVersion(EDT)
+	if s == nil {
+		return "", false
+	}
+	return s.String(), true
+}
+
 type StandardVersion struct {
 	Reserved1 byte
 	Reserved2 byte
@@ -154,6 +164,16 @@ func (s *StandardVersion) String() string {
 
 func (s *StandardVersion) Property() *Property {
 	return &Property{EPC: EPCStandardVersion, EDT: []byte{s.Reserved1, s.Reserved2, s.Release, s.Revision}}
+}
+
+type IdentificationNumberDesc struct{}
+
+func (d IdentificationNumberDesc) ToString(EDT []byte) (string, bool) {
+	i := DecodeIdentificationNumber(EDT)
+	if i == nil {
+		return "", false
+	}
+	return i.String(), true
 }
 
 type IdentificationNumber struct {
@@ -185,25 +205,24 @@ func (s *IdentificationNumber) Property() *Property {
 	}
 }
 
-type CumulativePowerConsumption struct {
-	Power uint32
-}
+type CumulativePowerConsumptionDesc struct{}
 
-func DecodeCumulativePowerConsumption(EDT []byte) *CumulativePowerConsumption {
+func (d CumulativePowerConsumptionDesc) ToString(EDT []byte) (string, bool) {
 	if len(EDT) != 4 {
-		return nil
+		return "", false
 	}
-	return &CumulativePowerConsumption{
-		Power: utils.BytesToUint32(EDT),
-	}
+	power := utils.BytesToUint32(EDT)
+	return fmt.Sprintf("%.3f kWh", float64(power)/1000.0), true
 }
 
-func (s *CumulativePowerConsumption) String() string {
-	return fmt.Sprintf("%f kWh", float64(s.Power)/1000.0)
-}
+type DateDesc struct{}
 
-func (s *CumulativePowerConsumption) Property() *Property {
-	return &Property{EPC: EPCMeasuredCumulativePowerConsumption, EDT: utils.Uint32ToBytes(s.Power, 4)}
+func (d DateDesc) ToString(EDT []byte) (string, bool) {
+	dt := DecodeDate(EDT)
+	if dt == nil {
+		return "", false
+	}
+	return dt.String(), true
 }
 
 type Date struct {
@@ -261,6 +280,16 @@ type ErrInvalidPropertyMap struct {
 
 func (e ErrInvalidPropertyMap) Error() string {
 	return fmt.Sprintf("invalid property map: %X", e.EDT)
+}
+
+type PropertyMapDesc struct{}
+
+func (d PropertyMapDesc) ToString(EDT []byte) (string, bool) {
+	p := DecodePropertyMap(EDT)
+	if p == nil {
+		return "", false
+	}
+	return p.String(), true
 }
 
 // プロパティマップ記述形式

@@ -234,10 +234,10 @@ var CommandTable = []CommandDefinition{
 				// EPCのみの場合（エイリアス一覧表示）
 				epc, err := parseEPC(parts[i])
 				if err == nil {
-					// クラスコードからPropertyInfoを取得
+					// クラスコードからPropertyDescを取得
 					classCode := cmd.GetClassCode()
-					if propInfo, ok := p.propertyInfoProvider.GetPropertyInfo(classCode, epc); ok && propInfo.Aliases != nil && len(propInfo.Aliases) > 0 {
-						return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propInfo.Aliases}
+					if propDesc, ok := p.propertyDescProvider.GetPropertyDesc(classCode, epc); ok && propDesc.Aliases != nil && len(propDesc.Aliases) > 0 {
+						return nil, &AvailableAliasesForEPC{EPC: epc, Aliases: propDesc.Aliases}
 					} else {
 						return nil, &AvailableAliasesForEPC{EPC: epc}
 					}

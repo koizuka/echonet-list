@@ -119,7 +119,7 @@ func (m *mockECHONETListClient) GetAllPropertyAliases() []string {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetPropertyInfo(classCode echonet_lite.EOJClassCode, e echonet_lite.EPCType) (*echonet_lite.PropertyInfo, bool) {
+func (m *mockECHONETListClient) GetPropertyDesc(classCode echonet_lite.EOJClassCode, e echonet_lite.EPCType) (*echonet_lite.PropertyDesc, bool) {
 	return nil, false
 }
 
@@ -320,39 +320,39 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 					switch tt.classCode {
 					case "0130": // HomeAirConditionerの場合
 						// "B0" EPCが含まれていることを確認 (デバイス固有)
-						epcInfo, ok := responsePayload.Data.Properties["B0"]
+						epcDesc, ok := responsePayload.Data.Properties["B0"]
 						if !ok {
 							t.Errorf("Response data.properties does not contain 'B0' EPC for HomeAirConditioner")
 						} else {
-							if epcInfo.Description != "Operation mode setting" {
-								t.Errorf("Response data.properties['B0'].description = %v, want %v", epcInfo.Description, "Operation mode setting")
+							if epcDesc.Description != "Operation mode setting" {
+								t.Errorf("Response data.properties['B0'].description = %v, want %v", epcDesc.Description, "Operation mode setting")
 							}
-							if _, ok := epcInfo.Aliases["auto"]; !ok {
+							if _, ok := epcDesc.Aliases["auto"]; !ok {
 								t.Errorf("Response data.properties['B0'].aliases does not contain 'auto' alias")
 							}
 						}
 					case "": // 共通プロパティの場合
 						// "80" EPCが含まれていることを確認
-						epcInfo, ok := responsePayload.Data.Properties["80"]
+						epcDesc, ok := responsePayload.Data.Properties["80"]
 						if !ok {
 							t.Errorf("Response data.properties does not contain '80' EPC for common properties")
 						} else {
-							if epcInfo.Description != "Operation status" {
-								t.Errorf("Response data.properties['80'].description = %v, want %v", epcInfo.Description, "Operation status")
+							if epcDesc.Description != "Operation status" {
+								t.Errorf("Response data.properties['80'].description = %v, want %v", epcDesc.Description, "Operation status")
 							}
-							if _, ok := epcInfo.Aliases["on"]; !ok {
+							if _, ok := epcDesc.Aliases["on"]; !ok {
 								t.Errorf("Response data.properties['80'].aliases does not contain 'on' alias")
 							}
 						}
 						// "81" EPCが含まれていることを確認
-						epcInfo81, ok81 := responsePayload.Data.Properties["81"]
+						epcDesc81, ok81 := responsePayload.Data.Properties["81"]
 						if !ok81 {
 							t.Errorf("Response data.properties does not contain '81' EPC for common properties")
 						} else {
-							if epcInfo81.Description != "Installation location" {
-								t.Errorf("Response data.properties['81'].description = %v, want %v", epcInfo81.Description, "Installation location")
+							if epcDesc81.Description != "Installation location" {
+								t.Errorf("Response data.properties['81'].description = %v, want %v", epcDesc81.Description, "Installation location")
 							}
-							if _, ok := epcInfo81.Aliases["living"]; !ok {
+							if _, ok := epcDesc81.Aliases["living"]; !ok {
 								t.Errorf("Response data.properties['81'].aliases does not contain 'living' alias")
 							}
 						}

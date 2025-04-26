@@ -14,7 +14,7 @@ WebSocketクライアントがクラスコードを指定して、そのクラ�
 
 実装内容：
 
-1. `protocol/protocol.go`に`EPCInfo`構造体を新たに定義し、EPCの説明テキストとエイリアスマップを保持するようにしました。
+1. `protocol/protocol.go`に`EPCDesc`構造体を新たに定義し、EPCの説明テキストとエイリアスマップを保持するようにしました。
 2. `PropertyAliasesData`構造体を修正し、`aliases`フィールドを`properties`フィールドに変更しました。
 3. `server/websocket_server_handlers_properties.go`ファイルの`handleGetPropertyAliasesFromClient`メソッドを修正し、`AvailablePropertyAliases`から取得したデータを新しいプロトコルフォーマットに変換するロジックを実装しました。
 4. EPCとその説明テキスト、エイリアス名、EDT値を正しく解析し、EPCごとにグループ化するようにしました。

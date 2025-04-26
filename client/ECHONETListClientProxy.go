@@ -83,8 +83,8 @@ func (c *ECHONETListClientProxy) GetAllPropertyAliases() []string {
 	return echonet_lite.GetAllAliases()
 }
 
-func (c *ECHONETListClientProxy) GetPropertyInfo(classCode EOJClassCode, e EPCType) (*PropertyInfo, bool) {
-	return echonet_lite.GetPropertyInfo(classCode, e)
+func (c *ECHONETListClientProxy) GetPropertyDesc(classCode EOJClassCode, e EPCType) (*PropertyDesc, bool) {
+	return echonet_lite.GetPropertyDesc(classCode, e)
 }
 
 func (c *ECHONETListClientProxy) IsPropertyDefaultEPC(classCode EOJClassCode, epc EPCType) bool {

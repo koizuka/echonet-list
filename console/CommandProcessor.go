@@ -219,7 +219,7 @@ func (p *CommandProcessor) displayDevice(cmd *Command, device client.IPAndEOJ, p
 			}
 		case PropKnown:
 			// 既知のプロパティのみ表示
-			if _, ok := p.handler.GetPropertyInfo(classCode, epc); !ok {
+			if _, ok := p.handler.GetPropertyDesc(classCode, epc); !ok {
 				continue
 			}
 		case PropEPC:
