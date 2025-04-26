@@ -2,6 +2,7 @@ package echonet_lite
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -79,37 +80,31 @@ func (r PropertyRegistry) FloorHeating() PropertyRegistryEntry {
 type FH_HHMMDesc struct{}
 
 func (d FH_HHMMDesc) ToString(EDT []byte) (string, bool) {
-	hhmm := FH_DecodeHHMM(EDT)
-	if hhmm == nil {
+	if len(EDT) != 2 {
 		return "", false
 	}
-	return hhmm.String(), true
+	hour := int(EDT[0])
+	minute := int(EDT[1])
+	return fmt.Sprintf("%02d:%02d", hour, minute), true
 }
 
-type FH_HHMM struct {
-	Hour   int
-	Minute int
-}
-
-func FH_DecodeHHMM(EDT []byte) *FH_HHMM {
-	if len(EDT) < 2 {
-		return nil
+func (d FH_HHMMDesc) FromString(s string) ([]byte, bool) {
+	parts := strings.Split(s, ":")
+	if len(parts) != 2 {
+		return nil, false
 	}
-	return &FH_HHMM{
-		Hour:   int(EDT[0]),
-		Minute: int(EDT[1]),
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return nil, false
 	}
-}
-
-func (t *FH_HHMM) String() string {
-	if t == nil {
-		return "nil"
+	minute, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, false
 	}
-	return fmt.Sprintf("%02d:%02d", t.Hour, t.Minute)
-}
-
-func (t *FH_HHMM) EDT() []byte {
-	return []byte{byte(t.Hour), byte(t.Minute)}
+	if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
+		return nil, false
+	}
+	return []byte{byte(hour), byte(minute)}, true
 }
 
 type FH_DailyTimerDesc struct{}
