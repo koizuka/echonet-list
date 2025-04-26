@@ -102,7 +102,7 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Sessio
 
 	multicastIP := ECHONETLiteMulticastIPv4
 
-	conn, err := network.CreateUDPConnection(sessionCtx, ip, ECHONETLitePort, multicastIP, network.UDPConnectionOptions{DefaultTimeout: 30 * time.Second})
+	conn, err := network.CreateUDPConnection(sessionCtx, ip, ECHONETLitePort, multicastIP)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		return nil, err

@@ -16,16 +16,11 @@ type UDPConnection struct {
 	Port      int
 }
 
-// UDPConnectionOptions は接続オプションを指定します
-type UDPConnectionOptions struct {
-	DefaultTimeout time.Duration
-}
-
 // CreateUDPConnection は IPv4 の unicast と multicast (マルチキャスト) を受信対応します。
 // ip が nil の場合はワイルドカード listen、multicastIP がブロードキャストかつIPv4の場合は broadcast として受信。
 // multicastIP が真のマルチキャストかつIPv4の場合はグループ参加。
 // ip または multicastIP がIPv6の場合はエラーになります。
-func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP net.IP, opt UDPConnectionOptions) (*UDPConnection, error) {
+func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP net.IP) (*UDPConnection, error) {
 	// IPv6 非対応チェック
 	if ip != nil && ip.To4() == nil {
 		return nil, fmt.Errorf("IPv6 not supported for unicast ip")
@@ -63,10 +58,6 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP n
 		}
 	}
 
-	// デフォルトタイムアウト
-	if opt.DefaultTimeout == 0 {
-		opt.DefaultTimeout = 30 * time.Second
-	}
 	// ReadDeadline 設定
 	if deadline, ok := ctx.Deadline(); ok {
 		conn.SetReadDeadline(deadline)

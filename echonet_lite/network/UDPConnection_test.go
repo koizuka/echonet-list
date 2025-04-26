@@ -33,7 +33,7 @@ func TestUDPConnection_ReceiveBroadcast(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	receiver, err := CreateUDPConnection(ctx, net.IPv4zero, port, net.IPv4bcast, UDPConnectionOptions{DefaultTimeout: 1 * time.Second})
+	receiver, err := CreateUDPConnection(ctx, net.IPv4zero, port, net.IPv4bcast)
 	require.NoError(t, err)
 	defer receiver.Close()
 
@@ -81,7 +81,7 @@ func TestUDPConnection_ReceiveMulticast(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	receiver, err := CreateUDPConnection(ctx, net.IPv4zero, port, multicastIP, UDPConnectionOptions{DefaultTimeout: 1 * time.Second})
+	receiver, err := CreateUDPConnection(ctx, net.IPv4zero, port, multicastIP)
 	require.NoError(t, err)
 	defer receiver.Close()
 
@@ -132,7 +132,7 @@ func TestUDPConnection_ReceiveMulticastIPv6(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	receiver, err := CreateUDPConnection(ctx, net.IPv6unspecified, port, multicastIP, UDPConnectionOptions{DefaultTimeout: 1 * time.Second})
+	receiver, err := CreateUDPConnection(ctx, net.IPv6unspecified, port, multicastIP)
 	require.NoError(t, err)
 	defer receiver.Close()
 
