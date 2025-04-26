@@ -1,8 +1,10 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"time"
 )
 
 // GetIPv4BroadcastIP は、ローカルネットワークのIPv4ブロードキャストアドレスを自動的に検出します
@@ -74,6 +76,21 @@ func GetLocalUDPAddressFor(ip net.IP, port int) (*net.UDPAddr, error) {
 		_ = conn.Close()
 	}(conn)
 	return conn.LocalAddr().(*net.UDPAddr), nil
+}
+
+// SetDeadlineFromContext はコンテキストからデッドラインを取得し、UDPConnに設定します
+func SetDeadlineFromContext(conn *net.UDPConn, ctx context.Context) {
+	if ctx == nil {
+		// コンテキストが設定されていない場合は無期限タイムアウト
+		conn.SetReadDeadline(time.Time{})
+		return
+	}
+
+	if deadline, ok := ctx.Deadline(); ok {
+		conn.SetReadDeadline(deadline)
+	} else {
+		conn.SetReadDeadline(time.Time{})
+	}
 }
 
 // GetLocalIPv4s はローカルマシンの非ループバックIPv4アドレスのリストを取得します

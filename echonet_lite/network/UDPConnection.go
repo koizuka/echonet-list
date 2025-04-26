@@ -10,10 +10,12 @@ import (
 
 // UDPConnection は UDP ソケットを管理します
 type UDPConnection struct {
-	UdpConn   *net.UDPConn
-	LocalAddr *net.UDPAddr
-	localIPs  []net.IP // ローカルインターフェースのIPリスト
-	Port      int
+	UdpConn         *net.UDPConn
+	LocalAddr       *net.UDPAddr
+	localIPs        []net.IP // ローカルインターフェースのIPリスト
+	Port            int
+	mu              sync.Mutex    // UdpConnへのアクセスを保護するためのミューテックス
+	stopMonitorChan chan struct{} // 監視ゴルーチンを停止するためのチャネル
 }
 
 // CreateUDPConnection は IPv4 の unicast と multicast (マルチキャスト) を受信対応します。
@@ -58,13 +60,6 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP n
 		}
 	}
 
-	// ReadDeadline 設定
-	if deadline, ok := ctx.Deadline(); ok {
-		conn.SetReadDeadline(deadline)
-	} else {
-		conn.SetReadDeadline(time.Time{})
-	}
-
 	// ローカルのIPv4アドレスを取得
 	localIPs, err := GetLocalIPv4s()
 	if err != nil {
@@ -87,7 +82,29 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP n
 	}
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return &UDPConnection{UdpConn: conn, LocalAddr: localAddr, localIPs: localIPs, Port: port}, nil
+
+	// マルチキャストIPを保存（再参加用）
+	var savedMulticastIP net.IP
+	if multicastIP != nil {
+		savedMulticastIP = make(net.IP, len(multicastIP))
+		copy(savedMulticastIP, multicastIP)
+	}
+
+	udpConn := &UDPConnection{
+		UdpConn:         conn,
+		LocalAddr:       localAddr,
+		localIPs:        localIPs,
+		Port:            port,
+		stopMonitorChan: make(chan struct{}),
+	}
+
+	// マルチキャスト接続の場合、監視ゴルーチンを起動
+	if multicastIP != nil {
+		tickerDuration := 5 * time.Second
+		go udpConn.monitorAndRejoinMulticast(savedMulticastIP, tickerDuration)
+	}
+
+	return udpConn, nil
 }
 
 // isSelfPacket は指定されたアドレスが自身のいずれかのローカルIPとポートから送信されたものかを確認します
@@ -108,13 +125,75 @@ func (c *UDPConnection) isSelfPacket(src *net.UDPAddr) bool {
 	return false
 }
 
-// Close はソケットを閉じます
+// monitorAndRejoinMulticast は定期的に時刻をチェックし、大きな時刻ジャンプを検出したら
+// マルチキャストグループに再参加します。これはシステムがスリープから復帰した場合などに有効です。
+func (c *UDPConnection) monitorAndRejoinMulticast(multicastIP net.IP, duration time.Duration) {
+	ticker := time.NewTicker(duration)
+	defer ticker.Stop()
+
+	leapThreshold := 90 * time.Second
+
+	// 初期時刻を設定
+	lastTickTime := time.Now()
+
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			elapsed := now.Sub(lastTickTime)
+			lastTickTime = now
+
+			// 時刻ジャンプがあった場合、マルチキャストグループに再参加
+			if elapsed > leapThreshold {
+				fmt.Printf("Time jump detected (%v). Attempting to rejoin multicast group.", elapsed)
+				c.rejoinMulticastGroup(multicastIP)
+			}
+		case <-c.stopMonitorChan:
+			return
+		}
+	}
+}
+
+// rejoinMulticastGroup はマルチキャストグループに再参加します
+func (c *UDPConnection) rejoinMulticastGroup(multicastIP net.IP) {
+	if multicastIP == nil || !multicastIP.IsMulticast() {
+		return // マルチキャスト接続でない場合は何もしない
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// 現在の接続を保存
+	oldConn := c.UdpConn
+
+	// 新しいマルチキャスト接続を作成
+	newConn, err := net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{IP: multicastIP, Port: c.Port})
+	if err != nil {
+		fmt.Printf("Failed to rejoin multicast group: %v", err)
+		return
+	}
+
+	// 新しい接続に切り替え
+	c.UdpConn = newConn
+
+	// 古い接続を閉じる
+	oldConn.Close()
+
+	fmt.Printf("Successfully rejoined multicast group: %v", multicastIP)
+}
+
+// Close はソケットを閉じ、監視ゴルーチンを停止します
 func (c *UDPConnection) Close() error {
+	// 監視ゴルーチンを停止
+	close(c.stopMonitorChan)
+
 	return c.UdpConn.Close()
 }
 
 // SendTo は指定先にデータを送信します
 func (c *UDPConnection) SendTo(dstIP net.IP, data []byte) (int, error) {
+	// c.mu.Lock()
+	// defer c.mu.Unlock()
 	return c.UdpConn.WriteTo(data, &net.UDPAddr{IP: dstIP, Port: c.Port})
 }
 
@@ -126,11 +205,9 @@ var bufferPool = sync.Pool{
 // Receive は UDP パケットを受信し、送信元アドレスとデータを返します。
 // 自送信パケットを除外し、コンテキストキャンセルに対応します。
 func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, error) {
-	if deadline, ok := ctx.Deadline(); ok {
-		c.UdpConn.SetReadDeadline(deadline)
-	} else {
-		c.UdpConn.SetReadDeadline(time.Time{})
-	}
+	c.mu.Lock()
+	SetDeadlineFromContext(c.UdpConn, ctx)
+	c.mu.Unlock()
 
 	type result struct {
 		data []byte
@@ -141,7 +218,10 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 	go func() {
 		buf := bufferPool.Get().([]byte)
 		defer bufferPool.Put(buf)
+
+		c.mu.Lock()
 		n, addr, err := c.UdpConn.ReadFrom(buf)
+		c.mu.Unlock()
 		if err != nil {
 			ch <- result{nil, nil, err}
 			return
