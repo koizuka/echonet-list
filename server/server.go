@@ -46,6 +46,8 @@ func NewServer(ctx context.Context, debug bool) (*Server, error) {
 
 	// マルチキャスト監視を開始
 	go func() {
+		// TODO: このマルチキャスト監視では正常に受信できているのに、通知は来なくなっているため、来ない原因は
+		// マルチキャストからの離脱ではなさそう
 		if err := handler.StartMulticastMonitoring(); err != nil {
 			fmt.Printf("マルチキャスト監視の開始に失敗しました: %v\n", err)
 		} else {
