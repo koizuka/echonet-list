@@ -35,7 +35,7 @@ func (r PropertyRegistry) Controller() PropertyRegistryEntry {
 					"unregistered": {0x43}, // 未登録
 					"deleted":      {0x44}, // 削除
 				}},
-				EPC_C_InstallAddress: {Desc: "接地住所", String: &StringValueDesc{MaxEDTLen: 255}},
+				EPC_C_InstallAddress: {Desc: "設置住所", String: &StringValueDesc{MaxEDTLen: 255}},
 			},
 			DefaultEPCs: []EPCType{},
 		},
