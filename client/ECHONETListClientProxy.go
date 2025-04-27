@@ -95,7 +95,7 @@ func (c *ECHONETListClientProxy) FindPropertyAlias(classCode EOJClassCode, alias
 	return echonet_lite.PropertyTables.FindAlias(classCode, alias)
 }
 
-func (c *ECHONETListClientProxy) AvailablePropertyAliases(classCode EOJClassCode) map[string]string {
+func (c *ECHONETListClientProxy) AvailablePropertyAliases(classCode EOJClassCode) map[string]PropertyDescription {
 	return echonet_lite.PropertyTables.AvailableAliases(classCode)
 }
 

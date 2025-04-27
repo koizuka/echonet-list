@@ -123,7 +123,7 @@ func FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool) {
 
 // AvailablePropertyAliases returns a map of available property aliases for a given class code.
 // This is a wrapper around PropertyTables.AvailableAliases.
-func AvailablePropertyAliases(classCode EOJClassCode) map[string]string {
+func AvailablePropertyAliases(classCode EOJClassCode) map[string]PropertyDescription {
 	return PropertyTables.AvailableAliases(classCode)
 }
 

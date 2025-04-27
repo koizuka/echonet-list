@@ -30,7 +30,7 @@ type PropertyDescProvider interface {
 	GetPropertyDesc(classCode EOJClassCode, e EPCType) (*PropertyDesc, bool)
 	IsPropertyDefaultEPC(classCode EOJClassCode, epc EPCType) bool
 	FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool)
-	AvailablePropertyAliases(classCode EOJClassCode) map[string]string
+	AvailablePropertyAliases(classCode EOJClassCode) map[string]PropertyDescription
 }
 
 type GroupManager interface {

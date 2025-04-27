@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 // handleGetPropertiesFromClient handles a get_properties message from a client
@@ -210,31 +209,13 @@ func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(connID string, msg
 
 	// Process each alias
 	for alias, desc := range aliases {
-		// Parse EPC and EDT from description (format: "EPC(説明):EDT")
-		parts := strings.Split(desc, ":")
-		if len(parts) != 2 {
-			continue
-		}
-
-		// EPCとその説明部分を取得
-		epcPart := parts[0]
-		// 括弧の位置を見つける
-		openParenIndex := strings.Index(epcPart, "(")
-		closeParenIndex := strings.Index(epcPart, ")")
-		if openParenIndex == -1 || closeParenIndex == -1 || closeParenIndex <= openParenIndex {
-			continue
-		}
-
 		// EPCは括弧の前の部分
-		epc := epcPart[:openParenIndex]
+		epc := desc.EPC.String()
 		// 説明は括弧の中の部分
-		description := epcPart[openParenIndex+1 : closeParenIndex]
+		description := desc.Name
 
 		// EDTを解析
-		edt, err := echonet_lite.ParseHexString(parts[1])
-		if err != nil {
-			continue
-		}
+		edt := desc.EDT
 
 		// EPCDescを取得または作成
 		epcDesc, exists := propertiesMap[epc]

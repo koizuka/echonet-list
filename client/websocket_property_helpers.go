@@ -25,6 +25,6 @@ func (c *WebSocketClient) FindPropertyAlias(classCode EOJClassCode, alias string
 }
 
 // AvailablePropertyAliases gets all available property aliases for a class
-func (c *WebSocketClient) AvailablePropertyAliases(classCode EOJClassCode) map[string]string {
+func (c *WebSocketClient) AvailablePropertyAliases(classCode EOJClassCode) map[string]PropertyDescription {
 	return echonet_lite.AvailablePropertyAliases(classCode)
 }

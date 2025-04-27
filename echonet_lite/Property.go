@@ -20,31 +20,25 @@ func (pt PropertyTableMap) FindAlias(classCode EOJClassCode, alias string) (Prop
 	return Property{}, false
 }
 
-func (pt PropertyTableMap) AvailableAliases(classCode EOJClassCode) map[string]string {
-	aliases := map[string]string{}
-
+func (pt PropertyTableMap) AvailableAliases(classCode EOJClassCode) map[string]PropertyDescription {
 	if classCode == 0 {
 		// classCodeがゼロ値の場合、共通プロパティのみを返す
-		for alias, desc := range ProfileSuperClass_PropertyTable.AvailableAliases() {
-			aliases[alias] = desc
-		}
+		return ProfileSuperClass_PropertyTable.AvailableAliases()
 	} else {
 		// classCodeが指定されている場合、デバイス固有プロパティのみを返す
 		if table, ok := pt[classCode]; ok {
-			for alias, desc := range table.AvailableAliases() {
-				aliases[alias] = desc
-			}
+			return table.AvailableAliases()
 		}
 		// Note: ここでは共通プロパティは含めない
 	}
 
-	return aliases
+	return map[string]PropertyDescription{}
 }
 
 func GetAllAliases() []string {
 	exists := map[string]bool{}
 	aliases := []string{}
-	set := func(available map[string]string) {
+	set := func(available map[string]PropertyDescription) {
 		for alias := range available {
 			if !exists[alias] {
 				aliases = append(aliases, alias)
@@ -94,11 +88,25 @@ func (pt PropertyTable) FindAlias(alias string) (Property, bool) {
 	return Property{}, false
 }
 
-func (pt PropertyTable) AvailableAliases() map[string]string {
-	aliases := map[string]string{}
+type PropertyDescription struct {
+	EPC  EPCType // プロパティコード
+	Name string
+	EDT  []byte // プロパティデータ
+}
+
+func (p PropertyDescription) String() string {
+	return fmt.Sprintf("%s(%s):%X", p.EPC, p.Name, p.EDT)
+}
+
+func (pt PropertyTable) AvailableAliases() map[string]PropertyDescription {
+	aliases := map[string]PropertyDescription{}
 	for epc, desc := range pt.EPCDesc {
 		for alias := range desc.Aliases {
-			aliases[alias] = fmt.Sprintf("%s(%s):%X", epc, desc.Name, desc.Aliases[alias])
+			aliases[alias] = PropertyDescription{
+				EPC:  epc,
+				Name: desc.Name,
+				EDT:  desc.Aliases[alias],
+			}
 		}
 	}
 	return aliases

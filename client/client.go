@@ -24,6 +24,7 @@ type Properties = echonet_lite.Properties
 type DeviceAndProperties = echonet_lite.DeviceAndProperties
 
 type PropertyDesc = echonet_lite.PropertyDesc
+type PropertyDescription = echonet_lite.PropertyDescription
 
 type ECHONETListClient interface {
 	Debugger

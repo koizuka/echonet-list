@@ -131,26 +131,28 @@ func (m *mockECHONETListClient) FindPropertyAlias(classCode echonet_lite.EOJClas
 	return echonet_lite.Property{}, false
 }
 
-func (m *mockECHONETListClient) AvailablePropertyAliases(classCode echonet_lite.EOJClassCode) map[string]string {
+type PropertyDescription = echonet_lite.PropertyDescription
+
+func (m *mockECHONETListClient) AvailablePropertyAliases(classCode echonet_lite.EOJClassCode) map[string]echonet_lite.PropertyDescription {
 	// テスト用のエイリアスマップを返す
 	if classCode == 0 { // 共通プロパティを要求された場合
-		return map[string]string{
-			"on":  "80(Operation status):30",
-			"off": "80(Operation status):31",
+		return map[string]PropertyDescription{
+			"on":  {EPC: 0x80, Name: "Operation status", EDT: []byte{0x30}},
+			"off": {EPC: 0x80, Name: "Operation status", EDT: []byte{0x31}},
 			// 必要に応じて他の共通プロパティエイリアスを追加
-			"living": "81(Installation location):01",
+			"living": {EPC: 0x81, Name: "Installation location", EDT: []byte{0x01}},
 		}
 	} else if classCode == echonet_lite.HomeAirConditioner_ClassCode { // デバイス固有プロパティ
-		return map[string]string{
-			"auto":    "B0(Operation mode setting):41",
-			"cooling": "B0(Operation mode setting):42",
-			"heating": "B0(Operation mode setting):43",
-			"dry":     "B0(Operation mode setting):44",
-			"fan":     "B0(Operation mode setting):45",
+		return map[string]PropertyDescription{
+			"auto":    {EPC: 0xB0, Name: "Operation mode setting", EDT: []byte{0x41}},
+			"cooling": {EPC: 0xB0, Name: "Operation mode setting", EDT: []byte{0x42}},
+			"heating": {EPC: 0xB0, Name: "Operation mode setting", EDT: []byte{0x43}},
+			"dry":     {EPC: 0xB0, Name: "Operation mode setting", EDT: []byte{0x44}},
+			"fan":     {EPC: 0xB0, Name: "Operation mode setting", EDT: []byte{0x45}},
 		}
 	}
 	// その他のクラスコードの場合は空マップを返す
-	return map[string]string{}
+	return map[string]PropertyDescription{}
 }
 
 func (m *mockECHONETListClient) GroupList(groupName *string) []echonet_lite.GroupDevicePair {
