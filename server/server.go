@@ -24,14 +24,16 @@ func NewServer(ctx context.Context, debug bool) (*Server, error) {
 	// 通知を監視するゴルーチン
 	go func() {
 		for notification := range handler.NotificationCh {
+			device := handler.DeviceStringWithAlias(notification.Device)
+
 			switch notification.Type {
 			case echonet_lite.DeviceAdded:
-				fmt.Printf("新しいデバイスが検出されました: %v\n", notification.Device)
+				fmt.Printf("新しいデバイスが検出されました: %v\n", device)
 			case echonet_lite.DeviceOffline:
-				fmt.Printf("デバイス %v がオフラインになりました\n", notification.Device)
+				fmt.Printf("デバイス %v がオフラインになりました\n", device)
 			case echonet_lite.DeviceTimeout:
 				// fmt.Printf("デバイス %v へのリクエストがタイムアウトしました: %v\n",
-				// 	notification.Device, notification.Error)
+				// 	device, notification.Error)
 			}
 		}
 	}()
