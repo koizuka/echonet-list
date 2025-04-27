@@ -6,7 +6,6 @@ import (
 	"echonet-list/echonet_lite"
 	"echonet-list/echonet_lite/log"
 	"echonet-list/protocol"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"sync/atomic"
@@ -411,7 +410,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 				IP:    propertyChange.Device.IP.String(),
 				EOJ:   propertyChange.Device.EOJ.Specifier(),
 				EPC:   fmt.Sprintf("%02X", byte(propertyChange.Property.EPC)),
-				Value: base64.StdEncoding.EncodeToString(propertyChange.Property.EDT),
+				Value: protocol.MakePropertyData(propertyChange.Device.EOJ.ClassCode(), propertyChange.Property),
 			}
 
 			// メッセージをブロードキャスト

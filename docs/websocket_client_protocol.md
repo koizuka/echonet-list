@@ -73,8 +73,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "name": "HomeAirConditioner",
   "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
   "properties": {
-    "80": "MzA=",  // EPC "80" (OperationStatus) の値 "30" (ON) をBase64エンコード
-    "B0": "MjU="   // EPC "B0" (温度設定) の値 "25" をBase64エンコード
+    "80": { "EDT": "MzA=", "string": "on" },  // EPC "80" (OperationStatus)
+    "B3": { "EDT": "MjU=", "string": "25" }   // EPC "B3" (温度設定)
   },
   "lastSeen": "2023-04-01T12:34:56Z"
 }
@@ -87,7 +87,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - `name`: デバイスの名前（文字列）
 - `properties`: プロパティのマップ
   - キー: 2桁の16進数EPC（プロパティコード）文字列
-  - 値: EDTのBase64エンコード文字列
+  - 値: オブジェクト { "EDT": "Base64エンコード文字列", "string": "文字列表現" }
 - `lastSeen`: デバイスのプロパティが最後に更新された時刻（ISO 8601形式）
 
 #### Error（エラー情報）
@@ -148,8 +148,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
         "name": "HomeAirConditioner",
         "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
         "properties": {
-          "80": "MzA=",
-          "B0": "MjU="
+          "80": { "EDT": "MzA=", "string": "on" },
+          "B3": { "EDT": "MjU=", "string": "25" }
         },
         "lastSeen": "2023-04-01T12:34:56Z"
       },
@@ -158,8 +158,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
         "eoj": "0290:1",
         "name": "LightingSystem",
         "properties": {
-          "80": "MzA=",
-          "B0": "NTA="
+          "80": { "EDT": "MzA=", "string": "on" },
+          "B3": { "EDT": "NTA=", "string": "50" }
         },
         "lastSeen": "2023-04-01T12:35:00Z"
       }
@@ -209,8 +209,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
       "name": "HomeAirConditioner",
       "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
       "properties": {
-        "80": "MzA=",
-        "B0": "MjY="  // 温度設定が変更された
+        "80": { "EDT": "MzA=", "string": "on" },
+        "B3": { "EDT": "MjY=", "string": "26" }  // 温度設定が変更された
       },
       "lastSeen": "2023-04-01T12:37:00Z"
     }
@@ -258,7 +258,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
     "ip": "192.168.1.10",
     "eoj": "0130:1",
     "epc": "80",
-    "value": "MzE="  // "31" (OFF) をBase64エンコード
+    "value": { "EDT": "MzE=", "string": "off" } // "31" (OFF) をBase64エンコード
   }
 }
 ```
@@ -361,8 +361,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "target": "192.168.1.10 0130:1",
     "properties": {
-      "80": "MzA=",  // "30" (ON) をBase64エンコード
-      "B0": "MjU="   // "25" (温度設定) をBase64エンコード
+      "80": { "EDT": "MzA=", "string": "on" },
+      "B3": { "EDT": "MjU=", "string": "25" }
     }
   },
   "requestId": "req-124"
@@ -370,7 +370,10 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 ```
 
 - `target`: デバイスID文字列（IP EOJ形式）
-- `properties`: 設定するプロパティのマップ（キー: EPC文字列, 値: EDTのBase64文字列）
+- `properties`: 設定するプロパティのマップ。値は以下のいずれかの形式を許容  
+  - `{ "EDT": "Base64文字列" }`  
+  - `{ "string": "文字列表現" }`  
+  - `{ "EDT": "Base64文字列", "string": "文字列表現" }`（両方指定時は矛盾がない場合のみ有効、矛盾時はエラー）  
 
 ### update_properties
 

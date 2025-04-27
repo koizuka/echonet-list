@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+// PropertyData represents the data for a single property, including its raw EDT and string representation.
+type PropertyData struct {
+	EDT    string `json:"EDT,omitempty"`    // Base64 encoded EDT, omitted if empty
+	String string `json:"string,omitempty"` // String representation of EDT, omitted if empty
+}
+
 // MessageType defines the type of message being sent between client and server
 type MessageType string
 
@@ -82,12 +88,12 @@ type Message struct {
 
 // Device represents an ECHONET Lite device
 type Device struct {
-	IP         string                `json:"ip"`
-	EOJ        string                `json:"eoj"`
-	Name       string                `json:"name"`
-	ID         echonet_lite.IDString `json:"id,omitempty"`
-	Properties map[string]string     `json:"properties"`
-	LastSeen   time.Time             `json:"lastSeen"`
+	IP         string                  `json:"ip"`
+	EOJ        string                  `json:"eoj"`
+	Name       string                  `json:"name"`
+	ID         echonet_lite.IDString   `json:"id,omitempty"`
+	Properties map[string]PropertyData `json:"properties"`
+	LastSeen   time.Time               `json:"lastSeen"`
 }
 
 // Error represents an error in the WebSocket protocol
@@ -128,10 +134,10 @@ type AliasChangedPayload struct {
 
 // PropertyChangedPayload is the payload for the property_changed message
 type PropertyChangedPayload struct {
-	IP    string `json:"ip"`
-	EOJ   string `json:"eoj"`
-	EPC   string `json:"epc"`
-	Value string `json:"value"`
+	IP    string       `json:"ip"`
+	EOJ   string       `json:"eoj"`
+	EPC   string       `json:"epc"`
+	Value PropertyData `json:"value"`
 }
 
 // TimeoutNotificationPayload is the payload for the timeout_notification message
@@ -169,8 +175,8 @@ type GetPropertiesPayload struct {
 
 // SetPropertiesPayload is the payload for the set_properties message
 type SetPropertiesPayload struct {
-	Target     string            `json:"target"`
-	Properties map[string]string `json:"properties"`
+	Target     string                  `json:"target"`
+	Properties map[string]PropertyData `json:"properties"`
 }
 
 // UpdatePropertiesPayload is the payload for the update_properties message
@@ -250,11 +256,28 @@ type PropertyAliasesData struct {
 
 // Helper functions for converting between ECHONET Lite types and protocol types
 
+func MakePropertyData(classCode echonet_lite.EOJClassCode, property echonet_lite.Property) PropertyData {
+	edtString := ""
+	if desc, ok := echonet_lite.GetPropertyDesc(classCode, property.EPC); ok {
+		edtString = desc.EDTToString(property.EDT)
+	}
+	return PropertyData{
+		EDT:    base64.StdEncoding.EncodeToString(property.EDT),
+		String: edtString,
+	}
+}
+
+type PropertyMap map[string]PropertyData
+
+func (props PropertyMap) Set(epc echonet_lite.EPCType, data PropertyData) {
+	props[fmt.Sprintf("%02X", byte(epc))] = data
+}
+
 // DeviceToProtocol converts an ECHONET Lite device to a protocol Device
 func DeviceToProtocol(ipAndEOJ echonet_lite.IPAndEOJ, properties echonet_lite.Properties, lastSeen time.Time) Device {
-	protoProps := make(map[string]string)
+	protoProps := make(PropertyMap)
 	for _, prop := range properties {
-		protoProps[fmt.Sprintf("%02X", byte(prop.EPC))] = base64.StdEncoding.EncodeToString(prop.EDT)
+		protoProps.Set(prop.EPC, MakePropertyData(ipAndEOJ.EOJ.ClassCode(), prop))
 	}
 
 	// Generate IDString from EOJ and properties
@@ -282,17 +305,31 @@ func DeviceFromProtocol(device Device) (echonet_lite.IPAndEOJ, echonet_lite.Prop
 
 	// Convert properties map to Properties slice
 	var properties echonet_lite.Properties
-	for epcStr, edtStr := range device.Properties {
+	for epcStr, propData := range device.Properties {
 		// Parse EPC string to EPCType
 		epc, err := echonet_lite.ParseEPCString(epcStr)
 		if err != nil {
 			return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error parsing EPC: %v", err)
 		}
 
-		// Decode EDT string from base64
-		edt, err := base64.StdEncoding.DecodeString(edtStr)
-		if err != nil {
-			return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error decoding EDT: %v", err)
+		// Determine EDT value: prefer EDT field
+		var edt []byte
+		if propData.EDT != "" {
+			// Decode base64 string to bytes
+			e, err := base64.StdEncoding.DecodeString(propData.EDT)
+			if err != nil {
+				return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error decoding EDT: %v", err)
+			}
+			edt = e
+		} else if propData.String != "" {
+			// Convert string to EDT bytes
+			if desc, ok := echonet_lite.GetPropertyDesc(ipAndEOJ.EOJ.ClassCode(), epc); ok {
+				if bytes, ok2 := desc.ToEDT(propData.String); ok2 {
+					edt = bytes
+				}
+			} else {
+				return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error converting string to EDT: %v", err)
+			}
 		}
 
 		// Add property to properties slice

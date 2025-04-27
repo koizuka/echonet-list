@@ -171,6 +171,9 @@ func (h *ECHONETLiteHandler) SetDebug(debug bool) {
 
 // IsDebug は、現在のデバッグモードを返す
 func (h *ECHONETLiteHandler) IsDebug() bool {
+	if h == nil || h.core == nil {
+		return false
+	}
 	return h.core.IsDebug()
 }
 
@@ -296,5 +299,8 @@ func (h *ECHONETLiteHandler) GetIDString(device IPAndEOJ) IDString {
 
 // GetLastUpdateTime は、指定されたデバイスの最終更新タイムスタンプを取得する
 func (h *ECHONETLiteHandler) GetLastUpdateTime(device IPAndEOJ) time.Time {
+	if h == nil || h.data == nil {
+		return time.Time{}
+	}
 	return h.data.GetLastUpdateTime(device)
 }

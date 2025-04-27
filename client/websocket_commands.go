@@ -117,9 +117,12 @@ func (c *WebSocketClient) GetProperties(device IPAndEOJ, EPCs []EPCType, skipVal
 // SetProperties sets properties on a device
 func (c *WebSocketClient) SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error) {
 	// Create the payload
-	propsMap := make(map[string]string)
+	propsMap := make(protocol.PropertyMap)
 	for _, prop := range properties {
-		propsMap[fmt.Sprintf("%02X", byte(prop.EPC))] = base64.StdEncoding.EncodeToString(prop.EDT)
+		propsMap.Set(prop.EPC, protocol.PropertyData{
+			EDT:    base64.StdEncoding.EncodeToString(prop.EDT),
+			String: "",
+		})
 	}
 
 	payload := protocol.SetPropertiesPayload{

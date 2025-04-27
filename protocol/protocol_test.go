@@ -34,9 +34,9 @@ func TestDeviceToProtocol(t *testing.T) {
 				IP:   "192.168.1.10",
 				EOJ:  "0130:1",
 				Name: "0130[Home Air Conditioner]",
-				Properties: map[string]string{
-					"80": base64.StdEncoding.EncodeToString([]byte{0x30}),
-					"81": base64.StdEncoding.EncodeToString([]byte{0x01, 0x02}),
+				Properties: PropertyMap{
+					"80": {EDT: base64.StdEncoding.EncodeToString([]byte{0x30}), String: "on"},
+					"81": {EDT: base64.StdEncoding.EncodeToString([]byte{0x01, 0x02})},
 				},
 				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
@@ -53,7 +53,7 @@ func TestDeviceToProtocol(t *testing.T) {
 				IP:         "192.168.1.20",
 				EOJ:        "0EF0:1",
 				Name:       "0EF0[Node Profile]",
-				Properties: map[string]string{},
+				Properties: PropertyMap{},
 				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
 		},
@@ -106,9 +106,9 @@ func TestDeviceFromProtocol(t *testing.T) {
 				IP:   "192.168.1.10",
 				EOJ:  "0130:1",
 				Name: "Home air conditioner",
-				Properties: map[string]string{
-					"80": base64.StdEncoding.EncodeToString([]byte{0x30}),
-					"81": base64.StdEncoding.EncodeToString([]byte{0x01, 0x02}),
+				Properties: PropertyMap{
+					"80": {EDT: base64.StdEncoding.EncodeToString([]byte{0x30})},
+					"81": {EDT: base64.StdEncoding.EncodeToString([]byte{0x01, 0x02})},
 				},
 				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
@@ -124,7 +124,7 @@ func TestDeviceFromProtocol(t *testing.T) {
 				IP:         "192.168.1.20",
 				EOJ:        "0EF0:1",
 				Name:       "Node profile",
-				Properties: map[string]string{},
+				Properties: PropertyMap{},
 				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
 			wantIPAndEOJ: echonet_lite.IPAndEOJ{
@@ -139,7 +139,7 @@ func TestDeviceFromProtocol(t *testing.T) {
 				IP:         "invalid-ip",
 				EOJ:        "0130:1",
 				Name:       "Home air conditioner",
-				Properties: map[string]string{},
+				Properties: PropertyMap{},
 				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
 			wantIPAndEOJ: echonet_lite.IPAndEOJ{},
@@ -151,7 +151,7 @@ func TestDeviceFromProtocol(t *testing.T) {
 				IP:         "192.168.1.10",
 				EOJ:        "invalid-eoj",
 				Name:       "Home air conditioner",
-				Properties: map[string]string{},
+				Properties: PropertyMap{},
 				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
 			wantIPAndEOJ: echonet_lite.IPAndEOJ{},
@@ -163,8 +163,8 @@ func TestDeviceFromProtocol(t *testing.T) {
 				IP:   "192.168.1.10",
 				EOJ:  "0130:1",
 				Name: "Home air conditioner",
-				Properties: map[string]string{
-					"invalid-epc": base64.StdEncoding.EncodeToString([]byte{0x30}),
+				Properties: PropertyMap{
+					"invalid-epc": {EDT: base64.StdEncoding.EncodeToString([]byte{0x30})},
 				},
 				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
@@ -177,8 +177,8 @@ func TestDeviceFromProtocol(t *testing.T) {
 				IP:   "192.168.1.10",
 				EOJ:  "0130:1",
 				Name: "Home air conditioner",
-				Properties: map[string]string{
-					"80": "invalid-base64",
+				Properties: PropertyMap{
+					"80": {EDT: "invalid-base64"},
 				},
 				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 			},
@@ -213,7 +213,7 @@ func TestDeviceFromProtocol(t *testing.T) {
 			// Check Properties
 			for _, prop := range gotProps {
 				epcStr := fmt.Sprintf("%02X", byte(prop.EPC))
-				wantEDTBase64 := tt.device.Properties[epcStr]
+				wantEDTBase64 := tt.device.Properties[epcStr].EDT
 				wantEDT, _ := base64.StdEncoding.DecodeString(wantEDTBase64)
 
 				if !reflect.DeepEqual(prop.EDT, wantEDT) {

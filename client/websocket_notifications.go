@@ -306,8 +306,7 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 		return
 	}
 
-	// Parse the EDT
-	edt, err := base64.StdEncoding.DecodeString(payload.Value)
+	edt, err := base64.StdEncoding.DecodeString(payload.Value.EDT)
 	if err != nil {
 		if c.debug {
 			fmt.Printf("Error decoding EDT: %v\n", err)
@@ -317,17 +316,12 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 
 	// Update the property
 	c.devicesMutex.Lock()
-	// ipAndEOJ.Specifier() をキーとして使用
-	if deviceProps, ok := c.devices[ipAndEOJ.Specifier()]; ok {
-		// Create a new property
-		newProp := echonet_lite.Property{
-			EPC: epc,
-			EDT: edt,
-		}
-
+	key := ipAndEOJ.Specifier()
+	if deviceProps, ok := c.devices[key]; ok {
 		// UpdatePropertyメソッドを使用してプロパティを更新
+		newProp := echonet_lite.Property{EPC: epc, EDT: edt}
 		deviceProps.Properties = deviceProps.Properties.UpdateProperty(newProp)
-		c.devices[ipAndEOJ.Specifier()] = deviceProps
+		c.devices[key] = deviceProps
 		if c.debug {
 			fmt.Printf("プロパティ更新: %s EPC:%02X EDT:%X\n", ipAndEOJ.String(), byte(epc), edt)
 		}
