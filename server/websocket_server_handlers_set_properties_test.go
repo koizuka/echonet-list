@@ -55,6 +55,27 @@ func TestHandleSetPropertiesFromClient(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "Number only",
+			payload: protocol.SetPropertiesPayload{
+				Target: "192.168.1.10 0130:1",
+				Properties: protocol.PropertyMap{
+					"B3": {Number: 25}, // Set temperature to 25 using Number
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "No EDT, String, or Number",
+			payload: protocol.SetPropertiesPayload{
+				Target: "192.168.1.10 0130:1",
+				Properties: protocol.PropertyMap{
+					"80": {}, // Empty PropertyData
+				},
+			},
+			wantError: true,
+			errorCode: protocol.ErrorCodeInvalidParameters,
+		},
+		{
 			name: "EDT and String conflicting",
 			payload: protocol.SetPropertiesPayload{
 				Target: "192.168.1.10 0130:1",

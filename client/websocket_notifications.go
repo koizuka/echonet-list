@@ -2,6 +2,7 @@ package client
 
 import (
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/log"
 	"echonet-list/protocol"
 	"encoding/base64"
 	"fmt"
@@ -36,10 +37,12 @@ func (c *WebSocketClient) handleNotification(msg *protocol.Message) {
 
 // handleInitialState handles an initial_state message
 func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
+	logger := log.GetLogger() // Get logger once at the beginning
+
 	var payload protocol.InitialStatePayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing initial_state payload: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleInitialState: Error parsing initial_state payload: %v", err)
 		}
 		return
 	}
@@ -55,8 +58,8 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 		// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
 		ipAndEOJ, properties, err := protocol.DeviceFromProtocol(device)
 		if err != nil {
-			if c.debug {
-				fmt.Printf("Error converting device: %v\n", err)
+			if logger != nil {
+				logger.Log("WebSocketClient.handleInitialState: Error converting device: %v", err)
 			}
 			continue
 		}
@@ -99,10 +102,12 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 
 // handleDeviceAdded handles a device_added message
 func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
+	logger := log.GetLogger() // Get logger once at the beginning
+
 	var payload protocol.DeviceAddedPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing device_added payload: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleDeviceAdded: Error parsing device_added payload: %v", err) // Removed \n
 		}
 		return
 	}
@@ -110,8 +115,8 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
 	ipAndEOJ, props, err := protocol.DeviceFromProtocol(payload.Device)
 	if err != nil {
-		if c.debug {
-			fmt.Printf("Error converting device: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleDeviceAdded: Error converting device: %v", err)
 		}
 		return
 	}
@@ -135,10 +140,12 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 
 // handleDeviceUpdated handles a device_updated message
 func (c *WebSocketClient) handleDeviceUpdated(msg *protocol.Message) {
+	logger := log.GetLogger() // Get logger once at the beginning
+
 	var payload protocol.DeviceUpdatedPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing device_updated payload: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleDeviceUpdated: Error parsing device_updated payload: %v", err) // Removed \n
 		}
 		return
 	}
@@ -146,8 +153,8 @@ func (c *WebSocketClient) handleDeviceUpdated(msg *protocol.Message) {
 	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
 	ipAndEOJ, props, err := protocol.DeviceFromProtocol(payload.Device)
 	if err != nil {
-		if c.debug {
-			fmt.Printf("Error converting device: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleDeviceUpdated: Error converting device: %v", err)
 		}
 		return
 	}
@@ -171,10 +178,12 @@ func (c *WebSocketClient) handleDeviceUpdated(msg *protocol.Message) {
 
 // handleDeviceRemoved handles a device_removed message
 func (c *WebSocketClient) handleDeviceRemoved(msg *protocol.Message) {
+	logger := log.GetLogger() // Get logger once at the beginning
+
 	var payload protocol.DeviceRemovedPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing device_removed payload: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleDeviceRemoved: Error parsing device_removed payload: %v", err)
 		}
 		return
 	}
@@ -182,8 +191,8 @@ func (c *WebSocketClient) handleDeviceRemoved(msg *protocol.Message) {
 	// Parse the device identifier
 	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
 	if err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing device identifier: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleDeviceRemoved: Error parsing device identifier: %v", err)
 		}
 		return
 	}
@@ -206,8 +215,8 @@ func (c *WebSocketClient) handleDeviceRemoved(msg *protocol.Message) {
 func (c *WebSocketClient) handleAliasChanged(msg *protocol.Message) {
 	var payload protocol.AliasChangedPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing alias_changed payload: %v\n", err)
+		if logger := log.GetLogger(); logger != nil {
+			logger.Log("WebSocketClient.handleAliasChanged: Error parsing alias_changed payload: %v", err)
 		}
 		return
 	}
@@ -230,8 +239,8 @@ func (c *WebSocketClient) handleAliasChanged(msg *protocol.Message) {
 func (c *WebSocketClient) handleGroupChanged(msg *protocol.Message) {
 	var payload protocol.GroupChangedPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing group_changed payload: %v\n", err)
+		if logger := log.GetLogger(); logger != nil {
+			logger.Log("WebSocketClient.handleGroupChanged: Error parsing group_changed payload: %v", err)
 		}
 		return
 	}
@@ -280,10 +289,12 @@ func (c *WebSocketClient) handleGroupChanged(msg *protocol.Message) {
 
 // handlePropertyChanged handles a property_changed message
 func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
+	logger := log.GetLogger() // Get logger once at the beginning
+
 	var payload protocol.PropertyChangedPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing property_changed payload: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handlePropertyChanged: Error parsing property_changed payload: %v", err)
 		}
 		return
 	}
@@ -291,8 +302,8 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 	// Parse the device identifier
 	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
 	if err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing device identifier: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handlePropertyChanged: Error parsing device identifier: %v", err)
 		}
 		return
 	}
@@ -300,16 +311,16 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 	// Parse the EPC
 	epc, err := echonet_lite.ParseEPCString(payload.EPC)
 	if err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing EPC: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handlePropertyChanged: Error parsing EPC: %v", err)
 		}
 		return
 	}
 
 	edt, err := base64.StdEncoding.DecodeString(payload.Value.EDT)
 	if err != nil {
-		if c.debug {
-			fmt.Printf("Error decoding EDT: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handlePropertyChanged: Error decoding EDT: %v", err)
 		}
 		return
 	}
@@ -322,8 +333,8 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 		newProp := echonet_lite.Property{EPC: epc, EDT: edt}
 		deviceProps.Properties = deviceProps.Properties.UpdateProperty(newProp)
 		c.devices[key] = deviceProps
-		if c.debug {
-			fmt.Printf("プロパティ更新: %s EPC:%02X EDT:%X\n", ipAndEOJ.String(), byte(epc), edt)
+		if c.debug && logger != nil {
+			logger.Log("WebSocketClient.handlePropertyChanged: プロパティ更新: %s EPC:%02X EDT:%X", ipAndEOJ.String(), byte(epc), edt)
 		}
 	}
 	c.devicesMutex.Unlock()
@@ -331,10 +342,12 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 
 // handleTimeoutNotification handles a timeout_notification message
 func (c *WebSocketClient) handleTimeoutNotification(msg *protocol.Message) {
+	logger := log.GetLogger() // Get logger once at the beginning
+
 	var payload protocol.TimeoutNotificationPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing timeout_notification payload: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleTimeoutNotification: Error parsing timeout_notification payload: %v", err)
 		}
 		return
 	}
@@ -345,10 +358,12 @@ func (c *WebSocketClient) handleTimeoutNotification(msg *protocol.Message) {
 
 // handleDeviceOffline handles a device_offline message
 func (c *WebSocketClient) handleDeviceOffline(msg *protocol.Message) {
+	logger := log.GetLogger() // Get logger once at the beginning
+
 	var payload protocol.DeviceOfflinePayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing device_offline payload: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleDeviceOffline: Error parsing device_offline payload: %v", err)
 		}
 		return
 	}
@@ -356,8 +371,8 @@ func (c *WebSocketClient) handleDeviceOffline(msg *protocol.Message) {
 	// Parse the device identifier
 	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
 	if err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing device identifier for offline notification: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleDeviceOffline: Error parsing device identifier for offline notification: %v", err)
 		}
 		return
 	}
@@ -374,22 +389,24 @@ func (c *WebSocketClient) handleDeviceOffline(msg *protocol.Message) {
 	c.lastSeenMutex.Unlock()
 	c.devicesMutex.Unlock()
 
-	if c.debug {
-		fmt.Printf("[OFFLINE] Device removed due to offline status: %s\n", deviceID)
+	if c.debug && logger != nil {
+		logger.Log("WebSocketClient.handleDeviceOffline: [OFFLINE] Device removed due to offline status: %s", deviceID)
 	}
 }
 
 // handleErrorNotification handles an error_notification message
 func (c *WebSocketClient) handleErrorNotification(msg *protocol.Message) {
+	logger := log.GetLogger() // Get logger once at the beginning
+
 	var payload protocol.ErrorNotificationPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if c.debug {
-			fmt.Printf("Error parsing error_notification payload: %v\n", err)
+		if logger != nil {
+			logger.Log("WebSocketClient.handleErrorNotification: Error parsing error_notification payload: %v", err)
 		}
 		return
 	}
 
-	if c.debug {
-		fmt.Printf("Error notification: %s: %s\n", payload.Code, payload.Message)
+	if c.debug && logger != nil {
+		logger.Log("WebSocketClient.handleErrorNotification: Error notification: %s: %s", payload.Code, payload.Message)
 	}
 }

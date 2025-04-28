@@ -12,6 +12,7 @@ import (
 type PropertyData struct {
 	EDT    string `json:"EDT,omitempty"`    // Base64 encoded EDT, omitted if empty
 	String string `json:"string,omitempty"` // String representation of EDT, omitted if empty
+	Number int    `json:"number,omitempty"` // Numeric value, omitted if empty. Only usable when PropertyDesc has NumberDesc.
 }
 
 // MessageType defines the type of message being sent between client and server
@@ -268,12 +269,23 @@ type EPCDesc struct {
 
 func MakePropertyData(classCode echonet_lite.EOJClassCode, property echonet_lite.Property) PropertyData {
 	edtString := ""
+	var number int
+
 	if desc, ok := echonet_lite.GetPropertyDesc(classCode, property.EPC); ok {
 		edtString = desc.EDTToString(property.EDT)
+
+		// If the property has a NumberDesc, try to get the numeric value
+		if converter, ok := desc.Decoder.(echonet_lite.PropertyIntConverter); ok {
+			if num, _, ok := converter.ToInt(property.EDT); ok {
+				number = num
+			}
+		}
 	}
+
 	return PropertyData{
 		EDT:    base64.StdEncoding.EncodeToString(property.EDT),
 		String: edtString,
+		Number: number, // omitempty により、0の場合はJSONに出力されない
 	}
 }
 
@@ -322,8 +334,9 @@ func DeviceFromProtocol(device Device) (echonet_lite.IPAndEOJ, echonet_lite.Prop
 			return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error parsing EPC: %v", err)
 		}
 
-		// Determine EDT value: prefer EDT field
+		// Determine EDT value with priority: Number > EDT > String
 		var edt []byte
+
 		if propData.EDT != "" {
 			// Decode base64 string to bytes
 			e, err := base64.StdEncoding.DecodeString(propData.EDT)
@@ -331,15 +344,39 @@ func DeviceFromProtocol(device Device) (echonet_lite.IPAndEOJ, echonet_lite.Prop
 				return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error decoding EDT: %v", err)
 			}
 			edt = e
-		} else if propData.String != "" {
-			// Convert string to EDT bytes
-			if desc, ok := echonet_lite.GetPropertyDesc(ipAndEOJ.EOJ.ClassCode(), epc); ok {
-				if bytes, ok2 := desc.ToEDT(propData.String); ok2 {
-					edt = bytes
-				}
-			} else {
-				return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error converting string to EDT: %v", err)
+		} else {
+			// Get property description - needed for Number and String conversions
+			desc, ok := echonet_lite.GetPropertyDesc(ipAndEOJ.EOJ.ClassCode(), epc)
+			if !ok {
+				return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("property description not found for EPC: %s", epcStr)
 			}
+
+			if propData.String != "" {
+				// Convert string to EDT bytes
+				bytes, ok := desc.ToEDT(propData.String)
+				if !ok {
+					return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("invalid string value '%s' for property %s", propData.String, epcStr)
+				}
+
+				edt = bytes
+			} else if propData.Number != 0 {
+				converter, ok := desc.Decoder.(echonet_lite.PropertyIntConverter)
+				if !ok {
+					return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("property %s does not support numeric values", epcStr)
+				}
+
+				bytes, ok := converter.FromInt(propData.Number)
+				if !ok {
+					return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("invalid numeric value %d for property %s", propData.Number, epcStr)
+				}
+
+				edt = bytes
+			}
+		}
+
+		// If we don't have EDT data, skip this property
+		if edt == nil {
+			continue
 		}
 
 		// Add property to properties slice

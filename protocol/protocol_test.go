@@ -185,6 +185,23 @@ func TestDeviceFromProtocol(t *testing.T) {
 			wantIPAndEOJ: echonet_lite.IPAndEOJ{},
 			wantErr:      true,
 		},
+		{
+			name: "Unknown but existing property EPC",
+			device: Device{
+				IP:   "192.168.1.10",
+				EOJ:  "0130:1",
+				Name: "Home air conditioner",
+				Properties: PropertyMap{
+					"F0": {EDT: base64.StdEncoding.EncodeToString([]byte{0x30})},
+				},
+				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+			wantIPAndEOJ: echonet_lite.IPAndEOJ{
+				IP:  net.ParseIP("192.168.1.10"),
+				EOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+			},
+			wantErr: false,
+		},
 	}
 
 	// Run tests

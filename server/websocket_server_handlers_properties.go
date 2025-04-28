@@ -117,7 +117,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 		}
 
 		var edtBytes []byte
-		var stringBytes []byte
+		var valueBytes []byte
 
 		if propData.EDT != "" {
 			decoded, err := base64.StdEncoding.DecodeString(propData.EDT)
@@ -126,22 +126,40 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 			}
 			edtBytes = decoded
 		}
-		if propData.String != "" {
+		switch {
+		case propData.String != "" && propData.Number != 0:
+			// StringとNumberの両方があったらエラー
+			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Conflicting EDT and string for EPC: %s", epcStr)
+		case propData.Number != 0:
+			converter, ok := desc.Decoder.(echonet_lite.PropertyIntConverter)
+			if !ok {
+				// 数値に対応していないEPCに数値が与えられたエラー
+				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid number field for EPC %s", epcStr)
+			}
+			converted, ok := converter.FromInt(propData.Number)
+			if !ok {
+				// 装置が範囲外
+				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid number value for EPC %s", epcStr)
+			}
+			valueBytes = converted
+
+		case propData.String != "":
 			converted, ok := desc.ToEDT(propData.String)
 			if !ok {
 				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid string value: %s", propData.String)
 			}
-			stringBytes = converted
+			valueBytes = converted
 		}
+
 		switch {
-		case edtBytes == nil && stringBytes == nil:
+		case edtBytes == nil && valueBytes == nil:
 			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "No EDT or string specified for EPC: %s", epcStr)
-		case edtBytes != nil && stringBytes != nil:
-			if !bytes.Equal(edtBytes, stringBytes) {
+		case edtBytes != nil && valueBytes != nil:
+			if !bytes.Equal(edtBytes, valueBytes) {
 				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Conflicting EDT and string for EPC: %s", epcStr)
 			}
-		case edtBytes == nil && stringBytes != nil:
-			edtBytes = stringBytes
+		case edtBytes == nil && valueBytes != nil:
+			edtBytes = valueBytes
 		}
 
 		properties = append(properties, echonet_lite.Property{

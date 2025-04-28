@@ -74,7 +74,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
   "properties": {
     "80": { "EDT": "MzA=", "string": "on" },  // EPC "80" (OperationStatus)
-    "B3": { "EDT": "MjU=", "string": "25" }   // EPC "B3" (温度設定)
+    "B3": { "EDT": "MjU=", "string": "25", "number": 25 }   // EPC "B3" (温度設定)
   },
   "lastSeen": "2023-04-01T12:34:56Z"
 }
@@ -87,7 +87,10 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - `name`: デバイスの名前（文字列）
 - `properties`: プロパティのマップ
   - キー: 2桁の16進数EPC（プロパティコード）文字列
-  - 値: オブジェクト { "EDT": "Base64エンコード文字列", "string": "文字列表現" }
+  - 値: オブジェクト { "EDT": "Base64エンコード文字列", "string": "文字列表現", "number": 数値 }
+    - `EDT`: Base64エンコードされたバイト列（必須ではない）
+    - `string`: 人間が読める文字列表現（必須ではない）
+    - `number`: 数値表現（PropertyDescにNumberDescが含まれる場合のみ使用可能、必須ではない）
 - `lastSeen`: デバイスのプロパティが最後に更新された時刻（ISO 8601形式）
 
 #### Error（エラー情報）
@@ -149,7 +152,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
         "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
         "properties": {
           "80": { "EDT": "MzA=", "string": "on" },
-          "B3": { "EDT": "MjU=", "string": "25" }
+          "B3": { "EDT": "MjU=", "string": "25", "number": 25 }
         },
         "lastSeen": "2023-04-01T12:34:56Z"
       },
@@ -159,7 +162,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
         "name": "LightingSystem",
         "properties": {
           "80": { "EDT": "MzA=", "string": "on" },
-          "B3": { "EDT": "NTA=", "string": "50" }
+          "B3": { "EDT": "NTA=", "string": "50", "number": 50 }
         },
         "lastSeen": "2023-04-01T12:35:00Z"
       }
@@ -210,7 +213,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
       "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
       "properties": {
         "80": { "EDT": "MzA=", "string": "on" },
-        "B3": { "EDT": "MjY=", "string": "26" }  // 温度設定が変更された
+        "B3": { "EDT": "MjY=", "string": "26", "number": 26 }  // 温度設定が変更された
       },
       "lastSeen": "2023-04-01T12:37:00Z"
     }
@@ -257,8 +260,19 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "ip": "192.168.1.10",
     "eoj": "0130:1",
-    "epc": "80",
-    "value": { "EDT": "MzE=", "string": "off" } // "31" (OFF) をBase64エンコード
+    "epc": "80", // OperationStatus
+    "value": { "EDT": "MzE=", "string": "off" } // "31" (OFF)
+  }
+}
+
+// 例2: 温度設定 (B3) が 26 度に変更された場合
+{
+  "type": "property_changed",
+  "payload": {
+    "ip": "192.168.1.10",
+    "eoj": "0130:1",
+    "epc": "B3", // Set temperature value
+    "value": { "EDT": "MjY=", "string": "26", "number": 26 } // 26
   }
 }
 ```
@@ -362,7 +376,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
     "target": "192.168.1.10 0130:1",
     "properties": {
       "80": { "EDT": "MzA=", "string": "on" },
-      "B3": { "EDT": "MjU=", "string": "25" }
+      "B3": { "EDT": "MjU=", "number": 25 }
     }
   },
   "requestId": "req-124"
@@ -373,7 +387,9 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - `properties`: 設定するプロパティのマップ。値は以下のいずれかの形式を許容  
   - `{ "EDT": "Base64文字列" }`  
   - `{ "string": "文字列表現" }`  
-  - `{ "EDT": "Base64文字列", "string": "文字列表現" }`（両方指定時は矛盾がない場合のみ有効、矛盾時はエラー）  
+  - `{ "number": 数値 }`（PropertyDescにNumberDescが含まれる場合のみ使用可能）  
+  - `{ "EDT": "Base64文字列", "string": "文字列表現" }`（`EDT` とそれ以外の二つを指定した時は矛盾がない場合のみ有効、矛盾時はエラー）  
+  - `number` と `string` の両方が与えられたらエラーになります
 
 ### update_properties
 
@@ -709,14 +725,17 @@ function handleNotification(type: string, payload: any) {
       
     // 他の通知タイプも同様に処理...
     case "property_changed":
-      console.log(`Property ${payload.epc} changed for ${payload.ip} ${payload.eoj} to ${atob(payload.value)}`); // Base64デコード例
+      const propValue = payload.value; // { EDT?: string, string?: string, number?: number }
+      const valueStr = propValue.string ?? (propValue.number !== undefined ? propValue.number.toString() : atob(propValue.EDT ?? ""));
+      console.log(`Property ${payload.epc} changed for ${payload.ip} ${payload.eoj} to ${valueStr}`);
       // 対応するデバイスのプロパティを更新
       const targetDeviceId = `${payload.ip} ${payload.eoj}`;
       if (devices[targetDeviceId]) {
-        devices[targetDeviceId].properties[payload.epc] = payload.value;
+        // 新しい形式の value オブジェクト全体を保存
+        devices[targetDeviceId].properties[payload.epc] = propValue;
       }
       break;
-      
+
     case "group_changed":
       console.log(`Group ${payload.group} ${payload.change_type}:`, payload.devices);
       // グループの変更を処理
@@ -791,7 +810,7 @@ async function getDeviceProperties(targetDevice: string, epcs: string[]) {
 }
 
 // デバイスのプロパティ設定
-async function setDeviceProperties(targetDevice: string, properties: Record<string, { EDT?: string; string?: string }>) {
+async function setDeviceProperties(targetDevice: string, properties: Record<string, { EDT?: string; string?: string; number?: number }>) {
   try {
     const payload = { target: targetDevice, properties: properties };
     const resultData = await sendRequest("set_properties", payload);

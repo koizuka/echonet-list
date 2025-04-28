@@ -28,29 +28,27 @@
   - WebSocket クライアントへのオフライン通知
 - プロパティ転送フォーマット刷新
   - `"EPC": { "EDT": "BASE64", "string": "xxx" }` 形式導入
-  - `PropertyData` 構造体および双方向変換ロジック (`DeviceToProtocol` / `DeviceFromProtocol`) の実装
-  - 対応テスト・サンプル JSON の更新
+  - `PropertyData` 構造体 (`EDT`, `String`, `Number`) および双方向変換ロジック (`DeviceToProtocol` / `DeviceFromProtocol`) の実装
+  - `set_properties` ハンドラでの `Number` フィールド処理
+  - 対応テスト (`protocol_test.go`, `websocket_server_handlers_set_properties_test.go` に `Number` ケースとエラーケース追加)・サンプル JSON の更新
   - サーバー／クライアントハンドラの更新
   - ドキュメント (`docs/websocket_client_protocol.md`) の全面置換
+  - ドキュメント (`docs/websocket_client_protocol.md`) の `property_changed` 通知例とクライアント実装例（TypeScript）を新フォーマット (`number` フィールド含む) に更新
 
 ## What's Left to Build
 
-- **ドキュメント更新**  
-  - `property_changed`, `set_properties` 等のメッセージ例を新フォーマット化  
-  - クライアント実装ガイド／コード例への反映  
-- **テスト拡充**  
-  - 文字列のみ／Base64 のみ指定時の挙動  
-  - WebSocket クライアント各コマンドの統合テスト  
-- **WebSocket クライアント機能改善**  
-  - `discover`, `get`, `set`, `update`, `alias`, `group` コマンドを全て WebSocket 経由で動作させる  
-  - オフライン状態デバイスの UI 表示・エラーハンドリング  
-- **UI／サンプルクライアントへのガイド反映**  
-  - プロパティ新フォーマット対応の例示  
-  - グループ管理・オフライン表示サンプル  
-- **Web UI 開発準備**  
-  - `webui/` ディレクトリ構成  
-  - ビルド・配信フロー設計  
-  - 初期ページレイアウト・コンポーネント検討  
-- **ドキュメント・README の進捗反映**  
-  - Memory Bank 更新  
+- **テスト拡充**
+  - WebSocket クライアント各コマンドの統合テスト
+- **WebSocket クライアント機能改善**
+  - `discover`, `get`, `set`, `update`, `alias`, `group` コマンドを全て WebSocket 経由で動作させる
+  - オフライン状態デバイスの UI 表示・エラーハンドリング
+- **UI／サンプルクライアントへのガイド反映**
+  - プロパティ新フォーマット対応の例示
+  - グループ管理・オフライン表示サンプル
+- **Web UI 開発準備**
+  - `webui/` ディレクトリ構成
+  - ビルド・配信フロー設計
+  - 初期ページレイアウト・コンポーネント検討
+- **ドキュメント・README の進捗反映**
+  - Memory Bank 更新 (この更新作業)
   - README.md の最新コマンド例と設定例を追加
