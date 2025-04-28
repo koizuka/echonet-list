@@ -453,13 +453,13 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 ### get_property_aliases
 
-指定したクラスコードに対応するプロパティエイリアス一覧を取得します。
+指定したクラスコードに対応するプロパティエイリアス一覧を取得します。応答は `command_result` メッセージで返されます。
 
 ```json
 {
   "type": "get_property_aliases",
   "payload": {
-    "classCode": "0130"
+    "classCode": "0130" // Home Air Conditioner
   },
   "requestId": "req-128"
 }
@@ -471,18 +471,31 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 クライアントからのリクエストに対する応答JSONメッセージです。リクエストと同じ `requestId` を含みます。
 
-### property_aliases_result
+### command_result
 
-`get_property_aliases` リクエストに対する応答です。
+各リクエスト操作の結果を返します。
 
-成功時の例：
+**`get_properties`, `set_properties`, `update_properties`, `manage_alias`, `manage_group`, `discover_devices` の成功時の例:**
 
 ```json
 {
-  "type": "property_aliases_result",
+  "type": "command_result",
   "payload": {
     "success": true,
-    "data": {
+    "data": { /* リクエストに応じたデータ、または null */ }
+  },
+  "requestId": "req-123"
+}
+```
+
+**`get_property_aliases` の成功時の例:**
+
+```json
+{
+  "type": "command_result",
+  "payload": {
+    "success": true,
+    "data": { // PropertyAliasesData オブジェクト
       "classCode": "0130",
       "properties": {
         "80": {
@@ -501,15 +514,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
             "dehumidification": "NDQ=",
             "ventilation": "NDU="
           }
-        },
-        "B3": {
-          "description": "Air flow rate setting",
-          "aliases": {
-            "silent": "NDE=",
-            "standard": "NDI=",
-            "powerful": "NDM="
-          }
         }
+        // ... 他のプロパティ
       }
     }
   },
@@ -517,61 +523,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 }
 ```
 
-失敗時の例：
-
-```json
-{
-  "type": "property_aliases_result",
-  "payload": {
-    "success": false,
-    "error": {
-      "code": "INVALID_PARAMETERS",
-      "message": "Invalid class code: ABCD (must be 4 hexadecimal digits)"
-    }
-  },
-  "requestId": "req-128"
-}
-```
-
-- `success`: 操作が成功したかどうか（boolean）
-- `data`: 成功時のデータ
-  - `classCode`: リクエストされたクラスコード
-  - `properties`: EPCとその情報のマップ
-    - キー: EPC (16進数文字列)（例: "80" = 動作状態）
-    - 値: EPCの情報
-      - `description`: EPCの説明（例: "Operation status"）
-      - `aliases`: エイリアス名とEDT値のマップ
-        - キー: エイリアス名（例: "on", "off", "cooling"）
-        - 値: EDT (Base64エンコード文字列)（例: "MzA=" = 0x30 = ON）
-- `error`: 失敗時のエラー情報（`Error` オブジェクト、成功時は null または undefined）
-
-### command_result
-
-各リクエスト操作の結果を返します。
-
-成功時の例：
-
-```json
-{
-  "type": "command_result",
-  "payload": {
-    "success": true,
-    "data": {
-      "ip": "192.168.1.10",
-      "eoj": "0130:1",
-      "name": "HomeAirConditioner",
-      "properties": {
-        "80": "MzA=",
-        "B0": "MjU="
-      },
-      "lastSeen": "2023-04-01T12:38:00Z"
-    }
-  },
-  "requestId": "req-123"
-}
-```
-
-失敗時の例：
+**失敗時の例（共通）：**
 
 ```json
 {
@@ -579,16 +531,16 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "success": false,
     "error": {
-      "code": "TARGET_NOT_FOUND",
-      "message": "Device 192.168.1.99 0130:1 not found"
+      "code": "TARGET_NOT_FOUND", // または他の ErrorCode
+      "message": "Device 192.168.1.99 0130:1 not found" // エラーメッセージ
     }
   },
-  "requestId": "req-123"
+  "requestId": "req-123" // 対応するリクエストID
 }
 ```
 
 - `success`: 操作が成功したかどうか（boolean）
-- `data`: 成功時の追加データ（JSON形式、内容はリクエストによる）
+- `data`: 成功時の追加データ（JSON形式、内容はリクエストによる）。`get_property_aliases` の場合は `PropertyAliasesData` オブジェクト。他のリクエストではデバイス情報やグループ情報、または `null`。
 - `error`: 失敗時のエラー情報（`Error` オブジェクト、成功時は null または undefined）
 
 ## 7. クライアント実装のポイント（言語非依存）
@@ -688,14 +640,15 @@ socket.onmessage = (event) => {
     console.log("Received:", message);
 
     if (message.requestId && pendingRequests.has(message.requestId)) {
-      // リクエストへの応答 (command_result)
+      // リクエストへの応答 (command_result または property_aliases_result)
       const callback = pendingRequests.get(message.requestId);
       if (callback) {
-        callback(message.payload); // payload をコールバックに渡す
+        // 応答タイプに関わらず payload をコールバックに渡す
+        callback(message.payload);
         pendingRequests.delete(message.requestId);
       }
     } else {
-      // サーバーからの通知
+      // サーバーからの通知 (requestId がない)
       handleNotification(message.type, message.payload);
     }
   } catch (error) {
@@ -817,7 +770,7 @@ async function getDeviceProperties(targetDevice: string, epcs: string[]) {
 }
 
 // デバイスのプロパティ設定
-async function setDeviceProperties(targetDevice: string, properties: Record<string, string>) {
+async function setDeviceProperties(targetDevice: string, properties: Record<string, { EDT?: string; string?: string }>) {
   try {
     const payload = { target: targetDevice, properties: properties };
     const resultData = await sendRequest("set_properties", payload);
@@ -825,6 +778,21 @@ async function setDeviceProperties(targetDevice: string, properties: Record<stri
     return resultData;
   } catch (error) {
     console.error(`Failed to set properties for ${targetDevice}:`, error);
+    throw error;
+  }
+}
+
+// プロパティエイリアス取得
+async function getPropertyAliases(classCode: string) {
+  try {
+    const payload = { classCode: classCode };
+    // sendRequest は command_result の payload を返すように変更されている
+    const resultData = await sendRequest("get_property_aliases", payload);
+    console.log(`Property aliases for class ${classCode}:`, resultData);
+    // resultData は PropertyAliasesData オブジェクト
+    return resultData;
+  } catch (error) {
+    console.error(`Failed to get property aliases for class ${classCode}:`, error);
     throw error;
   }
 }
@@ -896,6 +864,7 @@ async function listGroups(groupName?: string) {
 
 // 使用例:
 // 接続確立後（onopen内）で実行するか、initial_state受信後に実行
+// getPropertyAliases("0130"); // エアコンのエイリアスを取得
 // getDeviceProperties("192.168.1.10 0130:1", ["80", "B0"]);
 // addGroup("@living_room", ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"]);
 ```

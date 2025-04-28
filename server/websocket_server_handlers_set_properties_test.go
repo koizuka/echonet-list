@@ -92,25 +92,7 @@ func TestHandleSetPropertiesFromClient(t *testing.T) {
 				RequestID: "req-id",
 			}
 
-			if err := ws.handleSetPropertiesFromClient("conn", msg); err != nil {
-				t.Fatalf("handleSetPropertiesFromClient error: %v", err)
-			}
-
-			raw, ok := mockTransport.sentMessages["conn"]
-			if !ok {
-				t.Fatalf("no message sent")
-			}
-			var resp protocol.Message
-			if err := json.Unmarshal(raw, &resp); err != nil {
-				t.Fatalf("unmarshal response: %v", err)
-			}
-			if resp.Type != protocol.MessageTypeCommandResult {
-				t.Errorf("resp.Type = %v, want %v", resp.Type, protocol.MessageTypeCommandResult)
-			}
-			var cr protocol.CommandResultPayload
-			if err := json.Unmarshal(resp.Payload, &cr); err != nil {
-				t.Fatalf("unmarshal CommandResultPayload: %v", err)
-			}
+			cr := ws.handleSetPropertiesFromClient(msg)
 
 			if tt.wantError {
 				if cr.Success {

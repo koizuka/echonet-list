@@ -144,22 +144,33 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 		return ws.sendMessageToClient(connID, protocol.MessageTypeErrorNotification, errorPayload, "")
 	}
 
+	handle := func(handler func(msg *protocol.Message) protocol.CommandResultPayload) error {
+		result := handler(msg)
+		if !result.Success {
+			logger := log.GetLogger()
+			if logger != nil {
+				logger.Log("Error for RequestID %s: %s", msg.RequestID, result.Error.Message)
+			}
+		}
+		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, result, msg.RequestID)
+	}
+
 	// Handle the message based on its type
 	switch msg.Type {
 	case protocol.MessageTypeGetProperties:
-		return ws.handleGetPropertiesFromClient(connID, msg)
+		return handle(ws.handleGetPropertiesFromClient)
 	case protocol.MessageTypeSetProperties:
-		return ws.handleSetPropertiesFromClient(connID, msg)
+		return handle(ws.handleSetPropertiesFromClient)
 	case protocol.MessageTypeUpdateProperties:
-		return ws.handleUpdatePropertiesFromClient(connID, msg)
+		return handle(ws.handleUpdatePropertiesFromClient)
 	case protocol.MessageTypeManageAlias:
-		return ws.handleManageAliasFromClient(connID, msg)
+		return handle(ws.handleManageAliasFromClient)
 	case protocol.MessageTypeManageGroup:
-		return ws.handleManageGroupFromClient(connID, msg)
+		return handle(ws.handleManageGroupFromClient)
 	case protocol.MessageTypeDiscoverDevices:
-		return ws.handleDiscoverDevicesFromClient(connID, msg)
+		return handle(ws.handleDiscoverDevicesFromClient)
 	case protocol.MessageTypeGetPropertyAliases:
-		return ws.handleGetPropertyAliasesFromClient(connID, msg)
+		return handle(ws.handleGetPropertyAliasesFromClient)
 	default:
 		if logger != nil {
 			logger.Log("Unknown message type: %s", msg.Type)
@@ -270,6 +281,26 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	return ws.sendMessageToClient(connID, protocol.MessageTypeInitialState, payload, "")
 }
 
+// SuccessResponse はコマンドの成功応答を作成する
+func SuccessResponse(resultJSON json.RawMessage) protocol.CommandResultPayload {
+	return protocol.CommandResultPayload{
+		Success: true,
+		Data:    resultJSON,
+	}
+}
+
+// ErrorResponse はコマンドのエラー応答を作成する
+func ErrorResponse(code protocol.ErrorCode, format string, args ...any) protocol.CommandResultPayload {
+	errorPayload := protocol.Error{
+		Code:    code,
+		Message: fmt.Sprintf(format, args...),
+	}
+	return protocol.CommandResultPayload{
+		Success: false,
+		Error:   &errorPayload,
+	}
+}
+
 // sendMessageToClient sends a message to a client
 func (ws *WebSocketServer) sendMessageToClient(connID string, msgType protocol.MessageType, payload interface{}, requestID string) error {
 	// Create the message
@@ -280,35 +311,6 @@ func (ws *WebSocketServer) sendMessageToClient(connID string, msgType protocol.M
 
 	// Send the message
 	return ws.transport.SendMessage(connID, data)
-}
-
-// sendSuccessResponse logs success and sends a success response to the client
-func (ws *WebSocketServer) sendSuccessResponse(connID string, requestID string, data json.RawMessage) error {
-	resultPayload := protocol.CommandResultPayload{
-		Success: true,
-		Data:    data,
-	}
-
-	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, resultPayload, requestID)
-}
-
-// sendErrorResponse logs an error and sends an error response to the client
-func (ws *WebSocketServer) sendErrorResponse(connID string, requestID string, errorCode protocol.ErrorCode, format string, args ...interface{}) error {
-	errorMessage := fmt.Sprintf(format, args...)
-	logger := log.GetLogger()
-	if logger != nil {
-		logger.Log("Error for RequestID %s: %s", requestID, errorMessage)
-	}
-
-	errorPayload := protocol.CommandResultPayload{
-		Success: false,
-		Error: &protocol.Error{
-			Code:    errorCode,
-			Message: errorMessage,
-		},
-	}
-
-	return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, errorPayload, requestID)
 }
 
 // broadcastMessageToClients sends a message to all connected clients

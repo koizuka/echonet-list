@@ -11,16 +11,16 @@ import (
 )
 
 // handleGetPropertiesFromClient handles a get_properties message from a client
-func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *protocol.Message) error {
+func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) protocol.CommandResultPayload {
 	// Parse the payload
 	var payload protocol.GetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing get_properties payload: %v", err)
+		return ErrorResponse(protocol.ErrorCodeInvalidRequestFormat, "Error parsing get_properties payload: %v", err)
 	}
 
 	// Validate the payload
 	if len(payload.Targets) == 0 {
-		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "No targets specified")
+		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "No targets specified")
 	}
 
 	// Process each target
@@ -34,7 +34,7 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 		}
 
 		if err != nil {
-			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
+			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
 		}
 
 		// Parse EPCs
@@ -42,7 +42,7 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 		for _, epcStr := range payload.EPCs {
 			epc, err := echonet_lite.ParseEPCString(epcStr)
 			if err != nil {
-				return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
+				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
 			}
 			epcs = append(epcs, epc)
 		}
@@ -50,7 +50,7 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 		// Get properties
 		deviceAndProps, err := ws.echonetClient.GetProperties(ipAndEOJ, epcs, false)
 		if err != nil {
-			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, "Error getting properties: %v", err)
+			return ErrorResponse(protocol.ErrorCodeEchonetCommunicationError, "Error getting properties: %v", err)
 		}
 
 		// デバイスの最終更新タイムスタンプを取得
@@ -73,39 +73,35 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(connID string, msg *pro
 		// Marshal just the first device
 		deviceJSON, err := json.Marshal(results[0])
 		if err != nil {
-			return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInternalServerError, "Error marshaling device: %v", err)
+			return ErrorResponse(protocol.ErrorCodeInternalServerError, "Error marshaling device: %v", err)
 		}
 		resultJSON = deviceJSON
 	}
 
 	// Send the success response with the device data
-	return ws.sendSuccessResponse(connID, msg.RequestID, resultJSON)
+	return SuccessResponse(resultJSON)
 }
 
 // handleSetPropertiesFromClient handles a set_properties message from a client
-func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *protocol.Message) error {
-	fail := func(errorCode protocol.ErrorCode, format string, args ...any) error {
-		return ws.sendErrorResponse(connID, msg.RequestID, errorCode, format, args...)
-	}
-
+func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) protocol.CommandResultPayload {
 	// Parse the payload
 	var payload protocol.SetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return fail(protocol.ErrorCodeInvalidRequestFormat, "Error parsing set_properties payload: %v", err)
+		return ErrorResponse(protocol.ErrorCodeInvalidRequestFormat, "Error parsing set_properties payload: %v", err)
 	}
 
 	// Validate the payload
 	if payload.Target == "" {
-		return fail(protocol.ErrorCodeInvalidParameters, "No target specified")
+		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "No target specified")
 	}
 	if len(payload.Properties) == 0 {
-		return fail(protocol.ErrorCodeInvalidParameters, "No properties specified")
+		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "No properties specified")
 	}
 
 	// Parse the target
 	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.Target)
 	if err != nil {
-		return fail(protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
+		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
 	}
 
 	// Parse properties
@@ -113,11 +109,11 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 	for epcStr, propData := range payload.Properties {
 		epc, err := echonet_lite.ParseEPCString(epcStr)
 		if err != nil {
-			return fail(protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
+			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
 		}
 		desc, ok := echonet_lite.GetPropertyDesc(ipAndEOJ.EOJ.ClassCode(), epc)
 		if !ok {
-			return fail(protocol.ErrorCodeInvalidParameters, "Unknown property EPC: %s", epcStr)
+			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Unknown property EPC: %s", epcStr)
 		}
 
 		var edtBytes []byte
@@ -126,23 +122,23 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 		if propData.EDT != "" {
 			decoded, err := base64.StdEncoding.DecodeString(propData.EDT)
 			if err != nil {
-				return fail(protocol.ErrorCodeInvalidParameters, "Invalid EDT: %v", err)
+				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid EDT: %v", err)
 			}
 			edtBytes = decoded
 		}
 		if propData.String != "" {
 			converted, ok := desc.ToEDT(propData.String)
 			if !ok {
-				return fail(protocol.ErrorCodeInvalidParameters, "Invalid string value: %s", propData.String)
+				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid string value: %s", propData.String)
 			}
 			stringBytes = converted
 		}
 		switch {
 		case edtBytes == nil && stringBytes == nil:
-			return fail(protocol.ErrorCodeInvalidParameters, "No EDT or string specified for EPC: %s", epcStr)
+			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "No EDT or string specified for EPC: %s", epcStr)
 		case edtBytes != nil && stringBytes != nil:
 			if !bytes.Equal(edtBytes, stringBytes) {
-				return fail(protocol.ErrorCodeInvalidParameters, "Conflicting EDT and string for EPC: %s", epcStr)
+				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Conflicting EDT and string for EPC: %s", epcStr)
 			}
 		case edtBytes == nil && stringBytes != nil:
 			edtBytes = stringBytes
@@ -157,7 +153,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 	// Set properties
 	deviceAndProps, err := ws.echonetClient.SetProperties(ipAndEOJ, properties)
 	if err != nil {
-		return fail(protocol.ErrorCodeEchonetCommunicationError, "Error setting properties: %v", err)
+		return ErrorResponse(protocol.ErrorCodeEchonetCommunicationError, "Error setting properties: %v", err)
 	}
 
 	// デバイスの最終更新タイムスタンプを取得
@@ -173,32 +169,24 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(connID string, msg *pro
 	// Marshal the device data
 	deviceDataJSON, err := json.Marshal(deviceData)
 	if err != nil {
-		return fail(protocol.ErrorCodeInternalServerError, "Error marshaling device data: %v", err)
+		return ErrorResponse(protocol.ErrorCodeInternalServerError, "Error marshaling device data: %v", err)
 	}
 
 	// Send the success response with device data
-	return ws.sendSuccessResponse(connID, msg.RequestID, deviceDataJSON)
+	return SuccessResponse(deviceDataJSON)
 }
 
 // handleGetPropertyAliasesFromClient handles a get_property_aliases message from a client
-func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(connID string, msg *protocol.Message) error {
+func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(msg *protocol.Message) protocol.CommandResultPayload {
 	logger := log.GetLogger()
 
 	// Parse the payload
 	var payload protocol.GetPropertyAliasesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		// PropertyAliasesResultPayloadを使用する必要があるため、sendErrorResponseは使用できない
 		if logger != nil {
 			logger.Log("Error parsing get_property_aliases payload: %v", err)
 		}
-		errorPayload := protocol.PropertyAliasesResultPayload{
-			Success: false,
-			Error: &protocol.Error{
-				Code:    protocol.ErrorCodeInvalidRequestFormat,
-				Message: fmt.Sprintf("Error parsing get_property_aliases payload: %v", err),
-			},
-		}
-		return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, errorPayload, msg.RequestID)
+		return ErrorResponse(protocol.ErrorCodeInvalidRequestFormat, "Error parsing get_property_aliases payload: %v", err)
 	}
 
 	var classCode echonet_lite.EOJClassCode
@@ -206,7 +194,7 @@ func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(connID string, msg
 
 	// classCodeが空文字列の場合は共通プロパティを要求すると解釈
 	if payload.ClassCode == "" {
-		classCode = 0 // 共通プロパティを示すゼロ値
+		classCode = 0 // 共通プロパティを示すゼロ値 (ProfileSuperClass)
 		if logger != nil && ws.handler.IsDebug() {
 			logger.Log("Requesting common property aliases (classCode is empty)")
 		}
@@ -217,64 +205,62 @@ func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(connID string, msg
 			if logger != nil {
 				logger.Log("Error: invalid class code: %v", err)
 			}
-			// エラー応答を送信
-			errorPayload := protocol.PropertyAliasesResultPayload{
-				Success: false,
-				Error: &protocol.Error{
-					Code:    protocol.ErrorCodeInvalidParameters,
-					Message: fmt.Sprintf("Invalid class code: %v", err),
-				},
-			}
-			return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, errorPayload, msg.RequestID)
+			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid class code: %v", err)
 		}
 		if logger != nil && ws.handler.IsDebug() {
 			logger.Log("Requesting property aliases for class code: %s", payload.ClassCode)
 		}
 	}
 
-	// Get property aliases from client using the determined classCode
+	// Get property aliases from echonetClient using the determined classCode
 	aliases := ws.echonetClient.AvailablePropertyAliases(classCode)
 
 	// Convert to protocol format
 	propertiesMap := make(map[string]protocol.EPCDesc)
 
-	// Process each alias
-	for alias, desc := range aliases {
-		epc := desc.EPC.String()
+	// Process each alias description
+	for aliasName, desc := range aliases {
+		epc := desc.EPC.String() // Get EPC as hex string (e.g., "80")
 
-		// EPCDescを取得または作成
+		// Get or create EPCDesc
 		epcDesc, exists := propertiesMap[epc]
 		if !exists {
 			epcDesc = protocol.EPCDesc{
-				Description: desc.Name,
+				Description: desc.Name, // Use the description from the alias definition
 				Aliases:     make(map[string]string),
 			}
 		}
 
-		// エイリアスを追加
-		epcDesc.Aliases[alias] = base64.StdEncoding.EncodeToString(desc.EDT)
-		propertiesMap[epc] = epcDesc
+		// Add the alias name and its Base64 encoded EDT
+		epcDesc.Aliases[aliasName] = base64.StdEncoding.EncodeToString(desc.EDT)
+		propertiesMap[epc] = epcDesc // Update the map
 	}
 
-	// Create response payload
-	resultPayload := protocol.PropertyAliasesResultPayload{
-		Success: true,
-		Data: &protocol.PropertyAliasesData{
-			ClassCode:  payload.ClassCode,
-			Properties: propertiesMap,
-		},
+	// Create the data part of the response payload
+	data := protocol.PropertyAliasesData{
+		ClassCode:  payload.ClassCode, // Use the requested class code
+		Properties: propertiesMap,
 	}
 
-	// Send the response
-	return ws.sendMessageToClient(connID, protocol.MessageTypePropertyAliasesResult, resultPayload, msg.RequestID)
+	// Marshal the data part to JSON
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		if logger != nil {
+			logger.Log("Error marshaling property aliases data: %v", err)
+		}
+		return ErrorResponse(protocol.ErrorCodeInternalServerError, "Error marshaling property aliases data: %v", err)
+	}
+
+	// Return the success response with the marshaled data
+	return SuccessResponse(dataJSON)
 }
 
 // handleUpdatePropertiesFromClient handles an update_properties message from a client
-func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *protocol.Message) error {
+func (ws *WebSocketServer) handleUpdatePropertiesFromClient(msg *protocol.Message) protocol.CommandResultPayload {
 	// Parse the payload
 	var payload protocol.UpdatePropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidRequestFormat, "Error parsing update_properties payload: %v", err)
+		return ErrorResponse(protocol.ErrorCodeInvalidRequestFormat, "Error parsing update_properties payload: %v", err)
 	}
 
 	// フィルター基準のリストを準備
@@ -290,7 +276,7 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *
 			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
 			if err != nil {
 				// エラーが発生した場合、エラー応答を返す
-				return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
+				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
 			}
 			// 各デバイスに対応するフィルター基準を作成
 			criteria := echonet_lite.FilterCriteria{
@@ -317,9 +303,9 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(connID string, msg *
 
 	// 処理中にエラーが発生した場合はエラー応答を返す
 	if firstError != nil {
-		return ws.sendErrorResponse(connID, msg.RequestID, protocol.ErrorCodeEchonetCommunicationError, firstError.Error())
+		return ErrorResponse(protocol.ErrorCodeEchonetCommunicationError, firstError.Error())
 	}
 
 	// Send the success response
-	return ws.sendSuccessResponse(connID, msg.RequestID, nil)
+	return SuccessResponse(nil)
 }

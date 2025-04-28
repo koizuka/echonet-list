@@ -259,40 +259,7 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 				RequestID: "test-request-id",
 			}
 
-			// テスト対象のメソッドを呼び出す
-			connID := "test-conn-id"
-			err = ws.handleGetPropertyAliasesFromClient(connID, msg)
-			if err != nil {
-				t.Fatalf("handleGetPropertyAliasesFromClient() error = %v", err)
-			}
-
-			// 送信されたメッセージを取得
-			sentMessage, ok := mockTransport.sentMessages[connID]
-			if !ok {
-				t.Fatalf("No message sent to client")
-			}
-
-			// メッセージをパース
-			var responseMsg protocol.Message
-			if err := json.Unmarshal(sentMessage, &responseMsg); err != nil {
-				t.Fatalf("Failed to unmarshal response message: %v", err)
-			}
-
-			// レスポンスのタイプを確認
-			if responseMsg.Type != protocol.MessageTypePropertyAliasesResult {
-				t.Errorf("Response message type = %v, want %v", responseMsg.Type, protocol.MessageTypePropertyAliasesResult)
-			}
-
-			// リクエストIDを確認
-			if responseMsg.RequestID != msg.RequestID {
-				t.Errorf("Response requestId = %v, want %v", responseMsg.RequestID, msg.RequestID)
-			}
-
-			// ペイロードをパース
-			var responsePayload protocol.PropertyAliasesResultPayload
-			if err := json.Unmarshal(responseMsg.Payload, &responsePayload); err != nil {
-				t.Fatalf("Failed to unmarshal response payload: %v", err)
-			}
+			responsePayload := ws.handleGetPropertyAliasesFromClient(msg)
 
 			// 成功ステータスを確認
 			if responsePayload.Success != tt.wantStatus {
@@ -309,20 +276,26 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 				if responsePayload.Data == nil {
 					t.Errorf("Response data is nil, want non-nil")
 				} else {
+					// 成功時のDataフィールドは PropertyAliasesData の JSON 文字列
+					var aliasesData protocol.PropertyAliasesData
+					if err := json.Unmarshal(responsePayload.Data, &aliasesData); err != nil {
+						t.Fatalf("Failed to unmarshal response data payload: %v", err)
+					}
+
 					// クラスコードを確認
-					if responsePayload.Data.ClassCode != tt.classCode {
-						t.Errorf("Response data.classCode = %v, want %v", responsePayload.Data.ClassCode, tt.classCode)
+					if aliasesData.ClassCode != tt.classCode {
+						t.Errorf("Response data.classCode = %v, want %v", aliasesData.ClassCode, tt.classCode)
 					}
 
 					// プロパティマップが存在することを確認
-					if responsePayload.Data.Properties == nil {
+					if aliasesData.Properties == nil {
 						t.Errorf("Response data.properties is nil, want non-nil")
 					}
 
 					switch tt.classCode {
 					case "0130": // HomeAirConditionerの場合
 						// "B0" EPCが含まれていることを確認 (デバイス固有)
-						epcDesc, ok := responsePayload.Data.Properties["B0"]
+						epcDesc, ok := aliasesData.Properties["B0"]
 						if !ok {
 							t.Errorf("Response data.properties does not contain 'B0' EPC for HomeAirConditioner")
 						} else {
@@ -335,7 +308,7 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 						}
 					case "": // 共通プロパティの場合
 						// "80" EPCが含まれていることを確認
-						epcDesc, ok := responsePayload.Data.Properties["80"]
+						epcDesc, ok := aliasesData.Properties["80"]
 						if !ok {
 							t.Errorf("Response data.properties does not contain '80' EPC for common properties")
 						} else {
@@ -347,7 +320,7 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 							}
 						}
 						// "81" EPCが含まれていることを確認
-						epcDesc81, ok81 := responsePayload.Data.Properties["81"]
+						epcDesc81, ok81 := aliasesData.Properties["81"]
 						if !ok81 {
 							t.Errorf("Response data.properties does not contain '81' EPC for common properties")
 						} else {
