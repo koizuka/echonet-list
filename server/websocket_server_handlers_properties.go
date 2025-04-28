@@ -176,17 +176,61 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 	return SuccessResponse(deviceDataJSON)
 }
 
-// handleGetPropertyAliasesFromClient handles a get_property_aliases message from a client
-func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(msg *protocol.Message) protocol.CommandResultPayload {
+// populateEPCDescriptions converts echonet_lite property descriptions to protocol EPC descriptions
+func populateEPCDescriptions(propTable echonet_lite.PropertyTable, targetMap map[string]protocol.EPCDesc) {
+	for epc, propDesc := range propTable.EPCDesc {
+		epcStr := epc.String()
+		epcDesc := protocol.EPCDesc{
+			Description: propDesc.Name,
+			Aliases:     make(map[string]string),
+		}
+		// Add aliases if they exist
+		if propDesc.Aliases != nil {
+			for aliasName, edtBytes := range propDesc.Aliases {
+				epcDesc.Aliases[aliasName] = base64.StdEncoding.EncodeToString(edtBytes)
+			}
+		}
+		if len(epcDesc.Aliases) == 0 {
+			epcDesc.Aliases = nil // Omit empty map in JSON
+		}
+		// Check decoder type and populate protocol-specific descriptions
+		if propDesc.Decoder != nil {
+			switch v := propDesc.Decoder.(type) {
+			case echonet_lite.NumberDesc:
+				protoNumDesc := &protocol.ProtocolNumberDesc{
+					Min:    v.Min,
+					Max:    v.Max,
+					Offset: v.Offset,
+					Unit:   v.Unit,
+					EdtLen: v.EDTLen,
+				}
+				if protoNumDesc.EdtLen == 1 || protoNumDesc.EdtLen == 0 {
+					protoNumDesc.EdtLen = 0 // Use omitempty
+				}
+				epcDesc.NumberDesc = protoNumDesc
+			case echonet_lite.StringDesc:
+				protoStrDesc := &protocol.ProtocolStringDesc{
+					MinEDTLen: v.MinEDTLen,
+					MaxEDTLen: v.MaxEDTLen,
+				}
+				epcDesc.StringDesc = protoStrDesc
+			}
+		}
+		targetMap[epcStr] = epcDesc // Add or overwrite in the target map
+	}
+}
+
+// handleGetPropertyDescriptionFromClient handles a get_property_description message from a client
+func (ws *WebSocketServer) handleGetPropertyDescriptionFromClient(msg *protocol.Message) protocol.CommandResultPayload {
 	logger := log.GetLogger()
 
 	// Parse the payload
-	var payload protocol.GetPropertyAliasesPayload
+	var payload protocol.GetPropertyDescriptionPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
 		if logger != nil {
-			logger.Log("Error parsing get_property_aliases payload: %v", err)
+			logger.Log("Error parsing get_property_description payload: %v", err)
 		}
-		return ErrorResponse(protocol.ErrorCodeInvalidRequestFormat, "Error parsing get_property_aliases payload: %v", err)
+		return ErrorResponse(protocol.ErrorCodeInvalidRequestFormat, "Error parsing get_property_description payload: %v", err)
 	}
 
 	var classCode echonet_lite.EOJClassCode
@@ -196,7 +240,7 @@ func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(msg *protocol.Mess
 	if payload.ClassCode == "" {
 		classCode = 0 // 共通プロパティを示すゼロ値 (ProfileSuperClass)
 		if logger != nil && ws.handler.IsDebug() {
-			logger.Log("Requesting common property aliases (classCode is empty)")
+			logger.Log("Requesting common property descriptions (classCode is empty)")
 		}
 	} else {
 		// Parse the class code if not empty
@@ -208,36 +252,29 @@ func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(msg *protocol.Mess
 			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid class code: %v", err)
 		}
 		if logger != nil && ws.handler.IsDebug() {
-			logger.Log("Requesting property aliases for class code: %s", payload.ClassCode)
+			logger.Log("Requesting property descriptions for class code: %s", payload.ClassCode)
 		}
 	}
-
-	// Get property aliases from echonetClient using the determined classCode
-	aliases := ws.echonetClient.AvailablePropertyAliases(classCode)
 
 	// Convert to protocol format
 	propertiesMap := make(map[string]protocol.EPCDesc)
 
-	// Process each alias description
-	for aliasName, desc := range aliases {
-		epc := desc.EPC.String() // Get EPC as hex string (e.g., "80")
+	// Populate common properties first
+	populateEPCDescriptions(echonet_lite.ProfileSuperClass_PropertyTable, propertiesMap)
 
-		// Get or create EPCDesc
-		epcDesc, exists := propertiesMap[epc]
-		if !exists {
-			epcDesc = protocol.EPCDesc{
-				Description: desc.Name, // Use the description from the alias definition
-				Aliases:     make(map[string]string),
-			}
+	// Populate specific class properties (overwriting common ones if necessary)
+	// Only process if classCode is specified (i.e., not empty request)
+	if payload.ClassCode != "" {
+		if classTable, ok := echonet_lite.PropertyTables[classCode]; ok {
+			populateEPCDescriptions(classTable, propertiesMap)
+		} else if logger != nil {
+			// Log if the specific class table wasn't found, but still return common properties
+			logger.Log("Warning: Property table not found for specific class code: %s", payload.ClassCode)
 		}
-
-		// Add the alias name and its Base64 encoded EDT
-		epcDesc.Aliases[aliasName] = base64.StdEncoding.EncodeToString(desc.EDT)
-		propertiesMap[epc] = epcDesc // Update the map
 	}
 
 	// Create the data part of the response payload
-	data := protocol.PropertyAliasesData{
+	data := protocol.PropertyDescriptionData{
 		ClassCode:  payload.ClassCode, // Use the requested class code
 		Properties: propertiesMap,
 	}
@@ -246,9 +283,9 @@ func (ws *WebSocketServer) handleGetPropertyAliasesFromClient(msg *protocol.Mess
 	dataJSON, err := json.Marshal(data)
 	if err != nil {
 		if logger != nil {
-			logger.Log("Error marshaling property aliases data: %v", err)
+			logger.Log("Error marshaling property description data: %v", err)
 		}
-		return ErrorResponse(protocol.ErrorCodeInternalServerError, "Error marshaling property aliases data: %v", err)
+		return ErrorResponse(protocol.ErrorCodeInternalServerError, "Error marshaling property description data: %v", err)
 	}
 
 	// Return the success response with the marshaled data

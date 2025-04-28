@@ -198,8 +198,8 @@ func NewNotificationChannel() *NotificationChannel {
 	}
 }
 
-// TestHandleGetPropertyAliasesFromClient は handleGetPropertyAliasesFromClient メソッドのテスト
-func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
+// TestHandleGetPropertyDescriptionFromClient は handleGetPropertyDescriptionFromClient メソッドのテスト
+func TestHandleGetPropertyDescriptionFromClient(t *testing.T) {
 	// テストケース
 	tests := []struct {
 		name       string
@@ -245,7 +245,7 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 			}
 
 			// テスト用のメッセージを作成
-			payload := protocol.GetPropertyAliasesPayload{
+			payload := protocol.GetPropertyDescriptionPayload{
 				ClassCode: tt.classCode,
 			}
 			payloadBytes, err := json.Marshal(payload)
@@ -254,12 +254,12 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 			}
 
 			msg := &protocol.Message{
-				Type:      protocol.MessageTypeGetPropertyAliases,
+				Type:      protocol.MessageTypeGetPropertyDescription,
 				Payload:   payloadBytes,
 				RequestID: "test-request-id",
 			}
 
-			responsePayload := ws.handleGetPropertyAliasesFromClient(msg)
+			responsePayload := ws.handleGetPropertyDescriptionFromClient(msg)
 
 			// 成功ステータスを確認
 			if responsePayload.Success != tt.wantStatus {
@@ -276,59 +276,105 @@ func TestHandleGetPropertyAliasesFromClient(t *testing.T) {
 				if responsePayload.Data == nil {
 					t.Errorf("Response data is nil, want non-nil")
 				} else {
-					// 成功時のDataフィールドは PropertyAliasesData の JSON 文字列
-					var aliasesData protocol.PropertyAliasesData
-					if err := json.Unmarshal(responsePayload.Data, &aliasesData); err != nil {
+					// 成功時のDataフィールドは PropertyDescriptionData の JSON 文字列
+					var descriptionData protocol.PropertyDescriptionData
+					if err := json.Unmarshal(responsePayload.Data, &descriptionData); err != nil {
 						t.Fatalf("Failed to unmarshal response data payload: %v", err)
 					}
 
 					// クラスコードを確認
-					if aliasesData.ClassCode != tt.classCode {
-						t.Errorf("Response data.classCode = %v, want %v", aliasesData.ClassCode, tt.classCode)
+					if descriptionData.ClassCode != tt.classCode {
+						t.Errorf("Response data.classCode = %v, want %v", descriptionData.ClassCode, tt.classCode)
 					}
 
 					// プロパティマップが存在することを確認
-					if aliasesData.Properties == nil {
+					if descriptionData.Properties == nil {
 						t.Errorf("Response data.properties is nil, want non-nil")
 					}
 
 					switch tt.classCode {
 					case "0130": // HomeAirConditionerの場合
-						// "B0" EPCが含まれていることを確認 (デバイス固有)
-						epcDesc, ok := aliasesData.Properties["B0"]
-						if !ok {
+						// "B0" (Operation mode setting) - エイリアスのみ
+						epcDescB0, okB0 := descriptionData.Properties["B0"]
+						if !okB0 {
 							t.Errorf("Response data.properties does not contain 'B0' EPC for HomeAirConditioner")
 						} else {
-							if epcDesc.Description != "Operation mode setting" {
-								t.Errorf("Response data.properties['B0'].description = %v, want %v", epcDesc.Description, "Operation mode setting")
+							if epcDescB0.Description != "Operation mode setting" {
+								t.Errorf("Response data.properties['B0'].description = %v, want %v", epcDescB0.Description, "Operation mode setting")
 							}
-							if _, ok := epcDesc.Aliases["auto"]; !ok {
+							if epcDescB0.Aliases == nil {
+								t.Errorf("Response data.properties['B0'].aliases is nil, want non-nil")
+							} else if _, ok := epcDescB0.Aliases["auto"]; !ok {
 								t.Errorf("Response data.properties['B0'].aliases does not contain 'auto' alias")
+							}
+							if epcDescB0.NumberDesc != nil {
+								t.Errorf("Response data.properties['B0'].numberDesc is not nil, want nil")
+							}
+							if epcDescB0.StringDesc != nil {
+								t.Errorf("Response data.properties['B0'].stringDesc is not nil, want nil")
+							}
+						}
+						// "B3" (Set temperature value) - NumberDescのみ
+						epcDescB3, okB3 := descriptionData.Properties["B3"]
+						if !okB3 {
+							t.Errorf("Response data.properties does not contain 'B3' EPC for HomeAirConditioner")
+						} else {
+							if epcDescB3.Description != "Temperature setting" { // Fix: Correct description
+								t.Errorf("Response data.properties['B3'].description = %v, want %v", epcDescB3.Description, "Temperature setting")
+							}
+							if epcDescB3.Aliases == nil { // Fix: Aliases should exist (ExtraValueAlias)
+								t.Errorf("Response data.properties['B3'].aliases is nil, want non-nil")
+							} else if _, ok := epcDescB3.Aliases["unknown"]; !ok { // Check one specific alias
+								t.Errorf("Response data.properties['B3'].aliases does not contain 'unknown' alias")
+							}
+							if epcDescB3.NumberDesc == nil {
+								t.Errorf("Response data.properties['B3'].numberDesc is nil, want non-nil")
+							} else if epcDescB3.NumberDesc.Unit != "℃" { // Fix: Correct unit
+								t.Errorf("Response data.properties['B3'].numberDesc.Unit = %v, want %v", epcDescB3.NumberDesc.Unit, "℃")
+							}
+							if epcDescB3.StringDesc != nil {
+								t.Errorf("Response data.properties['B3'].stringDesc is not nil, want nil")
 							}
 						}
 					case "": // 共通プロパティの場合
-						// "80" EPCが含まれていることを確認
-						epcDesc, ok := aliasesData.Properties["80"]
-						if !ok {
+						// "80" (Operation status) - エイリアスのみ
+						epcDesc80, ok80 := descriptionData.Properties["80"]
+						if !ok80 {
 							t.Errorf("Response data.properties does not contain '80' EPC for common properties")
 						} else {
-							if epcDesc.Description != "Operation status" {
-								t.Errorf("Response data.properties['80'].description = %v, want %v", epcDesc.Description, "Operation status")
+							if epcDesc80.Description != "Operation status" {
+								t.Errorf("Response data.properties['80'].description = %v, want %v", epcDesc80.Description, "Operation status")
 							}
-							if _, ok := epcDesc.Aliases["on"]; !ok {
+							if epcDesc80.Aliases == nil {
+								t.Errorf("Response data.properties['80'].aliases is nil, want non-nil")
+							} else if _, ok := epcDesc80.Aliases["on"]; !ok {
 								t.Errorf("Response data.properties['80'].aliases does not contain 'on' alias")
 							}
-						}
-						// "81" EPCが含まれていることを確認
-						epcDesc81, ok81 := aliasesData.Properties["81"]
-						if !ok81 {
-							t.Errorf("Response data.properties does not contain '81' EPC for common properties")
-						} else {
-							if epcDesc81.Description != "Installation location" {
-								t.Errorf("Response data.properties['81'].description = %v, want %v", epcDesc81.Description, "Installation location")
+							if epcDesc80.NumberDesc != nil {
+								t.Errorf("Response data.properties['80'].numberDesc is not nil, want nil")
 							}
-							if _, ok := epcDesc81.Aliases["living"]; !ok {
-								t.Errorf("Response data.properties['81'].aliases does not contain 'living' alias")
+							if epcDesc80.StringDesc != nil {
+								t.Errorf("Response data.properties['80'].stringDesc is not nil, want nil")
+							}
+						}
+						// "8C" (Product code) - StringDescのみ
+						epcDesc8C, ok8C := descriptionData.Properties["8C"]
+						if !ok8C {
+							t.Errorf("Response data.properties does not contain '8C' EPC for common properties")
+						} else {
+							if epcDesc8C.Description != "Product code" {
+								t.Errorf("Response data.properties['8C'].description = %v, want %v", epcDesc8C.Description, "Product code")
+							}
+							if epcDesc8C.Aliases != nil {
+								t.Errorf("Response data.properties['8C'].aliases is not nil, want nil")
+							}
+							if epcDesc8C.NumberDesc != nil {
+								t.Errorf("Response data.properties['8C'].numberDesc is not nil, want nil")
+							}
+							if epcDesc8C.StringDesc == nil {
+								t.Errorf("Response data.properties['8C'].stringDesc is nil, want non-nil")
+							} else if epcDesc8C.StringDesc.MinEDTLen != 12 {
+								t.Errorf("Response data.properties['8C'].stringDesc.MinEDTLen = %v, want %v", epcDesc8C.StringDesc.MinEDTLen, 12)
 							}
 						}
 					}

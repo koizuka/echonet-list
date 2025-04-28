@@ -451,13 +451,13 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 - `payload`: 空のJSONオブジェクト `{}`
 
-### get_property_aliases
+### get_property_description
 
-指定したクラスコードに対応するプロパティエイリアス一覧を取得します。応答は `command_result` メッセージで返されます。
+指定したクラスコードに対応するプロパティの詳細情報（説明、エイリアス、数値/文字列情報）を取得します。応答は `command_result` メッセージで返されます。
 
 ```json
 {
-  "type": "get_property_aliases",
+  "type": "get_property_description",
   "payload": {
     "classCode": "0130" // Home Air Conditioner
   },
@@ -465,7 +465,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 }
 ```
 
-- `classCode`: 4桁の16進数クラスコード（例: "0130" = エアコン）。**空文字列 (`""`) を指定した場合、共通プロパティ（ProfileSuperClass）のエイリアスのみを返します。**
+- `classCode`: 4桁の16進数クラスコード（例: "0130" = エアコン）。**空文字列 (`""`) を指定した場合、共通プロパティ（ProfileSuperClass）の情報のみを返します。**
 
 ## 6. サーバー -> クライアント メッセージ（応答）
 
@@ -488,24 +488,25 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 }
 ```
 
-**`get_property_aliases` の成功時の例:**
+**`get_property_description` の成功時の例:**
 
 ```json
 {
   "type": "command_result",
   "payload": {
     "success": true,
-    "data": { // PropertyAliasesData オブジェクト
+    "data": { // PropertyDescriptionData オブジェクト
       "classCode": "0130",
       "properties": {
-        "80": {
+        "80": { // Operation status
           "description": "Operation status",
           "aliases": {
             "on": "MzA=",
             "off": "MzE="
           }
+          // numberDesc, stringDesc はなし (エイリアスのみ)
         },
-        "B0": {
+        "B0": { // Operation mode setting
           "description": "Operation mode setting",
           "aliases": {
             "auto": "NDE=",
@@ -514,6 +515,26 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
             "dehumidification": "NDQ=",
             "ventilation": "NDU="
           }
+          // numberDesc, stringDesc はなし (エイリアスのみ)
+        },
+        "B3": { // Set temperature value
+          "description": "Set temperature value",
+          // aliases はなし
+          "numberDesc": {
+            "min": 0,
+            "max": 50,
+            "offset": 0,
+            "unit": "C",
+            "edtLen": 1
+          }
+        },
+        "8C": { // Product code
+           "description": "Product code",
+           // aliases はなし
+           "stringDesc": {
+             "minEDTLen": 12,
+             "maxEDTLen": 12
+           }
         }
         // ... 他のプロパティ
       }
@@ -540,7 +561,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 ```
 
 - `success`: 操作が成功したかどうか（boolean）
-- `data`: 成功時の追加データ（JSON形式、内容はリクエストによる）。`get_property_aliases` の場合は `PropertyAliasesData` オブジェクト。他のリクエストではデバイス情報やグループ情報、または `null`。
+- `data`: 成功時の追加データ（JSON形式、内容はリクエストによる）。`get_property_description` の場合は `PropertyDescriptionData` オブジェクト。他のリクエストではデバイス情報やグループ情報、または `null`。
 - `error`: 失敗時のエラー情報（`Error` オブジェクト、成功時は null または undefined）
 
 ## 7. クライアント実装のポイント（言語非依存）
@@ -640,10 +661,10 @@ socket.onmessage = (event) => {
     console.log("Received:", message);
 
     if (message.requestId && pendingRequests.has(message.requestId)) {
-      // リクエストへの応答 (command_result または property_aliases_result)
+      // リクエストへの応答 (command_result)
       const callback = pendingRequests.get(message.requestId);
       if (callback) {
-        // 応答タイプに関わらず payload をコールバックに渡す
+        // 応答の payload をコールバックに渡す
         callback(message.payload);
         pendingRequests.delete(message.requestId);
       }
@@ -782,17 +803,16 @@ async function setDeviceProperties(targetDevice: string, properties: Record<stri
   }
 }
 
-// プロパティエイリアス取得
-async function getPropertyAliases(classCode: string) {
+// プロパティ詳細情報取得
+async function getPropertyDescription(classCode: string) {
   try {
     const payload = { classCode: classCode };
-    // sendRequest は command_result の payload を返すように変更されている
-    const resultData = await sendRequest("get_property_aliases", payload);
-    console.log(`Property aliases for class ${classCode}:`, resultData);
-    // resultData は PropertyAliasesData オブジェクト
+    const resultData = await sendRequest("get_property_description", payload);
+    console.log(`Property description for class ${classCode}:`, resultData);
+    // resultData は PropertyDescriptionData オブジェクト
     return resultData;
   } catch (error) {
-    console.error(`Failed to get property aliases for class ${classCode}:`, error);
+    console.error(`Failed to get property description for class ${classCode}:`, error);
     throw error;
   }
 }
@@ -864,7 +884,7 @@ async function listGroups(groupName?: string) {
 
 // 使用例:
 // 接続確立後（onopen内）で実行するか、initial_state受信後に実行
-// getPropertyAliases("0130"); // エアコンのエイリアスを取得
+// getPropertyDescription("0130"); // エアコンのプロパティ詳細を取得
 // getDeviceProperties("192.168.1.10 0130:1", ["80", "B0"]);
 // addGroup("@living_room", ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"]);
 ```

@@ -32,13 +32,13 @@ const (
 	MessageTypeCommandResult       MessageType = "command_result"
 
 	// Client -> Server message types
-	MessageTypeGetProperties      MessageType = "get_properties"
-	MessageTypeSetProperties      MessageType = "set_properties"
-	MessageTypeUpdateProperties   MessageType = "update_properties"
-	MessageTypeManageAlias        MessageType = "manage_alias"
-	MessageTypeManageGroup        MessageType = "manage_group"
-	MessageTypeDiscoverDevices    MessageType = "discover_devices"
-	MessageTypeGetPropertyAliases MessageType = "get_property_aliases"
+	MessageTypeGetProperties          MessageType = "get_properties"
+	MessageTypeSetProperties          MessageType = "set_properties"
+	MessageTypeUpdateProperties       MessageType = "update_properties"
+	MessageTypeManageAlias            MessageType = "manage_alias"
+	MessageTypeManageGroup            MessageType = "manage_group"
+	MessageTypeDiscoverDevices        MessageType = "discover_devices"
+	MessageTypeGetPropertyDescription MessageType = "get_property_description"
 )
 
 // AliasChangeType defines the type of alias change
@@ -229,22 +229,39 @@ type DiscoverDevicesPayload struct {
 	// Empty payload
 }
 
-// GetPropertyAliasesPayload is the payload for the get_property_aliases message
-type GetPropertyAliasesPayload struct {
+// GetPropertyDescriptionPayload is the payload for the get_property_description message
+type GetPropertyDescriptionPayload struct {
 	ClassCode string `json:"classCode"`
 }
 
-// PropertyAliasesData is the data for the property_aliases_result message when success is true
-// It's included in the 'data' field of CommandResultPayload
-type PropertyAliasesData struct {
+// PropertyDescriptionData is the data for the command_result message when success is true
+// It's included in the 'data' field of CommandResultPayload for get_property_description requests
+type PropertyDescriptionData struct {
 	ClassCode  string             `json:"classCode"`
 	Properties map[string]EPCDesc `json:"properties"` // EPC in hex format (e.g. "80") -> EPCDesc
 }
 
-// EPCDesc contains information about an EPC, including its description and aliases
+// ProtocolNumberDesc defines the structure for numeric property details in the protocol.
+type ProtocolNumberDesc struct {
+	Min    int    `json:"min"`              // Minimum value
+	Max    int    `json:"max"`              // Maximum value
+	Offset int    `json:"offset"`           // Offset value used in ECHONET Lite
+	Unit   string `json:"unit,omitempty"`   // Unit of the value (e.g., "C", "%"), omitted if empty
+	EdtLen int    `json:"edtLen,omitempty"` // Length of EDT in bytes, omitted if 1 (default)
+}
+
+// ProtocolStringDesc defines the structure for string property details in the protocol.
+type ProtocolStringDesc struct {
+	MinEDTLen int `json:"minEDTLen,omitempty"` // Minimum EDT length (padded with NUL), omitted if 0
+	MaxEDTLen int `json:"maxEDTLen,omitempty"` // Maximum EDT length, omitted if 0 (no limit)
+}
+
+// EPCDesc contains information about an EPC, including its description, aliases, and potentially numeric/string details.
 type EPCDesc struct {
-	Description string            `json:"description"` // EPC description (e.g. "Operation status")
-	Aliases     map[string]string `json:"aliases"`     // Alias name -> EDT in base64 format
+	Description string              `json:"description"`          // EPC description (e.g. "Operation status")
+	Aliases     map[string]string   `json:"aliases,omitempty"`    // Alias name -> EDT in base64 format (optional)
+	NumberDesc  *ProtocolNumberDesc `json:"numberDesc,omitempty"` // Details if the property is numeric (optional)
+	StringDesc  *ProtocolStringDesc `json:"stringDesc,omitempty"` // Details if the property is a string (optional)
 }
 
 // Helper functions for converting between ECHONET Lite types and protocol types
