@@ -10,50 +10,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// mockWebSocketTransport は WebSocketTransport インターフェースのモック実装
-type mockWebSocketTransport struct {
-	sentMessages map[string][]byte // connID -> message
-}
-
-func newMockWebSocketTransport() *mockWebSocketTransport {
-	return &mockWebSocketTransport{
-		sentMessages: make(map[string][]byte),
-	}
-}
-
-// Start はモックの Start メソッド
-func (m *mockWebSocketTransport) Start(options StartOptions) error {
-	return nil
-}
-
-// Stop はモックの Stop メソッド
-func (m *mockWebSocketTransport) Stop() error {
-	return nil
-}
-
-// SetMessageHandler はモックの SetMessageHandler メソッド
-func (m *mockWebSocketTransport) SetMessageHandler(handler func(connID string, message []byte) error) {
-}
-
-// SetConnectHandler はモックの SetConnectHandler メソッド
-func (m *mockWebSocketTransport) SetConnectHandler(handler func(connID string) error) {
-}
-
-// SetDisconnectHandler はモックの SetDisconnectHandler メソッド
-func (m *mockWebSocketTransport) SetDisconnectHandler(handler func(connID string)) {
-}
-
-// SendMessage はモックの SendMessage メソッド
-func (m *mockWebSocketTransport) SendMessage(connID string, message []byte) error {
-	m.sentMessages[connID] = message
-	return nil
-}
-
-// BroadcastMessage はモックの BroadcastMessage メソッド
-func (m *mockWebSocketTransport) BroadcastMessage(message []byte) error {
-	return nil
-}
-
 // mockECHONETListClient は ECHONETListClient インターフェースのモック実装
 type mockECHONETListClient struct {
 	debug bool
@@ -233,13 +189,12 @@ func TestHandleGetPropertyDescriptionFromClient(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// モックの作成
-			mockTransport := newMockWebSocketTransport()
 			mockClient := &mockECHONETListClient{}
 
 			// WebSocketServer の作成
 			ws := &WebSocketServer{
 				ctx:           context.Background(),
-				transport:     mockTransport,
+				transport:     nil,
 				echonetClient: mockClient,
 				handler:       nil, // テストでは使用しないのでnilでOK
 			}

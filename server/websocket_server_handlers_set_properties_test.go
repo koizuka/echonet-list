@@ -72,12 +72,11 @@ func TestHandleSetPropertiesFromClient(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockTransport := newMockWebSocketTransport()
 			mockClient := &mockECHONETListClient{}
 
 			ws := &WebSocketServer{
 				ctx:           context.Background(),
-				transport:     mockTransport,
+				transport:     nil,
 				echonetClient: mockClient,
 				handler:       nil,
 			}
