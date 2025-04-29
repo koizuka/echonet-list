@@ -79,7 +79,7 @@ func (c *ECHONETListClientProxy) SetProperties(device IPAndEOJ, properties Prope
 	return c.handler.SetProperties(device, properties)
 }
 
-func (c *ECHONETListClientProxy) GetAllPropertyAliases() []string {
+func (c *ECHONETListClientProxy) GetAllPropertyAliases() map[string]PropertyDescription {
 	return echonet_lite.GetAllAliases()
 }
 

@@ -26,7 +26,7 @@ type DeviceManager interface {
 }
 
 type PropertyDescProvider interface {
-	GetAllPropertyAliases() []string
+	GetAllPropertyAliases() map[string]PropertyDescription
 	GetPropertyDesc(classCode EOJClassCode, e EPCType) (*PropertyDesc, bool)
 	IsPropertyDefaultEPC(classCode EOJClassCode, epc EPCType) bool
 	FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool)

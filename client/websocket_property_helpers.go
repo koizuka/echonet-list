@@ -5,7 +5,7 @@ import (
 )
 
 // GetAllPropertyAliases gets all property aliases
-func (c *WebSocketClient) GetAllPropertyAliases() []string {
+func (c *WebSocketClient) GetAllPropertyAliases() map[string]PropertyDescription {
 	return echonet_lite.GetAllAliases()
 }
 

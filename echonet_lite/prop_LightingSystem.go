@@ -18,25 +18,23 @@ const (
 	EPC_LS_PanasonicF4 EPCType = 0xf4
 )
 
-func (r PropertyRegistry) LightingSystem() PropertyRegistryEntry {
-	return PropertyRegistryEntry{
-		ClassCode: LightingSystem_ClassCode,
-		PropertyTable: PropertyTable{
-			Description: "Lighting System",
-			EPCDesc: map[EPCType]PropertyDesc{
-				EPC_LS_Illuminance:     {"Illuminance level", nil, NumberDesc{Min: 0, Max: 100, Unit: "%"}},
-				EPC_LS_SceneControl:    {"Scene control", nil, NumberDesc{EDTLen: 1, Min: 0, Max: 253}},     // 0:未設定, 1-253:シーン番号
-				EPC_LS_MaxSceneControl: {"Max scene control", nil, NumberDesc{EDTLen: 1, Min: 1, Max: 253}}, // 1-253:最大シーン番号
-				EPC_LS_PanasonicF1:     {"Panasonic F1", nil, LS_PanasonicFxDesc{}},
-				EPC_LS_PanasonicF2:     {"Panasonic F2", nil, LS_PanasonicFxDesc{}},
-				EPC_LS_PanasonicF3:     {"Panasonic F3", nil, LS_PanasonicFxDesc{}},
-				EPC_LS_PanasonicF4:     {"Panasonic F4", nil, LS_PanasonicFxDesc{}},
-			},
-			DefaultEPCs: []EPCType{
-				EPC_LS_Illuminance,
-				EPC_LS_SceneControl,
-				EPC_LS_MaxSceneControl,
-			},
+func (r PropertyRegistry) LightingSystem() PropertyTable {
+	return PropertyTable{
+		ClassCode:   LightingSystem_ClassCode,
+		Description: "Lighting System",
+		EPCDesc: map[EPCType]PropertyDesc{
+			EPC_LS_Illuminance:     {"Illuminance level", nil, NumberDesc{Min: 0, Max: 100, Unit: "%"}},
+			EPC_LS_SceneControl:    {"Scene control", nil, NumberDesc{EDTLen: 1, Min: 0, Max: 253}},     // 0:未設定, 1-253:シーン番号
+			EPC_LS_MaxSceneControl: {"Max scene control", nil, NumberDesc{EDTLen: 1, Min: 1, Max: 253}}, // 1-253:最大シーン番号
+			EPC_LS_PanasonicF1:     {"Panasonic F1", nil, LS_PanasonicFxDesc{}},
+			EPC_LS_PanasonicF2:     {"Panasonic F2", nil, LS_PanasonicFxDesc{}},
+			EPC_LS_PanasonicF3:     {"Panasonic F3", nil, LS_PanasonicFxDesc{}},
+			EPC_LS_PanasonicF4:     {"Panasonic F4", nil, LS_PanasonicFxDesc{}},
+		},
+		DefaultEPCs: []EPCType{
+			EPC_LS_Illuminance,
+			EPC_LS_SceneControl,
+			EPC_LS_MaxSceneControl,
 		},
 	}
 }

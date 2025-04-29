@@ -16,28 +16,26 @@ const (
 	EPC_C_InstallAddress   EPCType = 0xe0 // 設置住所
 )
 
-func (r PropertyRegistry) Controller() PropertyRegistryEntry {
-	return PropertyRegistryEntry{
-		ClassCode: Controller_ClassCode,
-		PropertyTable: PropertyTable{
-			Description: "Controller",
-			EPCDesc: map[EPCType]PropertyDesc{
-				EPC_C_ControllerID:    {"コントローラID", nil, nil},
-				EPC_C_NumberOfDevices: {"管理台数", nil, NumberDesc{EDTLen: 2, Max: 65533}},
-				EPC_C_Index:           {"インデックス", nil, NumberDesc{EDTLen: 2, Max: 65533}},
-				EPC_C_DeviceID:        {"機器ID", nil, nil},
-				EPC_C_ClassCode:       {"機種", nil, C_ClassCodeDesc{}},
-				EPC_C_Name:            {"名称", nil, StringDesc{MaxEDTLen: 64}},
-				EPC_C_ConnectionStatus: {"接続状態", map[string][]byte{
-					"connected":    {0x41}, // 接続中
-					"disconnected": {0x42}, // 離脱中
-					"unregistered": {0x43}, // 未登録
-					"deleted":      {0x44}, // 削除
-				}, nil},
-				EPC_C_InstallAddress: {"設置住所", nil, StringDesc{MaxEDTLen: 255}},
-			},
-			DefaultEPCs: []EPCType{},
+func (r PropertyRegistry) Controller() PropertyTable {
+	return PropertyTable{
+		ClassCode:   Controller_ClassCode,
+		Description: "Controller",
+		EPCDesc: map[EPCType]PropertyDesc{
+			EPC_C_ControllerID:    {"コントローラID", nil, nil},
+			EPC_C_NumberOfDevices: {"管理台数", nil, NumberDesc{EDTLen: 2, Max: 65533}},
+			EPC_C_Index:           {"インデックス", nil, NumberDesc{EDTLen: 2, Max: 65533}},
+			EPC_C_DeviceID:        {"機器ID", nil, nil},
+			EPC_C_ClassCode:       {"機種", nil, C_ClassCodeDesc{}},
+			EPC_C_Name:            {"名称", nil, StringDesc{MaxEDTLen: 64}},
+			EPC_C_ConnectionStatus: {"接続状態", map[string][]byte{
+				"connected":    {0x41}, // 接続中
+				"disconnected": {0x42}, // 離脱中
+				"unregistered": {0x43}, // 未登録
+				"deleted":      {0x44}, // 削除
+			}, nil},
+			EPC_C_InstallAddress: {"設置住所", nil, StringDesc{MaxEDTLen: 255}},
 		},
+		DefaultEPCs: []EPCType{},
 	}
 }
 

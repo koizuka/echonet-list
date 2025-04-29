@@ -2,11 +2,6 @@ package echonet_lite
 
 import "reflect"
 
-type PropertyRegistryEntry struct {
-	ClassCode     EOJClassCode
-	PropertyTable PropertyTable
-}
-
 type PropertyRegistry struct{}
 
 type PropertyTableMap map[EOJClassCode]PropertyTable
@@ -22,9 +17,9 @@ func BuildPropertyTableMap() PropertyTableMap {
 	v := reflect.ValueOf(registry)
 	for i := range t.NumMethod() {
 		method := t.Method(i)
-		if method.Type.Out(0) == reflect.TypeOf(PropertyRegistryEntry{}) {
-			entry := v.Method(i).Call(nil)[0].Interface().(PropertyRegistryEntry)
-			result[entry.ClassCode] = entry.PropertyTable
+		if method.Type.Out(0) == reflect.TypeOf(PropertyTable{}) {
+			entry := v.Method(i).Call(nil)[0].Interface().(PropertyTable)
+			result[entry.ClassCode] = entry
 		}
 	}
 	return result

@@ -68,12 +68,27 @@ func getDeviceCandidates(c client.ECHONETListClient) []prompt.Suggest {
 func getPropertyAliasCandidates(c client.ECHONETListClient) []prompt.Suggest {
 	aliases := c.GetAllPropertyAliases()
 	suggests := make([]prompt.Suggest, 0, len(aliases))
-	for _, alias := range aliases {
-		classCode := client.EOJClassCode(0) // TODO
-		prop, _ := c.FindPropertyAlias(classCode, alias)
+	for alias, desc := range aliases {
+		prop, _ := c.FindPropertyAlias(desc.ClassCode, alias)
 		suggests = append(suggests, prompt.Suggest{
 			Text:        alias,
-			Description: prop.String(classCode),
+			Description: prop.String(desc.ClassCode),
+		})
+	}
+	return suggests
+}
+
+func getPropertyAliasCandidatesForEPC(c client.ECHONETListClient, epc client.EPCType, prefix string) []prompt.Suggest {
+	aliases := c.GetAllPropertyAliases()
+	suggests := make([]prompt.Suggest, 0, len(aliases))
+	for alias, desc := range aliases {
+		if desc.EPC != epc {
+			continue
+		}
+		prop, _ := c.FindPropertyAlias(desc.ClassCode, alias)
+		suggests = append(suggests, prompt.Suggest{
+			Text:        prefix + alias,
+			Description: prop.String(desc.ClassCode),
 		})
 	}
 	return suggests

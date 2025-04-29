@@ -26,21 +26,19 @@ var ECHONETLite_Version NPO_VersionInfo = NPO_VersionInfo{
 	Optional:     false,
 }
 
-func (r PropertyRegistry) NodeProfileObject() PropertyRegistryEntry {
-	return PropertyRegistryEntry{
-		ClassCode: NodeProfile_ClassCode,
-		PropertyTable: PropertyTable{
-			Description: "Node Profile",
-			EPCDesc: map[EPCType]PropertyDesc{
-				EPC_NPO_VersionInfo:              {"Version information", nil, NPO_VersionInfoDesc{}},
-				EPC_NPO_IDNumber:                 {"Identification number", nil, nil},
-				EPC_NPO_IndividualID:             {"Individual identification information", nil, nil},
-				EPC_NPO_SelfNodeInstances:        {"Self-node instances number", nil, NumberDesc{EDTLen: 3, Max: 16777215}},
-				EPC_NPO_SelfNodeClasses:          {"Self-node classes number", nil, NumberDesc{EDTLen: 2, Max: 65535}},
-				EPC_NPO_InstanceListNotification: {"instance list notification", nil, InstanceListNotificationDesc{}},
-				EPC_NPO_SelfNodeInstanceListS:    {"Self-node instance list S", nil, SelfNodeInstanceListDesc{}},
-				EPC_NPO_SelfNodeClassListS:       {"Self-node class list S", nil, SelfNodeClassListDesc{}},
-			},
+func (r PropertyRegistry) NodeProfileObject() PropertyTable {
+	return PropertyTable{
+		ClassCode:   NodeProfile_ClassCode,
+		Description: "Node Profile",
+		EPCDesc: map[EPCType]PropertyDesc{
+			EPC_NPO_VersionInfo:              {"Version information", nil, NPO_VersionInfoDesc{}},
+			EPC_NPO_IDNumber:                 {"Identification number", nil, nil},
+			EPC_NPO_IndividualID:             {"Individual identification information", nil, nil},
+			EPC_NPO_SelfNodeInstances:        {"Self-node instances number", nil, NumberDesc{EDTLen: 3, Max: 16777215}},
+			EPC_NPO_SelfNodeClasses:          {"Self-node classes number", nil, NumberDesc{EDTLen: 2, Max: 65535}},
+			EPC_NPO_InstanceListNotification: {"instance list notification", nil, InstanceListNotificationDesc{}},
+			EPC_NPO_SelfNodeInstanceListS:    {"Self-node instance list S", nil, SelfNodeInstanceListDesc{}},
+			EPC_NPO_SelfNodeClassListS:       {"Self-node class list S", nil, SelfNodeClassListDesc{}},
 		},
 	}
 }

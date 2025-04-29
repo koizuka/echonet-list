@@ -204,6 +204,14 @@ var CommandTable = []CommandDefinition{
 			if wordCount <= 2 { // コマンド名 or デバイス指定子
 				return getDeviceCandidates(c)
 			} else { // プロパティ指定 (EPC:EDT or Alias)
+				lastWord := words[len(words)-1]
+				parts := strings.Split(lastWord, ":")
+				if len(parts) == 2 {
+					if epc, err := parseEPC(parts[0]); err == nil {
+						// epc に使えるaliasを列挙する
+						return getPropertyAliasCandidatesForEPC(c, epc, parts[0]+":")
+					}
+				}
 				return getPropertyAliasCandidates(c)
 			}
 		},

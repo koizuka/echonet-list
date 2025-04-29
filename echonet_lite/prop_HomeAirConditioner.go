@@ -13,7 +13,7 @@ const (
 	EPC_HAC_HumidificationModeSetting EPCType = 0xC1 // 加湿モード設定
 )
 
-func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
+func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 	TemperatureSettingDesc := NumberDesc{Min: 0, Max: 50, Unit: "℃"}
 	MeasuredTemperatureDesc := NumberDesc{Min: -127, Max: 125, Unit: "℃"}
 	ExtraValueAlias := map[string][]byte{
@@ -23,45 +23,43 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyRegistryEntry {
 	}
 	HumidityDesc := NumberDesc{Min: 0, Max: 100, Unit: "%"}
 
-	return PropertyRegistryEntry{
-		ClassCode: HomeAirConditioner_ClassCode,
-		PropertyTable: PropertyTable{
-			Description: "Home Air Conditioner",
-			EPCDesc: map[EPCType]PropertyDesc{
-				EPC_HAC_AirVolumeSetting: {"Air volume setting", map[string][]byte{
-					"auto": {0x41},
-				}, NumberDesc{Min: 1, Max: 8, Offset: 0x30}},
-				EPC_HAC_AirDirectionSwingSetting: {"Air direction swing setting", map[string][]byte{
-					"off":        {0x31},
-					"vertical":   {0x41},
-					"horizontal": {0x42},
-					"both":       {0x43},
-				}, nil},
-				EPC_HAC_OperationModeSetting: {"Operation mode setting", map[string][]byte{
-					"auto":    {0x41},
-					"cooling": {0x42},
-					"heating": {0x43},
-					"dry":     {0x44},
-					"fan":     {0x45},
-					"other":   {0x40},
-				}, nil},
-				EPC_HAC_TemperatureSetting:        {"Temperature setting", ExtraValueAlias, TemperatureSettingDesc},
-				EPC_HAC_RelativeHumiditySetting:   {"Relative humidity setting", ExtraValueAlias, HumidityDesc},
-				EPC_HAC_CurrentRoomHumidity:       {"Current room humidity", ExtraValueAlias, HumidityDesc},
-				EPC_HAC_CurrentRoomTemperature:    {"Current room temperature", ExtraValueAlias, MeasuredTemperatureDesc},
-				EPC_HAC_CurrentOutsideTemperature: {"Current outside temperature", ExtraValueAlias, MeasuredTemperatureDesc},
-				EPC_HAC_HumidificationModeSetting: {"Humidification mode setting", map[string][]byte{
-					"on":  {0x41},
-					"off": {0x42},
-				}, nil},
-			},
-			DefaultEPCs: []EPCType{
-				EPC_HAC_OperationModeSetting,
-				EPC_HAC_TemperatureSetting,
-				EPC_HAC_CurrentRoomTemperature,
-				EPC_HAC_CurrentRoomHumidity,
-				EPC_HAC_CurrentOutsideTemperature,
-			},
+	return PropertyTable{
+		ClassCode:   HomeAirConditioner_ClassCode,
+		Description: "Home Air Conditioner",
+		EPCDesc: map[EPCType]PropertyDesc{
+			EPC_HAC_AirVolumeSetting: {"Air volume setting", map[string][]byte{
+				"auto": {0x41},
+			}, NumberDesc{Min: 1, Max: 8, Offset: 0x30}},
+			EPC_HAC_AirDirectionSwingSetting: {"Air direction swing setting", map[string][]byte{
+				"off":        {0x31},
+				"vertical":   {0x41},
+				"horizontal": {0x42},
+				"both":       {0x43},
+			}, nil},
+			EPC_HAC_OperationModeSetting: {"Operation mode setting", map[string][]byte{
+				"auto":    {0x41},
+				"cooling": {0x42},
+				"heating": {0x43},
+				"dry":     {0x44},
+				"fan":     {0x45},
+				"other":   {0x40},
+			}, nil},
+			EPC_HAC_TemperatureSetting:        {"Temperature setting", ExtraValueAlias, TemperatureSettingDesc},
+			EPC_HAC_RelativeHumiditySetting:   {"Relative humidity setting", ExtraValueAlias, HumidityDesc},
+			EPC_HAC_CurrentRoomHumidity:       {"Current room humidity", ExtraValueAlias, HumidityDesc},
+			EPC_HAC_CurrentRoomTemperature:    {"Current room temperature", ExtraValueAlias, MeasuredTemperatureDesc},
+			EPC_HAC_CurrentOutsideTemperature: {"Current outside temperature", ExtraValueAlias, MeasuredTemperatureDesc},
+			EPC_HAC_HumidificationModeSetting: {"Humidification mode setting", map[string][]byte{
+				"on":  {0x41},
+				"off": {0x42},
+			}, nil},
+		},
+		DefaultEPCs: []EPCType{
+			EPC_HAC_OperationModeSetting,
+			EPC_HAC_TemperatureSetting,
+			EPC_HAC_CurrentRoomTemperature,
+			EPC_HAC_CurrentRoomHumidity,
+			EPC_HAC_CurrentOutsideTemperature,
 		},
 	}
 }

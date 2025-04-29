@@ -71,7 +71,7 @@ func (m *mockECHONETListClient) SetProperties(device echonet_lite.IPAndEOJ, prop
 	return echonet_lite.DeviceAndProperties{}, nil
 }
 
-func (m *mockECHONETListClient) GetAllPropertyAliases() []string {
+func (m *mockECHONETListClient) GetAllPropertyAliases() map[string]PropertyDescription {
 	return nil
 }
 

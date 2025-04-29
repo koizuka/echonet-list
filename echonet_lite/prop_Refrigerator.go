@@ -8,31 +8,29 @@ const (
 	EPC_RF_FreezerDoorOpenStatus      EPCType = 0xB3 // 冷凍室ドア開閉状態
 )
 
-func (r PropertyRegistry) Refrigerator() PropertyRegistryEntry {
+func (r PropertyRegistry) Refrigerator() PropertyTable {
 	var doorStatusAliases = map[string][]byte{
 		"open":   {0x41},
 		"closed": {0x42},
 	}
 
-	return PropertyRegistryEntry{
-		ClassCode: Refrigerator_ClassCode,
-		PropertyTable: PropertyTable{
-			Description: "Refrigerator",
-			EPCDesc: map[EPCType]PropertyDesc{
-				EPC_RF_DoorOpenStatus: {"Door open status", doorStatusAliases, nil},
-				EPC_RF_DoorOpenAlertStatus: {"Door open alert status", map[string][]byte{
-					"alert":  {0x41},
-					"normal": {0x42},
-				}, nil},
-				EPC_RF_RefrigeratorDoorOpenStatus: {"Refrigerator door open status", doorStatusAliases, nil},
-				EPC_RF_FreezerDoorOpenStatus:      {"Freezer door open status", doorStatusAliases, nil},
-			},
-			DefaultEPCs: []EPCType{
-				EPC_RF_DoorOpenStatus,
-				EPC_RF_DoorOpenAlertStatus,
-				EPC_RF_RefrigeratorDoorOpenStatus,
-				EPC_RF_FreezerDoorOpenStatus,
-			},
+	return PropertyTable{
+		ClassCode:   Refrigerator_ClassCode,
+		Description: "Refrigerator",
+		EPCDesc: map[EPCType]PropertyDesc{
+			EPC_RF_DoorOpenStatus: {"Door open status", doorStatusAliases, nil},
+			EPC_RF_DoorOpenAlertStatus: {"Door open alert status", map[string][]byte{
+				"alert":  {0x41},
+				"normal": {0x42},
+			}, nil},
+			EPC_RF_RefrigeratorDoorOpenStatus: {"Refrigerator door open status", doorStatusAliases, nil},
+			EPC_RF_FreezerDoorOpenStatus:      {"Freezer door open status", doorStatusAliases, nil},
+		},
+		DefaultEPCs: []EPCType{
+			EPC_RF_DoorOpenStatus,
+			EPC_RF_DoorOpenAlertStatus,
+			EPC_RF_RefrigeratorDoorOpenStatus,
+			EPC_RF_FreezerDoorOpenStatus,
 		},
 	}
 }

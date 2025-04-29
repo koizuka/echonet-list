@@ -35,15 +35,11 @@ func (pt PropertyTableMap) AvailableAliases(classCode EOJClassCode) map[string]P
 	return map[string]PropertyDescription{}
 }
 
-func GetAllAliases() []string {
-	exists := map[string]bool{}
-	aliases := []string{}
+func GetAllAliases() map[string]PropertyDescription {
+	aliases := map[string]PropertyDescription{}
 	set := func(available map[string]PropertyDescription) {
-		for alias := range available {
-			if !exists[alias] {
-				aliases = append(aliases, alias)
-				exists[alias] = true
-			}
+		for alias, desc := range available {
+			aliases[alias] = desc
 		}
 	}
 	for _, table := range PropertyTables {
@@ -74,6 +70,7 @@ func (p Property) Encode() []byte {
 }
 
 type PropertyTable struct {
+	ClassCode   EOJClassCode
 	Description string
 	EPCDesc     map[EPCType]PropertyDesc
 	DefaultEPCs []EPCType
@@ -89,9 +86,10 @@ func (pt PropertyTable) FindAlias(alias string) (Property, bool) {
 }
 
 type PropertyDescription struct {
-	EPC  EPCType // プロパティコード
-	Name string
-	EDT  []byte // プロパティデータ
+	ClassCode EOJClassCode
+	EPC       EPCType // プロパティコード
+	Name      string
+	EDT       []byte // プロパティデータ
 }
 
 func (p PropertyDescription) String() string {
@@ -99,13 +97,14 @@ func (p PropertyDescription) String() string {
 }
 
 func (pt PropertyTable) AvailableAliases() map[string]PropertyDescription {
-	aliases := map[string]PropertyDescription{}
+	aliases := make(map[string]PropertyDescription)
 	for epc, desc := range pt.EPCDesc {
 		for alias := range desc.Aliases {
 			aliases[alias] = PropertyDescription{
-				EPC:  epc,
-				Name: desc.Name,
-				EDT:  desc.Aliases[alias],
+				ClassCode: pt.ClassCode,
+				EPC:       epc,
+				Name:      desc.Name,
+				EDT:       desc.Aliases[alias],
 			}
 		}
 	}
