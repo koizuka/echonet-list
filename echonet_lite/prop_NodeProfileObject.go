@@ -6,14 +6,16 @@ import (
 
 const (
 	// EPC
-	EPC_NPO_VersionInfo              EPCType = 0x82
-	EPC_NPO_IDNumber                 EPCType = 0x83
-	EPC_NPO_IndividualID             EPCType = 0xbf
-	EPC_NPO_SelfNodeInstances        EPCType = 0xd3
-	EPC_NPO_SelfNodeClasses          EPCType = 0xd4
-	EPC_NPO_InstanceListNotification EPCType = 0xd5
-	EPC_NPO_SelfNodeInstanceListS    EPCType = 0xd6
-	EPC_NPO_SelfNodeClassListS       EPCType = 0xd7
+	EPC_NPO_OperationStatus          EPCType = 0x80 // 動作状態
+	EPC_NPO_VersionInfo              EPCType = 0x82 // Version 情報
+	EPC_NPO_IDNumber                 EPCType = 0x83 // 識別番号
+	EPC_NPO_FaultStatus              EPCType = 0x89 // 異常内容
+	EPC_NPO_IndividualID             EPCType = 0xbf // 個体識別情報
+	EPC_NPO_SelfNodeInstances        EPCType = 0xd3 // 自ノードインスタンス数
+	EPC_NPO_SelfNodeClasses          EPCType = 0xd4 // 自ノードクラス数
+	EPC_NPO_InstanceListNotification EPCType = 0xd5 // インスタンスリスト通知
+	EPC_NPO_SelfNodeInstanceListS    EPCType = 0xd6 // 自ノードインスタンスリストS
+	EPC_NPO_SelfNodeClassListS       EPCType = 0xd7 // 自ノードクラスリストS
 )
 
 var NodeProfileObject = MakeEOJ(NodeProfile_ClassCode, 1)
@@ -31,8 +33,10 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 		ClassCode:   NodeProfile_ClassCode,
 		Description: "Node Profile",
 		EPCDesc: map[EPCType]PropertyDesc{
+			EPC_NPO_OperationStatus:          {"Operation status", map[string][]byte{"on": {0x30}, "off": {0x31}}, nil},
 			EPC_NPO_VersionInfo:              {"Version information", nil, NPO_VersionInfoDesc{}},
 			EPC_NPO_IDNumber:                 {"Identification number", nil, nil},
+			EPC_NPO_FaultStatus:              {"Fault status", nil, nil},
 			EPC_NPO_IndividualID:             {"Individual identification information", nil, nil},
 			EPC_NPO_SelfNodeInstances:        {"Self-node instances number", nil, NumberDesc{EDTLen: 3, Max: 16777215}},
 			EPC_NPO_SelfNodeClasses:          {"Self-node classes number", nil, NumberDesc{EDTLen: 2, Max: 65535}},
@@ -40,6 +44,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			EPC_NPO_SelfNodeInstanceListS:    {"Self-node instance list S", nil, SelfNodeInstanceListDesc{}},
 			EPC_NPO_SelfNodeClassListS:       {"Self-node class list S", nil, SelfNodeClassListDesc{}},
 		},
+		DefaultEPCs: []EPCType{}, // これが空だと通常の devices で表示されない
 	}
 }
 
