@@ -22,7 +22,7 @@ func (p PropertyDesc) ToEDT(value string) ([]byte, bool) {
 		}
 	}
 	if p.Decoder != nil {
-		if encoder := p.Decoder.(PropertyEncoder); encoder != nil {
+		if encoder, ok := p.Decoder.(PropertyEncoder); ok {
 			if result, ok := encoder.FromString(value); ok {
 				return result, true
 			}
