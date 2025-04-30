@@ -669,14 +669,20 @@ func (d Devices) HasEPCInPropertyMap(device IPAndEOJ, mapType PropertyMapType, e
 }
 
 func (d Devices) GetIDString(device IPAndEOJ) IDString {
-	edt, ok := d.GetProperty(device, EPCIdentificationNumber)
+	// 識別番号はNodeProfileObject から取得する
+	npo := IPAndEOJ{
+		IP:  device.IP,
+		EOJ: NodeProfileObject,
+	}
+	prop, ok := d.GetProperty(npo, EPC_NPO_IDNumber)
 	if !ok {
 		return ""
 	}
-	id := DecodeIdentificationNumber(edt.EDT)
+	id := DecodeIdentificationNumber(prop.EDT)
 	if id == nil {
 		return ""
 	}
+	// それにEOJを結合してIDStringを作成
 	return MakeIDString(device.EOJ, *id)
 }
 
@@ -691,19 +697,12 @@ func (d Devices) FindByIDString(id IDString) []IPAndEOJ {
 	var result []IPAndEOJ
 
 	for ipStr, eojMap := range d.data {
-		for eoj, props := range eojMap {
-			if prop, ok := props[EPCIdentificationNumber]; ok {
-				pId := DecodeIdentificationNumber(prop.EDT)
-				if pId == nil {
-					continue
-				}
-				idStr := MakeIDString(eoj, *pId)
-				if idStr == id {
-					result = append(result, IPAndEOJ{
-						IP:  net.ParseIP(ipStr),
-						EOJ: eoj,
-					})
-				}
+		ip := net.ParseIP(ipStr)
+		for eoj := range eojMap {
+			ipAndEOJ := IPAndEOJ{ip, eoj}
+			idStr := d.GetIDString(ipAndEOJ)
+			if idStr == id {
+				result = append(result, ipAndEOJ)
 			}
 		}
 	}

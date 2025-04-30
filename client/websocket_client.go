@@ -133,9 +133,8 @@ func (c *WebSocketClient) FindDeviceByIDString(id IDString) *IPAndEOJ {
 
 	// device の EOJ と properties の IdentificationNumber をもとに IDStringを組み立て、一致する物を探す
 	for _, device := range c.devices {
-		if decoded := device.Properties.GetIdentificationNumber(); decoded != nil {
-			// IDString を組み立てる
-			idString := echonet_lite.MakeIDString(device.Device.EOJ, *decoded)
+		idString := c.GetIDString(device.Device)
+		if idString != "" {
 			// IDString が一致するか確認
 			if idString == id {
 				// lastSeen の時刻を取得
@@ -156,13 +155,20 @@ func (c *WebSocketClient) FindDeviceByIDString(id IDString) *IPAndEOJ {
 	return matchedDevice
 }
 
-func (c *WebSocketClient) GetIDString(device IPAndEOJ) IDString {
+func (c *WebSocketClient) GetIDString(ipAndEOJ IPAndEOJ) IDString {
 	c.devicesMutex.RLock()
 	defer c.devicesMutex.RUnlock()
 
-	key := device.Specifier()
+	key := ipAndEOJ.Specifier()
 	if device, ok := c.devices[key]; ok {
-		if decoded := device.Properties.GetIdentificationNumber(); decoded != nil {
+		// key の IP の NodeProfileObjectから IdentificationNumber を取得する
+		npo := IPAndEOJ{IP: ipAndEOJ.IP, EOJ: echonet_lite.NodeProfileObject}
+		npoDevice, ok := c.devices[npo.Specifier()]
+		if !ok {
+			return ""
+		}
+
+		if decoded := npoDevice.Properties.GetIdentificationNumber(); decoded != nil {
 			return echonet_lite.MakeIDString(device.Device.EOJ, *decoded)
 		}
 	}

@@ -35,7 +35,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 		EPCDesc: map[EPCType]PropertyDesc{
 			EPC_NPO_OperationStatus:          {"Operation status", map[string][]byte{"on": {0x30}, "off": {0x31}}, nil},
 			EPC_NPO_VersionInfo:              {"Version information", nil, NPO_VersionInfoDesc{}},
-			EPC_NPO_IDNumber:                 {"Identification number", nil, nil},
+			EPC_NPO_IDNumber:                 {"Identification number", nil, IdentificationNumberDesc{}},
 			EPC_NPO_FaultStatus:              {"Fault status", nil, nil},
 			EPC_NPO_IndividualID:             {"Individual identification information", nil, nil},
 			EPC_NPO_SelfNodeInstances:        {"Self-node instances number", nil, NumberDesc{EDTLen: 3, Max: 16777215}},

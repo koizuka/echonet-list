@@ -182,12 +182,16 @@ type IdentificationNumber struct {
 }
 
 func DecodeIdentificationNumber(EDT []byte) *IdentificationNumber {
-	if len(EDT) < 16 {
+	if len(EDT) != 17 {
+		return nil
+	}
+	if EDT[0] != 0xfe {
+		// unknown ID type
 		return nil
 	}
 	return &IdentificationNumber{
-		ManufacturerCode: EDT[0:3],
-		UniqueIdentifier: EDT[3:16],
+		ManufacturerCode: EDT[1:4],
+		UniqueIdentifier: EDT[4:17],
 	}
 }
 
@@ -196,7 +200,8 @@ func (s *IdentificationNumber) String() string {
 }
 
 func (s *IdentificationNumber) Property() *Property {
-	EDT := make([]byte, 0, 16)
+	EDT := make([]byte, 0, 17)
+	EDT = append(EDT, byte(0xfe))
 	EDT = append(EDT, s.ManufacturerCode...)
 	EDT = append(EDT, s.UniqueIdentifier...)
 	return &Property{
