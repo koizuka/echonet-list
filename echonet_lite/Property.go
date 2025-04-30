@@ -2,8 +2,11 @@ package echonet_lite
 
 import (
 	"echonet-list/echonet_lite/utils"
+	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 var PropertyTables = BuildPropertyTableMap()
@@ -132,6 +135,37 @@ func (ps Properties) GetIdentificationNumber() *IdentificationNumber {
 // EPCType はプロパティコードを表します。
 // プロパティコードは、Echonet Lite のプロパティを識別するための 1 バイトの値です。
 type EPCType byte
+
+// MarshalJSON は EPCType を "0xXX" 形式のJSON文字列にエンコードします。
+func (e EPCType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(fmt.Sprintf("0x%02x", byte(e)))
+}
+
+// UnmarshalJSON は "0xXX" 形式または10進数形式のJSON文字列から EPCType をデコードします。
+func (e *EPCType) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("EPCType should be a string, got %s: %w", data, err)
+	}
+
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		// 16進数形式 ("0xXX")
+		val, err := strconv.ParseUint(s[2:], 16, 8)
+		if err != nil {
+			return fmt.Errorf("invalid hex EPCType string %q: %w", s, err)
+		}
+		*e = EPCType(val)
+	} else {
+		// 10進数形式 (旧フォーマット互換)
+		val, err := strconv.ParseUint(s, 10, 8)
+		if err != nil {
+			// 16進数でも10進数でもない場合はエラー
+			return fmt.Errorf("invalid decimal or hex EPCType string %q: %w", s, err)
+		}
+		*e = EPCType(val)
+	}
+	return nil
+}
 
 func (e EPCType) String() string {
 	return fmt.Sprintf("%02X", byte(e))

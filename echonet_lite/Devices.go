@@ -2,8 +2,11 @@ package echonet_lite
 
 import (
 	"bytes"
+	"echonet-list/echonet_lite/log"
+	"encoding/base64" // 追加
 	"encoding/json"
 	"fmt"
+	"io" // 追加
 	"net"
 	"os"
 	"sort"
@@ -13,6 +16,99 @@ import (
 )
 
 type EPCPropertyMap map[EPCType]Property
+
+// MarshalJSON は EPCPropertyMap を {"0xEPC": "Base64(EDT)"} 形式のJSONにエンコードします。
+func (m EPCPropertyMap) MarshalJSON() ([]byte, error) {
+	stringMap := make(map[string]string)
+	for epc, prop := range m {
+		epcStr := fmt.Sprintf("0x%02x", byte(epc))
+		edtBase64 := base64.StdEncoding.EncodeToString(prop.EDT)
+		stringMap[epcStr] = edtBase64
+	}
+	return json.Marshal(stringMap)
+}
+
+// UnmarshalJSON は新旧両方のフォーマットから EPCPropertyMap をデコードします。
+// 新フォーマット: {"0xEPC": "Base64(EDT)"}
+// 旧フォーマット: {"EPC(decimal)": {"EPC": EPC(decimal number), "EDT": "Base64(EDT)"}}
+func (m *EPCPropertyMap) UnmarshalJSON(data []byte) error {
+	// まず新フォーマット {"0xEPC": "Base64(EDT)"} としてデコードを試みる
+	var newFormatMap map[string]string
+	if err := json.Unmarshal(data, &newFormatMap); err == nil {
+		// キーが "0x" で始まっているかチェック (より厳密な新フォーマット判定)
+		isLikelyNewFormat := true
+		if len(newFormatMap) > 0 {
+			for k := range newFormatMap {
+				if !strings.HasPrefix(k, "0x") && !strings.HasPrefix(k, "0X") {
+					isLikelyNewFormat = false
+					break
+				}
+			}
+		} else {
+			// 空のマップの場合はどちらとも言えないが、新フォーマットとして扱う
+			isLikelyNewFormat = true
+		}
+
+		if isLikelyNewFormat {
+			result := make(EPCPropertyMap)
+			for epcStr, edtBase64 := range newFormatMap {
+				var epc EPCType
+				// EPCTypeのUnmarshalJSONは "0x..." と 10進数の両方を扱えるが、ここでは "0x..." のみを期待
+				if err := json.Unmarshal([]byte(`"`+epcStr+`"`), &epc); err != nil {
+					// 新フォーマットだがキーが不正な場合はエラーとする
+					return fmt.Errorf("invalid EPC key format in new format %q: %w", epcStr, err)
+				}
+				edt, err := base64.StdEncoding.DecodeString(edtBase64)
+				if err != nil {
+					return fmt.Errorf("invalid base64 EDT for EPC %s: %w", epcStr, err)
+				}
+				result[epc] = Property{EPC: epc, EDT: edt}
+			}
+			*m = result
+			return nil
+		}
+		// 新フォーマットのマップとしてデコードできたが、キーが "0x" 形式でなければ旧フォーマットの可能性あり
+	}
+
+	// 新フォーマットで失敗した場合、またはキー形式が一致しなかった場合、
+	// 旧フォーマット {"EPC(decimal)": {"EPC": number, "EDT": string}} としてデコードを試みる
+	// Property.EPC が数値なので、一時的な型を使う
+	type oldPropertyFormat struct {
+		EPC json.Number `json:"EPC"` // Use json.Number to handle number
+		EDT string      `json:"EDT"` // Base64 string
+	}
+	var oldFormatMap map[string]oldPropertyFormat // キーは10進数文字列
+
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber() // 数値を json.Number としてデコードする
+
+	if err := decoder.Decode(&oldFormatMap); err != nil {
+		// どちらのフォーマットでもデコードできなければエラー
+		return fmt.Errorf("failed to unmarshal EPCPropertyMap in new or old format: %w", err)
+	}
+
+	result := make(EPCPropertyMap)
+	for epcStr, propData := range oldFormatMap {
+		var epc EPCType
+		// EPCType.UnmarshalJSONは10進数文字列も扱える
+		if err := json.Unmarshal([]byte(`"`+epcStr+`"`), &epc); err != nil {
+			// 旧フォーマットだがキーが不正な場合はエラーとする
+			return fmt.Errorf("invalid EPC key format in old format %q: %w", epcStr, err)
+		}
+
+		// 旧フォーマットのEDTをデコード
+		edt, err := base64.StdEncoding.DecodeString(propData.EDT)
+		if err != nil {
+			return fmt.Errorf("invalid base64 EDT in old format for EPC %s: %w", epcStr, err)
+		}
+
+		// EPCはキーから取得したものを優先する
+		result[epc] = Property{EPC: epc, EDT: edt}
+	}
+	*m = result
+	return nil
+}
+
 type DeviceProperties map[EOJ]EPCPropertyMap
 
 // MarshalJSON は DeviceProperties を JSON にエンコードする際に、EOJ キーを文字列形式に変換します
@@ -66,6 +162,15 @@ func (d *DeviceProperties) UnmarshalJSON(data []byte) error {
 	*d = result
 	return nil
 }
+
+// DevicesFileFormat は devices.json ファイルの新しいフォーマットを表します。
+type DevicesFileFormat struct {
+	Version int                         `json:"version"`
+	Data    map[string]DeviceProperties `json:"data"`
+}
+
+// currentDevicesFileVersion は現在の devices.json のフォーマットバージョンです。
+const currentDevicesFileVersion = 1
 
 // DeviceEventType はデバイスイベントの種類を表す型
 type DeviceEventType int
@@ -379,46 +484,103 @@ func (d Devices) ListDevicePropertyData() []DevicePropertyData {
 	return result
 }
 
-// SaveToFile saves the Devices data to a file in JSON format.
+// SaveToFile saves the Devices data to a file in the new JSON format with versioning.
 func (d Devices) SaveToFile(filename string) error {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
+	fileData := DevicesFileFormat{
+		Version: currentDevicesFileVersion,
+		Data:    d.data,
 	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			fmt.Printf("ファイルを閉じる際にエラーが発生しました: %v\n", err)
-		}
-	}()
 
-	encoder := json.NewEncoder(file)
-	return encoder.Encode(d.data)
+	jsonData, err := json.Marshal(fileData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal devices data: %w", err)
+	}
+
+	// 一時ファイルに書き込み
+	tempFilename := filename + ".tmp"
+	err = os.WriteFile(tempFilename, jsonData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write to temporary file %s: %w", tempFilename, err)
+	}
+
+	// 元のファイルをリネームしてバックアップ（オプション）
+	// backupFilename := filename + ".bak"
+	// os.Rename(filename, backupFilename) // エラーは無視してもよい
+
+	// 一時ファイルをリネームして本ファイルとする
+	err = os.Rename(tempFilename, filename)
+	if err != nil {
+		// リネーム失敗時は一時ファイルを削除
+		os.Remove(tempFilename)
+		return fmt.Errorf("failed to rename temporary file %s to %s: %w", tempFilename, filename, err)
+	}
+
+	return nil
 }
 
-// LoadFromFile loads the Devices data from a file in JSON format.
+// LoadFromFile loads the Devices data from a file, supporting both new and old JSON formats.
 func (d Devices) LoadFromFile(filename string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	file, err := os.Open(filename)
 	if err != nil {
-		// If the file doesn't exist, return nil instead of the error
 		if os.IsNotExist(err) {
-			return nil
+			return nil // ファイルが存在しない場合はエラーとしない
 		}
-		return err
+		return fmt.Errorf("failed to open file %s: %w", filename, err)
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			fmt.Printf("ファイルを閉じる際にエラーが発生しました: %v\n", err)
+			if logger := log.GetLogger(); logger != nil {
+				logger.Log("Error closing file %s: %v", filename, err)
+			}
 		}
 	}()
 
-	decoder := json.NewDecoder(file)
-	return decoder.Decode(&d.data)
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", filename, err)
+	}
+
+	// まずバージョン情報を含むかチェックするために一時的なマップにデコード
+	var versionCheck map[string]any
+	if err := json.Unmarshal(data, &versionCheck); err != nil {
+		// JSONとしてパースできない場合はエラー
+		return fmt.Errorf("failed to parse file %s as JSON: %w", filename, err)
+	}
+
+	if versionVal, ok := versionCheck["version"]; ok {
+		// "version" キーが存在する場合
+		if versionFloat, ok := versionVal.(float64); ok && int(versionFloat) == currentDevicesFileVersion {
+			// バージョンが一致する場合、新しいフォーマットとしてデコード
+			var fileData DevicesFileFormat
+			if err := json.Unmarshal(data, &fileData); err != nil {
+				return fmt.Errorf("failed to unmarshal file %s with version %d: %w", filename, currentDevicesFileVersion, err)
+			}
+			d.data = fileData.Data
+			// TODO: タイムスタンプの復元ロジックが必要な場合はここに追加
+			d.timestamps = make(map[string]time.Time) // タイムスタンプは一旦リセット
+			return nil
+		}
+		// バージョンが不一致の場合はエラーまたはフォールバック処理
+		// ここでは古いバージョンとして扱うことにする（下の処理に流れる）
+		fmt.Printf("Warning: File %s has version %v, expected %d. Attempting to load as old format.\n", filename, versionVal, currentDevicesFileVersion)
+	}
+
+	// "version" キーが存在しない、またはバージョンが不一致の場合、古いフォーマットとしてデコード
+	var oldData map[string]DeviceProperties
+	if err := json.Unmarshal(data, &oldData); err != nil {
+		return fmt.Errorf("failed to unmarshal file %s as old format: %w", filename, err)
+	}
+	d.data = oldData
+	// TODO: タイムスタンプの復元ロジックが必要な場合はここに追加
+	d.timestamps = make(map[string]time.Time) // タイムスタンプは一旦リセット
+
+	return nil
 }
 
 func (h Devices) Len() int {
@@ -433,8 +595,9 @@ func (h Devices) ListIPAndEOJ() []IPAndEOJ {
 
 	var devices []IPAndEOJ
 	for ipStr, eojMap := range h.data {
+		ip := net.ParseIP(ipStr)
 		for eoj := range eojMap {
-			devices = append(devices, IPAndEOJ{IP: net.ParseIP(ipStr), EOJ: eoj})
+			devices = append(devices, IPAndEOJ{IP: ip, EOJ: eoj})
 		}
 	}
 	return devices
