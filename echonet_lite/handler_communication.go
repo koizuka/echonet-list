@@ -267,6 +267,9 @@ func (h *CommunicationHandler) onSelfNodeInstanceListS(device IPAndEOJ, success 
 
 // onInstanceList は、インスタンスリストを受信したときのコールバック
 func (h *CommunicationHandler) onInstanceList(ip net.IP, il InstanceList) error {
+	// NodeProfileObjectも追加して取得する
+	il = append(il, NodeProfileObject)
+
 	// デバイスの登録
 	for _, eoj := range il {
 		h.dataAccessor.RegisterDevice(IPAndEOJ{ip, eoj})
