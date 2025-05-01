@@ -71,7 +71,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "ip": "192.168.1.10",
   "eoj": "0130:1",
   "name": "HomeAirConditioner",
-  "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
+  "id": "013001:00000B:ABCDEF0123456789ABCDEF012345", // 例: EOJ:ManufacturerCode:UniqueIdentifier
   "properties": {
     "80": { "EDT": "MzA=", "string": "on" },  // EPC "80" (OperationStatus)
     "B3": { "EDT": "MjU=", "string": "25", "number": 25 }   // EPC "B3" (温度設定)
@@ -127,10 +127,9 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - ECHONET Lite の EPC（プロパティコード）は16進数文字列（例: "80"）で表現されます
 - EDT（プロパティ値データ）はBase64エンコードされた文字列で表現されます
 - デバイス識別子は `IP EOJ` 形式の文字列（例: "192.168.1.10 0130:1"）で表現されます
-- デバイスのIDStringは `EOJ:ManufacturerCode:UniqueIdentifier` 形式の文字列（例: "013001:FE0000:08D0C5D3C3E17B000000000000"）で表現されます
+- デバイスのIDStringは `EOJ:ManufacturerCode:UniqueIdentifier` 形式の文字列（例: "013001:00000B:ABCDEF0123456789ABCDEF012345"）で表現されます
   - EOJは6桁の16進数（例: "013001"）
-  - ManufacturerCodeはEPC=0x83（識別番号）のプロパティの最初の3バイトを16進数で表現したもの
-  - UniqueIdentifierはEPC=0x83（識別番号）のプロパティの残り13バイトを16進数で表現したもの
+  - ManufacturerCode, UniqueIdentifierは、**同じIPアドレスを持つNodeProfileObject(EOJ=0EF0:1)のEPC=0x83（識別番号）** のプロパティ値（17バイト）から、先頭の1バイト(0xFE)を除いた残り16バイトのうち先頭3バイト(ManufacturerCode)と残り13バイト(UniqueIdentifier)を `:` で区切ってそれぞれ16進数文字列で表現したもの。ManufacturerCode はEPC=0x8A(メーカコード)と同じ(例: "00000B" = Panasonic)
 
 ## 4. サーバー -> クライアント メッセージ（通知）
 
@@ -149,7 +148,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
         "ip": "192.168.1.10",
         "eoj": "0130:1",
         "name": "HomeAirConditioner",
-        "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
+        "id": "013001:00000B:ABCDEF0123456789ABCDEF012345", // 例
         "properties": {
           "80": { "EDT": "MzA=", "string": "on" },
           "B3": { "EDT": "MjU=", "string": "25", "number": 25 }
@@ -168,12 +167,12 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
       }
     },
     "aliases": {
-      "living_ac": "013001:FE0000:08D0C5D3C3E17B000000000000",
-      "bedroom_light": "029001:FFFFFF:9876543210FEDCBA9876543210"
+      "living_ac": "013001:00000B:ABCDEF0123456789ABCDEF012345", // 例
+      "bedroom_light": "029001:000005:FEDCBA9876543210FEDCBA987654" // 例
     },
     "groups": {
-      "@living_room": ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"],
-      "@bedroom": ["013001:FE0000:ABCDEF0123456789ABCDEF012345"]
+      "@living_room": ["013001:00000B:ABCDEF0123456789ABCDEF012345", "029001:000005:FEDCBA9876543210FEDCBA987654"], // 例
+      "@bedroom": ["013001:000008:FEDCBA9876543210ABCDEF012345"] // 例
     }
   }
 }
@@ -210,7 +209,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
       "ip": "192.168.1.10",
       "eoj": "0130:1",
       "name": "HomeAirConditioner",
-      "id": "013001:FE0000:08D0C5D3C3E17B000000000000",
+      "id": "013001:00000B:ABCDEF0123456789ABCDEF012345", // 例
       "properties": {
         "80": { "EDT": "MzA=", "string": "on" },
         "B3": { "EDT": "MjY=", "string": "26", "number": 26 }  // 温度設定が変更された
@@ -245,7 +244,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "change_type": "added",  // "added", "updated", "deleted" のいずれか
     "alias": "kitchen_ac",
-    "target": "013001:FE0000:08D0C5D3C3E17B000000000000"
+    "target": "013001:00000B:ABCDEF0123456789ABCDEF012345" // 例
   }
 }
 ```
@@ -320,7 +319,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "change_type": "added",  // "added", "updated", "deleted" のいずれか
     "group": "@living_room",
-    "devices": ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"]  // change_type が "deleted" の場合は省略可能
+    "devices": ["013001:00000B:ABCDEF0123456789ABCDEF012345", "029001:000005:FEDCBA9876543210FEDCBA987654"]  // 例, change_type が "deleted" の場合は省略可能
   }
 }
 ```
@@ -419,7 +418,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "action": "add",  // "add" または "delete"
     "alias": "bedroom_ac",
-    "target": "013001:FE0000:08D0C5D3C3E17B000000000000"  // action が "add" の場合必須
+    "target": "013001:00000B:ABCDEF0123456789ABCDEF012345"  // 例, action が "add" の場合必須
   },
   "requestId": "req-126"
 }
@@ -439,7 +438,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "payload": {
     "action": "add",  // "add", "remove", "delete", "list" のいずれか
     "group": "@living_room",
-    "devices": ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"]  // action が "add" または "remove" の場合必須
+    "devices": ["013001:00000B:ABCDEF0123456789ABCDEF012345", "029001:000005:FEDCBA9876543210FEDCBA987654"]  // 例, action が "add" または "remove" の場合必須
   },
   "requestId": "req-128"
 }
@@ -905,7 +904,7 @@ async function listGroups(groupName?: string) {
 // 接続確立後（onopen内）で実行するか、initial_state受信後に実行
 // getPropertyDescription("0130"); // エアコンのプロパティ詳細を取得
 // getDeviceProperties("192.168.1.10 0130:1", ["80", "B0"]);
-// addGroup("@living_room", ["013001:FE0000:08D0C5D3C3E17B000000000000", "029001:FFFFFF:9876543210FEDCBA9876543210"]);
+// addGroup("@living_room", ["013001:00000B:ABCDEF0123456789ABCDEF012345", "029001:000005:FEDCBA9876543210FEDCBA987654"]); // 例
 ```
 
 このコード例は概念的なものであり、実際の実装では言語やフレームワークに応じた適切なエラーハンドリングやタイプセーフな実装が必要です。
