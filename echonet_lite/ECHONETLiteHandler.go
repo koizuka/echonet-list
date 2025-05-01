@@ -82,6 +82,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 		UniqueIdentifier: make([]byte, 13), // 識別番号未設定は13バイトの0
 	}
 
+	// 自ノードのプロファイルオブジェクトを作成
 	err = localDevices.Set(NodeProfileObject,
 		&operationStatusOn,
 		&identificationNumber,
@@ -93,6 +94,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 		return nil, err
 	}
 
+	// コントローラのプロパティを設定
 	err = localDevices.Set(seoj,
 		&operationStatusOn,
 		&identificationNumber,
