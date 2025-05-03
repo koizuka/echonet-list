@@ -33,6 +33,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 ```
 
 例：
+
 - `ws://localhost:8080/ws` (ローカル開発環境)
 - `wss://echonet.example.com/ws` (本番環境)
 
@@ -108,6 +109,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 #### ErrorCode（エラーコード一覧）
 
 クライアントリクエスト関連：
+
 - `INVALID_REQUEST_FORMAT`: リクエストの形式が不正
 - `INVALID_PARAMETERS`: パラメータが不正
 - `TARGET_NOT_FOUND`: 対象デバイスが見つからない
@@ -117,6 +119,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - `ALIAS_NOT_FOUND`: エイリアスが見つからない
 
 サーバー/通信関連：
+
 - `ECHONET_TIMEOUT`: ECHONET Liteデバイスからの応答がタイムアウト
 - `ECHONET_DEVICE_ERROR`: ECHONET Liteデバイスからのエラー応答
 - `ECHONET_COMMUNICATION_ERROR`: ECHONET Lite通信エラー
@@ -468,13 +471,17 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 ### get_property_description
 
-指定したクラスコードに対応するプロパティの詳細情報（説明、エイリアス、数値/文字列情報）を取得します。応答は `command_result` メッセージで返されます。
+指定したクラスコード (`classCode`) に対応する各プロパティ (EPC) について、UI での表示や編集に役立つ詳細情報（説明、値のエイリアス、数値範囲、単位、文字列制限など）を取得します。
+
+ECHONET Lite のプロパティ値 (EDT) はバイト列であり直接扱うのが難しいため、この API はクライアントがプロパティ値を解釈し、適切な UI (選択肢、スライダー、テキスト入力など) を提供するのを助けます。
+
+応答は `command_result` メッセージで返されます。取得した情報の詳細な意味と、それを利用した UI 実装のガイドラインについては、**[クライアント UI 開発ガイド](./client_ui_development_guide.md)** を参照してください。
 
 ```json
 {
   "type": "get_property_description",
   "payload": {
-    "classCode": "0130" // Home Air Conditioner
+    "classCode": "0130" // 例: Home Air Conditioner
   },
   "requestId": "req-128"
 }
@@ -505,57 +512,37 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 **`get_property_description` の成功時の例:**
 
+応答ペイロードの `data` フィールドには `PropertyDescriptionData` オブジェクトが含まれます。このオブジェクトの詳細な構造と各フィールドの意味、および UI での活用方法については、**[クライアント UI 開発ガイド](./client_ui_development_guide.md)** を参照してください。
+
 ```json
+// 応答例 (構造の概要)
 {
   "type": "command_result",
   "payload": {
     "success": true,
-    "data": { // PropertyDescriptionData オブジェクト
-      "classCode": "0130",
+    "data": {
+      "classCode": "0130", // リクエストされたクラスコード
       "properties": {
-        "80": { // Operation status
+        "80": { // EPC (例: 動作状態)
           "description": "Operation status",
-          "aliases": {
-            "on": "MzA=",
-            "off": "MzE="
-          }
-          // numberDesc, stringDesc はなし (エイリアスのみ)
+          "aliases": { "on": "MzA=", "off": "MzE=" }
+          // numberDesc, stringDesc はこのプロパティにはない
         },
-        "B0": { // Operation mode setting
-          "description": "Operation mode setting",
-          "aliases": {
-            "auto": "NDE=",
-            "cooling": "NDI=",
-            "heating": "NDM=",
-            "dehumidification": "NDQ=",
-            "ventilation": "NDU="
-          }
-          // numberDesc, stringDesc はなし (エイリアスのみ)
-        },
-        "B3": { // Set temperature value
+        "B3": { // EPC (例: 温度設定)
           "description": "Set temperature value",
-          // aliases はなし
-          "numberDesc": {
-            "min": 0,
-            "max": 50,
-            "offset": 0,
-            "unit": "C",
-            "edtLen": 1
-          }
+          // aliases はない
+          "numberDesc": { "min": 0, "max": 50, "unit": "C", ... }
         },
-        "8C": { // Product code
+        "8C": { // EPC (例: 商品コード)
            "description": "Product code",
-           // aliases はなし
-           "stringDesc": {
-             "minEDTLen": 12,
-             "maxEDTLen": 12
-           }
+           // aliases, numberDesc はない
+           "stringDesc": { "maxEDTLen": 12, ... }
         }
-        // ... 他のプロパティ
+        // ... 他のプロパティ定義
       }
     }
   },
-  "requestId": "req-128"
+  "requestId": "req-128" // 対応するリクエストID
 }
 ```
 
@@ -576,7 +563,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 ```
 
 - `success`: 操作が成功したかどうか（boolean）
-- `data`: 成功時の追加データ（JSON形式、内容はリクエストによる）。`get_property_description` の場合は `PropertyDescriptionData` オブジェクト。他のリクエストではデバイス情報やグループ情報、または `null`。
+- `data`: 成功時の追加データ（JSON形式、内容はリクエストによる）。`get_property_description` の場合は `PropertyDescriptionData` オブジェクト（詳細は **[クライアント UI 開発ガイド](./client_ui_development_guide.md)** を参照）。他のリクエストではデバイス情報やグループ情報、または `null`。
 - `error`: 失敗時のエラー情報（`Error` オブジェクト、成功時は null または undefined）
 
 ## 7. クライアント実装のポイント（言語非依存）
