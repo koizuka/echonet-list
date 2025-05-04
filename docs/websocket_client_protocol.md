@@ -200,43 +200,6 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 }
 ```
 
-### device_updated
-
-デバイス情報（プロパティなど）が更新されたことを通知します。
-
-```json
-{
-  "type": "device_updated",
-  "payload": {
-    "device": {
-      "ip": "192.168.1.10",
-      "eoj": "0130:1",
-      "name": "HomeAirConditioner",
-      "id": "013001:00000B:ABCDEF0123456789ABCDEF012345", // 例
-      "properties": {
-        "80": { "EDT": "MzA=", "string": "on" },
-        "B3": { "EDT": "MjY=", "string": "26", "number": 26 }  // 温度設定が変更された
-      },
-      "lastSeen": "2023-04-01T12:37:00Z"
-    }
-  }
-}
-```
-
-### device_removed
-
-デバイスがネットワークから切断された、またはタイムアウトしたことを通知します。
-
-```json
-{
-  "type": "device_removed",
-  "payload": {
-    "ip": "192.168.1.12",
-    "eoj": "0130:2"
-  }
-}
-```
-
 ### alias_changed
 
 デバイスエイリアスが追加・更新・削除されたことを通知します。

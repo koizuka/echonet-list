@@ -22,8 +22,6 @@ const (
 	// Server -> Client message types
 	MessageTypeInitialState        MessageType = "initial_state"
 	MessageTypeDeviceAdded         MessageType = "device_added"
-	MessageTypeDeviceUpdated       MessageType = "device_updated"
-	MessageTypeDeviceRemoved       MessageType = "device_removed"
 	MessageTypeAliasChanged        MessageType = "alias_changed"
 	MessageTypeGroupChanged        MessageType = "group_changed"
 	MessageTypePropertyChanged     MessageType = "property_changed"
@@ -112,17 +110,6 @@ type InitialStatePayload struct {
 // DeviceAddedPayload is the payload for the device_added message
 type DeviceAddedPayload struct {
 	Device Device `json:"device"`
-}
-
-// DeviceUpdatedPayload is the payload for the device_updated message
-type DeviceUpdatedPayload struct {
-	Device Device `json:"device"`
-}
-
-// DeviceRemovedPayload is the payload for the device_removed message
-type DeviceRemovedPayload struct {
-	IP  string `json:"ip"`
-	EOJ string `json:"eoj"`
 }
 
 // AliasChangedPayload is the payload for the alias_changed message

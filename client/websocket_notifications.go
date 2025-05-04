@@ -16,10 +16,6 @@ func (c *WebSocketClient) handleNotification(msg *protocol.Message) {
 		c.handleInitialState(msg)
 	case protocol.MessageTypeDeviceAdded:
 		c.handleDeviceAdded(msg)
-	case protocol.MessageTypeDeviceUpdated:
-		c.handleDeviceUpdated(msg)
-	case protocol.MessageTypeDeviceRemoved:
-		c.handleDeviceRemoved(msg)
 	case protocol.MessageTypeAliasChanged:
 		c.handleAliasChanged(msg)
 	case protocol.MessageTypeGroupChanged:
@@ -133,79 +129,6 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 
 	// Update lastSeenTimes
 	c.lastSeenTimes[ipAndEOJ.Specifier()] = payload.Device.LastSeen
-
-	c.lastSeenMutex.Unlock()
-	c.devicesMutex.Unlock()
-}
-
-// handleDeviceUpdated handles a device_updated message
-func (c *WebSocketClient) handleDeviceUpdated(msg *protocol.Message) {
-	logger := log.GetLogger() // Get logger once at the beginning
-
-	var payload protocol.DeviceUpdatedPayload
-	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if logger != nil {
-			logger.Log("WebSocketClient.handleDeviceUpdated: Error parsing device_updated payload: %v", err) // Removed \n
-		}
-		return
-	}
-
-	// Convert protocol.Device to echonet_lite types using DeviceFromProtocol
-	ipAndEOJ, props, err := protocol.DeviceFromProtocol(payload.Device)
-	if err != nil {
-		if logger != nil {
-			logger.Log("WebSocketClient.handleDeviceUpdated: Error converting device: %v", err)
-		}
-		return
-	}
-
-	// Update devices
-	c.devicesMutex.Lock()
-	c.lastSeenMutex.Lock()
-
-	// ipAndEOJ.Specifier() をキーとして使用
-	c.devices[ipAndEOJ.Specifier()] = echonet_lite.DeviceAndProperties{
-		Device:     ipAndEOJ,
-		Properties: props,
-	}
-
-	// Update lastSeenTimes
-	c.lastSeenTimes[ipAndEOJ.Specifier()] = payload.Device.LastSeen
-
-	c.lastSeenMutex.Unlock()
-	c.devicesMutex.Unlock()
-}
-
-// handleDeviceRemoved handles a device_removed message
-func (c *WebSocketClient) handleDeviceRemoved(msg *protocol.Message) {
-	logger := log.GetLogger() // Get logger once at the beginning
-
-	var payload protocol.DeviceRemovedPayload
-	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if logger != nil {
-			logger.Log("WebSocketClient.handleDeviceRemoved: Error parsing device_removed payload: %v", err)
-		}
-		return
-	}
-
-	// Parse the device identifier
-	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
-	if err != nil {
-		if logger != nil {
-			logger.Log("WebSocketClient.handleDeviceRemoved: Error parsing device identifier: %v", err)
-		}
-		return
-	}
-
-	// Remove from devices
-	c.devicesMutex.Lock()
-	c.lastSeenMutex.Lock()
-
-	// ipAndEOJ.Specifier() をキーとして使用
-	delete(c.devices, ipAndEOJ.Specifier())
-
-	// Remove from lastSeenTimes
-	delete(c.lastSeenTimes, ipAndEOJ.Specifier())
 
 	c.lastSeenMutex.Unlock()
 	c.devicesMutex.Unlock()
