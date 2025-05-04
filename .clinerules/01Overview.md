@@ -29,6 +29,8 @@
 
 ## Code Style Guidelines
 
+- **重要** 今回の更新内容の説明はチャットでだけ行い、コードのコメントはあくまでも現在のコードの概要、目的、利用条件や注意を客観的に説明するだけにしてください。チャットで指示された変更を加えたことの説明はコードコメントには不要です。
+
 コードの構成とスタイルについては [memory-bank/systemPatterns.md](../memory-bank/systemPatterns.md) も参照してください。
 
 - **File Organization**: Package main in root, echonet_lite package for protocol implementation
@@ -77,7 +79,7 @@ This indicates that another instance of the application is already running and u
 コードの構成と一般的なタスクについては [memory-bank/systemPatterns.md](../memory-bank/systemPatterns.md) も参照してください。
 
 - **Adding support for a new device type**: Create a new file in the `echonet_lite/` package
-- **Modifying command behavior**: Update the relevant functions in `Command.go`
+- **Modifying console command behavior**: Update the relevant functions in `console/CommandTable.go`
 - **Debugging communication issues**: Run with `-debug` flag and check logs
 
 ## Supported Device Types
