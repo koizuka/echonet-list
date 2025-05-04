@@ -4,10 +4,12 @@ import (
 	"context"
 	"echonet-list/echonet_lite"
 	"echonet-list/protocol"
+	"encoding/base64"
 	"encoding/json"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 )
 
 // mockECHONETListClient は ECHONETListClient インターフェースのモック実装
@@ -152,6 +154,111 @@ func NewNotificationChannel() *NotificationChannel {
 	return &NotificationChannel{
 		ch: make(chan echonet_lite.DeviceNotification, 100),
 	}
+}
+
+// --- Mock Property Decoders/Encoders for Testing ---
+
+// MockDecoderOnly implements PropertyDecoder but not PropertyEncoder
+type MockDecoderOnly struct{}
+
+func (d MockDecoderOnly) ToString([]byte) (string, bool) { return "decoded_only", true }
+
+// MockDecoderEncoder implements both PropertyDecoder and PropertyEncoder
+type MockDecoderEncoder struct{}
+
+func (d MockDecoderEncoder) ToString([]byte) (string, bool)   { return "decoded_encoded", true }
+func (d MockDecoderEncoder) FromString(string) ([]byte, bool) { return []byte("encoded"), true } // Implements PropertyEncoder
+
+// --- Test Function for populateEPCDescriptions ---
+
+func TestPopulateEPCDescriptions(t *testing.T) {
+	// 1. Create a mock PropertyTable with various decoder types
+	mockTable := echonet_lite.PropertyTable{
+		ClassCode:   0x0001, // Example class code
+		Description: "Mock Device",
+		EPCDesc: map[echonet_lite.EPCType]echonet_lite.PropertyDesc{
+			0x80: { // Decoder implements Encoder -> StringSettable: true
+				Name:    "EncoderImplemented",
+				Decoder: MockDecoderEncoder{},
+				Aliases: map[string][]byte{"alias1": {0x01}},
+			},
+			0x81: { // Decoder does NOT implement Encoder -> StringSettable: false
+				Name:    "EncoderNotImplemented",
+				Decoder: MockDecoderOnly{},
+				Aliases: map[string][]byte{"alias2": {0x02}},
+			},
+			0x82: { // Decoder is nil -> StringSettable: false
+				Name:    "DecoderNil",
+				Aliases: map[string][]byte{"alias3": {0x03}},
+			},
+			0x83: { // NumberDesc implements Encoder -> StringSettable: true
+				Name:    "NumberDescProperty",
+				Decoder: echonet_lite.NumberDesc{Min: 0, Max: 100, Unit: "U", EDTLen: 1},
+			},
+			0x84: { // StringDesc implements Encoder -> StringSettable: true
+				Name:    "StringDescProperty",
+				Decoder: echonet_lite.StringDesc{MaxEDTLen: 5},
+			},
+		},
+	}
+
+	// 2. Create the target map
+	targetMap := make(map[string]protocol.EPCDesc)
+
+	// 3. Call the function under test
+	populateEPCDescriptions(mockTable, targetMap)
+
+	// 4. Assert the results for each EPC
+	// Check EncoderImplemented (0x80)
+	desc80, ok80 := targetMap["80"]
+	assert.True(t, ok80, "EPC 0x80 should exist")
+	assert.Equal(t, "EncoderImplemented", desc80.Description)
+	assert.True(t, desc80.StringSettable, "EPC 0x80 (MockDecoderEncoder) should be StringSettable")
+	assert.NotNil(t, desc80.Aliases, "EPC 0x80 should have aliases")
+	assert.Equal(t, base64.StdEncoding.EncodeToString([]byte{0x01}), desc80.Aliases["alias1"])
+	assert.Nil(t, desc80.NumberDesc, "EPC 0x80 should not have NumberDesc")
+	assert.Nil(t, desc80.StringDesc, "EPC 0x80 should not have StringDesc")
+
+	// Check EncoderNotImplemented (0x81)
+	desc81, ok81 := targetMap["81"]
+	assert.True(t, ok81, "EPC 0x81 should exist")
+	assert.Equal(t, "EncoderNotImplemented", desc81.Description)
+	assert.False(t, desc81.StringSettable, "EPC 0x81 (MockDecoderOnly) should NOT be StringSettable")
+	assert.NotNil(t, desc81.Aliases, "EPC 0x81 should have aliases")
+	assert.Equal(t, base64.StdEncoding.EncodeToString([]byte{0x02}), desc81.Aliases["alias2"])
+	assert.Nil(t, desc81.NumberDesc, "EPC 0x81 should not have NumberDesc")
+	assert.Nil(t, desc81.StringDesc, "EPC 0x81 should not have StringDesc")
+
+	// Check DecoderNil (0x82)
+	desc82, ok82 := targetMap["82"]
+	assert.True(t, ok82, "EPC 0x82 should exist")
+	assert.Equal(t, "DecoderNil", desc82.Description)
+	assert.False(t, desc82.StringSettable, "EPC 0x82 (Decoder nil) should NOT be StringSettable")
+	assert.NotNil(t, desc82.Aliases, "EPC 0x82 should have aliases")
+	assert.Equal(t, base64.StdEncoding.EncodeToString([]byte{0x03}), desc82.Aliases["alias3"])
+	assert.Nil(t, desc82.NumberDesc, "EPC 0x82 should not have NumberDesc")
+	assert.Nil(t, desc82.StringDesc, "EPC 0x82 should not have StringDesc")
+
+	// Check NumberDescProperty (0x83)
+	desc83, ok83 := targetMap["83"]
+	assert.True(t, ok83, "EPC 0x83 should exist")
+	assert.Equal(t, "NumberDescProperty", desc83.Description)
+	assert.True(t, desc83.StringSettable, "EPC 0x83 (NumberDesc) should be StringSettable")
+	assert.Nil(t, desc83.Aliases, "EPC 0x83 should not have aliases")
+	assert.NotNil(t, desc83.NumberDesc, "EPC 0x83 should have NumberDesc")
+	assert.Equal(t, "U", desc83.NumberDesc.Unit)
+	assert.Equal(t, 0, desc83.NumberDesc.EdtLen) // EdtLen 1 becomes 0 due to omitempty logic
+	assert.Nil(t, desc83.StringDesc, "EPC 0x83 should not have StringDesc")
+
+	// Check StringDescProperty (0x84)
+	desc84, ok84 := targetMap["84"]
+	assert.True(t, ok84, "EPC 0x84 should exist")
+	assert.Equal(t, "StringDescProperty", desc84.Description)
+	assert.True(t, desc84.StringSettable, "EPC 0x84 (StringDesc) should be StringSettable")
+	assert.Nil(t, desc84.Aliases, "EPC 0x84 should not have aliases")
+	assert.Nil(t, desc84.NumberDesc, "EPC 0x84 should not have NumberDesc")
+	assert.NotNil(t, desc84.StringDesc, "EPC 0x84 should have StringDesc")
+	assert.Equal(t, 5, desc84.StringDesc.MaxEDTLen)
 }
 
 // TestHandleGetPropertyDescriptionFromClient は handleGetPropertyDescriptionFromClient メソッドのテスト

@@ -536,7 +536,8 @@ ECHONET Lite のプロパティ値 (EDT) はバイト列であり直接扱うの
         "8C": { // EPC (例: 商品コード)
            "description": "Product code",
            // aliases, numberDesc はない
-           "stringDesc": { "maxEDTLen": 12, ... }
+           "stringDesc": { "maxEDTLen": 12, ... },
+           "stringSettable": true // 文字列で設定可能か (オプショナル)
         }
         // ... 他のプロパティ定義
       }

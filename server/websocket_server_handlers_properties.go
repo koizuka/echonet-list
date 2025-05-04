@@ -233,6 +233,10 @@ func populateEPCDescriptions(propTable echonet_lite.PropertyTable, targetMap map
 				}
 				epcDesc.StringDesc = protoStrDesc
 			}
+			if _, ok := propDesc.Decoder.(echonet_lite.PropertyEncoder); ok {
+				// If the decoder is a PropertyEncoder, it means it's settable
+				epcDesc.StringSettable = true
+			}
 		}
 		targetMap[epcStr] = epcDesc // Add or overwrite in the target map
 	}
