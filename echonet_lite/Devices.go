@@ -709,7 +709,7 @@ func (d Devices) FindByIDString(id IDString) []IPAndEOJ {
 	return result
 }
 
-func (d DeviceProperties) Set(eoj EOJ, properties ...IProperty) error {
+func (d DeviceProperties) Set(eoj EOJ, properties ...Property) error {
 	if eoj.InstanceCode() == 0 {
 		// インスタンスコードが0の場合は設定できない
 		return fmt.Errorf("インスタンスコードが0のEOJにはプロパティを設定できません")
@@ -718,11 +718,7 @@ func (d DeviceProperties) Set(eoj EOJ, properties ...IProperty) error {
 		d[eoj] = make(EPCPropertyMap)
 	}
 	for _, prop := range properties {
-		p := prop.Property()
-		if p == nil {
-			continue
-		}
-		d[eoj][p.EPC] = *p
+		d[eoj][prop.EPC] = prop
 	}
 	return nil
 }
@@ -842,10 +838,10 @@ func (d DeviceProperties) UpdateProfileObjectProperties() error {
 
 	eoj := NodeProfileObject
 	return d.Set(eoj,
-		selfNodeInstancesProp,
-		&selfNodeInstanceListS,
-		selfNodeClassesProp,
-		&selfNodeClassListS,
+		*selfNodeInstancesProp,
+		*selfNodeInstanceListS.Property(),
+		*selfNodeClassesProp,
+		*selfNodeClassListS.Property(),
 	)
 }
 

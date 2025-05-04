@@ -72,34 +72,36 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 		cancel() // エラーの場合はコンテキストをキャンセル
 		panic("プロパティテーブルに on が見つかりません")
 	}
-	manufacturerCode, ok := ProfileSuperClass_PropertyTable.FindAlias("Experimental")
+	manufacturerCodeEDT, ok := ManufacturerCodeEDTs["Experimental"]
 	if !ok {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		panic("プロパティテーブルに Experimental が見つかりません")
 	}
+
 	identificationNumber := IdentificationNumber{
-		ManufacturerCode: manufacturerCode.EDT,
+		ManufacturerCode: manufacturerCodeEDT,
 		UniqueIdentifier: make([]byte, 13), // 識別番号未設定は13バイトの0
 	}
 
+	commonProps := []Property{
+		operationStatusOn,
+		*identificationNumber.Property(),
+		{EPCManufacturerCode, manufacturerCodeEDT},
+	}
+	npoProps := []Property{*ECHONETLite_Version.Property()}
+	npoProps = append(npoProps, commonProps...)
+
 	// 自ノードのプロファイルオブジェクトを作成
-	err = localDevices.Set(NodeProfileObject,
-		&operationStatusOn,
-		&identificationNumber,
-		&manufacturerCode,
-		&ECHONETLite_Version,
-	)
+	err = localDevices.Set(NodeProfileObject, npoProps...)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		return nil, err
 	}
 
+	controllerProps := commonProps
+
 	// コントローラのプロパティを設定
-	err = localDevices.Set(seoj,
-		&operationStatusOn,
-		&identificationNumber,
-		&manufacturerCode,
-	)
+	err = localDevices.Set(seoj, controllerProps...)
 	if err != nil {
 		cancel()
 		return nil, err

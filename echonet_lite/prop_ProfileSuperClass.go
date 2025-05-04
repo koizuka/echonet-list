@@ -4,6 +4,7 @@ import (
 	"echonet-list/echonet_lite/utils"
 	"fmt"
 	"sort"
+	"time"
 )
 
 // 機器オブジェクトスーパークラス
@@ -33,6 +34,13 @@ const (
 	EPCGetPropertyMap                        EPCType = 0x9f // Get プロパティマップ
 )
 
+var ManufacturerCodeEDTs = map[string][]byte{
+	"Sharp":        {0x00, 0x00, 0x05},
+	"Daikin":       {0x00, 0x00, 0x08},
+	"Panasonic":    {0x00, 0x00, 0x0b},
+	"Experimental": {0xff, 0xff, 0xff},
+}
+
 var ProfileSuperClass_PropertyTable = PropertyTable{
 	Description: "Profile Super Class",
 	EPCDesc: map[EPCType]PropertyDesc{
@@ -51,13 +59,8 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			"fault":    {0x41},
 			"no_fault": {0x42},
 		}, nil},
-		EPCFaultDescription: {"Fault description", nil, nil},
-		EPCManufacturerCode: {"Manufacturer code", map[string][]byte{
-			"Sharp":        {0x00, 0x00, 0x05},
-			"Daikin":       {0x00, 0x00, 0x08},
-			"Panasonic":    {0x00, 0x00, 0x0b},
-			"Experimental": {0xff, 0xff, 0xff},
-		}, nil},
+		EPCFaultDescription:     {"Fault description", nil, nil},
+		EPCManufacturerCode:     {"Manufacturer code", ManufacturerCodeEDTs, nil},
 		EPCBusinessFacilityCode: {"Business facility code", nil, nil},
 		EPCProductCode:          {"Product code", nil, StringDesc{MinEDTLen: 12, MaxEDTLen: 12}},
 		EPCProductionNumber:     {"Production number", nil, StringDesc{MinEDTLen: 12, MaxEDTLen: 12}},
@@ -200,6 +203,9 @@ func (s *IdentificationNumber) String() string {
 }
 
 func (s *IdentificationNumber) Property() *Property {
+	if s == nil {
+		return nil
+	}
 	EDT := make([]byte, 0, 17)
 	EDT = append(EDT, byte(0xfe))
 	EDT = append(EDT, s.ManufacturerCode...)
@@ -223,37 +229,24 @@ func (d CumulativePowerConsumptionDesc) ToString(EDT []byte) (string, bool) {
 type DateDesc struct{}
 
 func (d DateDesc) ToString(EDT []byte) (string, bool) {
-	dt := DecodeDate(EDT)
-	if dt == nil {
+	if len(EDT) != 4 {
 		return "", false
 	}
-	return dt.String(), true
+	year := uint16(utils.BytesToUint32(EDT[0:2]))
+	month := EDT[2]
+	day := EDT[3]
+	return fmt.Sprintf("%04d/%02d/%02d", year, month, day), true
 }
 
-type Date struct {
-	Year  uint16
-	Month uint8
-	Day   uint8
-}
-
-func DecodeDate(EDT []byte) *Date {
-	if len(EDT) != 4 {
-		return nil
+func (d DateDesc) FromString(s string) ([]byte, bool) {
+	date, err := time.Parse("2006/1/2", s)
+	if err != nil {
+		return nil, false
 	}
-	return &Date{
-		Year:  uint16(utils.BytesToUint32(EDT[0:2])),
-		Month: EDT[2],
-		Day:   EDT[3],
-	}
-}
-
-func (s *Date) String() string {
-	return fmt.Sprintf("%04d/%02d/%02d", s.Year, s.Month, s.Day)
-}
-
-func (s *Date) EDT() []byte {
-	yearBytes := utils.Uint32ToBytes(uint32(s.Year), 2)
-	return []byte{yearBytes[0], yearBytes[1], s.Month, s.Day}
+	year := date.Year()
+	month := date.Month()
+	day := date.Day()
+	return []byte{byte(year >> 8), byte(year & 0xff), byte(month), byte(day)}, true
 }
 
 type PropertyMap map[EPCType]struct{}
