@@ -30,7 +30,7 @@ const (
 	EPCRemoteControlSetting                  EPCType = 0x93 // 遠隔操作設定
 	EPCCurrentDate                           EPCType = 0x98 // 現在日時
 	EPCStatusAnnouncementPropertyMap         EPCType = 0x9d // 状態アナウンスプロパティマップ
-	EPCSetPropertyMap                        EPCType = 0x9e //Set プロパティマップ
+	EPCSetPropertyMap                        EPCType = 0x9e // Set プロパティマップ
 	EPCGetPropertyMap                        EPCType = 0x9f // Get プロパティマップ
 )
 

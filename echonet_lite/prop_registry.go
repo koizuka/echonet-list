@@ -10,6 +10,8 @@ func BuildPropertyTableMap() PropertyTableMap {
 	// reflect を使って、 PropertyRegistry のメソッドのうち、戻り型が PropertyRegistryEntry のものを探す
 	// そのメソッドを呼び出して、PropertyTableMap を作成する
 
+	_ = ManufacturerCodeEDTs // これを使うことで、PropertyTableMap の初期化時に ManufacturerCodeEDTs を参照できるようにする
+
 	result := PropertyTableMap{}
 
 	var registry any = &PropertyRegistry{}
