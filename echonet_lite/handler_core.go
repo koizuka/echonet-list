@@ -2,8 +2,8 @@ package echonet_lite
 
 import (
 	"context"
-	"echonet-list/echonet_lite/log"
 	"fmt"
+	"log/slog"
 )
 
 // HandlerCore は、ECHONETLiteHandlerのコア機能を担当する構造体
@@ -66,9 +66,7 @@ func (c *HandlerCore) notify(notification DeviceNotification) {
 		// 送信成功
 	default:
 		// チャンネルがブロックされている場合は無視
-		if logger := log.GetLogger(); logger != nil {
-			logger.Log("警告: 通知チャネルがブロックされています")
-		}
+		slog.Warn("通知チャネルがブロックされています")
 	}
 }
 
@@ -109,9 +107,7 @@ func (c *HandlerCore) RelayPropertyChangeEvent(device IPAndEOJ, property Propert
 		// 送信成功
 	default:
 		// チャンネルがブロックされている場合は無視
-		if logger := log.GetLogger(); logger != nil {
-			logger.Log("警告: プロパティ変化通知チャネルがブロックされています")
-		}
+		slog.Warn("プロパティ変化通知チャネルがブロックされています")
 	}
 }
 

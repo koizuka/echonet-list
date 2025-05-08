@@ -2,9 +2,9 @@ package echonet_lite
 
 import (
 	"context"
-	"echonet-list/echonet_lite/log"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"time"
@@ -133,17 +133,12 @@ func (h *CommunicationHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessa
 
 // onInfMessage は、INFメッセージを受信したときのコールバック
 func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) error {
-	logger := log.GetLogger()
 	if msg == nil {
-		if logger != nil {
-			logger.Log("警告: 無効なINFメッセージを受信しました: nil")
-		}
+		slog.Warn("無効なINFメッセージを受信しました: nil")
 		return nil // 処理は継続
 	}
 
-	if logger != nil {
-		logger.Log("INFメッセージを受信: %v, SEOJ:%v, DEOJ:%v, ESV:%v, Properties:%v", ip, msg.SEOJ, msg.DEOJ, msg.ESV, msg.Properties.String(msg.SEOJ.ClassCode()))
-	}
+	slog.Info("INFメッセージを受信", "ip", ip, "SEOJ", msg.SEOJ, "DEOJ", msg.DEOJ, "ESV", msg.ESV, "Properties", msg.Properties.String(msg.SEOJ.ClassCode()))
 	// fmt.Printf("INFメッセージを受信: %v %v, DEOJ:%v\n", ip, msg.SEOJ, msg.DEOJ) // DEBUG
 
 	// DEOJ は instanceCode = 0 (ワイルドカード) の場合がある
@@ -167,8 +162,8 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 			}
 			// 応答を返す
 			err := h.session.SendResponse(ip, msg, ESVINFC_Res, replyProps, nil)
-			if err != nil && logger != nil {
-				logger.Log("エラー: INFメッセージに対する応答の送信に失敗: %v", err)
+			if err != nil {
+				slog.Error("INFメッセージに対する応答の送信に失敗", "err", err)
 			}
 		}
 	}()
@@ -180,24 +175,18 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 			case EPC_NPO_SelfNodeInstanceListS:
 				err := h.onSelfNodeInstanceListS(IPAndEOJ{ip, msg.SEOJ}, true, p)
 				if err != nil {
-					if logger != nil {
-						logger.Log("エラー: SelfNodeInstanceListSの処理中: %v", err)
-					}
+					slog.Error("SelfNodeInstanceListSの処理中エラー", "err", err)
 					return err
 				}
 			case EPC_NPO_InstanceListNotification:
 				iln := DecodeInstanceListNotification(p.EDT)
 				if iln == nil {
-					if logger != nil {
-						logger.Log("警告: InstanceListNotificationのデコードに失敗: %X", p.EDT)
-					}
+					slog.Warn("InstanceListNotificationのデコードに失敗", "EDT", p.EDT)
 					return nil // 処理は継続
 				}
 				return h.onInstanceList(ip, InstanceList(*iln))
 			default:
-				if logger != nil {
-					logger.Log("情報: 未処理のEPC: %v", p.EPC)
-				}
+				slog.Info("未処理のEPC", "EPC", p.EPC)
 			}
 		}
 	} else {
@@ -205,14 +194,10 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 
 		// IPアドレスが未登録の場合、デバイス情報を取得
 		if !h.dataAccessor.HasIP(ip) {
-			if logger != nil {
-				logger.Log("情報: 未登録のIPアドレスからのメッセージ: %v", ip)
-			}
+			slog.Info("未登録のIPアドレスからのメッセージ", "ip", ip)
 			err := h.GetSelfNodeInstanceListS(ip, false)
 			if err != nil {
-				if logger != nil {
-					logger.Log("エラー: SelfNodeInstanceListSの取得に失敗: %v", err)
-				}
+				slog.Error("SelfNodeInstanceListSの取得に失敗", "err", err)
 				return err
 			}
 		}
@@ -223,9 +208,7 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 		if !h.dataAccessor.IsKnownDevice(device) {
 			err := h.GetGetPropertyMap(device)
 			if err != nil {
-				if logger != nil {
-					logger.Log("エラー: プロパティマップの取得に失敗: %v", err)
-				}
+				slog.Error("プロパティマップの取得に失敗", "err", err)
 				return err
 			}
 		}
@@ -290,9 +273,7 @@ func (h *CommunicationHandler) onInstanceList(ip net.IP, il InstanceList) error 
 	// エラーがあれば報告（ただし処理は継続）
 	if len(errors) > 0 {
 		for _, err := range errors {
-			if logger := log.GetLogger(); logger != nil {
-				logger.Log("警告: %v", err)
-			}
+			slog.Warn("警告", "err", err)
 		}
 	}
 
@@ -301,20 +282,15 @@ func (h *CommunicationHandler) onInstanceList(ip net.IP, il InstanceList) error 
 
 // onGetPropertyMap は、GetPropertyMapプロパティを受信したときのコールバック
 func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, properties Properties, _ []EPCType) (CallbackCompleteStatus, error) {
-	logger := log.GetLogger()
 	if !success {
-		if logger != nil {
-			logger.Log("警告: GetPropertyMapプロパティの取得に失敗しました: %v", device)
-		}
+		slog.Warn("GetPropertyMapプロパティの取得に失敗しました", "device", device)
 		return CallbackFinished, nil
 	}
 
 	p := properties[0]
 
 	if p.EPC != EPCGetPropertyMap {
-		if logger != nil {
-			logger.Log("警告: 予期しないEPC: %v (期待値: %v)", p.EPC, EPCGetPropertyMap)
-		}
+		slog.Warn("予期しないEPC", "EPC", p.EPC, "expected", EPCGetPropertyMap)
 		return CallbackFinished, nil
 	}
 
@@ -331,9 +307,7 @@ func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, p
 
 	// プロパティが見つからない場合
 	if len(forGet) == 0 {
-		if logger != nil {
-			logger.Log("情報: デバイス %v にプロパティが見つかりませんでした", device.EOJ)
-		}
+		slog.Info("デバイスにプロパティが見つかりません", "EOJ", device.EOJ)
 		return CallbackFinished, nil
 	}
 
@@ -344,9 +318,7 @@ func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, p
 		forGet,
 		func(device IPAndEOJ, success bool, properties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
 			if !success {
-				if logger != nil {
-					logger.Log("警告: プロパティ取得に失敗しました: %v, Failed EPCs: %v", device, failedEPCs)
-				}
+				slog.Warn("プロパティ取得に失敗", "device", device, "failedEPCs", failedEPCs)
 			}
 
 			// プロパティを登録
@@ -360,8 +332,8 @@ func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, p
 		},
 	)
 
-	if err != nil && logger != nil {
-		logger.Log("エラー: プロパティ取得リクエストの送信に失敗: %v", err)
+	if err != nil {
+		slog.Error("プロパティ取得リクエストの送信に失敗", "err", err)
 	}
 
 	return CallbackFinished, err
@@ -421,8 +393,6 @@ func (h *CommunicationHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, sk
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
-	logger := log.GetLogger()
-
 	if !skipValidation {
 		// 指定されたEPCがGetPropertyMapに含まれているか確認
 		valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, EPCs, GetPropertyMap)
@@ -441,9 +411,7 @@ func (h *CommunicationHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, sk
 	)
 
 	if err != nil {
-		if logger != nil {
-			logger.Log("エラー: プロパティ取得に失敗: %v", err)
-		}
+		slog.Error("プロパティ取得に失敗", "device", device, "err", err)
 		return DeviceAndProperties{}, fmt.Errorf("%v: プロパティ取得に失敗: %w", device, err)
 	}
 
@@ -464,9 +432,7 @@ func (h *CommunicationHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, sk
 	// 全体の成功/失敗を判定
 	if !success {
 		errMsg := fmt.Sprintf("%v: 一部のプロパティ取得に失敗: %v", device, failedEPCs)
-		if logger != nil {
-			logger.Log("警告: %s", errMsg)
-		}
+		slog.Warn("警告", "msg", errMsg)
 		return result, errors.New(errMsg)
 	}
 
@@ -477,8 +443,6 @@ func (h *CommunicationHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, sk
 func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error) {
 	// 結果を格納する変数
 	var result DeviceAndProperties
-
-	logger := log.GetLogger()
 
 	// 指定されたEPCがSetPropertyMapに含まれているか確認
 	// Propertiesから各EPCを抽出
@@ -502,10 +466,8 @@ func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Propert
 	)
 
 	if err != nil {
-		if logger != nil {
-			logger.Log("エラー: プロパティ設定に失敗: %v", err)
-		}
-		return DeviceAndProperties{}, fmt.Errorf("プロパティ設定に失敗: %w", err)
+		slog.Error("プロパティ設定に失敗", "device", device, "err", err)
+		return DeviceAndProperties{}, fmt.Errorf("%v: プロパティ設定に失敗: %w", device, err)
 	}
 
 	// 成功したプロパティを登録（部分的な成功の場合も含む）
@@ -525,9 +487,7 @@ func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Propert
 	// 全体の成功/失敗を判定
 	if !success {
 		errMsg := fmt.Sprintf("一部のプロパティ設定に失敗: %v: %v", device, failedEPCs)
-		if logger != nil {
-			logger.Log("警告: %s", errMsg)
-		}
+		slog.Warn("警告", "device", device, "msg", errMsg)
 		return result, errors.New(errMsg)
 	}
 

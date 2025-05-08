@@ -2,11 +2,11 @@ package echonet_lite
 
 import (
 	"bytes"
-	"echonet-list/echonet_lite/log"
 	"encoding/base64" // 追加
 	"encoding/json"
 	"fmt"
 	"io" // 追加
+	"log/slog"
 	"net"
 	"os"
 	"sort"
@@ -535,9 +535,7 @@ func (d Devices) LoadFromFile(filename string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			if logger := log.GetLogger(); logger != nil {
-				logger.Log("Error closing file %s: %v", filename, err)
-			}
+			slog.Warn("Error closing file", "filename", filename, "err", err)
 		}
 	}()
 

@@ -3,11 +3,11 @@ package server
 import (
 	"bytes"
 	"echonet-list/echonet_lite"
-	"echonet-list/echonet_lite/log"
 	"echonet-list/protocol"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 )
 
 // handleGetPropertiesFromClient handles a get_properties message from a client
@@ -28,9 +28,8 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) 
 	for _, target := range payload.Targets {
 		// Parse the target
 		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
-		logger := log.GetLogger()
-		if logger != nil && ws.handler.IsDebug() {
-			logger.Log("target: %v, ipAndEOJ: %v", target, ipAndEOJ) // DEBUG
+		if ws.handler.IsDebug() {
+			slog.Debug("Processing target", "target", target, "ipAndEOJ", ipAndEOJ) // DEBUG
 		}
 
 		if err != nil {
@@ -244,14 +243,10 @@ func populateEPCDescriptions(propTable echonet_lite.PropertyTable, targetMap map
 
 // handleGetPropertyDescriptionFromClient handles a get_property_description message from a client
 func (ws *WebSocketServer) handleGetPropertyDescriptionFromClient(msg *protocol.Message) protocol.CommandResultPayload {
-	logger := log.GetLogger()
-
 	// Parse the payload
 	var payload protocol.GetPropertyDescriptionPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
-		if logger != nil {
-			logger.Log("Error parsing get_property_description payload: %v", err)
-		}
+		slog.Error("Error parsing get_property_description payload", "err", err)
 		return ErrorResponse(protocol.ErrorCodeInvalidRequestFormat, "Error parsing get_property_description payload: %v", err)
 	}
 
@@ -261,20 +256,18 @@ func (ws *WebSocketServer) handleGetPropertyDescriptionFromClient(msg *protocol.
 	// classCodeが空文字列の場合は共通プロパティを要求すると解釈
 	if payload.ClassCode == "" {
 		classCode = 0 // 共通プロパティを示すゼロ値 (ProfileSuperClass)
-		if logger != nil && ws.handler.IsDebug() {
-			logger.Log("Requesting common property descriptions (classCode is empty)")
+		if ws.handler.IsDebug() {
+			slog.Debug("Requesting common property descriptions (classCode is empty)")
 		}
 	} else {
 		// Parse the class code if not empty
 		classCode, err = echonet_lite.ParseEOJClassCodeString(payload.ClassCode)
 		if err != nil {
-			if logger != nil {
-				logger.Log("Error: invalid class code: %v", err)
-			}
+			slog.Error("Error: invalid class code", "err", err)
 			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid class code: %v", err)
 		}
-		if logger != nil && ws.handler.IsDebug() {
-			logger.Log("Requesting property descriptions for class code: %s", payload.ClassCode)
+		if ws.handler.IsDebug() {
+			slog.Debug("Requesting property descriptions for class code", "classCode", payload.ClassCode)
 		}
 	}
 
@@ -289,9 +282,9 @@ func (ws *WebSocketServer) handleGetPropertyDescriptionFromClient(msg *protocol.
 	if payload.ClassCode != "" {
 		if classTable, ok := echonet_lite.PropertyTables[classCode]; ok {
 			populateEPCDescriptions(classTable, propertiesMap)
-		} else if logger != nil {
+		} else {
 			// Log if the specific class table wasn't found, but still return common properties
-			logger.Log("Warning: Property table not found for specific class code: %s", payload.ClassCode)
+			slog.Warn("Property table not found for specific class code", "classCode", payload.ClassCode)
 		}
 	}
 
@@ -304,9 +297,7 @@ func (ws *WebSocketServer) handleGetPropertyDescriptionFromClient(msg *protocol.
 	// Marshal the data part to JSON
 	dataJSON, err := json.Marshal(data)
 	if err != nil {
-		if logger != nil {
-			logger.Log("Error marshaling property description data: %v", err)
-		}
+		slog.Error("Error marshaling property description data", "err", err)
 		return ErrorResponse(protocol.ErrorCodeInternalServerError, "Error marshaling property description data: %v", err)
 	}
 

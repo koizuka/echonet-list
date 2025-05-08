@@ -1,47 +1,70 @@
 package server
 
 import (
-	"echonet-list/echonet_lite/log"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
-type LogManager struct{}
+type LogManager struct {
+	logFilename string
+	file        *os.File
+	mu          sync.Mutex
+}
 
 func NewLogManager(logFilename string) (*LogManager, error) {
-	// ロガーのセットアップ
-	logger, err := log.NewLogger(logFilename)
-	if err != nil {
+	lm := &LogManager{logFilename: logFilename}
+	if err := lm.openAndSetLogger(); err != nil {
 		return nil, err
 	}
-	log.SetLogger(logger)
+	return lm, nil
+}
 
-	return &LogManager{}, nil
+func (lm *LogManager) openAndSetLogger() error {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	if lm.file != nil {
+		lm.file.Close()
+	}
+	file, err := os.OpenFile(lm.logFilename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		return fmt.Errorf("ログファイルを開けませんでした: %w", err)
+	}
+	logger := slog.New(slog.NewTextHandler(file, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
+	lm.file = file
+	return nil
 }
 
 // AutoRotateは、SIGHUPシグナルを受信したときにログファイルをローテーションします。
 func (lm *LogManager) AutoRotate() {
-	// ログローテーション用のシグナルハンドリング (SIGHUP)
 	rotateSignalCh := make(chan os.Signal, 1)
 	signal.Notify(rotateSignalCh, syscall.SIGHUP)
 	go func() {
 		for {
 			<-rotateSignalCh
 			fmt.Fprintln(os.Stderr, "SIGHUPを受信しました。ログファイルをローテーションします...")
-			logger := log.GetLogger()
-			logger.Log("SIGHUPを受信しました。ログファイルをローテーションします...")
-			if err := logger.Rotate(); err != nil {
+			err := lm.openAndSetLogger()
+			if err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "ログローテーションエラー: %v\n", err)
+			} else {
+				slog.Info("SIGHUPを受信しました。ログファイルをローテーションしました")
 			}
 		}
 	}()
-
 }
 
 func (lm *LogManager) Close() error {
-	// ログファイルを閉じる
-	log.SetLogger(nil)
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+	if lm.file != nil {
+		err := lm.file.Close()
+		lm.file = nil
+		return err
+	}
 	return nil
 }

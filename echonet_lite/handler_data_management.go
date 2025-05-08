@@ -2,9 +2,9 @@ package echonet_lite
 
 import (
 	"bytes"
-	"echonet-list/echonet_lite/log"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 	"sync"
@@ -33,9 +33,7 @@ func NewDataManagementHandler(devices Devices, aliases *DeviceAliases, groups *D
 // SaveDeviceInfo は、デバイス情報をファイルに保存する
 func (h *DataManagementHandler) SaveDeviceInfo() {
 	if err := h.devices.SaveToFile(DeviceFileName); err != nil {
-		if logger := log.GetLogger(); logger != nil {
-			logger.Log("警告: デバイス情報の保存に失敗しました: %v", err)
-		}
+		slog.Warn("デバイス情報の保存に失敗しました", "err", err)
 		// 保存に失敗しても処理は継続
 	}
 }
@@ -45,7 +43,7 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 	h.propMutex.Lock()
 	defer h.propMutex.Unlock()
 
-	logger := log.GetLogger()
+
 
 	// 変更されたプロパティを追跡
 	var changedProperties []ChangedProperty
@@ -73,19 +71,12 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 		}
 	}
 
-	if logger != nil {
-		changed := changedProperties
-		if len(changed) > 0 {
-			classCode := device.EOJ.ClassCode()
-			changes := make([]string, len(changed))
-			for i, p := range changed {
-				changes[i] = p.StringForClass(classCode)
-			}
-			logger.Log("%v のプロパティを %v個更新: [%v]\n",
-				h.DeviceStringWithAlias(device),
-				len(changed),
-				strings.Join(changes, ", "),
-			)
+	if len(changedProperties) > 0 {
+		classCode := device.EOJ.ClassCode()
+		changes := make([]string, len(changedProperties))
+		for i, p := range changedProperties {
+			changes[i] = p.StringForClass(classCode)
+			slog.Info("プロパティ更新", "device", h.DeviceStringWithAlias(device), "count", len(changedProperties), "changes", strings.Join(changes, ", "))
 		}
 	}
 
@@ -156,9 +147,7 @@ func (h *DataManagementHandler) IsOffline(device IPAndEOJ) bool {
 
 func (h *DataManagementHandler) SetOffline(device IPAndEOJ, offline bool) {
 	if offline {
-		if logger := log.GetLogger(); logger != nil {
-			logger.Log("デバイス %s をオフラインに設定", device)
-		}
+		slog.Info("デバイスをオフラインに設定", "device", device)
 	}
 	h.devices.SetOffline(device, offline)
 }

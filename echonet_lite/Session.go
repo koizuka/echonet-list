@@ -2,11 +2,11 @@ package echonet_lite
 
 import (
 	"context"
-	"echonet-list/echonet_lite/log"
 	"echonet-list/echonet_lite/network"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"time"
@@ -135,7 +135,7 @@ func (s *Session) OnReceive(callback PersistentCallbackFunc) {
 }
 
 func (s *Session) MainLoop() {
-	logger := log.GetLogger()
+
 	for {
 		// DispatchTableがnilかどうかをロックして確認
 		s.mu.RLock()
@@ -169,9 +169,7 @@ func (s *Session) MainLoop() {
 
 			// 接続が閉じられた場合
 			if err.Error() == "use of closed network connection" {
-				if logger != nil {
-					logger.Log("受信終了: 接続が閉じられました")
-				}
+				slog.Info("受信終了: 接続が閉じられました")
 				break
 			}
 
@@ -179,16 +177,12 @@ func (s *Session) MainLoop() {
 			// net.Error.Temporary()はdeprecatedなので、特定のエラータイプで判断する
 			if errors.Is(err, net.ErrClosed) {
 				// 接続が閉じられた場合
-				if logger != nil {
-					logger.Log("受信終了: 接続が閉じられました")
-				}
+				slog.Info("受信終了: 接続が閉じられました")
 				break
 			}
 
 			// エラーログを記録
-			if logger != nil {
-				logger.Log("ERROR: データ受信中にエラーが発生: %v", err)
-			}
+			slog.Error("データ受信中にエラーが発生", "err", err)
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
@@ -200,16 +194,12 @@ func (s *Session) MainLoop() {
 
 		if s.Debug {
 			hexDump := hex.EncodeToString(data)
-			if logger != nil {
-				logger.Log("%v: 受信データ(hex): %s", addr, hexDump)
-			}
+			slog.Debug("受信データ(hex)", "addr", addr, "hex", hexDump)
 		}
 
 		msg, err := ParseECHONETLiteMessage(data)
 		if err != nil {
-			if logger != nil {
-				logger.Log("パケット解析エラー: %v", err)
-			}
+			slog.Error("パケット解析エラー", "err", err)
 			continue
 		}
 
@@ -242,8 +232,8 @@ func (s *Session) MainLoop() {
 					}
 				}
 			}
-			if err != nil && logger != nil {
-				logger.Log("ディスパッチエラー: %v", err)
+			if err != nil {
+				slog.Error("ディスパッチエラー", "err", err)
 			}
 		case ESVINF, ESVINFC:
 			// Get the callback while holding the lock
@@ -254,8 +244,8 @@ func (s *Session) MainLoop() {
 			// Execute callback outside the lock
 			if callback != nil {
 				err = callback(addr.IP, msg)
-				if err != nil && logger != nil {
-					logger.Log("Infコールバックエラー: %v", err)
+				if err != nil {
+					slog.Error("Infコールバックエラー", "err", err)
 				}
 			}
 		case ESVGet, ESVSetC, ESVSetI, ESVINF_REQ:
@@ -264,8 +254,8 @@ func (s *Session) MainLoop() {
 			s.mu.RUnlock()
 			if callback != nil {
 				err = callback(addr.IP, msg)
-				if err != nil && logger != nil {
-					logger.Log("%v: ReceiveCallbackエラー: %v", msg.DEOJ, err)
+				if err != nil {
+					slog.Error("ReceiveCallbackエラー", "DEOJ", msg.DEOJ, "err", err)
 				}
 			}
 		}
@@ -305,10 +295,7 @@ func (s *Session) registerCallback(key Key, ESVs []ESVType, callback CallbackFun
 
 func (s *Session) sendMessage(ip net.IP, msg *ECHONETLiteMessage) error {
 	if _, err := s.conn.SendTo(ip, msg.Encode()); err != nil {
-		logger := log.GetLogger()
-		if logger != nil {
-			logger.Log("パケット送信エラー: %v", err)
-		}
+		slog.Error("パケット送信エラー", "err", err)
 		return err
 	}
 	if s.Debug {
@@ -427,9 +414,7 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 				s.unregisterCallback(key)
 
 				if retryCount > 0 {
-					if logger := log.GetLogger(); logger != nil {
-						logger.Log("%v: リトライ後に完了", desc)
-					}
+					slog.Info("リトライ後に完了", "desc", desc)
 				}
 				return
 
@@ -437,20 +422,16 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 				// タイムアウトした場合
 				retryCount++
 
-				logger := log.GetLogger()
 				if retryCount >= s.MaxRetries {
 					// 最大再送回数に達した場合
-					if logger != nil {
-						logger.Log("%v 最大再送回数(%d)に達しました", desc, s.MaxRetries)
-					}
+
+					slog.Warn("最大再送回数に達しました", "desc", desc, "maxRetries", s.MaxRetries)
 					_ = s.notifyDeviceTimeout(device)
 					return
 				}
 
 				// ログ出力
-				if logger != nil {
-					logger.Log("%v: リクエストを再送します (試行 %d/%d)", desc, retryCount, s.MaxRetries)
-				}
+				slog.Info("リクエストを再送します", "desc", desc, "retry", retryCount, "maxRetries", s.MaxRetries)
 				// fmt.Printf("%v: リクエストを再送します (試行 %d/%d)\n", desc, retryCount, s.MaxRetries) // DEBUG
 
 				// 再送
@@ -559,9 +540,7 @@ func (s *Session) sendRequestWithContext(
 
 		case respMsg := <-responseCh:
 			if retryCount > 0 {
-				if logger := log.GetLogger(); logger != nil {
-					logger.Log("%v: リトライ後に完了", device)
-				}
+				slog.Info("リトライ後に完了", "device", device)
 			}
 			// 応答を受信した場合
 			callbackUnregistered = true // コールバックは既に登録解除されている
@@ -571,21 +550,14 @@ func (s *Session) sendRequestWithContext(
 			// タイムアウトした場合
 			retryCount++
 
-			logger := log.GetLogger()
 			if retryCount >= s.MaxRetries {
 				// 最大再送回数に達した場合
-				if logger != nil {
-					logger.Log("%v: 最大再送回数(%d)に達しました", device, s.MaxRetries)
-				}
-
-				// タイムアウト通知をチャンネルに送信
+				slog.Warn("最大再送回数に達しました", "device", device, "maxRetries", s.MaxRetries)
 				return nil, s.notifyDeviceTimeout(device)
 			}
 
 			// ログ出力
-			if logger != nil {
-				logger.Log("%v: タイムアウト: リクエストを再送します (試行 %d/%d)", device, retryCount+1, s.MaxRetries)
-			}
+			slog.Info("リクエストを再送します", "device", device, "retry", retryCount+1, "maxRetries", s.MaxRetries)
 
 			// 再送
 			if err := s.sendMessage(device.IP, msg); err != nil {

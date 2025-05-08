@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
-	"echonet-list/echonet_lite/log"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"sync"
@@ -82,7 +82,6 @@ func NewDefaultWebSocketTransport(ctx context.Context, addr string) *DefaultWebS
 
 // Start はWebSocketサーバーを起動する
 func (t *DefaultWebSocketTransport) Start(options StartOptions) error {
-	logger := log.GetLogger()
 	// 先にリスナーをバインド
 	listener, err := net.Listen("tcp", t.server.Addr)
 	if err != nil {
@@ -92,19 +91,11 @@ func (t *DefaultWebSocketTransport) Start(options StartOptions) error {
 	if options.Ready != nil {
 		close(options.Ready)
 	}
-	if logger != nil {
-		logger.Log("WebSocket server starting on %s", t.server.Addr)
-	} else {
-		fmt.Printf("WebSocket server starting on %s\n", t.server.Addr)
-	}
+	slog.Info("WebSocket server starting", "addr", t.server.Addr)
 
 	// TLS証明書が指定されている場合
 	if options.CertFile != "" && options.KeyFile != "" {
-		if logger != nil {
-			logger.Log("Using TLS with certificate: %s", options.CertFile)
-		} else {
-			fmt.Printf("Using TLS with certificate: %s\n", options.CertFile)
-		}
+		slog.Info("Using TLS with certificate", "certFile", options.CertFile)
 		return t.server.ServeTLS(listener, options.CertFile, options.KeyFile)
 	}
 
@@ -114,14 +105,11 @@ func (t *DefaultWebSocketTransport) Start(options StartOptions) error {
 
 // Stop はWebSocketサーバーを停止する
 func (t *DefaultWebSocketTransport) Stop() error {
-	logger := log.GetLogger()
-	if logger != nil {
-		logger.Log("Stopping WebSocket server")
-	}
+	slog.Info("Stopping WebSocket server", "addr", t.server.Addr)
 	t.cancel()
 	err := t.server.Shutdown(context.Background())
-	if err != nil && logger != nil {
-		logger.Log("Error shutting down WebSocket server: %v", err)
+	if err != nil {
+		slog.Info("Error shutting down WebSocket server", "err", err)
 	}
 	return err
 }
@@ -156,16 +144,12 @@ func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) e
 
 // BroadcastMessage は接続中の全クライアントにメッセージを送信する
 func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
-	logger := log.GetLogger()
-
 	t.clientsMutex.RLock()
 	defer t.clientsMutex.RUnlock()
 
 	for _, conn := range t.clients {
 		if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
-			if logger != nil {
-				logger.Log("Error broadcasting message to client: %v", err)
-			}
+			slog.Error("Error broadcasting message to client", "err", err)
 		}
 	}
 
@@ -174,14 +158,10 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 
 // handleWebSocket はWebSocket接続を処理する
 func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	logger := log.GetLogger()
-
 	// Upgrade the HTTP connection to a WebSocket connection
 	conn, err := t.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		if logger != nil {
-			logger.Log("Error upgrading to WebSocket: %v", err)
-		}
+		slog.Error("Error upgrading to WebSocket", "err", err)
 		return
 	}
 	defer conn.Close()
@@ -211,9 +191,7 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 	// Call the connect handler if set
 	if t.connectHandler != nil {
 		if err := t.connectHandler(connID); err != nil {
-			if logger != nil {
-				logger.Log("Error in connect handler: %v", err)
-			}
+			slog.Error("Error in connect handler", "err", err)
 			return
 		}
 	}
@@ -223,9 +201,7 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				if logger != nil {
-					logger.Log("WebSocket error: %v", err)
-				}
+				slog.Error("Unexpected WebSocket close error", "err", err)
 			}
 			break
 		}
@@ -233,9 +209,7 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 		// Call the message handler if set
 		if t.messageHandler != nil {
 			if err := t.messageHandler(connID, message); err != nil {
-				if logger != nil {
-					logger.Log("Error in message handler: %v", err)
-				}
+				slog.Error("Error in message handler", "err", err)
 			}
 		}
 	}

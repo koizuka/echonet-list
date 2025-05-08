@@ -15,7 +15,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 
 ### Prerequisites
 
-- Go 1.20 or later
+- Go 1.21 or later
 
 ### Building from Source
 

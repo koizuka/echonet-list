@@ -15,7 +15,7 @@ This file provides details about the technical environment and constraints of th
 
 ## Development Setup
 
-- Go 1.20 or later
+- Go 1.21 or later
 - Git for version control
 - Command-line environment for running and testing the application
 - Local network with ECHONET Lite devices for full testing

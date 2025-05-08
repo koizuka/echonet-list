@@ -4,10 +4,10 @@ import (
 	"context"
 	"echonet-list/client"
 	"echonet-list/echonet_lite"
-	"echonet-list/echonet_lite/log"
 	"echonet-list/protocol"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync/atomic"
 	"time"
 )
@@ -67,13 +67,12 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 // periodicUpdater runs in a goroutine, triggering property updates every minute
 // if at least one client is connected.
 func (ws *WebSocketServer) periodicUpdater() {
-	logger := log.GetLogger()
-	if logger != nil && ws.handler.IsDebug() {
-		logger.Log("Periodic updater started")
+	if ws.handler.IsDebug() {
+		slog.Debug("Periodic updater started")
 	}
 	defer func() {
-		if logger != nil && ws.handler.IsDebug() {
-			logger.Log("Periodic updater stopped")
+		if ws.handler.IsDebug() {
+			slog.Debug("Periodic updater stopped")
 		}
 	}()
 
@@ -82,21 +81,21 @@ func (ws *WebSocketServer) periodicUpdater() {
 		case <-ws.updateTicker.C:
 			// Check if any clients are connected
 			if ws.activeClients.Load() > 0 {
-				if logger != nil && ws.handler.IsDebug() {
-					logger.Log("Ticker triggered: Updating all device properties (clients connected)")
+				if ws.handler.IsDebug() {
+					slog.Debug("Ticker triggered: Updating all device properties (clients connected)")
 				}
 				// Run update in a separate goroutine to avoid blocking the ticker
 				go func() {
 					// Use an empty FilterCriteria to target all devices
 					err := ws.handler.UpdateProperties(echonet_lite.FilterCriteria{}, false)
-					if err != nil && logger != nil {
+					if err != nil {
 						// Log the error but don't stop the ticker
-						logger.Log("Error during periodic property update: %v", err)
+						slog.Error("Error during periodic property update", "err", err)
 					}
 				}()
 			} else {
-				if logger != nil && ws.handler.IsDebug() {
-					logger.Log("Ticker triggered: Skipping update (no clients connected)")
+				if ws.handler.IsDebug() {
+					slog.Debug("Ticker triggered: Skipping update (no clients connected)")
 				}
 			}
 		case <-ws.tickerDone:
@@ -111,15 +110,14 @@ func (ws *WebSocketServer) periodicUpdater() {
 
 // handleClientConnect is called when a new client connects
 func (ws *WebSocketServer) handleClientConnect(connID string) error {
-	logger := log.GetLogger()
-	if logger != nil && ws.handler.IsDebug() {
-		logger.Log("New WebSocket connection established: %s", connID)
+	if ws.handler.IsDebug() {
+		slog.Debug("New WebSocket connection established", "connID", connID)
 	}
 
 	// Increment active client count
 	ws.activeClients.Add(1)
-	if logger != nil && ws.handler.IsDebug() {
-		logger.Log("Active clients: %d", ws.activeClients.Load())
+	if ws.handler.IsDebug() {
+		slog.Debug("Active clients", "count", ws.activeClients.Load())
 	}
 
 	// Send initial state to the client
@@ -128,14 +126,10 @@ func (ws *WebSocketServer) handleClientConnect(connID string) error {
 
 // handleClientMessage is called when a message is received from a client
 func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) error {
-	logger := log.GetLogger()
-
 	// Parse the message
 	msg, err := protocol.ParseMessage(message)
 	if err != nil {
-		if logger != nil {
-			logger.Log("Error parsing message: %v", err)
-		}
+		slog.Error("Error parsing message", "err", err)
 		// エラー応答を送信
 		errorPayload := protocol.ErrorNotificationPayload{
 			Code:    protocol.ErrorCodeInvalidRequestFormat,
@@ -147,10 +141,7 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 	handle := func(handler func(msg *protocol.Message) protocol.CommandResultPayload) error {
 		result := handler(msg)
 		if !result.Success {
-			logger := log.GetLogger()
-			if logger != nil {
-				logger.Log("Error for RequestID %s: %s", msg.RequestID, result.Error.Message)
-			}
+			slog.Error("Error for RequestID", "requestID", msg.RequestID, "message", result.Error.Message)
 		}
 		return ws.sendMessageToClient(connID, protocol.MessageTypeCommandResult, result, msg.RequestID)
 	}
@@ -172,9 +163,7 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 	case protocol.MessageTypeGetPropertyDescription:
 		return handle(ws.handleGetPropertyDescriptionFromClient)
 	default:
-		if logger != nil {
-			logger.Log("Unknown message type: %s", msg.Type)
-		}
+		slog.Error("Unknown message type", "type", msg.Type)
 		// エラー応答を送信
 		errorPayload := protocol.ErrorNotificationPayload{
 			Code:    protocol.ErrorCodeInvalidRequestFormat,
@@ -186,14 +175,13 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 
 // handleClientDisconnect is called when a client disconnects
 func (ws *WebSocketServer) handleClientDisconnect(connID string) {
-	logger := log.GetLogger()
-	if logger != nil && ws.handler.IsDebug() {
-		logger.Log("WebSocket connection closed: %s", connID)
+	if ws.handler.IsDebug() {
+		slog.Debug("WebSocket connection closed", "connID", connID)
 	}
 	// Decrement active client count
 	ws.activeClients.Add(-1)
-	if logger != nil && ws.handler.IsDebug() {
-		logger.Log("Active clients: %d", ws.activeClients.Load())
+	if ws.handler.IsDebug() {
+		slog.Debug("Active clients", "count", ws.activeClients.Load())
 	}
 }
 
@@ -203,14 +191,12 @@ func (ws *WebSocketServer) Start(options StartOptions) error {
 	if options.PeriodicUpdateInterval > 0 {
 		ws.updateTicker = time.NewTicker(options.PeriodicUpdateInterval)
 		go ws.periodicUpdater()
-		logger := log.GetLogger()
-		if logger != nil && ws.handler.IsDebug() {
-			logger.Log("Periodic property updater enabled with interval: %v", options.PeriodicUpdateInterval)
+		if ws.handler.IsDebug() {
+			slog.Debug("Periodic property updater enabled with interval", "interval", options.PeriodicUpdateInterval)
 		}
 	} else {
-		logger := log.GetLogger()
-		if logger != nil && ws.handler.IsDebug() {
-			logger.Log("Periodic property updater disabled.")
+		if ws.handler.IsDebug() {
+			slog.Debug("Periodic property updater disabled.")
 		}
 	}
 
@@ -230,10 +216,8 @@ func (ws *WebSocketServer) Stop() error {
 
 // sendInitialStateToClient sends the initial state to a client
 func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
-	logger := log.GetLogger()
-
-	if logger != nil && ws.handler.IsDebug() {
-		logger.Log("Sending initial state to client")
+	if ws.handler.IsDebug() {
+		slog.Debug("Sending initial state to client")
 	}
 
 	// Get all devices
@@ -315,14 +299,10 @@ func (ws *WebSocketServer) sendMessageToClient(connID string, msgType protocol.M
 
 // broadcastMessageToClients sends a message to all connected clients
 func (ws *WebSocketServer) broadcastMessageToClients(msgType protocol.MessageType, payload interface{}) error {
-	logger := log.GetLogger()
-
 	// Create the message
 	data, err := protocol.CreateMessage(msgType, payload, "")
 	if err != nil {
-		if logger != nil {
-			logger.Log("Error creating broadcast message: %v", err)
-		}
+		slog.Error("Error creating broadcast message", "err", err)
 		return err
 	}
 
@@ -332,21 +312,17 @@ func (ws *WebSocketServer) broadcastMessageToClients(msgType protocol.MessageTyp
 
 // listenForNotifications listens for notifications from the ECHONET Lite handler
 func (ws *WebSocketServer) listenForNotifications() {
-	logger := log.GetLogger()
-
 	for {
 		select {
 		case <-ws.ctx.Done():
-			if logger != nil && ws.handler.IsDebug() {
-				logger.Log("Notification listener stopped")
-			}
+			slog.Debug("Notification listener stopped")
 			return
 		case notification := <-ws.handler.NotificationCh:
 			// Handle the notification
 			switch notification.Type {
 			case echonet_lite.DeviceAdded:
-				if logger != nil && ws.handler.IsDebug() {
-					logger.Log("Device added: %s", notification.Device.Specifier())
+				if ws.handler.IsDebug() {
+					slog.Debug("Device added", "device", notification.Device.Specifier())
 				}
 
 				// Create device added payload
@@ -370,9 +346,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 				ws.broadcastMessageToClients(protocol.MessageTypeDeviceAdded, payload)
 
 			case echonet_lite.DeviceTimeout:
-				if logger != nil && ws.handler.IsDebug() {
-					logger.Log("Device timeout: %s - %v", notification.Device.Specifier(), notification.Error)
-				}
+				slog.Error("Device timeout", "device", notification.Device.Specifier(), "error", notification.Error)
 
 				// Create timeout notification payload
 				device := notification.Device
@@ -387,8 +361,8 @@ func (ws *WebSocketServer) listenForNotifications() {
 				ws.broadcastMessageToClients(protocol.MessageTypeTimeoutNotification, payload)
 
 			case echonet_lite.DeviceOffline:
-				if logger != nil && ws.handler.IsDebug() {
-					logger.Log("Device offline: %s", notification.Device.Specifier())
+				if ws.handler.IsDebug() {
+					slog.Debug("Device offline", "device", notification.Device.Specifier())
 				}
 
 				// Create device offline payload
@@ -403,8 +377,8 @@ func (ws *WebSocketServer) listenForNotifications() {
 			}
 		case propertyChange := <-ws.handler.PropertyChangeCh:
 			// プロパティ変化通知を処理
-			if logger != nil && ws.handler.IsDebug() {
-				logger.Log("Property changed: %s - EPC: %02X", propertyChange.Device.Specifier(), byte(propertyChange.Property.EPC))
+			if ws.handler.IsDebug() {
+				slog.Debug("Property changed", "device", propertyChange.Device.Specifier(), "epc", fmt.Sprintf("%02X", byte(propertyChange.Property.EPC)))
 			}
 
 			// プロパティ変化通知ペイロードを作成
