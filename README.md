@@ -10,6 +10,17 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 - Set property values on specific devices
 - Persistent storage of discovered devices in a JSON file
 - Support for various device types (air conditioners, lighting, floor heating, etc.)
+- WebSocket server for web UI integration
+- TLS support for secure WebSocket connections
+
+## Documentation
+
+- [WebSocket Client Protocol](docs/websocket_client_protocol.md) - WebSocketプロトコルの詳細仕様
+- [Client UI Development Guide](docs/client_ui_development_guide.md) - WebSocketクライアントUI開発ガイド
+- [Error Handling Guide](docs/error_handling_guide.md) - エラーハンドリングガイド
+- [mkcert Setup Guide](docs/mkcert_setup_guide.md) - 開発環境の証明書セットアップガイド
+- [Device Types and Examples](docs/device_types.md) - サポートされているデバイスタイプと使用例
+- [Troubleshooting Guide](docs/troubleshooting.md) - トラブルシューティングガイド
 
 ## Installation
 
@@ -107,41 +118,15 @@ Command line options take precedence over configuration file settings.
 
 The application can run in WebSocket server mode, allowing web browsers and other clients to connect and interact with ECHONET Lite devices. It can also run in WebSocket client mode, connecting to another instance of the application running in server mode.
 
-#### WebSocket Protocol Documentation
+For detailed information about the WebSocket protocol and client development, please refer to:
 
-Detailed documentation for the WebSocket protocol is available in [docs/websocket_client_protocol.md](docs/websocket_client_protocol.md). This document provides comprehensive information for developers who want to implement their own WebSocket clients in various programming languages (JavaScript/TypeScript, Python, Java, C#, etc.) to communicate with the ECHONET Lite WebSocket server.
+- [WebSocket Client Protocol](docs/websocket_client_protocol.md)
+- [Client UI Development Guide](docs/client_ui_development_guide.md)
+- [Error Handling Guide](docs/error_handling_guide.md)
 
-The documentation includes:
-- Protocol overview and communication flow
-- Message formats and data types
-- Server-to-client notifications
-- Client-to-server requests
-- Server responses
-- Implementation guidelines
-- Error handling
-- TypeScript example implementation
+For setting up TLS certificates in development environment, see:
 
-#### Secure WebSocket (WSS) with TLS
-
-For secure WebSocket connections (WSS), you need to provide a TLS certificate and private key. You can generate these using tools like `mkcert` for development:
-
-```bash
-# Install mkcert
-brew install mkcert  # macOS with Homebrew
-mkcert -install      # Install local CA
-
-# Generate certificate for your domain/IP
-mkcert localhost 192.168.1.100  # Replace with your server's hostname/IP
-
-# Move the generated files to the certs directory
-mkdir -p certs
-mv localhost+1.pem localhost+1-key.pem certs/
-
-# Use the generated files
-./echonet-list -websocket -ws-tls -ws-cert-file=certs/localhost+1.pem -ws-key-file=certs/localhost+1-key.pem
-```
-
-When TLS is enabled, WebSocket clients should connect using `wss://` instead of `ws://`.
+- [mkcert Setup Guide](docs/mkcert_setup_guide.md)
 
 ### Commands
 
@@ -243,105 +228,18 @@ Manages device aliases for easier reference:
 - `-delete <aliasName>`: Deletes the specified alias
 
 Examples:
+
 ```bash
 > alias ac 192.168.0.3 0130:1           # Create alias 'ac' for air conditioner at 192.168.0.3
 > alias ac 0130                          # Create alias 'ac' for the only air conditioner (if only one exists)
 > alias aircon1 0130 living1             # Create alias 'aircon1' for air conditioner with installation location 'living1'
 > alias aircon2 0130 on kitchen1         # Create alias 'aircon2' for powered-on air conditioner in the kitchen1
-> alias ac                               # Show information about alias 'ac'
-> alias -delete ac                       # Delete alias 'ac'
-> alias                                  # List all aliases
 ```
 
-Using aliases with other commands:
-```bash
-> get ac 80                    # Get operation status of device with alias 'ac'
-> set ac on                    # Turn on device with alias 'ac'
-```
+## Contributing
 
-#### Debug Mode
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
-```bash
-> debug [on|off]
-```
+## License
 
-Displays or changes the debug mode:
-
-- No arguments: Display current debug mode
-- `on`: Enable debug mode
-- `off`: Disable debug mode
-
-#### Help
-
-```bash
-> help
-```
-
-Displays help information about available commands.
-
-#### Quit
-
-```bash
-> quit
-```
-
-Exits the application.
-
-## Supported Device Types
-
-The application supports various ECHONET Lite device types, including:
-
-- Home Air Conditioner (0x0130)
-- Floor Heating (0x027b)
-- Single-Function Lighting (0x0291)
-- Lighting System (0x02a3)
-- Controller (0x05ff)
-- Node Profile (0x0ef0)
-
-## Example Use Cases
-
-### Discovering and Controlling an Air Conditioner
-
-1. Start the application
-2. Discover devices: `discover`
-3. List all devices: `devices`
-4. Get the operation status of an air conditioner: `get 0130 80`
-5. Turn on the air conditioner: `set 0130 on`
-6. Set the temperature to 25°C: `set 0130 b3:19` (25°C in hexadecimal is 0x19)
-
-### Controlling Lights
-
-1. Discover devices: `discover`
-2. List all lighting devices: `devices 0291`
-3. Turn on a light: `set 0291 on`
-4. Turn off a light: `set 0291 off`
-
-### Updating Device Properties
-
-1. Discover devices: `discover`
-2. Update all properties of all air conditioners: `update 0130`
-3. Update all properties of a specific device: `update 192.168.0.5 0130:1`
-4. Check the updated properties: `devices 0130 -all`
-
-## Troubleshooting
-
-### Common Errors
-
-#### Port Already in Use
-
-If you encounter the error message:
-```
-listen udp :3610: bind: address already in use
-```
-This indicates that another instance of the application is already running and using UDP port 3610. 
-
-**Resolution:**
-1. Find and terminate the other running instance of the application
-   - On Linux/macOS: `ps aux | grep echonet-list` to find the process, then `kill <PID>` to terminate it
-   - On Windows: Use Task Manager to end the process
-2. After stopping the other instance, try running the application again
-
-## References
-
-- [ECHONET Lite Specification](https://echonet.jp/spec_v114_lite/)
-- [ECHONET Lite Object Specification](https://echonet.jp/spec_object_rr2/)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
