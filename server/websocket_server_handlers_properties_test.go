@@ -30,23 +30,23 @@ func (m *mockECHONETListClient) AliasList() []echonet_lite.AliasIDStringPair {
 	return nil
 }
 
-func (m *mockECHONETListClient) AliasSet(alias *string, criteria echonet_lite.FilterCriteria) error {
+func (m *mockECHONETListClient) AliasSet(_ *string, _ echonet_lite.FilterCriteria) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) AliasDelete(alias *string) error {
+func (m *mockECHONETListClient) AliasDelete(_ *string) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) AliasGet(alias *string) (*echonet_lite.IPAndEOJ, error) {
+func (m *mockECHONETListClient) AliasGet(_ *string) (*echonet_lite.IPAndEOJ, error) {
 	return nil, nil
 }
 
-func (m *mockECHONETListClient) GetAliases(device echonet_lite.IPAndEOJ) []string {
+func (m *mockECHONETListClient) GetAliases(_ echonet_lite.IPAndEOJ) []string {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetDeviceByAlias(alias string) (echonet_lite.IPAndEOJ, bool) {
+func (m *mockECHONETListClient) GetDeviceByAlias(_ string) (echonet_lite.IPAndEOJ, bool) {
 	return echonet_lite.IPAndEOJ{}, false
 }
 
@@ -54,23 +54,23 @@ func (m *mockECHONETListClient) Discover() error {
 	return nil
 }
 
-func (m *mockECHONETListClient) UpdateProperties(criteria echonet_lite.FilterCriteria, force bool) error {
+func (m *mockECHONETListClient) UpdateProperties(_ echonet_lite.FilterCriteria, _ bool) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetDevices(deviceSpec echonet_lite.DeviceSpecifier) []echonet_lite.IPAndEOJ {
+func (m *mockECHONETListClient) GetDevices(_ echonet_lite.DeviceSpecifier) []echonet_lite.IPAndEOJ {
 	return nil
 }
 
-func (m *mockECHONETListClient) ListDevices(criteria echonet_lite.FilterCriteria) []handler.DeviceAndProperties {
+func (m *mockECHONETListClient) ListDevices(_ echonet_lite.FilterCriteria) []handler.DeviceAndProperties {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetProperties(device echonet_lite.IPAndEOJ, EPCs []echonet_lite.EPCType, skipValidation bool) (handler.DeviceAndProperties, error) {
+func (m *mockECHONETListClient) GetProperties(_ echonet_lite.IPAndEOJ, _ []echonet_lite.EPCType, _ bool) (handler.DeviceAndProperties, error) {
 	return handler.DeviceAndProperties{}, nil
 }
 
-func (m *mockECHONETListClient) SetProperties(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties) (handler.DeviceAndProperties, error) {
+func (m *mockECHONETListClient) SetProperties(_ echonet_lite.IPAndEOJ, _ echonet_lite.Properties) (handler.DeviceAndProperties, error) {
 	return handler.DeviceAndProperties{}, nil
 }
 
@@ -78,15 +78,15 @@ func (m *mockECHONETListClient) GetAllPropertyAliases() map[string]PropertyDescr
 	return nil
 }
 
-func (m *mockECHONETListClient) GetPropertyDesc(classCode echonet_lite.EOJClassCode, e echonet_lite.EPCType) (*echonet_lite.PropertyDesc, bool) {
+func (m *mockECHONETListClient) GetPropertyDesc(_ echonet_lite.EOJClassCode, _ echonet_lite.EPCType) (*echonet_lite.PropertyDesc, bool) {
 	return nil, false
 }
 
-func (m *mockECHONETListClient) IsPropertyDefaultEPC(classCode echonet_lite.EOJClassCode, epc echonet_lite.EPCType) bool {
+func (m *mockECHONETListClient) IsPropertyDefaultEPC(_ echonet_lite.EOJClassCode, _ echonet_lite.EPCType) bool {
 	return false
 }
 
-func (m *mockECHONETListClient) FindPropertyAlias(classCode echonet_lite.EOJClassCode, alias string) (echonet_lite.Property, bool) {
+func (m *mockECHONETListClient) FindPropertyAlias(_ echonet_lite.EOJClassCode, _ string) (echonet_lite.Property, bool) {
 	return echonet_lite.Property{}, false
 }
 
@@ -114,23 +114,23 @@ func (m *mockECHONETListClient) AvailablePropertyAliases(classCode echonet_lite.
 	return map[string]PropertyDescription{}
 }
 
-func (m *mockECHONETListClient) GroupList(groupName *string) []echonet_lite.GroupDevicePair {
+func (m *mockECHONETListClient) GroupList(_ *string) []echonet_lite.GroupDevicePair {
 	return nil
 }
 
-func (m *mockECHONETListClient) GroupAdd(groupName string, devices []echonet_lite.IDString) error {
+func (m *mockECHONETListClient) GroupAdd(_ string, _ []echonet_lite.IDString) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) GroupRemove(groupName string, devices []echonet_lite.IDString) error {
+func (m *mockECHONETListClient) GroupRemove(_ string, _ []echonet_lite.IDString) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) GroupDelete(groupName string) error {
+func (m *mockECHONETListClient) GroupDelete(_ string) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetDevicesByGroup(groupName string) ([]echonet_lite.IDString, bool) {
+func (m *mockECHONETListClient) GetDevicesByGroup(_ string) ([]echonet_lite.IDString, bool) {
 	return nil, false
 }
 
@@ -138,26 +138,13 @@ func (m *mockECHONETListClient) Close() error {
 	return nil
 }
 
-func (m *mockECHONETListClient) FindDeviceByIDString(id echonet_lite.IDString) *echonet_lite.IPAndEOJ {
+func (m *mockECHONETListClient) FindDeviceByIDString(_ echonet_lite.IDString) *echonet_lite.IPAndEOJ {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetIDString(device echonet_lite.IPAndEOJ) echonet_lite.IDString {
+func (m *mockECHONETListClient) GetIDString(_ echonet_lite.IPAndEOJ) echonet_lite.IDString {
 	return ""
 }
-
-// NotificationChannel は通知チャネルのモック
-type NotificationChannel struct {
-	ch chan handler.DeviceNotification
-}
-
-func NewNotificationChannel() *NotificationChannel {
-	return &NotificationChannel{
-		ch: make(chan handler.DeviceNotification, 100),
-	}
-}
-
-// --- Mock Property Decoders/Encoders for Testing ---
 
 // MockDecoderOnly implements PropertyDecoder but not PropertyEncoder
 type MockDecoderOnly struct{}

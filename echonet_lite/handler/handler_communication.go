@@ -263,17 +263,17 @@ func (h *CommunicationHandler) onInstanceList(ip net.IP, il echonet_lite.Instanc
 	h.dataAccessor.SaveDeviceInfo()
 
 	// 各デバイスのプロパティマップを取得
-	var errors []error
+	var e []error
 	for _, eoj := range il {
 		device := echonet_lite.IPAndEOJ{ip, eoj}
 		if err := h.GetGetPropertyMap(device); err != nil {
-			errors = append(errors, fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err))
+			e = append(e, fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err))
 		}
 	}
 
 	// エラーがあれば報告（ただし処理は継続）
-	if len(errors) > 0 {
-		for _, err := range errors {
+	if len(e) > 0 {
+		for _, err := range e {
 			slog.Warn("警告", "err", err)
 		}
 	}

@@ -344,7 +344,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 				}
 
 				// Broadcast the message
-				ws.broadcastMessageToClients(protocol.MessageTypeDeviceAdded, payload)
+				_ = ws.broadcastMessageToClients(protocol.MessageTypeDeviceAdded, payload)
 
 			case handler.DeviceTimeout:
 				slog.Error("Device timeout", "device", notification.Device.Specifier(), "error", notification.Error)
@@ -359,7 +359,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 				}
 
 				// Broadcast the message
-				ws.broadcastMessageToClients(protocol.MessageTypeTimeoutNotification, payload)
+				_ = ws.broadcastMessageToClients(protocol.MessageTypeTimeoutNotification, payload)
 
 			case handler.DeviceOffline:
 				if ws.handler.IsDebug() {
@@ -374,7 +374,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 				}
 
 				// Broadcast the message
-				ws.broadcastMessageToClients(protocol.MessageTypeDeviceOffline, payload)
+				_ = ws.broadcastMessageToClients(protocol.MessageTypeDeviceOffline, payload)
 			}
 		case propertyChange := <-ws.handler.PropertyChangeCh:
 			// プロパティ変化通知を処理
@@ -391,7 +391,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 			}
 
 			// メッセージをブロードキャスト
-			ws.broadcastMessageToClients(protocol.MessageTypePropertyChanged, payload)
+			_ = ws.broadcastMessageToClients(protocol.MessageTypePropertyChanged, payload)
 		}
 	}
 }
