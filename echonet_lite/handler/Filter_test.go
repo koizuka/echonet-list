@@ -41,48 +41,48 @@ func TestFilter(t *testing.T) {
 	devices := NewDevices()
 
 	// Create test EOJs and Properties
-	eoj1 := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, echonet_lite.EOJInstanceCode(instanceCode1))
-	eoj2 := echonet_lite.MakeEOJ(echonet_lite.SingleFunctionLighting_ClassCode, echonet_lite.EOJInstanceCode(instanceCode1))
-	eoj3 := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, echonet_lite.EOJInstanceCode(instanceCode2)) // インスタンスコード2のエアコン
-	epc1 := echonet_lite.EPCType(epcOperationStatus)
-	epc2 := echonet_lite.EPCType(epcInstallationLocation)
-	epc3 := echonet_lite.EPCType(epcOperationMode)
-	epc4 := echonet_lite.EPCType(epcLightLevel)
+	eoj1 := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, EOJInstanceCode(instanceCode1))
+	eoj2 := echonet_lite.MakeEOJ(echonet_lite.SingleFunctionLighting_ClassCode, EOJInstanceCode(instanceCode1))
+	eoj3 := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, EOJInstanceCode(instanceCode2)) // インスタンスコード2のエアコン
+	epc1 := EPCType(epcOperationStatus)
+	epc2 := EPCType(epcInstallationLocation)
+	epc3 := EPCType(epcOperationMode)
+	epc4 := EPCType(epcLightLevel)
 
 	// Properties for eoj1 (Air Conditioner)
-	ac_property1 := echonet_lite.Property{
+	ac_property1 := Property{
 		EPC: epc1,
 		EDT: edtOn,
 	}
-	ac_property2 := echonet_lite.Property{
+	ac_property2 := Property{
 		EPC: epc2,
 		EDT: edtLivingRoom,
 	}
-	ac_property3 := echonet_lite.Property{
+	ac_property3 := Property{
 		EPC: epc3,
 		EDT: edtCooling,
 	}
 
 	// Properties for eoj2 (Lighting)
-	light_property1 := echonet_lite.Property{
+	light_property1 := Property{
 		EPC: epc1,
 		EDT: edtOff,
 	}
-	light_property2 := echonet_lite.Property{
+	light_property2 := Property{
 		EPC: epc2,
 		EDT: edtDiningRoom,
 	}
-	light_property4 := echonet_lite.Property{
+	light_property4 := Property{
 		EPC: epc4,
 		EDT: edt100Percent,
 	}
 
 	// Register the test properties
 	now := time.Now()
-	devices.RegisterProperties(echonet_lite.IPAndEOJ{ip1, eoj1}, []echonet_lite.Property{ac_property1, ac_property2, ac_property3}, now)
-	devices.RegisterProperties(echonet_lite.IPAndEOJ{ip1, eoj2}, []echonet_lite.Property{light_property1, light_property2, light_property4}, now)
-	devices.RegisterProperties(echonet_lite.IPAndEOJ{ip1, eoj3}, []echonet_lite.Property{ac_property1, ac_property2, ac_property3}, now) // インスタンスコード2のデバイスも登録
-	devices.RegisterProperties(echonet_lite.IPAndEOJ{ip2, eoj1}, []echonet_lite.Property{ac_property1, ac_property2, ac_property3}, now)
+	devices.RegisterProperties(IPAndEOJ{ip1, eoj1}, []Property{ac_property1, ac_property2, ac_property3}, now)
+	devices.RegisterProperties(IPAndEOJ{ip1, eoj2}, []Property{light_property1, light_property2, light_property4}, now)
+	devices.RegisterProperties(IPAndEOJ{ip1, eoj3}, []Property{ac_property1, ac_property2, ac_property3}, now) // インスタンスコード2のデバイスも登録
+	devices.RegisterProperties(IPAndEOJ{ip2, eoj1}, []Property{ac_property1, ac_property2, ac_property3}, now)
 
 	// For string representation in expected results
 	ip1Str := ip1.String()
@@ -92,24 +92,24 @@ func TestFilter(t *testing.T) {
 	tests := []struct {
 		name            string
 		criteria        FilterCriteria
-		expectedDevices map[string][]echonet_lite.EOJ                          // 期待されるデバイス
-		expectedProps   map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType // 期待されるプロパティ
+		expectedDevices map[string][]EOJ             // 期待されるデバイス
+		expectedProps   map[string]map[EOJ][]EPCType // 期待されるプロパティ
 	}{
 		{
 			name: "Filter by PropertyValues only",
 			criteria: FilterCriteria{
-				PropertyValues: []echonet_lite.Property{
+				PropertyValues: []Property{
 					{
 						EPC: epc1,
 						EDT: edtOn,
 					},
 				},
 			},
-			expectedDevices: map[string][]echonet_lite.EOJ{
+			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj1, eoj3},
 				ip2Str: {eoj1},
 			},
-			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
+			expectedProps: map[string]map[EOJ][]EPCType{
 				ip1Str: {
 					eoj1: {epc1, epc2, epc3},
 					eoj3: {epc1, epc2, epc3},
@@ -122,25 +122,25 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Filter by PropertyValues with non-existent EDT",
 			criteria: FilterCriteria{
-				PropertyValues: []echonet_lite.Property{
+				PropertyValues: []Property{
 					{
 						EPC: epc1,
 						EDT: edtNonExistent, // 存在しないEDT値
 					},
 				},
 			},
-			expectedDevices: map[string][]echonet_lite.EOJ{},
-			expectedProps:   map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{},
+			expectedDevices: map[string][]EOJ{},
+			expectedProps:   map[string]map[EOJ][]EPCType{},
 		},
 		{
 			name: "Filter by IP address",
 			criteria: FilterCriteria{
 				Device: DeviceSpecifier{IP: &ip1},
 			},
-			expectedDevices: map[string][]echonet_lite.EOJ{
+			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj1, eoj2, eoj3},
 			},
-			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
+			expectedProps: map[string]map[EOJ][]EPCType{
 				ip1Str: {
 					eoj1: {epc1, epc2, epc3},
 					eoj2: {epc1, epc2, epc4},
@@ -153,11 +153,11 @@ func TestFilter(t *testing.T) {
 			criteria: FilterCriteria{
 				Device: DeviceSpecifier{ClassCode: ptr(echonet_lite.HomeAirConditioner_ClassCode)},
 			},
-			expectedDevices: map[string][]echonet_lite.EOJ{
+			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj1, eoj3},
 				ip2Str: {eoj1},
 			},
-			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
+			expectedProps: map[string]map[EOJ][]EPCType{
 				ip1Str: {
 					eoj1: {epc1, epc2, epc3},
 					eoj3: {epc1, epc2, epc3},
@@ -170,13 +170,13 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Filter by instance code",
 			criteria: FilterCriteria{
-				Device: DeviceSpecifier{InstanceCode: ptr(echonet_lite.EOJInstanceCode(instanceCode1))},
+				Device: DeviceSpecifier{InstanceCode: ptr(EOJInstanceCode(instanceCode1))},
 			},
-			expectedDevices: map[string][]echonet_lite.EOJ{
+			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj1, eoj2}, // eoj3はinstanceCode2なので含まれない
 				ip2Str: {eoj1},
 			},
-			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
+			expectedProps: map[string]map[EOJ][]EPCType{
 				ip1Str: {
 					eoj1: {epc1, epc2, epc3},
 					eoj2: {epc1, epc2, epc4},
@@ -189,12 +189,12 @@ func TestFilter(t *testing.T) {
 		{
 			name: "Filter by instance code 2",
 			criteria: FilterCriteria{
-				Device: DeviceSpecifier{InstanceCode: ptr(echonet_lite.EOJInstanceCode(instanceCode2))},
+				Device: DeviceSpecifier{InstanceCode: ptr(EOJInstanceCode(instanceCode2))},
 			},
-			expectedDevices: map[string][]echonet_lite.EOJ{
+			expectedDevices: map[string][]EOJ{
 				ip1Str: {eoj3}, // instanceCode2のデバイスのみ
 			},
-			expectedProps: map[string]map[echonet_lite.EOJ][]echonet_lite.EPCType{
+			expectedProps: map[string]map[EOJ][]EPCType{
 				ip1Str: {
 					eoj3: {epc1, epc2, epc3},
 				},
@@ -211,7 +211,7 @@ func TestFilter(t *testing.T) {
 			for ip, expectedEOJs := range tt.expectedDevices {
 				ipAddr := net.ParseIP(ip)
 				for _, eoj := range expectedEOJs {
-					device := echonet_lite.IPAndEOJ{ipAddr, eoj}
+					device := IPAndEOJ{ipAddr, eoj}
 					if !filtered.IsKnownDevice(device) {
 						t.Errorf("Expected device %v to exist in filtered result, but it doesn't", device)
 					}

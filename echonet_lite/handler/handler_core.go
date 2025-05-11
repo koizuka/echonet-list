@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"echonet-list/echonet_lite"
 	"fmt"
 	"log/slog"
 )
@@ -99,7 +98,7 @@ func (c *HandlerCore) RelaySessionTimeoutEvent(event SessionTimeoutEvent) {
 }
 
 // RelayPropertyChangeEvent は、プロパティ変更通知を中継する
-func (c *HandlerCore) RelayPropertyChangeEvent(device echonet_lite.IPAndEOJ, property echonet_lite.Property) {
+func (c *HandlerCore) RelayPropertyChangeEvent(device IPAndEOJ, property Property) {
 	select {
 	case c.PropertyChangeCh <- PropertyChangeNotification{
 		Device:   device,

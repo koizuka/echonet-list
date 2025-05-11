@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-type EPCPropertyMap map[echonet_lite.EPCType]echonet_lite.Property
+type EPCPropertyMap map[EPCType]Property
 
 // MarshalJSON は EPCPropertyMap を {"0xEPC": "Base64(EDT)"} 形式のJSONにエンコードします。
 func (m EPCPropertyMap) MarshalJSON() ([]byte, error) {
@@ -53,7 +53,7 @@ func (m *EPCPropertyMap) UnmarshalJSON(data []byte) error {
 		if isLikelyNewFormat {
 			result := make(EPCPropertyMap)
 			for epcStr, edtBase64 := range newFormatMap {
-				var epc echonet_lite.EPCType
+				var epc EPCType
 				// EPCTypeのUnmarshalJSONは "0x..." と 10進数の両方を扱えるが、ここでは "0x..." のみを期待
 				if err := json.Unmarshal([]byte(`"`+epcStr+`"`), &epc); err != nil {
 					// 新フォーマットだがキーが不正な場合はエラーとする
@@ -63,7 +63,7 @@ func (m *EPCPropertyMap) UnmarshalJSON(data []byte) error {
 				if err != nil {
 					return fmt.Errorf("invalid base64 EDT for EPC %s: %w", epcStr, err)
 				}
-				result[epc] = echonet_lite.Property{EPC: epc, EDT: edt}
+				result[epc] = Property{EPC: epc, EDT: edt}
 			}
 			*m = result
 			return nil
@@ -90,7 +90,7 @@ func (m *EPCPropertyMap) UnmarshalJSON(data []byte) error {
 
 	result := make(EPCPropertyMap)
 	for epcStr, propData := range oldFormatMap {
-		var epc echonet_lite.EPCType
+		var epc EPCType
 		// EPCType.UnmarshalJSONは10進数文字列も扱える
 		if err := json.Unmarshal([]byte(`"`+epcStr+`"`), &epc); err != nil {
 			// 旧フォーマットだがキーが不正な場合はエラーとする
@@ -104,13 +104,13 @@ func (m *EPCPropertyMap) UnmarshalJSON(data []byte) error {
 		}
 
 		// EPCはキーから取得したものを優先する
-		result[epc] = echonet_lite.Property{EPC: epc, EDT: edt}
+		result[epc] = Property{EPC: epc, EDT: edt}
 	}
 	*m = result
 	return nil
 }
 
-type DeviceProperties map[echonet_lite.EOJ]EPCPropertyMap
+type DeviceProperties map[EOJ]EPCPropertyMap
 
 // MarshalJSON は DeviceProperties を JSON にエンコードする際に、EOJ キーを文字列形式に変換します
 func (d DeviceProperties) MarshalJSON() ([]byte, error) {
@@ -136,7 +136,7 @@ func (d *DeviceProperties) UnmarshalJSON(data []byte) error {
 	result := make(DeviceProperties)
 	for eojStr, props := range stringMap {
 		// 文字列キーを EOJ に変換
-		var eoj echonet_lite.EOJ
+		var eoj EOJ
 		var err error
 
 		// インスタンスコードが含まれているかどうかを確認
@@ -183,8 +183,8 @@ const (
 
 // DeviceEvent はデバイスに関するイベントを表す構造体
 type DeviceEvent struct {
-	Device echonet_lite.IPAndEOJ // イベントが発生したデバイス
-	Type   DeviceEventType       // イベントの種類
+	Device IPAndEOJ        // イベントが発生したデバイス
+	Type   DeviceEventType // イベントの種類
 }
 
 type DevicesImpl struct {
@@ -224,7 +224,7 @@ func (d Devices) HasIP(ip net.IP) bool {
 	return ok
 }
 
-func (d Devices) IsKnownDevice(device echonet_lite.IPAndEOJ) bool {
+func (d Devices) IsKnownDevice(device IPAndEOJ) bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -239,7 +239,7 @@ func (d Devices) IsKnownDevice(device echonet_lite.IPAndEOJ) bool {
 }
 
 // IsOffline は指定したデバイスがオフラインかどうかを返します
-func (d Devices) IsOffline(device echonet_lite.IPAndEOJ) bool {
+func (d Devices) IsOffline(device IPAndEOJ) bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	_, exists := d.offlineDevices[device.Key()]
@@ -247,7 +247,7 @@ func (d Devices) IsOffline(device echonet_lite.IPAndEOJ) bool {
 }
 
 // SetOffline は指定したデバイスのオフライン状態を設定します
-func (d Devices) SetOffline(device echonet_lite.IPAndEOJ, offline bool) {
+func (d Devices) SetOffline(device IPAndEOJ, offline bool) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	key := device.Key()
@@ -273,10 +273,10 @@ func (d Devices) SetOffline(device echonet_lite.IPAndEOJ, offline bool) {
 
 // ensureDeviceExists ensures the map structure exists for the given IP and EOJ
 // Caller must hold the lock
-func (d *Devices) ensureDeviceExists(device echonet_lite.IPAndEOJ) {
+func (d *Devices) ensureDeviceExists(device IPAndEOJ) {
 	ipStr := device.IP.String()
 	if _, ok := d.data[ipStr]; !ok {
-		d.data[ipStr] = make(map[echonet_lite.EOJ]EPCPropertyMap)
+		d.data[ipStr] = make(map[EOJ]EPCPropertyMap)
 	}
 	if _, ok := d.data[ipStr][device.EOJ]; !ok {
 		d.data[ipStr][device.EOJ] = make(EPCPropertyMap)
@@ -296,13 +296,13 @@ func (d *Devices) ensureDeviceExists(device echonet_lite.IPAndEOJ) {
 	}
 }
 
-func (d Devices) RegisterDevice(device echonet_lite.IPAndEOJ) {
+func (d Devices) RegisterDevice(device IPAndEOJ) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.ensureDeviceExists(device)
 }
 
-func (d Devices) RegisterProperty(device echonet_lite.IPAndEOJ, property echonet_lite.Property, now time.Time) {
+func (d Devices) RegisterProperty(device IPAndEOJ, property Property, now time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.ensureDeviceExists(device)
@@ -311,7 +311,7 @@ func (d Devices) RegisterProperty(device echonet_lite.IPAndEOJ, property echonet
 	d.timestamps[device.Key()] = now
 }
 
-func (d Devices) RegisterProperties(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties, now time.Time) {
+func (d Devices) RegisterProperties(device IPAndEOJ, properties Properties, now time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.ensureDeviceExists(device)
@@ -326,7 +326,7 @@ func (d Devices) RegisterProperties(device echonet_lite.IPAndEOJ, properties ech
 
 // GetLastUpdateTime は、指定されたデバイスの最終更新タイムスタンプを取得します
 // タイムスタンプが存在しない場合は time.Time のゼロ値を返します
-func (d Devices) GetLastUpdateTime(device echonet_lite.IPAndEOJ) time.Time {
+func (d Devices) GetLastUpdateTime(device IPAndEOJ) time.Time {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	ts, ok := d.timestamps[device.Key()]
@@ -338,9 +338,9 @@ func (d Devices) GetLastUpdateTime(device echonet_lite.IPAndEOJ) time.Time {
 
 // DeviceSpecifier は、デバイスを一意に識別するための情報を表す構造体
 type DeviceSpecifier struct {
-	IP           *net.IP                       // IPアドレス。nilの場合は自動選択
-	ClassCode    *echonet_lite.EOJClassCode    // クラスコード
-	InstanceCode *echonet_lite.EOJInstanceCode // インスタンスコード
+	IP           *net.IP          // IPアドレス。nilの場合は自動選択
+	ClassCode    *EOJClassCode    // クラスコード
+	InstanceCode *EOJInstanceCode // インスタンスコード
 }
 
 func (d DeviceSpecifier) String() string {
@@ -362,8 +362,8 @@ func (d DeviceSpecifier) String() string {
 // FilterCriteria defines filtering criteria for devices and their properties.
 // Device and PropertyValues are used to filter devices.
 type FilterCriteria struct {
-	Device         DeviceSpecifier         // Filters devices by IP address, ClassCode, and InstanceCode
-	PropertyValues []echonet_lite.Property // Filters devices by property values (EPC and EDT)
+	Device         DeviceSpecifier // Filters devices by IP address, ClassCode, and InstanceCode
+	PropertyValues []Property      // Filters devices by property values (EPC and EDT)
 }
 
 func (c FilterCriteria) String() string {
@@ -428,7 +428,7 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 
 			// 全てのプロパティを結果に含める
 			if _, ok := filtered.data[ip]; !ok {
-				filtered.data[ip] = make(map[echonet_lite.EOJ]EPCPropertyMap)
+				filtered.data[ip] = make(map[EOJ]EPCPropertyMap)
 			}
 			filtered.data[ip][eoj] = props
 		}
@@ -439,7 +439,7 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 
 // DevicePropertyData は、デバイス（IPAndEOJ）とそのプロパティの組を表します
 type DevicePropertyData struct {
-	Device     echonet_lite.IPAndEOJ
+	Device     IPAndEOJ
 	Properties EPCPropertyMap
 }
 
@@ -588,15 +588,15 @@ func (h Devices) Len() int {
 	return len(h.data)
 }
 
-func (h Devices) ListIPAndEOJ() []echonet_lite.IPAndEOJ {
+func (h Devices) ListIPAndEOJ() []IPAndEOJ {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	var devices []echonet_lite.IPAndEOJ
+	var devices []IPAndEOJ
 	for ipStr, eojMap := range h.data {
 		ip := net.ParseIP(ipStr)
 		for eoj := range eojMap {
-			devices = append(devices, echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj})
+			devices = append(devices, IPAndEOJ{IP: ip, EOJ: eoj})
 		}
 	}
 	return devices
@@ -604,7 +604,7 @@ func (h Devices) ListIPAndEOJ() []echonet_lite.IPAndEOJ {
 
 // GetProperty returns the property for the given IP, EOJ, and EPC
 // If the property does not exist, returns nil and false
-func (d Devices) GetProperty(device echonet_lite.IPAndEOJ, epc echonet_lite.EPCType) (*echonet_lite.Property, bool) {
+func (d Devices) GetProperty(device IPAndEOJ, epc EPCType) (*Property, bool) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -631,8 +631,8 @@ const (
 )
 
 // GetPropertyMap は指定されたプロパティマップを取得する
-func (d Devices) GetPropertyMap(device echonet_lite.IPAndEOJ, mapType PropertyMapType) echonet_lite.PropertyMap {
-	var mapEPC echonet_lite.EPCType
+func (d Devices) GetPropertyMap(device IPAndEOJ, mapType PropertyMapType) PropertyMap {
+	var mapEPC EPCType
 
 	switch mapType {
 	case GetPropertyMap:
@@ -659,7 +659,7 @@ func (d Devices) GetPropertyMap(device echonet_lite.IPAndEOJ, mapType PropertyMa
 }
 
 // HasEPCInPropertyMap は指定されたプロパティマップに EPC が含まれているかどうかを確認する
-func (d Devices) HasEPCInPropertyMap(device echonet_lite.IPAndEOJ, mapType PropertyMapType, epc echonet_lite.EPCType) bool {
+func (d Devices) HasEPCInPropertyMap(device IPAndEOJ, mapType PropertyMapType, epc EPCType) bool {
 	propMap := d.GetPropertyMap(device, mapType)
 	if propMap == nil {
 		return false
@@ -667,9 +667,9 @@ func (d Devices) HasEPCInPropertyMap(device echonet_lite.IPAndEOJ, mapType Prope
 	return propMap.Has(epc)
 }
 
-func (d Devices) GetIDString(device echonet_lite.IPAndEOJ) IDString {
+func (d Devices) GetIDString(device IPAndEOJ) IDString {
 	// 識別番号はNodeProfileObject から取得する
-	npo := echonet_lite.IPAndEOJ{
+	npo := IPAndEOJ{
 		IP:  device.IP,
 		EOJ: echonet_lite.NodeProfileObject,
 	}
@@ -685,7 +685,7 @@ func (d Devices) GetIDString(device echonet_lite.IPAndEOJ) IDString {
 	return MakeIDString(device.EOJ, *id)
 }
 
-func (d Devices) FindByIDString(id IDString) []echonet_lite.IPAndEOJ {
+func (d Devices) FindByIDString(id IDString) []IPAndEOJ {
 	if id == "" {
 		return nil
 	}
@@ -693,12 +693,12 @@ func (d Devices) FindByIDString(id IDString) []echonet_lite.IPAndEOJ {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	var result []echonet_lite.IPAndEOJ
+	var result []IPAndEOJ
 
 	for ipStr, eojMap := range d.data {
 		ip := net.ParseIP(ipStr)
 		for eoj := range eojMap {
-			ipAndEOJ := echonet_lite.IPAndEOJ{ip, eoj}
+			ipAndEOJ := IPAndEOJ{ip, eoj}
 			idStr := d.GetIDString(ipAndEOJ)
 			if idStr == id {
 				result = append(result, ipAndEOJ)
@@ -708,7 +708,7 @@ func (d Devices) FindByIDString(id IDString) []echonet_lite.IPAndEOJ {
 	return result
 }
 
-func (d DeviceProperties) Set(eoj echonet_lite.EOJ, properties ...echonet_lite.Property) error {
+func (d DeviceProperties) Set(eoj EOJ, properties ...Property) error {
 	if eoj.InstanceCode() == 0 {
 		// インスタンスコードが0の場合は設定できない
 		return fmt.Errorf("インスタンスコードが0のEOJにはプロパティを設定できません")
@@ -722,24 +722,24 @@ func (d DeviceProperties) Set(eoj echonet_lite.EOJ, properties ...echonet_lite.P
 	return nil
 }
 
-func (d DeviceProperties) Get(eoj echonet_lite.EOJ, epc echonet_lite.EPCType) (echonet_lite.Property, bool) {
+func (d DeviceProperties) Get(eoj EOJ, epc EPCType) (Property, bool) {
 	if epc == echonet_lite.EPCGetPropertyMap {
 		// GetPropertyMap は特別なプロパティで、全てのプロパティを含むプロパティマップを返す
-		propertyMap := make(echonet_lite.PropertyMap)
+		propertyMap := make(PropertyMap)
 		for epc := range d[eoj] {
 			propertyMap.Set(epc)
 		}
 		// GetPropertyMapは必ず存在する
 		propertyMap.Set(echonet_lite.EPCGetPropertyMap)
 
-		return echonet_lite.Property{
+		return Property{
 			EPC: epc,
 			EDT: propertyMap.Encode(),
 		}, true
 	}
 
 	if _, ok := d[eoj]; !ok {
-		return echonet_lite.Property{}, false
+		return Property{}, false
 	}
 	prop, ok := d[eoj][epc]
 	return prop, ok
@@ -747,12 +747,12 @@ func (d DeviceProperties) Get(eoj echonet_lite.EOJ, epc echonet_lite.EPCType) (e
 
 // GetProperties は指定されたプロパティの値を取得する。第2返り値はすべての指定されたプロパティが取得できたときにtrue。
 // プロパティが存在しない場合は、そのプロパティは EDT が空の状態で返される
-func (d DeviceProperties) GetProperties(eoj echonet_lite.EOJ, properties echonet_lite.Properties) (echonet_lite.Properties, bool) {
-	result := make([]echonet_lite.Property, 0, len(properties))
+func (d DeviceProperties) GetProperties(eoj EOJ, properties Properties) (Properties, bool) {
+	result := make([]Property, 0, len(properties))
 	success := true
 
 	for _, p := range properties {
-		rep := echonet_lite.Property{
+		rep := Property{
 			EPC: p.EPC,
 			EDT: []byte{}, // empty
 		}
@@ -769,17 +769,17 @@ func (d DeviceProperties) GetProperties(eoj echonet_lite.EOJ, properties echonet
 
 // SetProperties は指定されたプロパティの値を設定する。第2返り値はすべての指定されたプロパティが設定できたときにtrue。
 // プロパティが書き込めない場合は、そのプロパティはリクエストの値で返され、成功した場合はEDTが空になる
-func (d DeviceProperties) SetProperties(eoj echonet_lite.EOJ, properties echonet_lite.Properties) (echonet_lite.Properties, bool) {
-	setPropertyMap := echonet_lite.PropertyMap{}
+func (d DeviceProperties) SetProperties(eoj EOJ, properties Properties) (Properties, bool) {
+	setPropertyMap := PropertyMap{}
 	if p, ok := d.Get(eoj, echonet_lite.EPCSetPropertyMap); ok {
 		setPropertyMap = echonet_lite.DecodePropertyMap(p.EDT)
 	}
 
-	result := make([]echonet_lite.Property, 0, len(properties))
+	result := make([]Property, 0, len(properties))
 	success := true
 
 	for _, p := range properties {
-		rep := echonet_lite.Property{
+		rep := Property{
 			EPC: p.EPC,
 			EDT: p.EDT, // 書き込み失敗したらリクエストの値
 		}
@@ -794,8 +794,8 @@ func (d DeviceProperties) SetProperties(eoj echonet_lite.EOJ, properties echonet
 	return result, success
 }
 
-func (d DeviceProperties) GetInstanceList() []echonet_lite.EOJ {
-	EOJs := []echonet_lite.EOJ{}
+func (d DeviceProperties) GetInstanceList() []EOJ {
+	EOJs := []EOJ{}
 	for eoj := range d {
 		if eoj.ClassCode() == echonet_lite.NodeProfile_ClassCode {
 			continue
@@ -817,7 +817,7 @@ func (d DeviceProperties) UpdateProfileObjectProperties() error {
 	}
 	selfNodeInstanceListS := echonet_lite.SelfNodeInstanceListS(instanceList)
 
-	classes := make(map[echonet_lite.EOJClassCode]struct{})
+	classes := make(map[EOJClassCode]struct{})
 	for _, e := range instanceList {
 		classes[e.ClassCode()] = struct{}{}
 	}
@@ -829,7 +829,7 @@ func (d DeviceProperties) UpdateProfileObjectProperties() error {
 	if err != nil {
 		return err
 	}
-	classArray := make([]echonet_lite.EOJClassCode, 0, len(classes))
+	classArray := make([]EOJClassCode, 0, len(classes))
 	for c := range classes {
 		classArray = append(classArray, c)
 	}
@@ -844,14 +844,14 @@ func (d DeviceProperties) UpdateProfileObjectProperties() error {
 	)
 }
 
-func (d DeviceProperties) FindEOJ(deoj echonet_lite.EOJ) []echonet_lite.EOJ {
+func (d DeviceProperties) FindEOJ(deoj EOJ) []EOJ {
 	// d に　deoj が含まれるなら true
 	if _, ok := d[deoj]; ok {
-		return []echonet_lite.EOJ{deoj}
+		return []EOJ{deoj}
 	}
 	// deoj の instanceCode が 0 の場合、classCode が一致する EOJ を探す
 	if deoj.InstanceCode() == 0 {
-		result := []echonet_lite.EOJ{}
+		result := []EOJ{}
 		for eoj := range d {
 			if eoj.ClassCode() == deoj.ClassCode() {
 				result = append(result, eoj)

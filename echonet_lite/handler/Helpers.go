@@ -11,7 +11,7 @@ import (
 // ParseEOJString parses a string in the format "CCCC:I" where CCCC is a 4-digit hex class code
 // and I is a decimal instance code. Returns the parsed EOJ.
 // Examples: "0130:1", "0EF0:1"
-func ParseEOJString(eojStr string) (echonet_lite.EOJ, error) {
+func ParseEOJString(eojStr string) (EOJ, error) {
 	parts := strings.Split(eojStr, ":")
 	if len(parts) != 2 {
 		return 0, fmt.Errorf("invalid EOJ format: %s (expected format: CCCC:I)", eojStr)
@@ -32,7 +32,7 @@ func ParseEOJString(eojStr string) (echonet_lite.EOJ, error) {
 
 // ParseEOJClassCodeString parses a 4-digit hex string into an EOJClassCode.
 // Example: "0130" -> HomeAirConditioner_ClassCode
-func ParseEOJClassCodeString(classCodeStr string) (echonet_lite.EOJClassCode, error) {
+func ParseEOJClassCodeString(classCodeStr string) (EOJClassCode, error) {
 	if len(classCodeStr) != 4 {
 		return 0, fmt.Errorf("class code must be 4 hexadecimal digits: %s", classCodeStr)
 	}
@@ -42,12 +42,12 @@ func ParseEOJClassCodeString(classCodeStr string) (echonet_lite.EOJClassCode, er
 		return 0, fmt.Errorf("invalid class code: %s (must be 4 hexadecimal digits)", classCodeStr)
 	}
 
-	return echonet_lite.EOJClassCode(classCode64), nil
+	return EOJClassCode(classCode64), nil
 }
 
 // ParseEOJInstanceCodeString parses a decimal string into an EOJInstanceCode.
 // Example: "1" -> EOJInstanceCode(1)
-func ParseEOJInstanceCodeString(instanceCodeStr string) (echonet_lite.EOJInstanceCode, error) {
+func ParseEOJInstanceCodeString(instanceCodeStr string) (EOJInstanceCode, error) {
 	instanceCode64, err := strconv.ParseUint(instanceCodeStr, 10, 8)
 	if err != nil {
 		return 0, fmt.Errorf("invalid instance code: %s (must be a number between 1-255)", instanceCodeStr)
@@ -57,12 +57,12 @@ func ParseEOJInstanceCodeString(instanceCodeStr string) (echonet_lite.EOJInstanc
 		return 0, fmt.Errorf("instance code must be between 1 and 255")
 	}
 
-	return echonet_lite.EOJInstanceCode(instanceCode64), nil
+	return EOJInstanceCode(instanceCode64), nil
 }
 
 // ParseEPCString parses a 2-digit hex string into an EPCType.
 // Example: "80" -> EPCType(0x80)
-func ParseEPCString(epcStr string) (echonet_lite.EPCType, error) {
+func ParseEPCString(epcStr string) (EPCType, error) {
 	if len(epcStr) != 2 {
 		return 0, fmt.Errorf("EPC must be 2 hexadecimal digits: %s", epcStr)
 	}
@@ -72,7 +72,7 @@ func ParseEPCString(epcStr string) (echonet_lite.EPCType, error) {
 		return 0, fmt.Errorf("invalid EPC: %s (must be 2 hexadecimal digits)", epcStr)
 	}
 
-	return echonet_lite.EPCType(epc64), nil
+	return EPCType(epc64), nil
 }
 
 // ParseHexString parses a hex string into a byte array.
@@ -97,34 +97,34 @@ func ParseHexString(hexStr string) ([]byte, error) {
 // ParseDeviceIdentifier parses a device identifier string in the format "IP EOJ"
 // where IP is an IP address and EOJ is in the format "CCCC:I".
 // Example: "192.168.0.1 0130:1"
-func ParseDeviceIdentifier(deviceIdStr string) (echonet_lite.IPAndEOJ, error) {
+func ParseDeviceIdentifier(deviceIdStr string) (IPAndEOJ, error) {
 	parts := strings.Fields(deviceIdStr)
 	if len(parts) != 2 {
-		return echonet_lite.IPAndEOJ{}, fmt.Errorf("invalid device identifier format: %#v (expected format: IP EOJ)", deviceIdStr)
+		return IPAndEOJ{}, fmt.Errorf("invalid device identifier format: %#v (expected format: IP EOJ)", deviceIdStr)
 	}
 
 	ip := net.ParseIP(parts[0])
 	if ip == nil {
-		return echonet_lite.IPAndEOJ{}, fmt.Errorf("invalid IP address: %s", parts[0])
+		return IPAndEOJ{}, fmt.Errorf("invalid IP address: %s", parts[0])
 	}
 
 	eoj, err := ParseEOJString(parts[1])
 	if err != nil {
-		return echonet_lite.IPAndEOJ{}, err
+		return IPAndEOJ{}, err
 	}
 
-	return echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj}, nil
+	return IPAndEOJ{IP: ip, EOJ: eoj}, nil
 }
 
 // FindPropertyAlias finds a property by its alias name for a given class code.
 // This is a wrapper around PropertyTables.FindAlias.
-func FindPropertyAlias(classCode echonet_lite.EOJClassCode, alias string) (echonet_lite.Property, bool) {
+func FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool) {
 	return echonet_lite.PropertyTables.FindAlias(classCode, alias)
 }
 
 // AvailablePropertyAliases returns a map of available property aliases for a given class code.
 // This is a wrapper around PropertyTables.AvailableAliases.
-func AvailablePropertyAliases(classCode echonet_lite.EOJClassCode) map[string]echonet_lite.PropertyDescription {
+func AvailablePropertyAliases(classCode EOJClassCode) map[string]echonet_lite.PropertyDescription {
 	return echonet_lite.PropertyTables.AvailableAliases(classCode)
 }
 
@@ -139,11 +139,11 @@ type IDString string
 
 // MakeIDString は EOJ と IdentificationNumber から IDString を生成します
 // 形式は "${EOJ.IDString()}:${identificationNumber.String()}" です
-func MakeIDString(eoj echonet_lite.EOJ, id echonet_lite.IdentificationNumber) IDString {
+func MakeIDString(eoj EOJ, id echonet_lite.IdentificationNumber) IDString {
 	return IDString(fmt.Sprintf("%s:%s", eoj.IDString(), id.String()))
 }
 
-func DeviceSpecifierFromIPAndEOJ(device echonet_lite.IPAndEOJ) DeviceSpecifier {
+func DeviceSpecifierFromIPAndEOJ(device IPAndEOJ) DeviceSpecifier {
 	classCode := device.EOJ.ClassCode()
 	instanceCode := device.EOJ.InstanceCode()
 	return DeviceSpecifier{

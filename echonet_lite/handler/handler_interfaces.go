@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"echonet-list/echonet_lite"
 	"fmt"
 	"net"
 	"time"
@@ -14,28 +13,28 @@ type DataAccessor interface {
 	SaveDeviceInfo()
 
 	// デバイスの存在確認
-	IsKnownDevice(device echonet_lite.IPAndEOJ) bool
+	IsKnownDevice(device IPAndEOJ) bool
 
 	// プロパティマップ関連
-	HasEPCInPropertyMap(device echonet_lite.IPAndEOJ, mapType PropertyMapType, epc echonet_lite.EPCType) bool
-	GetPropertyMap(device echonet_lite.IPAndEOJ, mapType PropertyMapType) echonet_lite.PropertyMap
+	HasEPCInPropertyMap(device IPAndEOJ, mapType PropertyMapType, epc EPCType) bool
+	GetPropertyMap(device IPAndEOJ, mapType PropertyMapType) PropertyMap
 
 	// プロパティ関連
-	RegisterProperties(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties) []ChangedProperty
-	GetProperty(device echonet_lite.IPAndEOJ, epc echonet_lite.EPCType) (*echonet_lite.Property, bool)
+	RegisterProperties(device IPAndEOJ, properties Properties) []ChangedProperty
+	GetProperty(device IPAndEOJ, epc EPCType) (*Property, bool)
 
 	// デバイス情報
-	GetIDString(device echonet_lite.IPAndEOJ) IDString
-	GetLastUpdateTime(device echonet_lite.IPAndEOJ) time.Time
-	DeviceStringWithAlias(device echonet_lite.IPAndEOJ) string
-	IsOffline(device echonet_lite.IPAndEOJ) bool
-	SetOffline(device echonet_lite.IPAndEOJ, offline bool)
+	GetIDString(device IPAndEOJ) IDString
+	GetLastUpdateTime(device IPAndEOJ) time.Time
+	DeviceStringWithAlias(device IPAndEOJ) string
+	IsOffline(device IPAndEOJ) bool
+	SetOffline(device IPAndEOJ, offline bool)
 
 	// フィルタリング
 	Filter(criteria FilterCriteria) Devices
-	RegisterDevice(device echonet_lite.IPAndEOJ)
+	RegisterDevice(device IPAndEOJ)
 	HasIP(ip net.IP) bool
-	FindByIDString(id IDString) []echonet_lite.IPAndEOJ
+	FindByIDString(id IDString) []IPAndEOJ
 }
 
 // NotificationRelay は、通知イベントを中継する機能を提供するインターフェース
@@ -48,30 +47,30 @@ type NotificationRelay interface {
 	RelaySessionTimeoutEvent(event SessionTimeoutEvent)
 
 	// プロパティ変更イベントの中継
-	RelayPropertyChangeEvent(device echonet_lite.IPAndEOJ, property echonet_lite.Property)
+	RelayPropertyChangeEvent(device IPAndEOJ, property Property)
 }
 
 type ChangedProperty struct {
-	EPC       echonet_lite.EPCType
+	EPC       EPCType
 	beforeEDT []byte
 	afterEDT  []byte
 }
 
-func (c ChangedProperty) Before() echonet_lite.Property {
-	return echonet_lite.Property{
+func (c ChangedProperty) Before() Property {
+	return Property{
 		EPC: c.EPC,
 		EDT: c.beforeEDT,
 	}
 }
 
-func (c ChangedProperty) After() echonet_lite.Property {
-	return echonet_lite.Property{
+func (c ChangedProperty) After() Property {
+	return Property{
 		EPC: c.EPC,
 		EDT: c.afterEDT,
 	}
 }
 
-func (c ChangedProperty) StringForClass(classCode echonet_lite.EOJClassCode) string {
+func (c ChangedProperty) StringForClass(classCode EOJClassCode) string {
 	class := c.EPC.StringForClass(classCode)
 	before := c.Before().EDTString(classCode)
 	after := c.After().EDTString(classCode)

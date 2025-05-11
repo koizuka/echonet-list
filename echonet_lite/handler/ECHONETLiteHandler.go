@@ -84,12 +84,12 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 		UniqueIdentifier: make([]byte, 13), // 識別番号未設定は13バイトの0
 	}
 
-	commonProps := []echonet_lite.Property{
+	commonProps := []Property{
 		operationStatusOn,
 		*identificationNumber.Property(),
 		{echonet_lite.EPCManufacturerCode, manufacturerCodeEDT},
 	}
-	npoProps := []echonet_lite.Property{*echonet_lite.ECHONETLite_Version.Property()}
+	npoProps := []Property{*echonet_lite.ECHONETLite_Version.Property()}
 	npoProps = append(npoProps, commonProps...)
 
 	// 自ノードのプロファイルオブジェクトを作成
@@ -193,7 +193,7 @@ func (h *ECHONETLiteHandler) GetSelfNodeInstanceListS(ip net.IP, isMulti bool) e
 }
 
 // GetGetPropertyMap は、GetPropertyMapプロパティを取得する
-func (h *ECHONETLiteHandler) GetGetPropertyMap(device echonet_lite.IPAndEOJ) error {
+func (h *ECHONETLiteHandler) GetGetPropertyMap(device IPAndEOJ) error {
 	return h.comm.GetGetPropertyMap(device)
 }
 
@@ -203,12 +203,12 @@ func (h *ECHONETLiteHandler) Discover() error {
 }
 
 // GetProperties は、プロパティ値を取得する
-func (h *ECHONETLiteHandler) GetProperties(device echonet_lite.IPAndEOJ, EPCs []echonet_lite.EPCType, skipValidation bool) (DeviceAndProperties, error) {
+func (h *ECHONETLiteHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error) {
 	return h.comm.GetProperties(device, EPCs, skipValidation)
 }
 
 // SetProperties は、プロパティ値を設定する
-func (h *ECHONETLiteHandler) SetProperties(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties) (DeviceAndProperties, error) {
+func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error) {
 	return h.comm.SetProperties(device, properties)
 }
 
@@ -233,12 +233,12 @@ func (h *ECHONETLiteHandler) AliasList() []AliasIDStringPair {
 }
 
 // GetAliases は、指定されたデバイスのエイリアスを取得する
-func (h *ECHONETLiteHandler) GetAliases(device echonet_lite.IPAndEOJ) []string {
+func (h *ECHONETLiteHandler) GetAliases(device IPAndEOJ) []string {
 	return h.data.GetAliases(device)
 }
 
 // DeviceStringWithAlias は、デバイスの文字列表現にエイリアスを付加する
-func (h *ECHONETLiteHandler) DeviceStringWithAlias(device echonet_lite.IPAndEOJ) string {
+func (h *ECHONETLiteHandler) DeviceStringWithAlias(device IPAndEOJ) string {
 	return h.data.DeviceStringWithAlias(device)
 }
 
@@ -253,12 +253,12 @@ func (h *ECHONETLiteHandler) AliasDelete(alias *string) error {
 }
 
 // AliasGet は、エイリアスからデバイスを取得する
-func (h *ECHONETLiteHandler) AliasGet(alias *string) (*echonet_lite.IPAndEOJ, error) {
+func (h *ECHONETLiteHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
 	return h.data.AliasGet(alias)
 }
 
 // GetDevices は、デバイス指定子に一致するデバイスを取得する
-func (h *ECHONETLiteHandler) GetDevices(deviceSpec DeviceSpecifier) []echonet_lite.IPAndEOJ {
+func (h *ECHONETLiteHandler) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
 	return h.data.GetDevices(deviceSpec)
 }
 
@@ -293,17 +293,17 @@ func (h *ECHONETLiteHandler) GetDevicesByGroup(groupName string) ([]IDString, bo
 }
 
 // FindDeviceByIDString は、IDStringからデバイスを検索する
-func (h *ECHONETLiteHandler) FindDeviceByIDString(id IDString) *echonet_lite.IPAndEOJ {
+func (h *ECHONETLiteHandler) FindDeviceByIDString(id IDString) *IPAndEOJ {
 	return h.data.FindDeviceByIDString(id)
 }
 
 // GetIDString は、デバイスのIDStringを取得する
-func (h *ECHONETLiteHandler) GetIDString(device echonet_lite.IPAndEOJ) IDString {
+func (h *ECHONETLiteHandler) GetIDString(device IPAndEOJ) IDString {
 	return h.data.GetIDString(device)
 }
 
 // GetLastUpdateTime は、指定されたデバイスの最終更新タイムスタンプを取得する
-func (h *ECHONETLiteHandler) GetLastUpdateTime(device echonet_lite.IPAndEOJ) time.Time {
+func (h *ECHONETLiteHandler) GetLastUpdateTime(device IPAndEOJ) time.Time {
 	if h == nil || h.data == nil {
 		return time.Time{}
 	}
