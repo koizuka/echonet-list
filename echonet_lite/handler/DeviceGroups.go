@@ -1,4 +1,4 @@
-package echonet_lite
+package handler
 
 import (
 	"encoding/json"
@@ -39,7 +39,9 @@ func (g *DeviceGroups) LoadFromFile(filename string) error {
 	if err != nil {
 		return fmt.Errorf("グループファイルを開けません: %v", err)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
 	// JSONデコード用の一時構造体
 	type GroupEntry struct {
@@ -101,7 +103,9 @@ func (g *DeviceGroups) SaveToFile(filename string) error {
 	if err != nil {
 		return fmt.Errorf("グループファイルの作成に失敗しました: %v", err)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
 	// JSONエンコード
 	encoder := json.NewEncoder(file)

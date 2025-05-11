@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -60,19 +61,21 @@ const (
 // ErrorCode defines error codes for error messages
 type ErrorCode string
 
+// Client Request Related
 const (
-	// Client Request Related
 	ErrorCodeInvalidRequestFormat ErrorCode = "INVALID_REQUEST_FORMAT"
 	ErrorCodeInvalidParameters    ErrorCode = "INVALID_PARAMETERS"
-	ErrorCodeTargetNotFound       ErrorCode = "TARGET_NOT_FOUND"
+	ErrorCodeTargetNotFound       ErrorCode = "TARGET_NOT_FOUND" // not used
 	ErrorCodeAliasOperationFailed ErrorCode = "ALIAS_OPERATION_FAILED"
-	ErrorCodeAliasAlreadyExists   ErrorCode = "ALIAS_ALREADY_EXISTS"
-	ErrorCodeInvalidAliasName     ErrorCode = "INVALID_ALIAS_NAME"
-	ErrorCodeAliasNotFound        ErrorCode = "ALIAS_NOT_FOUND"
+	ErrorCodeAliasAlreadyExists   ErrorCode = "ALIAS_ALREADY_EXISTS" // not used
+	ErrorCodeInvalidAliasName     ErrorCode = "INVALID_ALIAS_NAME"   // not used
+	ErrorCodeAliasNotFound        ErrorCode = "ALIAS_NOT_FOUND"      // not used
+)
 
-	// Server/Communication Related
+// Server/Communication Related
+const (
 	ErrorCodeEchonetTimeout            ErrorCode = "ECHONET_TIMEOUT"
-	ErrorCodeEchonetDeviceError        ErrorCode = "ECHONET_DEVICE_ERROR"
+	ErrorCodeEchonetDeviceError        ErrorCode = "ECHONET_DEVICE_ERROR" // not used
 	ErrorCodeEchonetCommunicationError ErrorCode = "ECHONET_COMMUNICATION_ERROR"
 	ErrorCodeInternalServerError       ErrorCode = "INTERNAL_SERVER_ERROR"
 )
@@ -89,7 +92,7 @@ type Device struct {
 	IP         string                  `json:"ip"`
 	EOJ        string                  `json:"eoj"`
 	Name       string                  `json:"name"`
-	ID         echonet_lite.IDString   `json:"id,omitempty"`
+	ID         handler.IDString        `json:"id,omitempty"`
 	Properties map[string]PropertyData `json:"properties"`
 	LastSeen   time.Time               `json:"lastSeen"`
 }
@@ -102,9 +105,9 @@ type Error struct {
 
 // InitialStatePayload is the payload for the initial_state message
 type InitialStatePayload struct {
-	Devices map[string]Device                  `json:"devices"`
-	Aliases map[string]echonet_lite.IDString   `json:"aliases"`
-	Groups  map[string][]echonet_lite.IDString `json:"groups"`
+	Devices map[string]Device             `json:"devices"`
+	Aliases map[string]handler.IDString   `json:"aliases"`
+	Groups  map[string][]handler.IDString `json:"groups"`
 }
 
 // DeviceAddedPayload is the payload for the device_added message
@@ -114,9 +117,9 @@ type DeviceAddedPayload struct {
 
 // AliasChangedPayload is the payload for the alias_changed message
 type AliasChangedPayload struct {
-	ChangeType AliasChangeType       `json:"change_type"`
-	Alias      string                `json:"alias"`
-	Target     echonet_lite.IDString `json:"target"`
+	ChangeType AliasChangeType  `json:"change_type"`
+	Alias      string           `json:"alias"`
+	Target     handler.IDString `json:"target"`
 }
 
 // PropertyChangedPayload is the payload for the property_changed message
@@ -174,9 +177,9 @@ type UpdatePropertiesPayload struct {
 
 // ManageAliasPayload is the payload for the manage_alias message
 type ManageAliasPayload struct {
-	Action AliasAction           `json:"action"`
-	Alias  string                `json:"alias"`
-	Target echonet_lite.IDString `json:"target,omitempty"`
+	Action AliasAction      `json:"action"`
+	Alias  string           `json:"alias"`
+	Target handler.IDString `json:"target,omitempty"`
 }
 
 // GroupChangeType defines the type of group change
@@ -200,16 +203,16 @@ const (
 
 // GroupChangedPayload is the payload for the group_changed message
 type GroupChangedPayload struct {
-	ChangeType GroupChangeType         `json:"change_type"`
-	Group      string                  `json:"group"`
-	Devices    []echonet_lite.IDString `json:"devices,omitempty"`
+	ChangeType GroupChangeType    `json:"change_type"`
+	Group      string             `json:"group"`
+	Devices    []handler.IDString `json:"devices,omitempty"`
 }
 
 // ManageGroupPayload is the payload for the manage_group message
 type ManageGroupPayload struct {
-	Action  GroupAction             `json:"action"`
-	Group   string                  `json:"group"`
-	Devices []echonet_lite.IDString `json:"devices,omitempty"`
+	Action  GroupAction        `json:"action"`
+	Group   string             `json:"group"`
+	Devices []handler.IDString `json:"devices,omitempty"`
 }
 
 // DiscoverDevicesPayload is the payload for the discover_devices message
@@ -291,9 +294,9 @@ func DeviceToProtocol(ipAndEOJ echonet_lite.IPAndEOJ, properties echonet_lite.Pr
 	}
 
 	// Generate IDString from EOJ and properties
-	var ids echonet_lite.IDString
+	var ids handler.IDString
 	if id := properties.GetIdentificationNumber(); id != nil {
-		ids = echonet_lite.MakeIDString(ipAndEOJ.EOJ, *id)
+		ids = handler.MakeIDString(ipAndEOJ.EOJ, *id)
 	}
 
 	return Device{
@@ -308,7 +311,7 @@ func DeviceToProtocol(ipAndEOJ echonet_lite.IPAndEOJ, properties echonet_lite.Pr
 
 // DeviceFromProtocol converts a protocol Device to ECHONET Lite types
 func DeviceFromProtocol(device Device) (echonet_lite.IPAndEOJ, echonet_lite.Properties, error) {
-	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(device.IP + " " + device.EOJ)
+	ipAndEOJ, err := handler.ParseDeviceIdentifier(device.IP + " " + device.EOJ)
 	if err != nil {
 		return echonet_lite.IPAndEOJ{}, nil, err
 	}
@@ -317,7 +320,7 @@ func DeviceFromProtocol(device Device) (echonet_lite.IPAndEOJ, echonet_lite.Prop
 	var properties echonet_lite.Properties
 	for epcStr, propData := range device.Properties {
 		// Parse EPC string to EPCType
-		epc, err := echonet_lite.ParseEPCString(epcStr)
+		epc, err := handler.ParseEPCString(epcStr)
 		if err != nil {
 			return echonet_lite.IPAndEOJ{}, nil, fmt.Errorf("error parsing EPC: %v", err)
 		}

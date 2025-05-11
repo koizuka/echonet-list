@@ -88,7 +88,7 @@ func (ws *WebSocketServer) periodicUpdater() {
 				// Run update in a separate goroutine to avoid blocking the ticker
 				go func() {
 					// Use an empty FilterCriteria to target all devices
-					err := ws.handler.UpdateProperties(echonet_lite.FilterCriteria{}, false)
+					err := ws.handler.UpdateProperties(handler.FilterCriteria{}, false)
 					if err != nil {
 						// Log the error but don't stop the ticker
 						slog.Error("Error during periodic property update", "err", err)
@@ -222,7 +222,7 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	}
 
 	// Get all devices
-	devices := ws.echonetClient.ListDevices(echonet_lite.FilterCriteria{})
+	devices := ws.echonetClient.ListDevices(handler.FilterCriteria{})
 
 	// Convert devices to protocol format
 	protoDevices := make(map[string]protocol.Device)

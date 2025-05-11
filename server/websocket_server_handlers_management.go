@@ -2,7 +2,7 @@ package server
 
 import (
 	"echonet-list/client"
-	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 	"encoding/json"
 )
@@ -35,7 +35,7 @@ func (ws *WebSocketServer) handleManageAliasFromClient(msg *protocol.Message) pr
 
 		// Create filter criteria
 		criteria := client.FilterCriteria{
-			Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(*ipAndEOJ),
+			Device: handler.DeviceSpecifierFromIPAndEOJ(*ipAndEOJ),
 		}
 
 		// Set the alias
@@ -49,7 +49,7 @@ func (ws *WebSocketServer) handleManageAliasFromClient(msg *protocol.Message) pr
 			Alias:      payload.Alias,
 			Target:     payload.Target,
 		}
-		ws.broadcastMessageToClients(protocol.MessageTypeAliasChanged, aliasChangedPayload)
+		_ = ws.broadcastMessageToClients(protocol.MessageTypeAliasChanged, aliasChangedPayload)
 
 		// Send the success response
 		return SuccessResponse(nil)
@@ -66,7 +66,7 @@ func (ws *WebSocketServer) handleManageAliasFromClient(msg *protocol.Message) pr
 			Alias:      payload.Alias,
 			Target:     "",
 		}
-		ws.broadcastMessageToClients(protocol.MessageTypeAliasChanged, aliasChangedPayload)
+		_ = ws.broadcastMessageToClients(protocol.MessageTypeAliasChanged, aliasChangedPayload)
 
 		// Send the success response
 		return SuccessResponse(nil)
@@ -98,7 +98,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(msg *protocol.Message) pr
 		}
 
 		// Parse the devices
-		devices := make([]echonet_lite.IDString, 0, len(payload.Devices))
+		devices := make([]handler.IDString, 0, len(payload.Devices))
 		for _, ids := range payload.Devices {
 			device := ws.handler.FindDeviceByIDString(ids)
 			if device == nil {
@@ -119,7 +119,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(msg *protocol.Message) pr
 			Group:      payload.Group,
 			Devices:    updatedDevices,
 		}
-		ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
+		_ = ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
 
 		// Send the success response
 		return SuccessResponse(nil)
@@ -131,7 +131,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(msg *protocol.Message) pr
 		}
 
 		// Parse the devices
-		devices := make([]echonet_lite.IDString, 0, len(payload.Devices))
+		devices := make([]handler.IDString, 0, len(payload.Devices))
 		for _, ids := range payload.Devices {
 			device := ws.handler.FindDeviceByIDString(ids)
 			if device == nil {
@@ -153,7 +153,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(msg *protocol.Message) pr
 				ChangeType: protocol.GroupChangeTypeDeleted,
 				Group:      payload.Group,
 			}
-			ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
+			_ = ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
 		} else {
 			// Group was updated
 			groupChangedPayload := protocol.GroupChangedPayload{
@@ -161,7 +161,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(msg *protocol.Message) pr
 				Group:      payload.Group,
 				Devices:    updatedDevices,
 			}
-			ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
+			_ = ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
 		}
 
 		// Send the success response
@@ -178,7 +178,7 @@ func (ws *WebSocketServer) handleManageGroupFromClient(msg *protocol.Message) pr
 			ChangeType: protocol.GroupChangeTypeDeleted,
 			Group:      payload.Group,
 		}
-		ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
+		_ = ws.broadcastMessageToClients(protocol.MessageTypeGroupChanged, groupChangedPayload)
 
 		// Send the success response
 		return SuccessResponse(nil)

@@ -1,7 +1,7 @@
 package client
 
 import (
-	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 	"encoding/base64"
 	"encoding/json"
@@ -221,7 +221,7 @@ func (c *WebSocketClient) AliasDelete(alias *string) error {
 // GroupAdd adds devices to a group
 func (c *WebSocketClient) GroupAdd(groupName string, devices []IDString) error {
 	// Validate the group name
-	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+	if err := handler.ValidateGroupName(groupName); err != nil {
 		return err
 	}
 
@@ -257,7 +257,7 @@ func (c *WebSocketClient) GroupAdd(groupName string, devices []IDString) error {
 // GroupRemove removes devices from a group
 func (c *WebSocketClient) GroupRemove(groupName string, devices []IDString) error {
 	// Validate the group name
-	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+	if err := handler.ValidateGroupName(groupName); err != nil {
 		return err
 	}
 
@@ -293,7 +293,7 @@ func (c *WebSocketClient) GroupRemove(groupName string, devices []IDString) erro
 // GroupDelete deletes a group
 func (c *WebSocketClient) GroupDelete(groupName string) error {
 	// Validate the group name
-	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+	if err := handler.ValidateGroupName(groupName); err != nil {
 		return err
 	}
 

@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 	"encoding/base64"
 	"encoding/json"
@@ -27,7 +28,7 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) 
 	results := make([]protocol.Device, 0, len(payload.Targets))
 	for _, target := range payload.Targets {
 		// Parse the target
-		ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
+		ipAndEOJ, err := handler.ParseDeviceIdentifier(target)
 		if ws.handler.IsDebug() {
 			slog.Debug("Processing target", "target", target, "ipAndEOJ", ipAndEOJ) // DEBUG
 		}
@@ -39,7 +40,7 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) 
 		// Parse EPCs
 		epcs := make([]echonet_lite.EPCType, 0, len(payload.EPCs))
 		for _, epcStr := range payload.EPCs {
-			epc, err := echonet_lite.ParseEPCString(epcStr)
+			epc, err := handler.ParseEPCString(epcStr)
 			if err != nil {
 				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
 			}
@@ -98,7 +99,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 	}
 
 	// Parse the target
-	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.Target)
+	ipAndEOJ, err := handler.ParseDeviceIdentifier(payload.Target)
 	if err != nil {
 		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
 	}
@@ -106,7 +107,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 	// Parse properties
 	properties := make(echonet_lite.Properties, 0, len(payload.Properties))
 	for epcStr, propData := range payload.Properties {
-		epc, err := echonet_lite.ParseEPCString(epcStr)
+		epc, err := handler.ParseEPCString(epcStr)
 		if err != nil {
 			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid EPC: %v", err)
 		}
@@ -261,7 +262,7 @@ func (ws *WebSocketServer) handleGetPropertyDescriptionFromClient(msg *protocol.
 		}
 	} else {
 		// Parse the class code if not empty
-		classCode, err = echonet_lite.ParseEOJClassCodeString(payload.ClassCode)
+		classCode, err = handler.ParseEOJClassCodeString(payload.ClassCode)
 		if err != nil {
 			slog.Error("Error: invalid class code", "err", err)
 			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid class code: %v", err)
@@ -314,23 +315,23 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(msg *protocol.Messag
 	}
 
 	// フィルター基準のリストを準備
-	var filterCriteriaList []echonet_lite.FilterCriteria
+	var filterCriteriaList []handler.FilterCriteria
 
 	if len(payload.Targets) == 0 {
 		// targetsが空の場合、全デバイスを対象とするフィルター基準を追加
-		filterCriteriaList = append(filterCriteriaList, echonet_lite.FilterCriteria{})
+		filterCriteriaList = append(filterCriteriaList, handler.FilterCriteria{})
 	} else {
 		// targetsが指定されている場合、各ターゲットに対応するフィルター基準を作成
-		filterCriteriaList = make([]echonet_lite.FilterCriteria, 0, len(payload.Targets)) // スライスを事前に確保
+		filterCriteriaList = make([]handler.FilterCriteria, 0, len(payload.Targets)) // スライスを事前に確保
 		for _, target := range payload.Targets {
-			ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(target)
+			ipAndEOJ, err := handler.ParseDeviceIdentifier(target)
 			if err != nil {
 				// エラーが発生した場合、エラー応答を返す
 				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid target: %v", err)
 			}
 			// 各デバイスに対応するフィルター基準を作成
-			criteria := echonet_lite.FilterCriteria{
-				Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(ipAndEOJ),
+			criteria := handler.FilterCriteria{
+				Device: handler.DeviceSpecifierFromIPAndEOJ(ipAndEOJ),
 			}
 			filterCriteriaList = append(filterCriteriaList, criteria)
 		}

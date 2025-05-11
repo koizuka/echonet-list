@@ -13,19 +13,19 @@ import (
 
 // CommunicationHandler は、ECHONET Lite 通信機能を担当する構造体
 type CommunicationHandler struct {
-	session      *Session                      // セッション
-	localDevices echonet_lite.DeviceProperties // 自ノードが所有するデバイスのプロパティ
-	dataAccessor DataAccessor                  // データアクセス機能
-	notifier     NotificationRelay             // 通知中継
-	ctx          context.Context               // コンテキスト
-	Debug        bool                          // デバッグモード
+	session      *Session          // セッション
+	localDevices DeviceProperties  // 自ノードが所有するデバイスのプロパティ
+	dataAccessor DataAccessor      // データアクセス機能
+	notifier     NotificationRelay // 通知中継
+	ctx          context.Context   // コンテキスト
+	Debug        bool              // デバッグモード
 }
 
 // NewCommunicationHandler は、CommunicationHandlerの新しいインスタンスを作成する
 func NewCommunicationHandler(
 	ctx context.Context,
 	session *Session,
-	localDevices echonet_lite.DeviceProperties,
+	localDevices DeviceProperties,
 	dataAccessor DataAccessor,
 	notifier NotificationRelay,
 	debug bool,
@@ -396,7 +396,7 @@ func (h *CommunicationHandler) GetProperties(device echonet_lite.IPAndEOJ, EPCs 
 
 	if !skipValidation {
 		// 指定されたEPCがGetPropertyMapに含まれているか確認
-		valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, EPCs, echonet_lite.GetPropertyMap)
+		valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, EPCs, GetPropertyMap)
 		if err != nil {
 			return DeviceAndProperties{}, err
 		}
@@ -452,7 +452,7 @@ func (h *CommunicationHandler) SetProperties(device echonet_lite.IPAndEOJ, prope
 		epcs = append(epcs, prop.EPC)
 	}
 
-	valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, epcs, echonet_lite.SetPropertyMap)
+	valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, epcs, SetPropertyMap)
 	if err != nil {
 		return DeviceAndProperties{}, err
 	}
@@ -497,7 +497,7 @@ func (h *CommunicationHandler) SetProperties(device echonet_lite.IPAndEOJ, prope
 
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
 // force が true の場合、最終更新時刻に関わらず強制的に更新する
-func (h *CommunicationHandler) UpdateProperties(criteria echonet_lite.FilterCriteria, force bool) error {
+func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
 	// フィルタリングを実行
 	filtered := h.dataAccessor.Filter(criteria)
 
@@ -538,7 +538,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria echonet_lite.FilterCrit
 
 		wg.Add(1)
 
-		propMap := h.dataAccessor.GetPropertyMap(device, echonet_lite.GetPropertyMap)
+		propMap := h.dataAccessor.GetPropertyMap(device, GetPropertyMap)
 		if propMap == nil {
 			storeError(fmt.Errorf("プロパティマップが見つかりません: %v", device))
 			wg.Done()
@@ -616,7 +616,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria echonet_lite.FilterCrit
 }
 
 // validateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
-func (h *CommunicationHandler) validateEPCsInPropertyMap(device echonet_lite.IPAndEOJ, epcs []echonet_lite.EPCType, mapType echonet_lite.PropertyMapType) (bool, []echonet_lite.EPCType, error) {
+func (h *CommunicationHandler) validateEPCsInPropertyMap(device echonet_lite.IPAndEOJ, epcs []echonet_lite.EPCType, mapType PropertyMapType) (bool, []echonet_lite.EPCType, error) {
 	invalidEPCs := []echonet_lite.EPCType{}
 
 	// デバイスが存在するか確認

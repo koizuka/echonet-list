@@ -2,7 +2,7 @@ package console
 
 import (
 	"echonet-list/client"
-	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"errors"
 	"fmt"
 	"strings"
@@ -362,7 +362,7 @@ var CommandTable = []CommandDefinition{
 
 				// エイリアス名のパース
 				alias := parts[1]
-				if err := echonet_lite.ValidateDeviceAlias(alias); err != nil {
+				if err := handler.ValidateDeviceAlias(alias); err != nil {
 					return nil, err
 				}
 				cmd.DeviceAlias = &alias
@@ -371,7 +371,7 @@ var CommandTable = []CommandDefinition{
 
 				// エイリアス名のパース
 				alias := parts[1]
-				if err := echonet_lite.ValidateDeviceAlias(alias); err != nil {
+				if err := handler.ValidateDeviceAlias(alias); err != nil {
 					return nil, err
 				}
 				cmd.DeviceAlias = &alias
@@ -517,7 +517,7 @@ var CommandTable = []CommandDefinition{
 					return nil, fmt.Errorf("group add コマンドにはグループ名が必要です")
 				}
 				groupName := parts[2]
-				if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+				if err := handler.ValidateGroupName(groupName); err != nil {
 					return nil, err
 				}
 
@@ -547,7 +547,7 @@ var CommandTable = []CommandDefinition{
 					return nil, fmt.Errorf("group remove コマンドにはグループ名が必要です")
 				}
 				groupName := parts[2]
-				if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+				if err := handler.ValidateGroupName(groupName); err != nil {
 					return nil, err
 				}
 
@@ -577,7 +577,7 @@ var CommandTable = []CommandDefinition{
 					return nil, fmt.Errorf("group delete コマンドにはグループ名のみが必要です")
 				}
 				groupName := parts[2]
-				if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+				if err := handler.ValidateGroupName(groupName); err != nil {
 					return nil, err
 				}
 
@@ -588,7 +588,7 @@ var CommandTable = []CommandDefinition{
 				cmd = newCommand(CmdGroupList)
 				if len(parts) > 2 {
 					groupName := parts[2]
-					if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+					if err := handler.ValidateGroupName(groupName); err != nil {
 						return nil, err
 					}
 					cmd.GroupName = &groupName

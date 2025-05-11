@@ -1,7 +1,8 @@
-package echonet_lite
+package handler
 
 import (
 	"bytes"
+	"echonet-list/echonet_lite"
 	"encoding/json"
 	"net"
 	"os"
@@ -12,11 +13,10 @@ import (
 )
 
 // HasPropertyWithValue is a test helper function that checks if a property with the expected EPC and EDT exists for the given device
-// Deprecated: Use cmp.Diff for comparing complex structures. This helper remains for simple checks.
-func HasPropertyWithValue(d Devices, device IPAndEOJ, epc EPCType, expectedEDT []byte) bool {
+func HasPropertyWithValue(d Devices, device echonet_lite.IPAndEOJ, epc echonet_lite.EPCType, expectedEDT []byte) bool {
 	criteria := FilterCriteria{
 		Device:         DeviceSpecifierFromIPAndEOJ(device),
-		PropertyValues: []Property{{EPC: epc, EDT: expectedEDT}},
+		PropertyValues: []echonet_lite.Property{{EPC: epc, EDT: expectedEDT}},
 	}
 
 	return d.Filter(criteria).Len() > 0
@@ -25,7 +25,9 @@ func HasPropertyWithValue(d Devices, device IPAndEOJ, epc EPCType, expectedEDT [
 func TestDevices_SaveToFile(t *testing.T) {
 	// Create a temporary file for testing
 	tempFile := "test_save.json"
-	defer os.Remove(tempFile) // Clean up after test
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(tempFile) // Clean up after test
 
 	// Define IP addresses
 	ip1 := net.ParseIP("192.168.1.1")
@@ -34,15 +36,15 @@ func TestDevices_SaveToFile(t *testing.T) {
 	devices := NewDevices()
 
 	// Create test EOJ and Property
-	eoj := EOJ(0x013001) // Example EOJ
-	epc := EPCType(0x80) // Example EPC
-	property := Property{
+	eoj := echonet_lite.EOJ(0x013001) // Example EOJ
+	epc := echonet_lite.EPCType(0x80) // Example EPC
+	property := echonet_lite.Property{
 		EPC: epc,
 		EDT: []byte{0x30},
 	}
 
 	// Register the test property
-	ip1eoj := IPAndEOJ{ip1, eoj}
+	ip1eoj := echonet_lite.IPAndEOJ{ip1, eoj}
 	devices.RegisterProperty(ip1eoj, property, time.Now())
 
 	// Save to file
@@ -81,7 +83,9 @@ func TestDevices_SaveToFile(t *testing.T) {
 func TestDevices_LoadFromFile(t *testing.T) {
 	// Create a temporary file for testing
 	tempFile := "test_load.json"
-	defer os.Remove(tempFile) // Clean up after test
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(tempFile) // Clean up after test
 
 	// Define IP addresses
 	ip1 := net.ParseIP("192.168.1.1")
@@ -90,14 +94,14 @@ func TestDevices_LoadFromFile(t *testing.T) {
 	tempDevices := NewDevices()
 
 	// Create test EOJ and Property
-	eoj := EOJ(0x013001) // Example EOJ
-	epc := EPCType(0x80) // Example EPC
-	property := Property{
+	eoj := echonet_lite.EOJ(0x013001) // Example EOJ
+	epc := echonet_lite.EPCType(0x80) // Example EPC
+	property := echonet_lite.Property{
 		EPC: epc,
 		EDT: []byte{0x30},
 	}
 
-	ip1eoj := IPAndEOJ{ip1, eoj}
+	ip1eoj := echonet_lite.IPAndEOJ{ip1, eoj}
 
 	// Register the test property
 	tempDevices.RegisterProperty(ip1eoj, property, time.Now())
@@ -135,7 +139,9 @@ func TestDevices_LoadFromFile(t *testing.T) {
 func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 	// Create a temporary file for testing
 	tempFile := "test_save_load.json"
-	defer os.Remove(tempFile) // Clean up after test
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(tempFile) // Clean up after test
 
 	// Define IP addresses
 	ip1 := net.ParseIP("192.168.1.1")
@@ -145,24 +151,24 @@ func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 	originalDevices := NewDevices()
 
 	// Create test EOJs and Properties
-	eoj1 := EOJ(0x013001) // Example EOJ 1
-	eoj2 := EOJ(0x028801) // Example EOJ 2
+	eoj1 := echonet_lite.EOJ(0x013001) // Example EOJ 1
+	eoj2 := echonet_lite.EOJ(0x028801) // Example EOJ 2
 
-	epc1 := EPCType(0x80) // Example EPC 1
-	epc2 := EPCType(0x81) // Example EPC 2
+	epc1 := echonet_lite.EPCType(0x80) // Example EPC 1
+	epc2 := echonet_lite.EPCType(0x81) // Example EPC 2
 
-	property1 := Property{
+	property1 := echonet_lite.Property{
 		EPC: epc1,
 		EDT: []byte{0x30},
 	}
 
-	property2 := Property{
+	property2 := echonet_lite.Property{
 		EPC: epc2,
 		EDT: []byte{0x41, 0x42},
 	}
 
-	ip1eoj1 := IPAndEOJ{ip1, eoj1}
-	ip2eoj2 := IPAndEOJ{ip2, eoj2}
+	ip1eoj1 := echonet_lite.IPAndEOJ{ip1, eoj1}
+	ip2eoj2 := echonet_lite.IPAndEOJ{ip2, eoj2}
 
 	// Register the test properties
 	originalDevices.RegisterProperty(ip1eoj1, property1, time.Now())
@@ -184,7 +190,7 @@ func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 	}
 	// Verify the loaded data matches the original data using GetProperty and cmp.Diff
 	// Use string representation for map key as IPAndEOJ is not comparable
-	expectedProperties := map[string][]Property{
+	expectedProperties := map[string][]echonet_lite.Property{
 		ip1eoj1.String(): {property1},
 		ip2eoj2.String(): {property2},
 	}
@@ -195,7 +201,7 @@ func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 	// If not available, we stick to checking only the expected devices.
 
 	// Check expected devices explicitly
-	devicesToCheck := []IPAndEOJ{ip1eoj1, ip2eoj2}
+	devicesToCheck := []echonet_lite.IPAndEOJ{ip1eoj1, ip2eoj2}
 	for _, device := range devicesToCheck {
 		deviceKey := device.String()
 		expectedProps, keyExists := expectedProperties[deviceKey]
@@ -250,7 +256,9 @@ func TestDevices_LoadFromFile_Error(t *testing.T) {
 
 	// Create a temporary file with invalid JSON
 	tempFile := "invalid_json.json"
-	defer os.Remove(tempFile)
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(tempFile)
 
 	err = os.WriteFile(tempFile, []byte("invalid json"), 0644)
 	if err != nil {
@@ -276,8 +284,8 @@ func TestDevices_DeviceEvents(t *testing.T) {
 
 	// テスト用のデバイス情報
 	ip1 := net.ParseIP("192.168.1.1")
-	eoj1 := EOJ(0x013001)
-	device1 := IPAndEOJ{IP: ip1, EOJ: eoj1}
+	eoj1 := echonet_lite.EOJ(0x013001)
+	device1 := echonet_lite.IPAndEOJ{IP: ip1, EOJ: eoj1}
 
 	// 1. 新規デバイス登録時にイベントが送信されることを確認
 	devices.RegisterDevice(device1)
@@ -307,9 +315,9 @@ func TestDevices_DeviceEvents(t *testing.T) {
 
 	// 3. プロパティ登録時に新しいデバイスが登録された場合のイベント送信を確認
 	ip2 := net.ParseIP("192.168.1.2")
-	eoj2 := EOJ(0x013002)
-	device2 := IPAndEOJ{IP: ip2, EOJ: eoj2}
-	property := Property{EPC: EPCType(0x80), EDT: []byte{0x30}}
+	eoj2 := echonet_lite.EOJ(0x013002)
+	device2 := echonet_lite.IPAndEOJ{IP: ip2, EOJ: eoj2}
+	property := echonet_lite.Property{EPC: echonet_lite.EPCType(0x80), EDT: []byte{0x30}}
 
 	devices.RegisterProperty(device2, property, time.Now())
 
@@ -332,8 +340,8 @@ func TestDevices_DeviceEvents(t *testing.T) {
 
 	// 新しいデバイスを登録（チャンネルがブロックされているため送信されない）
 	ip3 := net.ParseIP("192.168.1.3")
-	eoj3 := EOJ(0x013003)
-	device3 := IPAndEOJ{IP: ip3, EOJ: eoj3}
+	eoj3 := echonet_lite.EOJ(0x013003)
+	device3 := echonet_lite.IPAndEOJ{IP: ip3, EOJ: eoj3}
 
 	// ブロックされたチャンネルでもデバイス登録が成功することを確認
 	devices.RegisterDevice(device3)
@@ -350,19 +358,19 @@ func TestDeviceProperties_MarshalJSON(t *testing.T) {
 	props := make(DeviceProperties)
 
 	// EOJ を作成
-	eoj1 := MakeEOJ(HomeAirConditioner_ClassCode, 1)
-	eoj2 := MakeEOJ(LightingSystem_ClassCode, 2)
-	eoj3 := MakeEOJ(NodeProfile_ClassCode, 0) // インスタンスコード 0 のケース
+	eoj1 := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+	eoj2 := echonet_lite.MakeEOJ(echonet_lite.LightingSystem_ClassCode, 2)
+	eoj3 := echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 0) // インスタンスコード 0 のケース
 
 	// プロパティを作成
 	props[eoj1] = make(EPCPropertyMap)
-	props[eoj1][EPCType(0x80)] = Property{EPC: EPCType(0x80), EDT: []byte{0x30}}
+	props[eoj1][echonet_lite.EPCType(0x80)] = echonet_lite.Property{EPC: echonet_lite.EPCType(0x80), EDT: []byte{0x30}}
 
 	props[eoj2] = make(EPCPropertyMap)
-	props[eoj2][EPCType(0x81)] = Property{EPC: EPCType(0x81), EDT: []byte{0x41, 0x42}}
+	props[eoj2][echonet_lite.EPCType(0x81)] = echonet_lite.Property{EPC: echonet_lite.EPCType(0x81), EDT: []byte{0x41, 0x42}}
 
 	props[eoj3] = make(EPCPropertyMap)
-	props[eoj3][EPCType(0x82)] = Property{EPC: EPCType(0x82), EDT: []byte{0x50}}
+	props[eoj3][echonet_lite.EPCType(0x82)] = echonet_lite.Property{EPC: echonet_lite.EPCType(0x82), EDT: []byte{0x50}}
 
 	// JSON にエンコード
 	data, err := json.Marshal(props)
@@ -422,18 +430,18 @@ func TestDeviceProperties_UnmarshalJSON(t *testing.T) {
 
 	// 期待される DeviceProperties を作成
 	expectedProps := make(DeviceProperties)
-	eoj1 := MakeEOJ(HomeAirConditioner_ClassCode, 1)
-	eoj2 := MakeEOJ(LightingSystem_ClassCode, 2)
-	eoj3 := MakeEOJ(NodeProfile_ClassCode, 0)
+	eoj1 := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+	eoj2 := echonet_lite.MakeEOJ(echonet_lite.LightingSystem_ClassCode, 2)
+	eoj3 := echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 0)
 
 	expectedProps[eoj1] = EPCPropertyMap{
-		EPCType(0x80): {EPC: EPCType(0x80), EDT: []byte{0x30}},
+		echonet_lite.EPCType(0x80): {EPC: echonet_lite.EPCType(0x80), EDT: []byte{0x30}},
 	}
 	expectedProps[eoj2] = EPCPropertyMap{
-		EPCType(0x81): {EPC: EPCType(0x81), EDT: []byte{0x41, 0x42}},
+		echonet_lite.EPCType(0x81): {EPC: echonet_lite.EPCType(0x81), EDT: []byte{0x41, 0x42}},
 	}
 	expectedProps[eoj3] = EPCPropertyMap{
-		EPCType(0x82): {EPC: EPCType(0x82), EDT: []byte{0x50}},
+		echonet_lite.EPCType(0x82): {EPC: echonet_lite.EPCType(0x82), EDT: []byte{0x50}},
 	}
 
 	// cmp.Diff で比較
@@ -446,7 +454,9 @@ func TestDeviceProperties_UnmarshalJSON(t *testing.T) {
 func TestDevices_SaveLoadToFile_EOJFormat(t *testing.T) {
 	// 一時ファイルを作成
 	tempFile := "test_eoj_format.json"
-	defer os.Remove(tempFile)
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(tempFile)
 
 	// テスト用のデータを作成
 	devices := NewDevices()
@@ -455,15 +465,15 @@ func TestDevices_SaveLoadToFile_EOJFormat(t *testing.T) {
 	ip := net.ParseIP("192.168.1.1")
 
 	// 異なるタイプの EOJ を作成
-	eoj1 := MakeEOJ(HomeAirConditioner_ClassCode, 1)
-	eoj2 := MakeEOJ(LightingSystem_ClassCode, 2)
-	eoj3 := MakeEOJ(NodeProfile_ClassCode, 0) // インスタンスコード 0 のケース
+	eoj1 := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+	eoj2 := echonet_lite.MakeEOJ(echonet_lite.LightingSystem_ClassCode, 2)
+	eoj3 := echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 0) // インスタンスコード 0 のケース
 
 	// プロパティを登録
 	now := time.Now()
-	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj1}, Property{EPC: EPCType(0x80), EDT: []byte{0x30}}, now)
-	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj2}, Property{EPC: EPCType(0x81), EDT: []byte{0x41, 0x42}}, now)
-	devices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj3}, Property{EPC: EPCType(0x82), EDT: []byte{0x50}}, now)
+	devices.RegisterProperty(echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj1}, echonet_lite.Property{EPC: echonet_lite.EPCType(0x80), EDT: []byte{0x30}}, now)
+	devices.RegisterProperty(echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj2}, echonet_lite.Property{EPC: echonet_lite.EPCType(0x81), EDT: []byte{0x41, 0x42}}, now)
+	devices.RegisterProperty(echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj3}, echonet_lite.Property{EPC: echonet_lite.EPCType(0x82), EDT: []byte{0x50}}, now)
 
 	// ファイルに保存
 	err := devices.SaveToFile(tempFile)
@@ -499,16 +509,16 @@ func TestDevices_SaveLoadToFile_EOJFormat(t *testing.T) {
 		t.Fatalf("Failed to load devices from file: %v", err)
 	}
 	// 読み込んだデータと元のデータを比較
-	dev1 := IPAndEOJ{IP: ip, EOJ: eoj1}
-	dev2 := IPAndEOJ{IP: ip, EOJ: eoj2}
-	dev3 := IPAndEOJ{IP: ip, EOJ: eoj3}
-	expectedProperties := map[string][]Property{
-		dev1.String(): {{EPC: EPCType(0x80), EDT: []byte{0x30}}},
-		dev2.String(): {{EPC: EPCType(0x81), EDT: []byte{0x41, 0x42}}},
-		dev3.String(): {{EPC: EPCType(0x82), EDT: []byte{0x50}}},
+	dev1 := echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj1}
+	dev2 := echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj2}
+	dev3 := echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj3}
+	expectedProperties := map[string][]echonet_lite.Property{
+		dev1.String(): {{EPC: echonet_lite.EPCType(0x80), EDT: []byte{0x30}}},
+		dev2.String(): {{EPC: echonet_lite.EPCType(0x81), EDT: []byte{0x41, 0x42}}},
+		dev3.String(): {{EPC: echonet_lite.EPCType(0x82), EDT: []byte{0x50}}},
 	}
 
-	devicesToCheck := []IPAndEOJ{dev1, dev2, dev3}
+	devicesToCheck := []echonet_lite.IPAndEOJ{dev1, dev2, dev3}
 	for _, device := range devicesToCheck {
 		deviceKey := device.String()
 		expectedProps, keyExists := expectedProperties[deviceKey]
@@ -535,9 +545,9 @@ func TestDevices_SaveLoadToFile_EOJFormat(t *testing.T) {
 
 func TestDevices_TimestampUpdate(t *testing.T) {
 	devices := NewDevices()
-	device := IPAndEOJ{IP: net.ParseIP("192.168.1.10"), EOJ: MakeEOJ(HomeAirConditioner_ClassCode, 1)}
-	prop1 := Property{EPC: EPCOperationStatus, EDT: []byte{0x30}}
-	prop2 := Property{EPC: EPC_HAC_OperationModeSetting, EDT: []byte{0x41}}
+	device := echonet_lite.IPAndEOJ{IP: net.ParseIP("192.168.1.10"), EOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)}
+	prop1 := echonet_lite.Property{EPC: echonet_lite.EPCOperationStatus, EDT: []byte{0x30}}
+	prop2 := echonet_lite.Property{EPC: echonet_lite.EPC_HAC_OperationModeSetting, EDT: []byte{0x41}}
 
 	// 1. RegisterProperty でタイムスタンプが設定されるか確認
 	testTime1 := time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -550,7 +560,7 @@ func TestDevices_TimestampUpdate(t *testing.T) {
 
 	// 2. RegisterProperties でタイムスタンプが更新されるか確認
 	testTime2 := testTime1.Add(time.Hour)
-	devices.RegisterProperties(device, []Property{prop2}, testTime2) // 別のプロパティで更新
+	devices.RegisterProperties(device, []echonet_lite.Property{prop2}, testTime2) // 別のプロパティで更新
 
 	lastUpdate2 := devices.GetLastUpdateTime(device)
 	if !lastUpdate2.Equal(testTime2) {
@@ -558,7 +568,7 @@ func TestDevices_TimestampUpdate(t *testing.T) {
 	}
 
 	// 3. 存在しないデバイスのタイムスタンプはゼロ値か確認
-	nonExistentDevice := IPAndEOJ{IP: net.ParseIP("192.168.1.11"), EOJ: MakeEOJ(HomeAirConditioner_ClassCode, 2)}
+	nonExistentDevice := echonet_lite.IPAndEOJ{IP: net.ParseIP("192.168.1.11"), EOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 2)}
 	lastUpdate3 := devices.GetLastUpdateTime(nonExistentDevice)
 	if !lastUpdate3.IsZero() {
 		t.Errorf("Expected zero timestamp for non-existent device, got %v", lastUpdate3)
@@ -568,25 +578,27 @@ func TestDevices_TimestampUpdate(t *testing.T) {
 // TestDevices_SaveLoadNewFormat は新しいJSONフォーマット(v2)での保存と読み込みをテストします
 func TestDevices_SaveLoadNewFormat(t *testing.T) {
 	tempFile := "test_save_load_v2.json"
-	defer os.Remove(tempFile)
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(tempFile)
 
 	// 1. テストデータ準備
 	originalDevices := NewDevices()
 	ip := net.ParseIP("192.168.1.100")
-	eoj1 := MakeEOJ(HomeAirConditioner_ClassCode, 1) // 0130:1
-	eoj2 := MakeEOJ(NodeProfile_ClassCode, 0)        // 0EF0
-	epc1 := EPCType(0x80)                            // Operation Status
-	epc2 := EPCType(0xB0)                            // Operation Mode Setting
-	epc3 := EPCType(EPC_NPO_VersionInfo)             // 0x82 (Corrected)
+	eoj1 := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1) // 0130:1
+	eoj2 := echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 0)        // 0EF0
+	epc1 := echonet_lite.EPCType(0x80)                                         // Operation Status
+	epc2 := echonet_lite.EPCType(0xB0)                                         // Operation Mode Setting
+	epc3 := echonet_lite.EPCType(echonet_lite.EPC_NPO_VersionInfo)             // 0x82 (Corrected)
 
-	prop1 := Property{EPC: epc1, EDT: []byte{0x30}}                   // ON
-	prop2 := Property{EPC: epc2, EDT: []byte{0x41}}                   // Auto
-	prop3 := Property{EPC: epc3, EDT: []byte{0x01, 0x01, 0x61, 0x00}} // Ver. 1.1, Type a
+	prop1 := echonet_lite.Property{EPC: epc1, EDT: []byte{0x30}}                   // ON
+	prop2 := echonet_lite.Property{EPC: epc2, EDT: []byte{0x41}}                   // Auto
+	prop3 := echonet_lite.Property{EPC: epc3, EDT: []byte{0x01, 0x01, 0x61, 0x00}} // Ver. 1.1, Type a
 
 	now := time.Now()
-	originalDevices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj1}, prop1, now)
-	originalDevices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj1}, prop2, now)
-	originalDevices.RegisterProperty(IPAndEOJ{IP: ip, EOJ: eoj2}, prop3, now)
+	originalDevices.RegisterProperty(echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj1}, prop1, now)
+	originalDevices.RegisterProperty(echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj1}, prop2, now)
+	originalDevices.RegisterProperty(echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj2}, prop3, now)
 
 	// 2. ファイルに保存
 	err := originalDevices.SaveToFile(tempFile)
@@ -639,14 +651,14 @@ func TestDevices_SaveLoadNewFormat(t *testing.T) {
 		t.Fatalf("LoadFromFile failed: %v", err)
 	}
 	// 5. 読み込んだデータの検証
-	dev1 := IPAndEOJ{IP: ip, EOJ: eoj1}
-	dev2 := IPAndEOJ{IP: ip, EOJ: eoj2}
-	expectedProperties := map[string][]Property{
+	dev1 := echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj1}
+	dev2 := echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj2}
+	expectedProperties := map[string][]echonet_lite.Property{
 		dev1.String(): {prop1, prop2},
 		dev2.String(): {prop3},
 	}
 
-	devicesToCheck := []IPAndEOJ{dev1, dev2}
+	devicesToCheck := []echonet_lite.IPAndEOJ{dev1, dev2}
 	for _, device := range devicesToCheck {
 		deviceKey := device.String()
 		expectedProps, keyExists := expectedProperties[deviceKey]
@@ -674,7 +686,9 @@ func TestDevices_SaveLoadNewFormat(t *testing.T) {
 // TestDevices_LoadOldFormat は古いJSONフォーマット(v1)の読み込みをテストします
 func TestDevices_LoadOldFormat(t *testing.T) {
 	tempFile := "test_load_v1.json"
-	defer os.Remove(tempFile)
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(tempFile)
 
 	// 古いフォーマットのJSONデータを作成
 	oldJsonData := []byte(`{
@@ -711,22 +725,22 @@ func TestDevices_LoadOldFormat(t *testing.T) {
 	}
 	// 期待されるプロパティデータを作成
 	ip := net.ParseIP("192.168.1.200")
-	eoj1 := MakeEOJ(HomeAirConditioner_ClassCode, 1)
-	eoj2 := MakeEOJ(NodeProfile_ClassCode, 0)
-	dev1 := IPAndEOJ{IP: ip, EOJ: eoj1}
-	dev2 := IPAndEOJ{IP: ip, EOJ: eoj2}
-	expectedProperties := map[string][]Property{
+	eoj1 := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+	eoj2 := echonet_lite.MakeEOJ(echonet_lite.NodeProfile_ClassCode, 0)
+	dev1 := echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj1}
+	dev2 := echonet_lite.IPAndEOJ{IP: ip, EOJ: eoj2}
+	expectedProperties := map[string][]echonet_lite.Property{
 		dev1.String(): {
-			{EPC: EPCType(0x80), EDT: []byte{0x31}}, // "MQ=="
-			{EPC: EPCType(0xB0), EDT: []byte{0x42}}, // "Qg=="
+			{EPC: echonet_lite.EPCType(0x80), EDT: []byte{0x31}}, // "MQ=="
+			{EPC: echonet_lite.EPCType(0xB0), EDT: []byte{0x42}}, // "Qg=="
 		},
 		dev2.String(): {
-			{EPC: EPCType(0x82), EDT: []byte{0x01, 0x01, 0x62, 0x00}}, // "AQFiAA=="
+			{EPC: echonet_lite.EPCType(0x82), EDT: []byte{0x01, 0x01, 0x62, 0x00}}, // "AQFiAA=="
 		},
 	}
 
 	// 読み込んだデータと比較
-	devicesToCheck := []IPAndEOJ{dev1, dev2}
+	devicesToCheck := []echonet_lite.IPAndEOJ{dev1, dev2}
 	for _, device := range devicesToCheck {
 		deviceKey := device.String()
 		expectedProps, keyExists := expectedProperties[deviceKey]
@@ -753,7 +767,7 @@ func TestDevices_LoadOldFormat(t *testing.T) {
 
 func TestDevices_OfflineStatus(t *testing.T) {
 	devices := NewDevices()
-	device := IPAndEOJ{IP: net.ParseIP("192.168.0.10"), EOJ: EOJ(0x013001)}
+	device := echonet_lite.IPAndEOJ{IP: net.ParseIP("192.168.0.10"), EOJ: echonet_lite.EOJ(0x013001)}
 
 	// 初期状態はオンライン (false)
 	if devices.IsOffline(device) {

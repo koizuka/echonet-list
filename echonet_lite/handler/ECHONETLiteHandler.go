@@ -34,10 +34,10 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 	}
 
 	// デバイス情報を管理するオブジェクトを作成
-	devices := echonet_lite.NewDevices()
+	devices := NewDevices()
 
 	// デバイスイベント用チャンネルを作成
-	deviceEventCh := make(chan echonet_lite.DeviceEvent, 100)
+	deviceEventCh := make(chan DeviceEvent, 100)
 	// Devicesにイベントチャンネルを設定
 	devices.SetEventChannel(deviceEventCh)
 
@@ -48,7 +48,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 		return nil, fmt.Errorf("デバイス情報の読み込みに失敗: %w", err)
 	}
 
-	aliases := echonet_lite.NewDeviceAliases()
+	aliases := NewDeviceAliases()
 
 	// DeviceAliasesFileName のファイルが存在するなら読み込む
 	err = aliases.LoadFromFile(DeviceAliasesFileName)
@@ -58,7 +58,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 	}
 
 	// デバイスグループを管理するオブジェクトを作成
-	groups := echonet_lite.NewDeviceGroups()
+	groups := NewDeviceGroups()
 
 	// DeviceGroupsFileName のファイルが存在するなら読み込む
 	err = groups.LoadFromFile(DeviceGroupsFileName)
@@ -67,7 +67,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 		return nil, fmt.Errorf("グループ情報の読み込みに失敗: %w", err)
 	}
 
-	localDevices := make(echonet_lite.DeviceProperties)
+	localDevices := make(DeviceProperties)
 	operationStatusOn, ok := echonet_lite.ProfileSuperClass_PropertyTable.FindAlias("on")
 	if !ok {
 		cancel() // エラーの場合はコンテキストをキャンセル
@@ -213,12 +213,12 @@ func (h *ECHONETLiteHandler) SetProperties(device echonet_lite.IPAndEOJ, propert
 }
 
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
-func (h *ECHONETLiteHandler) UpdateProperties(criteria echonet_lite.FilterCriteria, force bool) error {
+func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
 	return h.comm.UpdateProperties(criteria, force)
 }
 
 // ListDevices は、検出されたデバイスの一覧を表示する
-func (h *ECHONETLiteHandler) ListDevices(criteria echonet_lite.FilterCriteria) []DeviceAndProperties {
+func (h *ECHONETLiteHandler) ListDevices(criteria FilterCriteria) []DeviceAndProperties {
 	return h.data.ListDevices(criteria)
 }
 
@@ -228,7 +228,7 @@ func (h *ECHONETLiteHandler) SaveAliasFile() error {
 }
 
 // AliasList は、エイリアスのリストを返す
-func (h *ECHONETLiteHandler) AliasList() []echonet_lite.AliasIDStringPair {
+func (h *ECHONETLiteHandler) AliasList() []AliasIDStringPair {
 	return h.data.AliasList()
 }
 
@@ -243,7 +243,7 @@ func (h *ECHONETLiteHandler) DeviceStringWithAlias(device echonet_lite.IPAndEOJ)
 }
 
 // AliasSet は、デバイスにエイリアスを設定する
-func (h *ECHONETLiteHandler) AliasSet(alias *string, criteria echonet_lite.FilterCriteria) error {
+func (h *ECHONETLiteHandler) AliasSet(alias *string, criteria FilterCriteria) error {
 	return h.data.AliasSet(alias, criteria)
 }
 
@@ -258,7 +258,7 @@ func (h *ECHONETLiteHandler) AliasGet(alias *string) (*echonet_lite.IPAndEOJ, er
 }
 
 // GetDevices は、デバイス指定子に一致するデバイスを取得する
-func (h *ECHONETLiteHandler) GetDevices(deviceSpec echonet_lite.DeviceSpecifier) []echonet_lite.IPAndEOJ {
+func (h *ECHONETLiteHandler) GetDevices(deviceSpec DeviceSpecifier) []echonet_lite.IPAndEOJ {
 	return h.data.GetDevices(deviceSpec)
 }
 
@@ -268,17 +268,17 @@ func (h *ECHONETLiteHandler) SaveGroupFile() error {
 }
 
 // GroupList は、グループのリストを返す
-func (h *ECHONETLiteHandler) GroupList(groupName *string) []echonet_lite.GroupDevicePair {
+func (h *ECHONETLiteHandler) GroupList(groupName *string) []GroupDevicePair {
 	return h.data.GroupList(groupName)
 }
 
 // GroupAdd は、グループにデバイスを追加する
-func (h *ECHONETLiteHandler) GroupAdd(groupName string, devices []echonet_lite.IDString) error {
+func (h *ECHONETLiteHandler) GroupAdd(groupName string, devices []IDString) error {
 	return h.data.GroupAdd(groupName, devices)
 }
 
 // GroupRemove は、グループからデバイスを削除する
-func (h *ECHONETLiteHandler) GroupRemove(groupName string, devices []echonet_lite.IDString) error {
+func (h *ECHONETLiteHandler) GroupRemove(groupName string, devices []IDString) error {
 	return h.data.GroupRemove(groupName, devices)
 }
 
@@ -288,17 +288,17 @@ func (h *ECHONETLiteHandler) GroupDelete(groupName string) error {
 }
 
 // GetDevicesByGroup は、グループ名に対応するデバイスリストを返す
-func (h *ECHONETLiteHandler) GetDevicesByGroup(groupName string) ([]echonet_lite.IDString, bool) {
+func (h *ECHONETLiteHandler) GetDevicesByGroup(groupName string) ([]IDString, bool) {
 	return h.data.GetDevicesByGroup(groupName)
 }
 
 // FindDeviceByIDString は、IDStringからデバイスを検索する
-func (h *ECHONETLiteHandler) FindDeviceByIDString(id echonet_lite.IDString) *echonet_lite.IPAndEOJ {
+func (h *ECHONETLiteHandler) FindDeviceByIDString(id IDString) *echonet_lite.IPAndEOJ {
 	return h.data.FindDeviceByIDString(id)
 }
 
 // GetIDString は、デバイスのIDStringを取得する
-func (h *ECHONETLiteHandler) GetIDString(device echonet_lite.IPAndEOJ) echonet_lite.IDString {
+func (h *ECHONETLiteHandler) GetIDString(device echonet_lite.IPAndEOJ) IDString {
 	return h.data.GetIDString(device)
 }
 

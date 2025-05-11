@@ -17,32 +17,32 @@ type DataAccessor interface {
 	IsKnownDevice(device echonet_lite.IPAndEOJ) bool
 
 	// プロパティマップ関連
-	HasEPCInPropertyMap(device echonet_lite.IPAndEOJ, mapType echonet_lite.PropertyMapType, epc echonet_lite.EPCType) bool
-	GetPropertyMap(device echonet_lite.IPAndEOJ, mapType echonet_lite.PropertyMapType) echonet_lite.PropertyMap
+	HasEPCInPropertyMap(device echonet_lite.IPAndEOJ, mapType PropertyMapType, epc echonet_lite.EPCType) bool
+	GetPropertyMap(device echonet_lite.IPAndEOJ, mapType PropertyMapType) echonet_lite.PropertyMap
 
 	// プロパティ関連
 	RegisterProperties(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties) []ChangedProperty
 	GetProperty(device echonet_lite.IPAndEOJ, epc echonet_lite.EPCType) (*echonet_lite.Property, bool)
 
 	// デバイス情報
-	GetIDString(device echonet_lite.IPAndEOJ) echonet_lite.IDString
+	GetIDString(device echonet_lite.IPAndEOJ) IDString
 	GetLastUpdateTime(device echonet_lite.IPAndEOJ) time.Time
 	DeviceStringWithAlias(device echonet_lite.IPAndEOJ) string
 	IsOffline(device echonet_lite.IPAndEOJ) bool
 	SetOffline(device echonet_lite.IPAndEOJ, offline bool)
 
 	// フィルタリング
-	Filter(criteria echonet_lite.FilterCriteria) echonet_lite.Devices
+	Filter(criteria FilterCriteria) Devices
 	RegisterDevice(device echonet_lite.IPAndEOJ)
 	HasIP(ip net.IP) bool
-	FindByIDString(id echonet_lite.IDString) []echonet_lite.IPAndEOJ
+	FindByIDString(id IDString) []echonet_lite.IPAndEOJ
 }
 
 // NotificationRelay は、通知イベントを中継する機能を提供するインターフェース
 // 各ハンドラがHandlerCoreに通知を送るために使用
 type NotificationRelay interface {
 	// デバイスイベントの中継
-	RelayDeviceEvent(event echonet_lite.DeviceEvent)
+	RelayDeviceEvent(event DeviceEvent)
 
 	// セッションタイムアウトイベントの中継
 	RelaySessionTimeoutEvent(event SessionTimeoutEvent)

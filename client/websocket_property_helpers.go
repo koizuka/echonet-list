@@ -2,6 +2,7 @@ package client
 
 import (
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 )
 
 // GetAllPropertyAliases gets all property aliases
@@ -21,10 +22,10 @@ func (c *WebSocketClient) IsPropertyDefaultEPC(classCode EOJClassCode, epc EPCTy
 
 // FindPropertyAlias finds a property by its alias
 func (c *WebSocketClient) FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool) {
-	return echonet_lite.FindPropertyAlias(classCode, alias)
+	return handler.FindPropertyAlias(classCode, alias)
 }
 
 // AvailablePropertyAliases gets all available property aliases for a class
 func (c *WebSocketClient) AvailablePropertyAliases(classCode EOJClassCode) map[string]PropertyDescription {
-	return echonet_lite.AvailablePropertyAliases(classCode)
+	return handler.AvailablePropertyAliases(classCode)
 }

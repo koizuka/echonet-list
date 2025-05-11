@@ -72,15 +72,15 @@ func (c *HandlerCore) notify(notification DeviceNotification) {
 }
 
 // RelayDeviceEvent は、DeviceEventをDeviceNotificationに変換して中継する
-func (c *HandlerCore) RelayDeviceEvent(event echonet_lite.DeviceEvent) {
+func (c *HandlerCore) RelayDeviceEvent(event DeviceEvent) {
 	// DeviceEventをDeviceNotificationに変換して中継
 	switch event.Type {
-	case echonet_lite.DeviceEventAdded:
+	case DeviceEventAdded:
 		c.notify(DeviceNotification{
 			Device: event.Device,
 			Type:   DeviceAdded,
 		})
-	case echonet_lite.DeviceEventOffline:
+	case DeviceEventOffline:
 		c.notify(DeviceNotification{
 			Device: event.Device,
 			Type:   DeviceOffline,
@@ -113,7 +113,7 @@ func (c *HandlerCore) RelayPropertyChangeEvent(device echonet_lite.IPAndEOJ, pro
 }
 
 // StartEventRelayLoop は、デバイスイベントとセッションタイムアウトイベントを通知チャンネルに中継するゴルーチンを起動する
-func (c *HandlerCore) StartEventRelayLoop(deviceEventCh <-chan echonet_lite.DeviceEvent, sessionTimeoutCh <-chan SessionTimeoutEvent) {
+func (c *HandlerCore) StartEventRelayLoop(deviceEventCh <-chan DeviceEvent, sessionTimeoutCh <-chan SessionTimeoutEvent) {
 	go func() {
 		for {
 			select {

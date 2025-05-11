@@ -1,4 +1,4 @@
-package echonet_lite
+package handler
 
 import (
 	"encoding/json"
@@ -32,7 +32,7 @@ func (e InvalidAliasError) Error() string {
 var hexPattern = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
 
 // 先頭文字が記号の場合にマッチする正規表現パターン
-var invalidFirstChar = regexp.MustCompile(`^[\!"#\$%&'\(\)\*\+,\./:;<=>\?@\[\\\]\^_\{\|\}~\-]`)
+var invalidFirstChar = regexp.MustCompile(`^[!"#$%&'()*+,./:;<=>?@\[\\\]^_{|}~\-]`)
 
 // ValidateDeviceAlias はエイリアスが有効かどうかを検証します
 func ValidateDeviceAlias(alias string) error {

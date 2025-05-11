@@ -204,14 +204,14 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 	}
 
 	// Parse the device identifier
-	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
+	ipAndEOJ, err := handler.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
 	if err != nil {
 		slog.Error("WebSocketClient.handlePropertyChanged: Error parsing device identifier", "err", err)
 		return
 	}
 
 	// Parse the EPC
-	epc, err := echonet_lite.ParseEPCString(payload.EPC)
+	epc, err := handler.ParseEPCString(payload.EPC)
 	if err != nil {
 		slog.Error("WebSocketClient.handlePropertyChanged: Error parsing EPC", "err", err)
 		return
@@ -263,7 +263,7 @@ func (c *WebSocketClient) handleDeviceOffline(msg *protocol.Message) {
 	}
 
 	// Parse the device identifier
-	ipAndEOJ, err := echonet_lite.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
+	ipAndEOJ, err := handler.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
 	if err != nil {
 		slog.Error("WebSocketClient.handleDeviceOffline: Error parsing device identifier for offline notification", "err", err)
 		return

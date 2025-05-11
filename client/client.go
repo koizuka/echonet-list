@@ -9,16 +9,16 @@ type IPAndEOJ = echonet_lite.IPAndEOJ
 type EOJClassCode = echonet_lite.EOJClassCode
 type EOJInstanceCode = echonet_lite.EOJInstanceCode
 type EOJ = echonet_lite.EOJ
-type IDString = echonet_lite.IDString
+type IDString = handler.IDString
 
 func MakeEOJ(class EOJClassCode, instance EOJInstanceCode) EOJ {
 	return echonet_lite.MakeEOJ(class, instance)
 }
 
-type FilterCriteria = echonet_lite.FilterCriteria
-type AliasIDStringPair = echonet_lite.AliasIDStringPair
-type GroupDevicePair = echonet_lite.GroupDevicePair
-type DeviceSpecifier = echonet_lite.DeviceSpecifier
+type FilterCriteria = handler.FilterCriteria
+type AliasIDStringPair = handler.AliasIDStringPair
+type GroupDevicePair = handler.GroupDevicePair
+type DeviceSpecifier = handler.DeviceSpecifier
 type EPCType = echonet_lite.EPCType
 type Property = echonet_lite.Property
 type Properties = echonet_lite.Properties

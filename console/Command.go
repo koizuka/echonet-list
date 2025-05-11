@@ -2,7 +2,7 @@ package console
 
 import (
 	"echonet-list/client"
-	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"fmt"
 	"net"
 	"sort"
@@ -245,7 +245,7 @@ func (p CommandParser) parseDeviceSpecifierOrGroup(parts []string, argIndex int,
 
 	// エイリアスの取得
 	if alias, ok := p.aliasManager.GetDeviceByAlias(parts[argIndex]); ok {
-		deviceSpec = echonet_lite.DeviceSpecifierFromIPAndEOJ(alias)
+		deviceSpec = handler.DeviceSpecifierFromIPAndEOJ(alias)
 		return deviceSpec, nil, argIndex + 1, nil
 	}
 
@@ -294,7 +294,7 @@ func (p CommandParser) parseDeviceSpecifiers(parts []string, argIndex int, requi
 			for _, group := range groups {
 				for _, ids := range group.Devices {
 					if device, ok := p.aliasManager.GetDeviceByAlias(string(ids)); ok {
-						deviceSpec := echonet_lite.DeviceSpecifierFromIPAndEOJ(device)
+						deviceSpec := handler.DeviceSpecifierFromIPAndEOJ(device)
 						deviceSpecs = append(deviceSpecs, deviceSpec)
 					}
 				}

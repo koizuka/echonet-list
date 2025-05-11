@@ -26,11 +26,11 @@ func (m *mockECHONETListClient) SetDebug(debug bool) {
 	m.debug = debug
 }
 
-func (m *mockECHONETListClient) AliasList() []echonet_lite.AliasIDStringPair {
+func (m *mockECHONETListClient) AliasList() []handler.AliasIDStringPair {
 	return nil
 }
 
-func (m *mockECHONETListClient) AliasSet(_ *string, _ echonet_lite.FilterCriteria) error {
+func (m *mockECHONETListClient) AliasSet(_ *string, _ handler.FilterCriteria) error {
 	return nil
 }
 
@@ -54,15 +54,15 @@ func (m *mockECHONETListClient) Discover() error {
 	return nil
 }
 
-func (m *mockECHONETListClient) UpdateProperties(_ echonet_lite.FilterCriteria, _ bool) error {
+func (m *mockECHONETListClient) UpdateProperties(_ handler.FilterCriteria, _ bool) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetDevices(_ echonet_lite.DeviceSpecifier) []echonet_lite.IPAndEOJ {
+func (m *mockECHONETListClient) GetDevices(_ handler.DeviceSpecifier) []echonet_lite.IPAndEOJ {
 	return nil
 }
 
-func (m *mockECHONETListClient) ListDevices(_ echonet_lite.FilterCriteria) []handler.DeviceAndProperties {
+func (m *mockECHONETListClient) ListDevices(_ handler.FilterCriteria) []handler.DeviceAndProperties {
 	return nil
 }
 
@@ -114,15 +114,15 @@ func (m *mockECHONETListClient) AvailablePropertyAliases(classCode echonet_lite.
 	return map[string]PropertyDescription{}
 }
 
-func (m *mockECHONETListClient) GroupList(_ *string) []echonet_lite.GroupDevicePair {
+func (m *mockECHONETListClient) GroupList(_ *string) []handler.GroupDevicePair {
 	return nil
 }
 
-func (m *mockECHONETListClient) GroupAdd(_ string, _ []echonet_lite.IDString) error {
+func (m *mockECHONETListClient) GroupAdd(_ string, _ []handler.IDString) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) GroupRemove(_ string, _ []echonet_lite.IDString) error {
+func (m *mockECHONETListClient) GroupRemove(_ string, _ []handler.IDString) error {
 	return nil
 }
 
@@ -130,7 +130,7 @@ func (m *mockECHONETListClient) GroupDelete(_ string) error {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetDevicesByGroup(_ string) ([]echonet_lite.IDString, bool) {
+func (m *mockECHONETListClient) GetDevicesByGroup(_ string) ([]handler.IDString, bool) {
 	return nil, false
 }
 
@@ -138,11 +138,11 @@ func (m *mockECHONETListClient) Close() error {
 	return nil
 }
 
-func (m *mockECHONETListClient) FindDeviceByIDString(_ echonet_lite.IDString) *echonet_lite.IPAndEOJ {
+func (m *mockECHONETListClient) FindDeviceByIDString(_ handler.IDString) *echonet_lite.IPAndEOJ {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetIDString(_ echonet_lite.IPAndEOJ) echonet_lite.IDString {
+func (m *mockECHONETListClient) GetIDString(_ echonet_lite.IPAndEOJ) handler.IDString {
 	return ""
 }
 

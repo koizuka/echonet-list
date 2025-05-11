@@ -170,7 +170,7 @@ func (c *WebSocketClient) GetIDString(ipAndEOJ IPAndEOJ) IDString {
 		}
 
 		if decoded := npoDevice.Properties.GetIdentificationNumber(); decoded != nil {
-			return echonet_lite.MakeIDString(device.Device.EOJ, *decoded)
+			return handler.MakeIDString(device.Device.EOJ, *decoded)
 		}
 	}
 	return ""
@@ -334,7 +334,7 @@ func (c *WebSocketClient) GroupList(groupName *string) []GroupDevicePair {
 // GetDevicesByGroup gets devices in a group
 func (c *WebSocketClient) GetDevicesByGroup(groupName string) ([]IDString, bool) {
 	// Validate the group name
-	if err := echonet_lite.ValidateGroupName(groupName); err != nil {
+	if err := handler.ValidateGroupName(groupName); err != nil {
 		return nil, false
 	}
 

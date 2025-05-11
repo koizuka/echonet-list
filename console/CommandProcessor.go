@@ -3,7 +3,7 @@ package console
 import (
 	"context"
 	"echonet-list/client"
-	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"errors"
 	"fmt"
 	"sort"
@@ -490,7 +490,7 @@ func (p *CommandProcessor) processUpdateCommand(cmd *Command) error {
 				}
 				// デバイスごとにフィルタリング条件を作成
 				criteria := client.FilterCriteria{
-					Device: echonet_lite.DeviceSpecifierFromIPAndEOJ(*device),
+					Device: handler.DeviceSpecifierFromIPAndEOJ(*device),
 				}
 				err := p.handler.UpdateProperties(criteria, cmd.ForceUpdate)
 				if err != nil {
