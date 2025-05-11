@@ -2,36 +2,36 @@ package server
 
 import (
 	"context"
-	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"fmt"
 )
 
 type Server struct {
-	ctx     context.Context
-	handler *echonet_lite.ECHONETLiteHandler
+	ctx         context.Context
+	liteHandler *handler.ECHONETLiteHandler
 }
 
 func NewServer(ctx context.Context, debug bool) (*Server, error) {
 	// ECHONETLiteHandlerの作成
-	handler, err := echonet_lite.NewECHONETLiteHandler(ctx, nil, debug)
+	liteHandler, err := handler.NewECHONETLiteHandler(ctx, nil, debug)
 	if err != nil {
 		return nil, err
 	}
 
 	// メインループの開始
-	handler.StartMainLoop()
+	liteHandler.StartMainLoop()
 
 	// 通知を監視するゴルーチン
 	go func() {
-		for notification := range handler.NotificationCh {
-			device := handler.DeviceStringWithAlias(notification.Device)
+		for notification := range liteHandler.NotificationCh {
+			device := liteHandler.DeviceStringWithAlias(notification.Device)
 
 			switch notification.Type {
-			case echonet_lite.DeviceAdded:
+			case handler.DeviceAdded:
 				fmt.Printf("新しいデバイスが検出されました: %v\n", device)
-			case echonet_lite.DeviceOffline:
+			case handler.DeviceOffline:
 				fmt.Printf("デバイス %v がオフラインになりました\n", device)
-			case echonet_lite.DeviceTimeout:
+			case handler.DeviceTimeout:
 				// fmt.Printf("デバイス %v へのリクエストがタイムアウトしました: %v\n",
 				// 	device, notification.Error)
 			}
@@ -39,23 +39,23 @@ func NewServer(ctx context.Context, debug bool) (*Server, error) {
 	}()
 
 	// ノードリストの通知
-	_ = handler.NotifyNodeList()
+	_ = liteHandler.NotifyNodeList()
 
 	// 起動時に　discover をするが、時間がかかるので goroutineで実行する
 	go func() {
-		_ = handler.Discover()
+		_ = liteHandler.Discover()
 	}()
 
 	return &Server{
-		ctx:     ctx,
-		handler: handler,
+		ctx:         ctx,
+		liteHandler: liteHandler,
 	}, nil
 }
 
 func (s *Server) Close() error {
-	return s.handler.Close()
+	return s.liteHandler.Close()
 }
 
-func (s *Server) GetHandler() *echonet_lite.ECHONETLiteHandler {
-	return s.handler
+func (s *Server) GetHandler() *handler.ECHONETLiteHandler {
+	return s.liteHandler
 }

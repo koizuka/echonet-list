@@ -1,7 +1,8 @@
-package echonet_lite
+package handler
 
 import (
 	"context"
+	"echonet-list/echonet_lite"
 	"fmt"
 	"log/slog"
 )
@@ -71,15 +72,15 @@ func (c *HandlerCore) notify(notification DeviceNotification) {
 }
 
 // RelayDeviceEvent は、DeviceEventをDeviceNotificationに変換して中継する
-func (c *HandlerCore) RelayDeviceEvent(event DeviceEvent) {
+func (c *HandlerCore) RelayDeviceEvent(event echonet_lite.DeviceEvent) {
 	// DeviceEventをDeviceNotificationに変換して中継
 	switch event.Type {
-	case DeviceEventAdded:
+	case echonet_lite.DeviceEventAdded:
 		c.notify(DeviceNotification{
 			Device: event.Device,
 			Type:   DeviceAdded,
 		})
-	case DeviceEventOffline:
+	case echonet_lite.DeviceEventOffline:
 		c.notify(DeviceNotification{
 			Device: event.Device,
 			Type:   DeviceOffline,
@@ -98,7 +99,7 @@ func (c *HandlerCore) RelaySessionTimeoutEvent(event SessionTimeoutEvent) {
 }
 
 // RelayPropertyChangeEvent は、プロパティ変更通知を中継する
-func (c *HandlerCore) RelayPropertyChangeEvent(device IPAndEOJ, property Property) {
+func (c *HandlerCore) RelayPropertyChangeEvent(device echonet_lite.IPAndEOJ, property echonet_lite.Property) {
 	select {
 	case c.PropertyChangeCh <- PropertyChangeNotification{
 		Device:   device,
@@ -112,7 +113,7 @@ func (c *HandlerCore) RelayPropertyChangeEvent(device IPAndEOJ, property Propert
 }
 
 // StartEventRelayLoop は、デバイスイベントとセッションタイムアウトイベントを通知チャンネルに中継するゴルーチンを起動する
-func (c *HandlerCore) StartEventRelayLoop(deviceEventCh <-chan DeviceEvent, sessionTimeoutCh <-chan SessionTimeoutEvent) {
+func (c *HandlerCore) StartEventRelayLoop(deviceEventCh <-chan echonet_lite.DeviceEvent, sessionTimeoutCh <-chan SessionTimeoutEvent) {
 	go func() {
 		for {
 			select {

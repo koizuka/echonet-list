@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 	"encoding/base64"
 	"encoding/json"
@@ -61,16 +62,16 @@ func (m *mockECHONETListClient) GetDevices(deviceSpec echonet_lite.DeviceSpecifi
 	return nil
 }
 
-func (m *mockECHONETListClient) ListDevices(criteria echonet_lite.FilterCriteria) []echonet_lite.DeviceAndProperties {
+func (m *mockECHONETListClient) ListDevices(criteria echonet_lite.FilterCriteria) []handler.DeviceAndProperties {
 	return nil
 }
 
-func (m *mockECHONETListClient) GetProperties(device echonet_lite.IPAndEOJ, EPCs []echonet_lite.EPCType, skipValidation bool) (echonet_lite.DeviceAndProperties, error) {
-	return echonet_lite.DeviceAndProperties{}, nil
+func (m *mockECHONETListClient) GetProperties(device echonet_lite.IPAndEOJ, EPCs []echonet_lite.EPCType, skipValidation bool) (handler.DeviceAndProperties, error) {
+	return handler.DeviceAndProperties{}, nil
 }
 
-func (m *mockECHONETListClient) SetProperties(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties) (echonet_lite.DeviceAndProperties, error) {
-	return echonet_lite.DeviceAndProperties{}, nil
+func (m *mockECHONETListClient) SetProperties(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties) (handler.DeviceAndProperties, error) {
+	return handler.DeviceAndProperties{}, nil
 }
 
 func (m *mockECHONETListClient) GetAllPropertyAliases() map[string]PropertyDescription {
@@ -147,12 +148,12 @@ func (m *mockECHONETListClient) GetIDString(device echonet_lite.IPAndEOJ) echone
 
 // NotificationChannel は通知チャネルのモック
 type NotificationChannel struct {
-	ch chan echonet_lite.DeviceNotification
+	ch chan handler.DeviceNotification
 }
 
 func NewNotificationChannel() *NotificationChannel {
 	return &NotificationChannel{
-		ch: make(chan echonet_lite.DeviceNotification, 100),
+		ch: make(chan handler.DeviceNotification, 100),
 	}
 }
 

@@ -1,7 +1,8 @@
-package echonet_lite
+package handler
 
 import (
 	"context"
+	"echonet-list/echonet_lite"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,19 +13,19 @@ import (
 
 // CommunicationHandler は、ECHONET Lite 通信機能を担当する構造体
 type CommunicationHandler struct {
-	session      *Session          // セッション
-	localDevices DeviceProperties  // 自ノードが所有するデバイスのプロパティ
-	dataAccessor DataAccessor      // データアクセス機能
-	notifier     NotificationRelay // 通知中継
-	ctx          context.Context   // コンテキスト
-	Debug        bool              // デバッグモード
+	session      *Session                      // セッション
+	localDevices echonet_lite.DeviceProperties // 自ノードが所有するデバイスのプロパティ
+	dataAccessor DataAccessor                  // データアクセス機能
+	notifier     NotificationRelay             // 通知中継
+	ctx          context.Context               // コンテキスト
+	Debug        bool                          // デバッグモード
 }
 
 // NewCommunicationHandler は、CommunicationHandlerの新しいインスタンスを作成する
 func NewCommunicationHandler(
 	ctx context.Context,
 	session *Session,
-	localDevices DeviceProperties,
+	localDevices echonet_lite.DeviceProperties,
 	dataAccessor DataAccessor,
 	notifier NotificationRelay,
 	debug bool,
@@ -47,12 +48,12 @@ func (h *CommunicationHandler) SetDebug(debug bool) {
 
 // NotifyNodeList は、自ノードのインスタンスリストを通知する
 func (h *CommunicationHandler) NotifyNodeList() error {
-	list := InstanceListNotification(h.localDevices.GetInstanceList())
-	return h.session.Broadcast(NodeProfileObject, ESVINF, Properties{*list.Property()})
+	list := echonet_lite.InstanceListNotification(h.localDevices.GetInstanceList())
+	return h.session.Broadcast(echonet_lite.NodeProfileObject, echonet_lite.ESVINF, echonet_lite.Properties{*list.Property()})
 }
 
 // onReceiveMessage は、メッセージを受信したときのコールバック
-func (h *CommunicationHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessage) error {
+func (h *CommunicationHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
 	if msg == nil {
 		return nil
 	}
@@ -73,28 +74,28 @@ func (h *CommunicationHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessa
 	msg.DEOJ = eoj
 
 	switch msg.ESV {
-	case ESVGet:
+	case echonet_lite.ESVGet:
 		responses, ok := h.localDevices.GetProperties(eoj, msg.Properties)
 
-		ESV := ESVGet_Res
+		ESV := echonet_lite.ESVGet_Res
 		if !ok {
-			ESV = ESVGet_SNA
+			ESV = echonet_lite.ESVGet_SNA
 		}
 		if h.Debug {
 			fmt.Printf("  Getメッセージに対する応答: %v\n", responses) // DEBUG
 		}
 		return h.session.SendResponse(ip, msg, ESV, responses, nil)
 
-	case ESVSetC, ESVSetI:
+	case echonet_lite.ESVSetC, echonet_lite.ESVSetI:
 		responses, success := h.localDevices.SetProperties(eoj, msg.Properties)
 
-		if msg.ESV != ESVSetI || !success {
-			ESV := ESVSetI_SNA
-			if msg.ESV == ESVSetC {
+		if msg.ESV != echonet_lite.ESVSetI || !success {
+			ESV := echonet_lite.ESVSetI_SNA
+			if msg.ESV == echonet_lite.ESVSetC {
 				if success {
-					ESV = ESVSet_Res
+					ESV = echonet_lite.ESVSet_Res
 				} else {
-					ESV = ESVSetC_SNA
+					ESV = echonet_lite.ESVSetC_SNA
 				}
 			}
 			if h.Debug {
@@ -103,27 +104,27 @@ func (h *CommunicationHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessa
 			return h.session.SendResponse(ip, msg, ESV, responses, nil)
 		}
 
-	case ESVSetGet:
+	case echonet_lite.ESVSetGet:
 		setResult, setSuccess := h.localDevices.SetProperties(eoj, msg.Properties)
 		getResult, getSuccess := h.localDevices.GetProperties(eoj, msg.SetGetProperties)
 		success := setSuccess && getSuccess
 
-		ESV := ESVSetGet_Res
+		ESV := echonet_lite.ESVSetGet_Res
 		if !success {
-			ESV = ESVSetGet_SNA
+			ESV = echonet_lite.ESVSetGet_SNA
 		}
 		if h.Debug {
 			fmt.Printf("  SetGetメッセージに対する応答: set:%v, get:%v\n", setResult, getResult) // DEBUG
 		}
 		return h.session.SendResponse(ip, msg, ESV, setResult, getResult)
 
-	case ESVINF_REQ:
+	case echonet_lite.ESVINF_REQ:
 		result, success := h.localDevices.GetProperties(eoj, msg.Properties)
 		if !success {
 			// 不可応答を個別に返す
-			return h.session.SendResponse(ip, msg, ESVINF_REQ_SNA, result, nil)
+			return h.session.SendResponse(ip, msg, echonet_lite.ESVINF_REQ_SNA, result, nil)
 		}
-		return h.session.Broadcast(msg.DEOJ, ESVINF, result)
+		return h.session.Broadcast(msg.DEOJ, echonet_lite.ESVINF, result)
 
 	default:
 		fmt.Printf("  未対応のESV: %v\n", msg.ESV) // DEBUG
@@ -132,7 +133,7 @@ func (h *CommunicationHandler) onReceiveMessage(ip net.IP, msg *ECHONETLiteMessa
 }
 
 // onInfMessage は、INFメッセージを受信したときのコールバック
-func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) error {
+func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
 	if msg == nil {
 		slog.Warn("無効なINFメッセージを受信しました: nil")
 		return nil // 処理は継続
@@ -151,40 +152,40 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 	}
 
 	defer func() {
-		if msg.ESV == ESVINFC {
-			replyProps := make([]Property, 0, len(msg.Properties))
+		if msg.ESV == echonet_lite.ESVINFC {
+			replyProps := make([]echonet_lite.Property, 0, len(msg.Properties))
 			// EDTをnilにする
 			for _, p := range msg.Properties {
-				replyProps = append(replyProps, Property{
+				replyProps = append(replyProps, echonet_lite.Property{
 					EPC: p.EPC,
 					EDT: nil,
 				})
 			}
 			// 応答を返す
-			err := h.session.SendResponse(ip, msg, ESVINFC_Res, replyProps, nil)
+			err := h.session.SendResponse(ip, msg, echonet_lite.ESVINFC_Res, replyProps, nil)
 			if err != nil {
 				slog.Error("INFメッセージに対する応答の送信に失敗", "err", err)
 			}
 		}
 	}()
 
-	if msg.SEOJ.ClassCode() == NodeProfile_ClassCode {
+	if msg.SEOJ.ClassCode() == echonet_lite.NodeProfile_ClassCode {
 		// ノードプロファイルオブジェクトからのメッセージ
 		for _, p := range msg.Properties {
 			switch p.EPC {
-			case EPC_NPO_SelfNodeInstanceListS:
-				err := h.onSelfNodeInstanceListS(IPAndEOJ{ip, msg.SEOJ}, true, p)
+			case echonet_lite.EPC_NPO_SelfNodeInstanceListS:
+				err := h.onSelfNodeInstanceListS(echonet_lite.IPAndEOJ{ip, msg.SEOJ}, true, p)
 				if err != nil {
 					slog.Error("SelfNodeInstanceListSの処理中エラー", "err", err)
 					return err
 				}
-			case EPC_NPO_InstanceListNotification:
-				iln := DecodeInstanceListNotification(p.EDT)
+			case echonet_lite.EPC_NPO_InstanceListNotification:
+				iln := echonet_lite.DecodeInstanceListNotification(p.EDT)
 				if iln == nil {
 					slog.Warn("InstanceListNotificationのデコードに失敗", "EDT", p.EDT)
 					return nil // 処理は継続
 				}
-				return h.onInstanceList(ip, InstanceList(*iln))
+				return h.onInstanceList(ip, echonet_lite.InstanceList(*iln))
 			default:
 				slog.Info("未処理のEPC", "EPC", p.EPC)
 			}
@@ -202,7 +203,7 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 			}
 		}
 
-		device := IPAndEOJ{ip, msg.SEOJ}
+		device := echonet_lite.IPAndEOJ{ip, msg.SEOJ}
 
 		// 未知のデバイスの場合、プロパティマップを取得
 		if !h.dataAccessor.IsKnownDevice(device) {
@@ -232,30 +233,30 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *ECHONETLiteMessage) 
 }
 
 // onSelfNodeInstanceListS は、SelfNodeInstanceListSプロパティを受信したときのコールバック
-func (h *CommunicationHandler) onSelfNodeInstanceListS(device IPAndEOJ, success bool, p Property) error {
+func (h *CommunicationHandler) onSelfNodeInstanceListS(device echonet_lite.IPAndEOJ, success bool, p echonet_lite.Property) error {
 	if !success {
 		return fmt.Errorf("SelfNodeInstanceListSプロパティの取得に失敗しました: %v", device)
 	}
 
-	if p.EPC != EPC_NPO_SelfNodeInstanceListS {
-		return fmt.Errorf("予期しないEPC: %v (期待値: %v)", p.EPC, EPC_NPO_SelfNodeInstanceListS)
+	if p.EPC != echonet_lite.EPC_NPO_SelfNodeInstanceListS {
+		return fmt.Errorf("予期しないEPC: %v (期待値: %v)", p.EPC, echonet_lite.EPC_NPO_SelfNodeInstanceListS)
 	}
 
-	il := DecodeSelfNodeInstanceListS(p.EDT)
+	il := echonet_lite.DecodeSelfNodeInstanceListS(p.EDT)
 	if il == nil {
 		return fmt.Errorf("SelfNodeInstanceListSのデコードに失敗しました: %X", p.EDT)
 	}
-	return h.onInstanceList(device.IP, InstanceList(*il))
+	return h.onInstanceList(device.IP, echonet_lite.InstanceList(*il))
 }
 
 // onInstanceList は、インスタンスリストを受信したときのコールバック
-func (h *CommunicationHandler) onInstanceList(ip net.IP, il InstanceList) error {
+func (h *CommunicationHandler) onInstanceList(ip net.IP, il echonet_lite.InstanceList) error {
 	// NodeProfileObjectも追加して取得する
-	il = append(il, NodeProfileObject)
+	il = append(il, echonet_lite.NodeProfileObject)
 
 	// デバイスの登録
 	for _, eoj := range il {
-		h.dataAccessor.RegisterDevice(IPAndEOJ{ip, eoj})
+		h.dataAccessor.RegisterDevice(echonet_lite.IPAndEOJ{ip, eoj})
 	}
 
 	// デバイス情報の保存
@@ -264,7 +265,7 @@ func (h *CommunicationHandler) onInstanceList(ip net.IP, il InstanceList) error 
 	// 各デバイスのプロパティマップを取得
 	var errors []error
 	for _, eoj := range il {
-		device := IPAndEOJ{ip, eoj}
+		device := echonet_lite.IPAndEOJ{ip, eoj}
 		if err := h.GetGetPropertyMap(device); err != nil {
 			errors = append(errors, fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err))
 		}
@@ -281,7 +282,7 @@ func (h *CommunicationHandler) onInstanceList(ip net.IP, il InstanceList) error 
 }
 
 // onGetPropertyMap は、GetPropertyMapプロパティを受信したときのコールバック
-func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, properties Properties, _ []EPCType) (CallbackCompleteStatus, error) {
+func (h *CommunicationHandler) onGetPropertyMap(device echonet_lite.IPAndEOJ, success bool, properties echonet_lite.Properties, _ []echonet_lite.EPCType) (CallbackCompleteStatus, error) {
 	if !success {
 		slog.Warn("GetPropertyMapプロパティの取得に失敗しました", "device", device)
 		return CallbackFinished, nil
@@ -289,18 +290,18 @@ func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, p
 
 	p := properties[0]
 
-	if p.EPC != EPCGetPropertyMap {
-		slog.Warn("予期しないEPC", "EPC", p.EPC, "expected", EPCGetPropertyMap)
+	if p.EPC != echonet_lite.EPCGetPropertyMap {
+		slog.Warn("予期しないEPC", "EPC", p.EPC, "expected", echonet_lite.EPCGetPropertyMap)
 		return CallbackFinished, nil
 	}
 
-	props := DecodePropertyMap(p.EDT)
+	props := echonet_lite.DecodePropertyMap(p.EDT)
 	if props == nil {
-		return CallbackFinished, ErrInvalidPropertyMap{EDT: p.EDT}
+		return CallbackFinished, echonet_lite.ErrInvalidPropertyMap{EDT: p.EDT}
 	}
 
 	// 取得するプロパティのリストを作成
-	forGet := make([]EPCType, 0, len(props))
+	forGet := make([]echonet_lite.EPCType, 0, len(props))
 	for epc := range props {
 		forGet = append(forGet, epc)
 	}
@@ -316,7 +317,7 @@ func (h *CommunicationHandler) onGetPropertyMap(device IPAndEOJ, success bool, p
 		h.ctx,
 		device,
 		forGet,
-		func(device IPAndEOJ, success bool, properties Properties, failedEPCs []EPCType) (CallbackCompleteStatus, error) {
+		func(device echonet_lite.IPAndEOJ, success bool, properties echonet_lite.Properties, failedEPCs []echonet_lite.EPCType) (CallbackCompleteStatus, error) {
 			if !success {
 				slog.Warn("プロパティ取得に失敗", "device", device, "failedEPCs", failedEPCs)
 			}
@@ -350,8 +351,8 @@ func (h *CommunicationHandler) GetSelfNodeInstanceListS(ip net.IP, isMulti bool)
 		defer timer.Stop()
 	}
 	key, err := h.session.StartGetProperties(
-		IPAndEOJ{ip, NodeProfileObject}, []EPCType{EPC_NPO_SelfNodeInstanceListS},
-		func(ie IPAndEOJ, b bool, p Properties, f []EPCType) (CallbackCompleteStatus, error) {
+		echonet_lite.IPAndEOJ{ip, echonet_lite.NodeProfileObject}, []echonet_lite.EPCType{echonet_lite.EPC_NPO_SelfNodeInstanceListS},
+		func(ie echonet_lite.IPAndEOJ, b bool, p echonet_lite.Properties, f []echonet_lite.EPCType) (CallbackCompleteStatus, error) {
 			var completeStatus CallbackCompleteStatus
 			if isMulti {
 				completeStatus = CallbackContinue
@@ -365,7 +366,7 @@ func (h *CommunicationHandler) GetSelfNodeInstanceListS(ip net.IP, isMulti bool)
 		return err
 	}
 	if isMulti {
-		defer h.session.unregisterCallback(key)
+		defer h.session.UnregisterCallback(key)
 
 		select {
 		case <-timer.C:
@@ -378,8 +379,8 @@ func (h *CommunicationHandler) GetSelfNodeInstanceListS(ip net.IP, isMulti bool)
 }
 
 // GetGetPropertyMap は、GetPropertyMapプロパティを取得する
-func (h *CommunicationHandler) GetGetPropertyMap(device IPAndEOJ) error {
-	return h.session.StartGetPropertiesWithRetry(h.ctx, device, []EPCType{EPCGetPropertyMap}, h.onGetPropertyMap)
+func (h *CommunicationHandler) GetGetPropertyMap(device echonet_lite.IPAndEOJ) error {
+	return h.session.StartGetPropertiesWithRetry(h.ctx, device, []echonet_lite.EPCType{echonet_lite.EPCGetPropertyMap}, h.onGetPropertyMap)
 }
 
 // Discover は、ECHONET Liteデバイスを検出する
@@ -389,13 +390,13 @@ func (h *CommunicationHandler) Discover() error {
 
 // GetProperties は、プロパティ値を取得する
 // 成功時には ip, eoj と properties を返す
-func (h *CommunicationHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error) {
+func (h *CommunicationHandler) GetProperties(device echonet_lite.IPAndEOJ, EPCs []echonet_lite.EPCType, skipValidation bool) (DeviceAndProperties, error) {
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
 	if !skipValidation {
 		// 指定されたEPCがGetPropertyMapに含まれているか確認
-		valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, EPCs, GetPropertyMap)
+		valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, EPCs, echonet_lite.GetPropertyMap)
 		if err != nil {
 			return DeviceAndProperties{}, err
 		}
@@ -440,18 +441,18 @@ func (h *CommunicationHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, sk
 }
 
 // SetProperties は、プロパティ値を設定する
-func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error) {
+func (h *CommunicationHandler) SetProperties(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties) (DeviceAndProperties, error) {
 	// 結果を格納する変数
 	var result DeviceAndProperties
 
 	// 指定されたEPCがSetPropertyMapに含まれているか確認
 	// Propertiesから各EPCを抽出
-	epcs := make([]EPCType, 0, len(properties))
+	epcs := make([]echonet_lite.EPCType, 0, len(properties))
 	for _, prop := range properties {
 		epcs = append(epcs, prop.EPC)
 	}
 
-	valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, epcs, SetPropertyMap)
+	valid, invalidEPCs, err := h.validateEPCsInPropertyMap(device, epcs, echonet_lite.SetPropertyMap)
 	if err != nil {
 		return DeviceAndProperties{}, err
 	}
@@ -496,7 +497,7 @@ func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Propert
 
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
 // force が true の場合、最終更新時刻に関わらず強制的に更新する
-func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
+func (h *CommunicationHandler) UpdateProperties(criteria echonet_lite.FilterCriteria, force bool) error {
 	// フィルタリングを実行
 	filtered := h.dataAccessor.Filter(criteria)
 
@@ -537,7 +538,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 
 		wg.Add(1)
 
-		propMap := h.dataAccessor.GetPropertyMap(device, GetPropertyMap)
+		propMap := h.dataAccessor.GetPropertyMap(device, echonet_lite.GetPropertyMap)
 		if propMap == nil {
 			storeError(fmt.Errorf("プロパティマップが見つかりません: %v", device))
 			wg.Done()
@@ -553,7 +554,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		}
 
 		// 各デバイスに対して並列処理を実行
-		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration) {
+		go func(device echonet_lite.IPAndEOJ, propMap echonet_lite.PropertyMap, delay time.Duration) {
 			defer wg.Done()
 			deviceName := h.dataAccessor.DeviceStringWithAlias(device)
 
@@ -615,8 +616,8 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 }
 
 // validateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
-func (h *CommunicationHandler) validateEPCsInPropertyMap(device IPAndEOJ, epcs []EPCType, mapType PropertyMapType) (bool, []EPCType, error) {
-	invalidEPCs := []EPCType{}
+func (h *CommunicationHandler) validateEPCsInPropertyMap(device echonet_lite.IPAndEOJ, epcs []echonet_lite.EPCType, mapType echonet_lite.PropertyMapType) (bool, []echonet_lite.EPCType, error) {
+	invalidEPCs := []echonet_lite.EPCType{}
 
 	// デバイスが存在するか確認
 	if !h.dataAccessor.IsKnownDevice(device) {

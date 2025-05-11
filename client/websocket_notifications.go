@@ -2,6 +2,7 @@ package client
 
 import (
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 	"encoding/base64"
 	"fmt"
@@ -43,7 +44,7 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 	c.devicesMutex.Lock()
 	c.lastSeenMutex.Lock()
 
-	c.devices = make(map[string]echonet_lite.DeviceAndProperties)
+	c.devices = make(map[string]handler.DeviceAndProperties)
 	c.lastSeenTimes = make(map[string]time.Time)
 
 	for deviceID, device := range payload.Devices {
@@ -58,7 +59,7 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 		props := properties
 
 		// Add to devices
-		c.devices[deviceID] = echonet_lite.DeviceAndProperties{
+		c.devices[deviceID] = handler.DeviceAndProperties{
 			Device:     ipAndEOJ,
 			Properties: props,
 		}
@@ -110,7 +111,7 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 	c.lastSeenMutex.Lock()
 
 	// ipAndEOJ.Specifier() をキーとして使用
-	c.devices[ipAndEOJ.Specifier()] = echonet_lite.DeviceAndProperties{
+	c.devices[ipAndEOJ.Specifier()] = handler.DeviceAndProperties{
 		Device:     ipAndEOJ,
 		Properties: props,
 	}

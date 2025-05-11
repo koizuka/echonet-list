@@ -4,6 +4,7 @@ import (
 	"context"
 	"echonet-list/client"
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 	"encoding/json"
 	"fmt"
@@ -30,14 +31,14 @@ type WebSocketServer struct {
 	cancel        context.CancelFunc
 	transport     WebSocketTransport
 	echonetClient client.ECHONETListClient
-	handler       *echonet_lite.ECHONETLiteHandler
+	handler       *handler.ECHONETLiteHandler
 	activeClients atomic.Int32 // Number of currently connected clients
 	updateTicker  *time.Ticker // Ticker for periodic updates
 	tickerDone    chan bool    // Channel to stop the ticker goroutine
 }
 
 // NewWebSocketServer creates a new WebSocket server
-func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.ECHONETListClient, handler *echonet_lite.ECHONETLiteHandler) (*WebSocketServer, error) {
+func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.ECHONETListClient, handler *handler.ECHONETLiteHandler) (*WebSocketServer, error) {
 	serverCtx, cancel := context.WithCancel(ctx)
 
 	// Create the transport
@@ -320,7 +321,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 		case notification := <-ws.handler.NotificationCh:
 			// Handle the notification
 			switch notification.Type {
-			case echonet_lite.DeviceAdded:
+			case handler.DeviceAdded:
 				if ws.handler.IsDebug() {
 					slog.Debug("Device added", "device", notification.Device.Specifier())
 				}
@@ -345,7 +346,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 				// Broadcast the message
 				ws.broadcastMessageToClients(protocol.MessageTypeDeviceAdded, payload)
 
-			case echonet_lite.DeviceTimeout:
+			case handler.DeviceTimeout:
 				slog.Error("Device timeout", "device", notification.Device.Specifier(), "error", notification.Error)
 
 				// Create timeout notification payload
@@ -360,7 +361,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 				// Broadcast the message
 				ws.broadcastMessageToClients(protocol.MessageTypeTimeoutNotification, payload)
 
-			case echonet_lite.DeviceOffline:
+			case handler.DeviceOffline:
 				if ws.handler.IsDebug() {
 					slog.Debug("Device offline", "device", notification.Device.Specifier())
 				}

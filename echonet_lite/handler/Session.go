@@ -1,7 +1,8 @@
-package echonet_lite
+package handler
 
 import (
 	"context"
+	"echonet-list/echonet_lite"
 	"echonet-list/echonet_lite/network"
 	"encoding/hex"
 	"errors"
@@ -21,15 +22,15 @@ const (
 
 // SessionTimeoutEvent はセッションタイムアウトに関するイベントを表す構造体
 type SessionTimeoutEvent struct {
-	Device IPAndEOJ           // タイムアウトが発生したデバイス
-	Type   SessionTimeoutType // タイムアウトの種類
-	Error  error              // エラー情報
+	Device echonet_lite.IPAndEOJ // タイムアウトが発生したデバイス
+	Type   SessionTimeoutType    // タイムアウトの種類
+	Error  error                 // エラー情報
 }
 
 // ErrMaxRetriesReached は最大再送回数に達したことを示すエラー
 type ErrMaxRetriesReached struct {
 	MaxRetries int
-	Device     IPAndEOJ
+	Device     echonet_lite.IPAndEOJ
 }
 
 func (e ErrMaxRetriesReached) Error() string {
@@ -40,10 +41,10 @@ func (e ErrMaxRetriesReached) Error() string {
 var BroadcastIP = network.GetIPv4BroadcastIP()
 
 type Key struct {
-	TID TIDType
+	TID echonet_lite.TIDType
 }
 
-func MakeKey(msg *ECHONETLiteMessage) Key {
+func MakeKey(msg *echonet_lite.ECHONETLiteMessage) Key {
 	return Key{msg.TID}
 }
 
@@ -53,17 +54,17 @@ const (
 	CallbackContinue
 )
 
-type CallbackFunc func(net.IP, *ECHONETLiteMessage) (CallbackCompleteStatus, error)
-type PersistentCallbackFunc func(net.IP, *ECHONETLiteMessage) error
+type CallbackFunc func(net.IP, *echonet_lite.ECHONETLiteMessage) (CallbackCompleteStatus, error)
+type PersistentCallbackFunc func(net.IP, *echonet_lite.ECHONETLiteMessage) error
 
 type Entry struct {
-	ESVs     []ESVType
+	ESVs     []echonet_lite.ESVType
 	Callback CallbackFunc
 }
 
 type DispatchTable map[Key]Entry
 
-func (dt DispatchTable) Register(key Key, ESVs []ESVType, callback CallbackFunc) {
+func (dt DispatchTable) Register(key Key, ESVs []echonet_lite.ESVType, callback CallbackFunc) {
 	dt[key] = Entry{ESVs, callback}
 }
 
@@ -76,17 +77,17 @@ type Session struct {
 	dispatchTable   DispatchTable
 	receiveCallback PersistentCallbackFunc
 	infCallback     PersistentCallbackFunc
-	tid             TIDType
-	eoj             EOJ
+	tid             echonet_lite.TIDType
+	eoj             echonet_lite.EOJ
 	conn            *network.UDPConnection
 	MulticastIP     net.IP
 	Debug           bool
-	ctx             context.Context          // コンテキスト
-	cancel          context.CancelFunc       // コンテキストのキャンセル関数
-	MaxRetries      int                      // 最大再送回数
-	RetryInterval   time.Duration            // 再送間隔
-	TimeoutCh       chan SessionTimeoutEvent // タイムアウト通知用チャンネル
-	failedEPCs      map[string][]EPCType     // 失敗したEPCsを保持するマップ
+	ctx             context.Context                   // コンテキスト
+	cancel          context.CancelFunc                // コンテキストのキャンセル関数
+	MaxRetries      int                               // 最大再送回数
+	RetryInterval   time.Duration                     // 再送間隔
+	TimeoutCh       chan SessionTimeoutEvent          // タイムアウト通知用チャンネル
+	failedEPCs      map[string][]echonet_lite.EPCType // 失敗したEPCsを保持するマップ
 }
 
 // SetTimeoutChannel はタイムアウト通知用チャンネルを設定する
@@ -96,20 +97,20 @@ func (s *Session) SetTimeoutChannel(ch chan SessionTimeoutEvent) {
 	s.TimeoutCh = ch
 }
 
-func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Session, error) {
+func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug bool) (*Session, error) {
 	// タイムアウトなしのコンテキストを作成（キャンセルのみ可能）
 	sessionCtx, cancel := context.WithCancel(ctx)
 
-	multicastIP := ECHONETLiteMulticastIPv4
+	multicastIP := echonet_lite.ECHONETLiteMulticastIPv4
 
-	conn, err := network.CreateUDPConnection(sessionCtx, ip, ECHONETLitePort, multicastIP)
+	conn, err := network.CreateUDPConnection(sessionCtx, ip, echonet_lite.ECHONETLitePort, multicastIP)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		return nil, err
 	}
 	return &Session{
 		dispatchTable: make(DispatchTable),
-		tid:           TIDType(1),
+		tid:           echonet_lite.TIDType(1),
 		eoj:           EOJ,
 		conn:          conn,
 		MulticastIP:   multicastIP,
@@ -118,7 +119,7 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ EOJ, debug bool) (*Sessio
 		cancel:        cancel,
 		MaxRetries:    3,               // デフォルトの最大再送回数
 		RetryInterval: 3 * time.Second, // デフォルトの再送間隔
-		failedEPCs:    make(map[string][]EPCType),
+		failedEPCs:    make(map[string][]echonet_lite.EPCType),
 	}, nil
 }
 
@@ -197,7 +198,7 @@ func (s *Session) MainLoop() {
 			slog.Debug("受信データ(hex)", "addr", addr, "hex", hexDump)
 		}
 
-		msg, err := ParseECHONETLiteMessage(data)
+		msg, err := echonet_lite.ParseECHONETLiteMessage(data)
 		if err != nil {
 			slog.Error("パケット解析エラー", "err", err)
 			continue
@@ -208,11 +209,11 @@ func (s *Session) MainLoop() {
 		}
 
 		switch msg.ESV {
-		case ESVSet_Res, ESVSetI_SNA, ESVSetC_SNA,
-			ESVGet_Res, ESVGet_SNA,
-			ESVINFC_Res,
-			ESVINF_REQ_SNA,
-			ESVSetGet_Res, ESVSetGet_SNA:
+		case echonet_lite.ESVSet_Res, echonet_lite.ESVSetI_SNA, echonet_lite.ESVSetC_SNA,
+			echonet_lite.ESVGet_Res, echonet_lite.ESVGet_SNA,
+			echonet_lite.ESVINFC_Res,
+			echonet_lite.ESVINF_REQ_SNA,
+			echonet_lite.ESVSetGet_Res, echonet_lite.ESVSetGet_SNA:
 			// Get the callback while holding the lock
 			s.mu.RLock()
 			key := MakeKey(msg)
@@ -226,7 +227,7 @@ func (s *Session) MainLoop() {
 						var complete CallbackCompleteStatus
 						complete, err = entry.Callback(addr.IP, msg)
 						if complete == CallbackFinished {
-							s.unregisterCallback(key)
+							s.UnregisterCallback(key)
 						}
 						break
 					}
@@ -235,7 +236,7 @@ func (s *Session) MainLoop() {
 			if err != nil {
 				slog.Error("ディスパッチエラー", "err", err)
 			}
-		case ESVINF, ESVINFC:
+		case echonet_lite.ESVINF, echonet_lite.ESVINFC:
 			// Get the callback while holding the lock
 			s.mu.RLock()
 			callback := s.infCallback
@@ -248,7 +249,7 @@ func (s *Session) MainLoop() {
 					slog.Error("Infコールバックエラー", "err", err)
 				}
 			}
-		case ESVGet, ESVSetC, ESVSetI, ESVINF_REQ:
+		case echonet_lite.ESVGet, echonet_lite.ESVSetC, echonet_lite.ESVSetI, echonet_lite.ESVINF_REQ:
 			s.mu.RLock()
 			callback := s.receiveCallback
 			s.mu.RUnlock()
@@ -280,20 +281,20 @@ func (s *Session) Close() error {
 	return nil
 }
 
-func (s *Session) newTID() TIDType {
+func (s *Session) newTID() echonet_lite.TIDType {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.tid++
 	return s.tid
 }
 
-func (s *Session) registerCallback(key Key, ESVs []ESVType, callback CallbackFunc) {
+func (s *Session) registerCallback(key Key, ESVs []echonet_lite.ESVType, callback CallbackFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.dispatchTable.Register(key, ESVs, callback)
 }
 
-func (s *Session) sendMessage(ip net.IP, msg *ECHONETLiteMessage) error {
+func (s *Session) sendMessage(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) error {
 	if _, err := s.conn.SendTo(ip, msg.Encode()); err != nil {
 		slog.Error("パケット送信エラー", "err", err)
 		return err
@@ -304,8 +305,8 @@ func (s *Session) sendMessage(ip net.IP, msg *ECHONETLiteMessage) error {
 	return nil
 }
 
-func (s *Session) SendResponse(ip net.IP, msg *ECHONETLiteMessage, ESV ESVType, property Properties, setGetProperty Properties) error {
-	msgSend := &ECHONETLiteMessage{
+func (s *Session) SendResponse(ip net.IP, msg *echonet_lite.ECHONETLiteMessage, ESV echonet_lite.ESVType, property echonet_lite.Properties, setGetProperty echonet_lite.Properties) error {
+	msgSend := &echonet_lite.ECHONETLiteMessage{
 		TID:              msg.TID,
 		SEOJ:             msg.DEOJ,
 		DEOJ:             msg.SEOJ,
@@ -316,11 +317,11 @@ func (s *Session) SendResponse(ip net.IP, msg *ECHONETLiteMessage, ESV ESVType, 
 	return s.sendMessage(ip, msgSend)
 }
 
-func (s *Session) Broadcast(SEOJ EOJ, ESV ESVType, property Properties) error {
-	msg := &ECHONETLiteMessage{
+func (s *Session) Broadcast(SEOJ echonet_lite.EOJ, ESV echonet_lite.ESVType, property echonet_lite.Properties) error {
+	msg := &echonet_lite.ECHONETLiteMessage{
 		TID:        s.newTID(),
 		SEOJ:       SEOJ,
-		DEOJ:       NodeProfileObject,
+		DEOJ:       echonet_lite.NodeProfileObject,
 		ESV:        ESV,
 		Properties: property,
 	}
@@ -332,33 +333,33 @@ func (s *Session) Broadcast(SEOJ EOJ, ESV ESVType, property Properties) error {
 }
 
 // GetPropertiesCallbackFunc はプロパティ取得のコールバック関数の型。
-type GetPropertiesCallbackFunc func(device IPAndEOJ, success bool, properties Properties, FailedEPCs []EPCType) (CallbackCompleteStatus, error)
+type GetPropertiesCallbackFunc func(device echonet_lite.IPAndEOJ, success bool, properties echonet_lite.Properties, FailedEPCs []echonet_lite.EPCType) (CallbackCompleteStatus, error)
 
-func (s *Session) CreateGetPropertyMessage(device IPAndEOJ, EPCs []EPCType) *ECHONETLiteMessage {
-	props := make([]Property, 0, len(EPCs))
+func (s *Session) CreateGetPropertyMessage(device echonet_lite.IPAndEOJ, EPCs []echonet_lite.EPCType) *echonet_lite.ECHONETLiteMessage {
+	props := make([]echonet_lite.Property, 0, len(EPCs))
 	for _, epc := range EPCs {
-		props = append(props, Property{EPC: epc})
+		props = append(props, echonet_lite.Property{EPC: epc})
 	}
-	return &ECHONETLiteMessage{
+	return &echonet_lite.ECHONETLiteMessage{
 		TID:        s.newTID(),
 		SEOJ:       s.eoj,
 		DEOJ:       device.EOJ,
-		ESV:        ESVGet,
+		ESV:        echonet_lite.ESVGet,
 		Properties: props,
 	}
 }
 
-func (s *Session) prepareStartGetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) (*ECHONETLiteMessage, Key) {
+func (s *Session) prepareStartGetProperties(device echonet_lite.IPAndEOJ, EPCs []echonet_lite.EPCType, callback GetPropertiesCallbackFunc) (*echonet_lite.ECHONETLiteMessage, Key) {
 	msg := s.CreateGetPropertyMessage(device, EPCs)
 	key := MakeKey(msg)
-	s.registerCallback(key, msg.ESV.ResponseESVs(), func(ip net.IP, msg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
-		device := IPAndEOJ{ip, msg.SEOJ}
-		if msg.ESV == ESVGet_Res {
+	s.registerCallback(key, msg.ESV.ResponseESVs(), func(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+		device := echonet_lite.IPAndEOJ{ip, msg.SEOJ}
+		if msg.ESV == echonet_lite.ESVGet_Res {
 			return callback(device, true, msg.Properties, nil)
 		}
 		// Getは EDT=nilが失敗
-		successProperties := make(Properties, 0, len(msg.Properties))
-		failedEPCs := make([]EPCType, 0, len(msg.Properties))
+		successProperties := make(echonet_lite.Properties, 0, len(msg.Properties))
+		failedEPCs := make([]echonet_lite.EPCType, 0, len(msg.Properties))
 		for _, p := range msg.Properties {
 			if p.EDT != nil {
 				successProperties = append(successProperties, p)
@@ -371,7 +372,7 @@ func (s *Session) prepareStartGetProperties(device IPAndEOJ, EPCs []EPCType, cal
 	return msg, key
 }
 
-func (s *Session) StartGetProperties(device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) (Key, error) {
+func (s *Session) StartGetProperties(device echonet_lite.IPAndEOJ, EPCs []echonet_lite.EPCType, callback GetPropertiesCallbackFunc) (Key, error) {
 	msg, key := s.prepareStartGetProperties(device, EPCs, callback)
 	if err := s.sendMessage(device.IP, msg); err != nil {
 		return Key{}, err
@@ -380,12 +381,12 @@ func (s *Session) StartGetProperties(device IPAndEOJ, EPCs []EPCType, callback G
 }
 
 // StartGetPropertiesWithRetry は、プロパティ取得を行い、タイムアウトした場合は go routineで再試行する
-func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAndEOJ, EPCs []EPCType, callback GetPropertiesCallbackFunc) error {
+func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echonet_lite.IPAndEOJ, EPCs []echonet_lite.EPCType, callback GetPropertiesCallbackFunc) error {
 	desc := fmt.Sprintf("StartGetPropertiesWithRetry(%v, %v)", device, EPCs)
 
 	ctx, cancel := context.WithCancel(ctx1)
 
-	msg, key := s.prepareStartGetProperties(device, EPCs, func(device IPAndEOJ, success bool, properties Properties, FailedEPCs []EPCType) (CallbackCompleteStatus, error) {
+	msg, key := s.prepareStartGetProperties(device, EPCs, func(device echonet_lite.IPAndEOJ, success bool, properties echonet_lite.Properties, FailedEPCs []echonet_lite.EPCType) (CallbackCompleteStatus, error) {
 		cancel()
 		_, err := callback(device, success, properties, FailedEPCs)
 		return CallbackFinished, err
@@ -394,7 +395,7 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 	err := s.sendMessage(device.IP, msg)
 	if err != nil {
 		cancel()
-		s.unregisterCallback(key)
+		s.UnregisterCallback(key)
 		return err
 	}
 
@@ -411,7 +412,7 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 		for {
 			select {
 			case <-ctx.Done():
-				s.unregisterCallback(key)
+				s.UnregisterCallback(key)
 
 				if retryCount > 0 {
 					slog.Info("リトライ後に完了", "desc", desc)
@@ -447,7 +448,7 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device IPAnd
 	return nil
 }
 
-func (s *Session) notifyDeviceTimeout(device IPAndEOJ) error {
+func (s *Session) notifyDeviceTimeout(device echonet_lite.IPAndEOJ) error {
 	maxRetriesErr := ErrMaxRetriesReached{
 		MaxRetries: s.MaxRetries,
 		Device:     device,
@@ -467,18 +468,18 @@ func (s *Session) notifyDeviceTimeout(device IPAndEOJ) error {
 	return maxRetriesErr
 }
 
-func (s *Session) CreateSetPropertyMessage(device IPAndEOJ, properties Properties) *ECHONETLiteMessage {
-	return &ECHONETLiteMessage{
+func (s *Session) CreateSetPropertyMessage(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties) *echonet_lite.ECHONETLiteMessage {
+	return &echonet_lite.ECHONETLiteMessage{
 		TID:        s.newTID(),
 		SEOJ:       s.eoj,
 		DEOJ:       device.EOJ,
-		ESV:        ESVSetC,
+		ESV:        echonet_lite.ESVSetC,
 		Properties: properties,
 	}
 }
 
 // コールバックを登録解除する関数
-func (s *Session) unregisterCallback(key Key) {
+func (s *Session) UnregisterCallback(key Key) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.dispatchTable, key)
@@ -487,17 +488,17 @@ func (s *Session) unregisterCallback(key Key) {
 // 共通処理を行う内部関数
 func (s *Session) sendRequestWithContext(
 	ctx context.Context,
-	device IPAndEOJ,
-	msg *ECHONETLiteMessage,
-) (*ECHONETLiteMessage, error) {
+	device echonet_lite.IPAndEOJ,
+	msg *echonet_lite.ECHONETLiteMessage,
+) (*echonet_lite.ECHONETLiteMessage, error) {
 	// 結果を受け取るためのチャネル
-	responseCh := make(chan *ECHONETLiteMessage, 1)
+	responseCh := make(chan *echonet_lite.ECHONETLiteMessage, 1)
 
 	// キーを取得
 	key := MakeKey(msg)
 
 	// コールバックを登録
-	s.registerCallback(key, msg.ESV.ResponseESVs(), func(ip net.IP, respMsg *ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+	s.registerCallback(key, msg.ESV.ResponseESVs(), func(ip net.IP, respMsg *echonet_lite.ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		// 応答メッセージをチャネルに送信
 		select {
 		case <-ctx.Done():
@@ -507,7 +508,7 @@ func (s *Session) sendRequestWithContext(
 		}
 
 		// 必ず登録解除する（ブロードキャストを想定しない）
-		s.unregisterCallback(key)
+		s.UnregisterCallback(key)
 
 		return CallbackFinished, nil
 	})
@@ -516,7 +517,7 @@ func (s *Session) sendRequestWithContext(
 	callbackUnregistered := false
 	defer func() {
 		if !callbackUnregistered {
-			s.unregisterCallback(key)
+			s.UnregisterCallback(key)
 		}
 	}()
 
@@ -570,22 +571,22 @@ func (s *Session) sendRequestWithContext(
 	}
 }
 
-func (s *Session) updateFailedEPCs(device IPAndEOJ, success Properties, failed []EPCType) []EPCType {
+func (s *Session) updateFailedEPCs(device echonet_lite.IPAndEOJ, success echonet_lite.Properties, failed []echonet_lite.EPCType) []echonet_lite.EPCType {
 	key := device.Key()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// 既存の失敗リストを取得 (存在しない場合は空のスライス)
-	existingFailedEPCs := make([]EPCType, 0)
+	existingFailedEPCs := make([]echonet_lite.EPCType, 0)
 	if f, ok := s.failedEPCs[key]; ok {
 		existingFailedEPCs = append(existingFailedEPCs, f...) // コピーを作成
 	}
 
 	// 1. 今回成功したEPCを既存の失敗リストから削除する
 	if len(success) > 0 {
-		remainingFailedEPCs := make([]EPCType, 0, len(existingFailedEPCs))
-		successEPCs := make(map[EPCType]struct{}, len(success))
+		remainingFailedEPCs := make([]echonet_lite.EPCType, 0, len(existingFailedEPCs))
+		successEPCs := make(map[echonet_lite.EPCType]struct{}, len(success))
 		for _, p := range success {
 			successEPCs[p.EPC] = struct{}{}
 		}
@@ -598,9 +599,9 @@ func (s *Session) updateFailedEPCs(device IPAndEOJ, success Properties, failed [
 	}
 
 	// 2. 今回失敗したEPCのうち、まだ記録されていないものを追加し、戻り値リストを作成する
-	newlyFailedForReturn := make([]EPCType, 0, len(failed))
+	newlyFailedForReturn := make([]echonet_lite.EPCType, 0, len(failed))
 	if len(failed) > 0 {
-		currentFailedSet := make(map[EPCType]struct{}, len(existingFailedEPCs))
+		currentFailedSet := make(map[echonet_lite.EPCType]struct{}, len(existingFailedEPCs))
 		for _, epc := range existingFailedEPCs {
 			currentFailedSet[epc] = struct{}{}
 		}
@@ -628,9 +629,9 @@ func (s *Session) updateFailedEPCs(device IPAndEOJ, success Properties, failed [
 // GetProperties - プロパティ取得
 func (s *Session) GetProperties(
 	ctx context.Context,
-	device IPAndEOJ,
-	EPCs []EPCType,
-) (bool, Properties, []EPCType, error) {
+	device echonet_lite.IPAndEOJ,
+	EPCs []echonet_lite.EPCType,
+) (bool, echonet_lite.Properties, []echonet_lite.EPCType, error) {
 	// メッセージを作成
 	msg := s.CreateGetPropertyMessage(device, EPCs)
 
@@ -644,11 +645,11 @@ func (s *Session) GetProperties(
 	}
 
 	// 応答を処理
-	success := respMsg.ESV == ESVGet_Res
+	success := respMsg.ESV == echonet_lite.ESVGet_Res
 
 	// 成功/失敗のプロパティを分類
-	successProperties := make(Properties, 0, len(respMsg.Properties))
-	failedEPCs := make([]EPCType, 0, len(respMsg.Properties))
+	successProperties := make(echonet_lite.Properties, 0, len(respMsg.Properties))
+	failedEPCs := make([]echonet_lite.EPCType, 0, len(respMsg.Properties))
 
 	for _, p := range respMsg.Properties {
 		if p.EDT != nil {
@@ -666,9 +667,9 @@ func (s *Session) GetProperties(
 // SetProperties - プロパティ設定
 func (s *Session) SetProperties(
 	ctx context.Context,
-	device IPAndEOJ,
-	properties Properties,
-) (bool, Properties, []EPCType, error) {
+	device echonet_lite.IPAndEOJ,
+	properties echonet_lite.Properties,
+) (bool, echonet_lite.Properties, []echonet_lite.EPCType, error) {
 	// メッセージを作成
 	msg := s.CreateSetPropertyMessage(device, properties)
 
@@ -678,7 +679,7 @@ func (s *Session) SetProperties(
 	// エラーチェック
 	if err != nil {
 		// タイムアウトやコンテキストキャンセルの場合
-		failedEPCs := make([]EPCType, 0, len(properties))
+		failedEPCs := make([]echonet_lite.EPCType, 0, len(properties))
 		for _, p := range properties {
 			failedEPCs = append(failedEPCs, p.EPC)
 		}
@@ -686,11 +687,11 @@ func (s *Session) SetProperties(
 	}
 
 	// 応答を処理
-	success := respMsg.ESV == ESVSet_Res
+	success := respMsg.ESV == echonet_lite.ESVSet_Res
 
 	// 成功/失敗のプロパティを分類
-	successProperties := make(Properties, 0, len(properties))
-	failedEPCs := make([]EPCType, 0, len(properties))
+	successProperties := make(echonet_lite.Properties, 0, len(properties))
+	failedEPCs := make([]echonet_lite.EPCType, 0, len(properties))
 
 	// Setは EDT == nil が成功
 	for i, p := range respMsg.Properties {

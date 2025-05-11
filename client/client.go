@@ -2,6 +2,7 @@ package client
 
 import (
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 )
 
 type IPAndEOJ = echonet_lite.IPAndEOJ
@@ -21,7 +22,7 @@ type DeviceSpecifier = echonet_lite.DeviceSpecifier
 type EPCType = echonet_lite.EPCType
 type Property = echonet_lite.Property
 type Properties = echonet_lite.Properties
-type DeviceAndProperties = echonet_lite.DeviceAndProperties
+type DeviceAndProperties = handler.DeviceAndProperties
 
 type PropertyDesc = echonet_lite.PropertyDesc
 type PropertyDescription = echonet_lite.PropertyDescription

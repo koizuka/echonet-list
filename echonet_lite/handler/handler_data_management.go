@@ -1,7 +1,8 @@
-package echonet_lite
+package handler
 
 import (
 	"bytes"
+	"echonet-list/echonet_lite"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,15 +14,15 @@ import (
 
 // DataManagementHandler は、データ管理機能を担当する構造体
 type DataManagementHandler struct {
-	devices       Devices           // デバイス情報
-	DeviceAliases *DeviceAliases    // デバイスエイリアス
-	DeviceGroups  *DeviceGroups     // デバイスグループ
-	propMutex     sync.RWMutex      // プロパティの排他制御用ミューテックス
-	notifier      NotificationRelay // 通知中継
+	devices       echonet_lite.Devices        // デバイス情報
+	DeviceAliases *echonet_lite.DeviceAliases // デバイスエイリアス
+	DeviceGroups  *echonet_lite.DeviceGroups  // デバイスグループ
+	propMutex     sync.RWMutex                // プロパティの排他制御用ミューテックス
+	notifier      NotificationRelay           // 通知中継
 }
 
 // NewDataManagementHandler は、DataManagementHandlerの新しいインスタンスを作成する
-func NewDataManagementHandler(devices Devices, aliases *DeviceAliases, groups *DeviceGroups, notifier NotificationRelay) *DataManagementHandler {
+func NewDataManagementHandler(devices echonet_lite.Devices, aliases *echonet_lite.DeviceAliases, groups *echonet_lite.DeviceGroups, notifier NotificationRelay) *DataManagementHandler {
 	return &DataManagementHandler{
 		devices:       devices,
 		DeviceAliases: aliases,
@@ -39,11 +40,9 @@ func (h *DataManagementHandler) SaveDeviceInfo() {
 }
 
 // RegisterProperties は、デバイスのプロパティを登録し、追加・変更されたプロパティを返す
-func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties Properties) []ChangedProperty {
+func (h *DataManagementHandler) RegisterProperties(device echonet_lite.IPAndEOJ, properties echonet_lite.Properties) []ChangedProperty {
 	h.propMutex.Lock()
 	defer h.propMutex.Unlock()
-
-
 
 	// 変更されたプロパティを追跡
 	var changedProperties []ChangedProperty
@@ -56,7 +55,7 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 		// プロパティが新規または値が変更された場合
 		if !exists || !bytes.Equal(currentProp.EDT, prop.EDT) {
 			if !exists {
-				currentProp = &Property{EPC: prop.EPC, EDT: []byte{}}
+				currentProp = &echonet_lite.Property{EPC: prop.EPC, EDT: []byte{}}
 			}
 			before := currentProp.EDTString(device.EOJ.ClassCode())
 			after := prop.EDTString(device.EOJ.ClassCode())
@@ -92,14 +91,14 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 }
 
 // ListDevices は、検出されたデバイスの一覧を表示する
-func (h *DataManagementHandler) ListDevices(criteria FilterCriteria) []DeviceAndProperties {
+func (h *DataManagementHandler) ListDevices(criteria echonet_lite.FilterCriteria) []DeviceAndProperties {
 	// フィルタリングを実行
 	filtered := h.devices.Filter(criteria)
 
 	temp := filtered.ListDevicePropertyData()
 	result := make([]DeviceAndProperties, 0, len(temp))
 	for _, d := range temp {
-		p := make(Properties, 0, len(d.Properties))
+		p := make(echonet_lite.Properties, 0, len(d.Properties))
 		for _, prop := range d.Properties {
 			p = append(p, prop)
 		}
@@ -121,12 +120,12 @@ func (h *DataManagementHandler) SaveAliasFile() error {
 }
 
 // AliasList は、エイリアスのリストを返す
-func (h *DataManagementHandler) AliasList() []AliasIDStringPair {
+func (h *DataManagementHandler) AliasList() []echonet_lite.AliasIDStringPair {
 	return h.DeviceAliases.List()
 }
 
 // GetAliases は、指定されたデバイスのエイリアスを取得する
-func (h *DataManagementHandler) GetAliases(device IPAndEOJ) []string {
+func (h *DataManagementHandler) GetAliases(device echonet_lite.IPAndEOJ) []string {
 	ids := h.devices.GetIDString(device)
 	if ids == "" {
 		return nil
@@ -135,17 +134,17 @@ func (h *DataManagementHandler) GetAliases(device IPAndEOJ) []string {
 }
 
 // DeviceStringWithAlias は、デバイスの文字列表現にエイリアスを付加する
-func (h *DataManagementHandler) DeviceStringWithAlias(device IPAndEOJ) string {
+func (h *DataManagementHandler) DeviceStringWithAlias(device echonet_lite.IPAndEOJ) string {
 	names := h.GetAliases(device)
 	names = append(names, device.String())
 	return (strings.Join(names, " "))
 }
 
-func (h *DataManagementHandler) IsOffline(device IPAndEOJ) bool {
+func (h *DataManagementHandler) IsOffline(device echonet_lite.IPAndEOJ) bool {
 	return h.devices.IsOffline(device)
 }
 
-func (h *DataManagementHandler) SetOffline(device IPAndEOJ, offline bool) {
+func (h *DataManagementHandler) SetOffline(device echonet_lite.IPAndEOJ, offline bool) {
 	if offline {
 		slog.Info("デバイスをオフラインに設定", "device", device)
 	}
@@ -153,13 +152,13 @@ func (h *DataManagementHandler) SetOffline(device IPAndEOJ, offline bool) {
 }
 
 // AliasSet は、デバイスにエイリアスを設定する
-func (h *DataManagementHandler) AliasSet(alias *string, criteria FilterCriteria) error {
+func (h *DataManagementHandler) AliasSet(alias *string, criteria echonet_lite.FilterCriteria) error {
 	devices := h.devices.Filter(criteria)
 	if devices.Len() == 0 {
 		return fmt.Errorf("デバイスが見つかりません: %v", criteria)
 	}
 	if devices.Len() > 1 {
-		return TooManyDevicesError{devices.ListIPAndEOJ()}
+		return echonet_lite.TooManyDevicesError{devices.ListIPAndEOJ()}
 	}
 	found := devices.ListIPAndEOJ()[0]
 
@@ -187,7 +186,7 @@ func (h *DataManagementHandler) AliasDelete(alias *string) error {
 }
 
 // AliasGet は、エイリアスからデバイスを取得する
-func (h *DataManagementHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
+func (h *DataManagementHandler) AliasGet(alias *string) (*echonet_lite.IPAndEOJ, error) {
 	if alias == nil {
 		return nil, errors.New("エイリアス名が指定されていません")
 	}
@@ -204,9 +203,9 @@ func (h *DataManagementHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
 }
 
 // GetDevices は、デバイス指定子に一致するデバイスを取得する
-func (h *DataManagementHandler) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
+func (h *DataManagementHandler) GetDevices(deviceSpec echonet_lite.DeviceSpecifier) []echonet_lite.IPAndEOJ {
 	// フィルタリング条件を作成
-	criteria := FilterCriteria{
+	criteria := echonet_lite.FilterCriteria{
 		Device: deviceSpec,
 	}
 
@@ -224,12 +223,12 @@ func (h *DataManagementHandler) SaveGroupFile() error {
 }
 
 // GroupList は、グループのリストを返す
-func (h *DataManagementHandler) GroupList(groupName *string) []GroupDevicePair {
+func (h *DataManagementHandler) GroupList(groupName *string) []echonet_lite.GroupDevicePair {
 	return h.DeviceGroups.GroupList(groupName)
 }
 
 // GroupAdd は、グループにデバイスを追加する
-func (h *DataManagementHandler) GroupAdd(groupName string, devices []IDString) error {
+func (h *DataManagementHandler) GroupAdd(groupName string, devices []echonet_lite.IDString) error {
 	err := h.DeviceGroups.GroupAdd(groupName, devices)
 	if err != nil {
 		return err
@@ -238,7 +237,7 @@ func (h *DataManagementHandler) GroupAdd(groupName string, devices []IDString) e
 }
 
 // GroupRemove は、グループからデバイスを削除する
-func (h *DataManagementHandler) GroupRemove(groupName string, devices []IDString) error {
+func (h *DataManagementHandler) GroupRemove(groupName string, devices []echonet_lite.IDString) error {
 	err := h.DeviceGroups.GroupRemove(groupName, devices)
 	if err != nil {
 		return err
@@ -256,12 +255,12 @@ func (h *DataManagementHandler) GroupDelete(groupName string) error {
 }
 
 // GetDevicesByGroup は、グループ名に対応するデバイスリストを返す
-func (h *DataManagementHandler) GetDevicesByGroup(groupName string) ([]IDString, bool) {
+func (h *DataManagementHandler) GetDevicesByGroup(groupName string) ([]echonet_lite.IDString, bool) {
 	return h.DeviceGroups.GetDevicesByGroup(groupName)
 }
 
 // FindDeviceByIDString は、IDStringからデバイスを検索する
-func (h *DataManagementHandler) FindDeviceByIDString(id IDString) *IPAndEOJ {
+func (h *DataManagementHandler) FindDeviceByIDString(id echonet_lite.IDString) *echonet_lite.IPAndEOJ {
 	devices := h.devices.FindByIDString(id)
 	if len(devices) == 0 {
 		return nil
@@ -281,42 +280,42 @@ func (h *DataManagementHandler) FindDeviceByIDString(id IDString) *IPAndEOJ {
 }
 
 // GetIDString は、デバイスのIDStringを取得する
-func (h *DataManagementHandler) GetIDString(device IPAndEOJ) IDString {
+func (h *DataManagementHandler) GetIDString(device echonet_lite.IPAndEOJ) echonet_lite.IDString {
 	return h.devices.GetIDString(device)
 }
 
 // GetLastUpdateTime は、指定されたデバイスの最終更新タイムスタンプを取得する
-func (h *DataManagementHandler) GetLastUpdateTime(device IPAndEOJ) time.Time {
+func (h *DataManagementHandler) GetLastUpdateTime(device echonet_lite.IPAndEOJ) time.Time {
 	return h.devices.GetLastUpdateTime(device)
 }
 
 // IsKnownDevice は、デバイスが既知かどうかを確認する
-func (h *DataManagementHandler) IsKnownDevice(device IPAndEOJ) bool {
+func (h *DataManagementHandler) IsKnownDevice(device echonet_lite.IPAndEOJ) bool {
 	return h.devices.IsKnownDevice(device)
 }
 
 // HasEPCInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
-func (h *DataManagementHandler) HasEPCInPropertyMap(device IPAndEOJ, mapType PropertyMapType, epc EPCType) bool {
+func (h *DataManagementHandler) HasEPCInPropertyMap(device echonet_lite.IPAndEOJ, mapType echonet_lite.PropertyMapType, epc echonet_lite.EPCType) bool {
 	return h.devices.HasEPCInPropertyMap(device, mapType, epc)
 }
 
 // GetPropertyMap は、指定されたデバイスのプロパティマップを取得する
-func (h *DataManagementHandler) GetPropertyMap(device IPAndEOJ, mapType PropertyMapType) PropertyMap {
+func (h *DataManagementHandler) GetPropertyMap(device echonet_lite.IPAndEOJ, mapType echonet_lite.PropertyMapType) echonet_lite.PropertyMap {
 	return h.devices.GetPropertyMap(device, mapType)
 }
 
 // GetProperty は、指定されたデバイスのプロパティを取得する
-func (h *DataManagementHandler) GetProperty(device IPAndEOJ, epc EPCType) (*Property, bool) {
+func (h *DataManagementHandler) GetProperty(device echonet_lite.IPAndEOJ, epc echonet_lite.EPCType) (*echonet_lite.Property, bool) {
 	return h.devices.GetProperty(device, epc)
 }
 
 // Filter は、条件に一致するデバイスをフィルタリングする
-func (h *DataManagementHandler) Filter(criteria FilterCriteria) Devices {
+func (h *DataManagementHandler) Filter(criteria echonet_lite.FilterCriteria) echonet_lite.Devices {
 	return h.devices.Filter(criteria)
 }
 
 // RegisterDevice は、デバイスを登録する
-func (h *DataManagementHandler) RegisterDevice(device IPAndEOJ) {
+func (h *DataManagementHandler) RegisterDevice(device echonet_lite.IPAndEOJ) {
 	h.devices.RegisterDevice(device)
 }
 
@@ -326,13 +325,13 @@ func (h *DataManagementHandler) HasIP(ip net.IP) bool {
 }
 
 // FindByIDString は、IDStringからデバイスを検索する
-func (h *DataManagementHandler) FindByIDString(id IDString) []IPAndEOJ {
+func (h *DataManagementHandler) FindByIDString(id echonet_lite.IDString) []echonet_lite.IPAndEOJ {
 	return h.devices.FindByIDString(id)
 }
 
 // ValidateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
-func (h *DataManagementHandler) ValidateEPCsInPropertyMap(device IPAndEOJ, epcs []EPCType, mapType PropertyMapType) (bool, []EPCType, error) {
-	invalidEPCs := []EPCType{}
+func (h *DataManagementHandler) ValidateEPCsInPropertyMap(device echonet_lite.IPAndEOJ, epcs []echonet_lite.EPCType, mapType echonet_lite.PropertyMapType) (bool, []echonet_lite.EPCType, error) {
+	invalidEPCs := []echonet_lite.EPCType{}
 
 	// デバイスが存在するか確認
 	if !h.IsKnownDevice(device) {

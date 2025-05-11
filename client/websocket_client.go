@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 	"fmt"
 	"sort"
@@ -19,7 +20,7 @@ type WebSocketClient struct {
 	cancel          context.CancelFunc
 	transport       WebSocketClientTransport
 	debug           bool
-	devices         map[string]echonet_lite.DeviceAndProperties
+	devices         map[string]handler.DeviceAndProperties
 	devicesMutex    sync.RWMutex
 	lastSeenTimes   map[string]time.Time
 	lastSeenMutex   sync.RWMutex
@@ -49,7 +50,7 @@ func NewWebSocketClient(ctx context.Context, serverURL string, debug bool) (*Web
 		cancel:        cancel,
 		transport:     transport,
 		debug:         debug,
-		devices:       make(map[string]echonet_lite.DeviceAndProperties),
+		devices:       make(map[string]handler.DeviceAndProperties),
 		lastSeenTimes: make(map[string]time.Time),
 		aliases:       make(map[string]IDString),
 		groups:        make([]GroupDevicePair, 0),

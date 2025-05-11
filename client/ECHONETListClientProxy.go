@@ -2,14 +2,15 @@ package client
 
 import (
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/handler"
 )
 
 // ECHONETListClientProxy は、ECHONETListClientのlocal proxy
 type ECHONETListClientProxy struct {
-	handler *echonet_lite.ECHONETLiteHandler // handlerを持つのは移行のため
+	handler *handler.ECHONETLiteHandler // handlerを持つのは移行のため
 }
 
-func NewECHONETListClientProxy(handler *echonet_lite.ECHONETLiteHandler) ECHONETListClient {
+func NewECHONETListClientProxy(handler *handler.ECHONETLiteHandler) ECHONETListClient {
 	return &ECHONETListClientProxy{
 		handler: handler,
 	}
