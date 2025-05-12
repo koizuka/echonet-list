@@ -4,13 +4,19 @@ import (
 	"context"
 	"echonet-list/client"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/c-bata/go-prompt"
 	"golang.org/x/exp/slices"
+	"golang.org/x/term"
 )
 
 func ConsoleProcess(ctx context.Context, c client.ECHONETListClient) {
+	// 現在の端末状態を保存
+	orig, _ := term.GetState(int(os.Stdin.Fd()))
+	defer term.Restore(int(os.Stdin.Fd()), orig)
+
 	// 履歴ファイルのパスを取得し、履歴を読み込む
 	historyFilePath := getHistoryFilePath()
 	initialHistory := loadHistory(historyFilePath)
