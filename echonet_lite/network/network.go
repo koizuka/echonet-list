@@ -114,3 +114,26 @@ func GetLocalIPv4s() ([]net.IP, error) {
 	}
 	return localIPs, nil
 }
+
+// GetMACAddressByIP は、指定されたIPアドレスに紐づくネットワークインターフェースのMACアドレスを取得します。
+func GetMACAddressByIP(ip net.IP) ([]byte, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get network interfaces: %w", err)
+	}
+
+	for _, iface := range interfaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok {
+				if ipnet.IP.Equal(ip) {
+					return iface.HardwareAddr, nil
+				}
+			}
+		}
+	}
+	return nil, fmt.Errorf("MAC address not found for IP: %s", ip.String())
+}

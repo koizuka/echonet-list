@@ -2,6 +2,7 @@ package handler
 
 import (
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/network"
 	"fmt"
 	"net"
 	"strconv"
@@ -151,4 +152,28 @@ func DeviceSpecifierFromIPAndEOJ(device IPAndEOJ) DeviceSpecifier {
 		ClassCode:    &classCode,
 		InstanceCode: &instanceCode,
 	}
+}
+
+func GenerateUniqueIdentifierFromMACAddress() ([]byte, error) {
+	uniqueIdentifier := make([]byte, 13) // 13バイトのユニーク識別子を生成
+
+	localIPs, err := network.GetLocalIPv4s()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local IPv4 address: %v", err)
+	}
+	if len(localIPs) > 0 {
+		// 最初のローカルIPアドレスを使用
+		macAddr, macErr := network.GetMACAddressByIP(localIPs[0])
+		if macErr != nil {
+			return nil, fmt.Errorf("failed to get MAC address for %s: %v", localIPs[0].String(), macErr)
+		}
+		if len(macAddr) == 6 {
+			// MACアドレスが6バイトの場合、先頭6バイトにコピー
+			copy(uniqueIdentifier, macAddr)
+			// 残りの7バイトは0のまま
+		} else {
+			return nil, fmt.Errorf("unexpected MAC address length (%d bytes) for %s: %v", len(macAddr), localIPs[0].String(), macAddr)
+		}
+	}
+	return uniqueIdentifier, nil
 }

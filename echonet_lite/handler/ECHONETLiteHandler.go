@@ -4,6 +4,7 @@ import (
 	"context"
 	"echonet-list/echonet_lite"
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
 )
@@ -18,8 +19,15 @@ type ECHONETLiteHandler struct {
 	PropertyChangeCh chan PropertyChangeNotification // プロパティ変化通知用チャネル
 }
 
+type ECHONETLieHandlerOptions struct {
+	IP               net.IP // 自ノードのIPアドレス, nilの場合はワイルドカード
+	Debug            bool   // デバッグモード
+	ManufacturerCode string // echonet_lite.ManufacturerCodeEDT のキーのいずれか。省略時は Experimental
+	UniqueIdentifier []byte // 13バイトのユニーク識別子, nilの場合はMACアドレスから生成
+}
+
 // NewECHONETLiteHandler は、ECHONETLiteHandler の新しいインスタンスを作成する
-func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONETLiteHandler, error) {
+func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions) (*ECHONETLiteHandler, error) {
 	// タイムアウト付きのコンテキストを作成
 	handlerCtx, cancel := context.WithCancel(ctx)
 
@@ -27,7 +35,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 	seoj := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
 
 	// 自ノードのセッションを作成
-	session, err := CreateSession(handlerCtx, ip, seoj, debug)
+	session, err := CreateSession(handlerCtx, options.IP, seoj, options.Debug)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		return nil, fmt.Errorf("接続に失敗: %w", err)
@@ -73,16 +81,35 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 		cancel() // エラーの場合はコンテキストをキャンセル
 		panic("プロパティテーブルに on が見つかりません")
 	}
-	manufacturerCodeEDT, ok := echonet_lite.ManufacturerCodeEDTs["Experimental"]
+	manufacturerCode := options.ManufacturerCode
+	if manufacturerCode == "" {
+		manufacturerCode = "Experimental" // デフォルトは Experimental
+	}
+	manufacturerCodeEDT, ok := echonet_lite.ManufacturerCodeEDTs[manufacturerCode]
 	if !ok {
 		cancel() // エラーの場合はコンテキストをキャンセル
-		panic("プロパティテーブルに Experimental が見つかりません")
+		panic(fmt.Sprintf("プロパティテーブルに %v が見つかりません", manufacturerCode))
+	}
+
+	// UniqueIdentifier を生成
+	uniqueIdentifier := make([]byte, 13) // デフォルトは13バイトの0
+	if options.UniqueIdentifier != nil {
+		// ユーザー指定のユニーク識別子を使用
+		copy(uniqueIdentifier, options.UniqueIdentifier[0:13])
+	} else {
+		genId, err := GenerateUniqueIdentifierFromMACAddress()
+		if err != nil {
+			cancel() // エラーの場合はコンテキストをキャンセル
+			return nil, fmt.Errorf("ユニーク識別子の生成に失敗: %w", err)
+		}
+		copy(uniqueIdentifier, genId[:])
 	}
 
 	identificationNumber := echonet_lite.IdentificationNumber{
 		ManufacturerCode: manufacturerCodeEDT,
-		UniqueIdentifier: make([]byte, 13), // 識別番号未設定は13バイトの0
+		UniqueIdentifier: uniqueIdentifier,
 	}
+	slog.Info("ユニーク識別子", "identificationNumber", identificationNumber.String())
 
 	commonProps := []Property{
 		operationStatusOn,
@@ -122,9 +149,9 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 	session.SetTimeoutChannel(sessionTimeoutCh)
 
 	// 各ハンドラを初期化
-	core := NewHandlerCore(handlerCtx, cancel, debug)
+	core := NewHandlerCore(handlerCtx, cancel, options.Debug)
 	data := NewDataManagementHandler(devices, aliases, groups, core)
-	comm := NewCommunicationHandler(handlerCtx, session, localDevices, data, core, debug)
+	comm := NewCommunicationHandler(handlerCtx, session, localDevices, data, core, options.Debug)
 
 	// イベント中継ループを開始
 	core.StartEventRelayLoop(deviceEventCh, sessionTimeoutCh)

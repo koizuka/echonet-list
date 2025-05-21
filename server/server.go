@@ -13,7 +13,7 @@ type Server struct {
 
 func NewServer(ctx context.Context, debug bool) (*Server, error) {
 	// ECHONETLiteHandlerの作成
-	liteHandler, err := handler.NewECHONETLiteHandler(ctx, nil, debug)
+	liteHandler, err := handler.NewECHONETLiteHandler(ctx, handler.ECHONETLieHandlerOptions{Debug: debug})
 	if err != nil {
 		return nil, err
 	}
