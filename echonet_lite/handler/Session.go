@@ -353,7 +353,7 @@ func (s *Session) prepareStartGetProperties(device echonet_lite.IPAndEOJ, EPCs [
 	msg := s.CreateGetPropertyMessage(device, EPCs)
 	key := MakeKey(msg)
 	s.registerCallback(key, msg.ESV.ResponseESVs(), func(ip net.IP, msg *echonet_lite.ECHONETLiteMessage) (CallbackCompleteStatus, error) {
-		device := echonet_lite.IPAndEOJ{ip, msg.SEOJ}
+		device := echonet_lite.IPAndEOJ{IP: ip, EOJ: msg.SEOJ}
 		if msg.ESV == echonet_lite.ESVGet_Res {
 			return callback(device, true, msg.Properties, nil)
 		}

@@ -174,7 +174,7 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONET
 		for _, p := range msg.Properties {
 			switch p.EPC {
 			case echonet_lite.EPC_NPO_SelfNodeInstanceListS:
-				err := h.onSelfNodeInstanceListS(IPAndEOJ{ip, msg.SEOJ}, true, p)
+				err := h.onSelfNodeInstanceListS(IPAndEOJ{IP: ip, EOJ: msg.SEOJ}, true, p)
 				if err != nil {
 					slog.Error("SelfNodeInstanceListSの処理中エラー", "err", err)
 					return err
@@ -203,7 +203,7 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONET
 			}
 		}
 
-		device := IPAndEOJ{ip, msg.SEOJ}
+		device := IPAndEOJ{IP: ip, EOJ: msg.SEOJ}
 
 		// 未知のデバイスの場合、プロパティマップを取得
 		if !h.dataAccessor.IsKnownDevice(device) {
@@ -256,7 +256,7 @@ func (h *CommunicationHandler) onInstanceList(ip net.IP, il echonet_lite.Instanc
 
 	// デバイスの登録
 	for _, eoj := range il {
-		h.dataAccessor.RegisterDevice(IPAndEOJ{ip, eoj})
+		h.dataAccessor.RegisterDevice(IPAndEOJ{IP: ip, EOJ: eoj})
 	}
 
 	// デバイス情報の保存
@@ -265,7 +265,7 @@ func (h *CommunicationHandler) onInstanceList(ip net.IP, il echonet_lite.Instanc
 	// 各デバイスのプロパティマップを取得
 	var e []error
 	for _, eoj := range il {
-		device := IPAndEOJ{ip, eoj}
+		device := IPAndEOJ{IP: ip, EOJ: eoj}
 		if err := h.GetGetPropertyMap(device); err != nil {
 			e = append(e, fmt.Errorf("デバイス %v のプロパティ取得に失敗: %w", device, err))
 		}
@@ -351,7 +351,7 @@ func (h *CommunicationHandler) GetSelfNodeInstanceListS(ip net.IP, isMulti bool)
 		defer timer.Stop()
 	}
 	key, err := h.session.StartGetProperties(
-		IPAndEOJ{ip, echonet_lite.NodeProfileObject}, []EPCType{echonet_lite.EPC_NPO_SelfNodeInstanceListS},
+		IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}, []EPCType{echonet_lite.EPC_NPO_SelfNodeInstanceListS},
 		func(ie IPAndEOJ, b bool, p Properties, f []EPCType) (CallbackCompleteStatus, error) {
 			var completeStatus CallbackCompleteStatus
 			if isMulti {

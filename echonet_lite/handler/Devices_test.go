@@ -44,7 +44,7 @@ func TestDevices_SaveToFile(t *testing.T) {
 	}
 
 	// Register the test property
-	ip1eoj := IPAndEOJ{ip1, eoj}
+	ip1eoj := IPAndEOJ{IP: ip1, EOJ: eoj}
 	devices.RegisterProperty(ip1eoj, property, time.Now())
 
 	// Save to file
@@ -101,7 +101,7 @@ func TestDevices_LoadFromFile(t *testing.T) {
 		EDT: []byte{0x30},
 	}
 
-	ip1eoj := IPAndEOJ{ip1, eoj}
+	ip1eoj := IPAndEOJ{IP: ip1, EOJ: eoj}
 
 	// Register the test property
 	tempDevices.RegisterProperty(ip1eoj, property, time.Now())
@@ -167,8 +167,8 @@ func TestDevices_SaveAndLoadFromFile(t *testing.T) {
 		EDT: []byte{0x41, 0x42},
 	}
 
-	ip1eoj1 := IPAndEOJ{ip1, eoj1}
-	ip2eoj2 := IPAndEOJ{ip2, eoj2}
+	ip1eoj1 := IPAndEOJ{IP: ip1, EOJ: eoj1}
+	ip2eoj2 := IPAndEOJ{IP: ip2, EOJ: eoj2}
 
 	// Register the test properties
 	originalDevices.RegisterProperty(ip1eoj1, property1, time.Now())

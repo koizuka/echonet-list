@@ -79,10 +79,10 @@ func TestFilter(t *testing.T) {
 
 	// Register the test properties
 	now := time.Now()
-	devices.RegisterProperties(IPAndEOJ{ip1, eoj1}, []Property{ac_property1, ac_property2, ac_property3}, now)
-	devices.RegisterProperties(IPAndEOJ{ip1, eoj2}, []Property{light_property1, light_property2, light_property4}, now)
-	devices.RegisterProperties(IPAndEOJ{ip1, eoj3}, []Property{ac_property1, ac_property2, ac_property3}, now) // インスタンスコード2のデバイスも登録
-	devices.RegisterProperties(IPAndEOJ{ip2, eoj1}, []Property{ac_property1, ac_property2, ac_property3}, now)
+	devices.RegisterProperties(IPAndEOJ{IP: ip1, EOJ: eoj1}, []Property{ac_property1, ac_property2, ac_property3}, now)
+	devices.RegisterProperties(IPAndEOJ{IP: ip1, EOJ: eoj2}, []Property{light_property1, light_property2, light_property4}, now)
+	devices.RegisterProperties(IPAndEOJ{IP: ip1, EOJ: eoj3}, []Property{ac_property1, ac_property2, ac_property3}, now) // インスタンスコード2のデバイスも登録
+	devices.RegisterProperties(IPAndEOJ{IP: ip2, EOJ: eoj1}, []Property{ac_property1, ac_property2, ac_property3}, now)
 
 	// For string representation in expected results
 	ip1Str := ip1.String()
@@ -211,7 +211,7 @@ func TestFilter(t *testing.T) {
 			for ip, expectedEOJs := range tt.expectedDevices {
 				ipAddr := net.ParseIP(ip)
 				for _, eoj := range expectedEOJs {
-					device := IPAndEOJ{ipAddr, eoj}
+					device := IPAndEOJ{IP: ipAddr, EOJ: eoj}
 					if !filtered.IsKnownDevice(device) {
 						t.Errorf("Expected device %v to exist in filtered result, but it doesn't", device)
 					}

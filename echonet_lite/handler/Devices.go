@@ -3,10 +3,10 @@ package handler
 import (
 	"bytes"
 	"echonet-list/echonet_lite"
-	"encoding/base64" // 追加
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io" // 追加
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -698,7 +698,7 @@ func (d Devices) FindByIDString(id IDString) []IPAndEOJ {
 	for ipStr, eojMap := range d.data {
 		ip := net.ParseIP(ipStr)
 		for eoj := range eojMap {
-			ipAndEOJ := IPAndEOJ{ip, eoj}
+			ipAndEOJ := IPAndEOJ{IP: ip, EOJ: eoj}
 			idStr := d.GetIDString(ipAndEOJ)
 			if idStr == id {
 				result = append(result, ipAndEOJ)
@@ -779,10 +779,7 @@ func (d DeviceProperties) SetProperties(eoj EOJ, properties Properties) (Propert
 	success := true
 
 	for _, p := range properties {
-		rep := Property{
-			EPC: p.EPC,
-			EDT: p.EDT, // 書き込み失敗したらリクエストの値
-		}
+		rep := p
 		if !setPropertyMap.Has(p.EPC) {
 			success = false
 		} else {

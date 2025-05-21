@@ -158,7 +158,7 @@ func (h *DataManagementHandler) AliasSet(alias *string, criteria FilterCriteria)
 		return fmt.Errorf("デバイスが見つかりません: %v", criteria)
 	}
 	if devices.Len() > 1 {
-		return echonet_lite.TooManyDevicesError{devices.ListIPAndEOJ()}
+		return echonet_lite.TooManyDevicesError{Devices: devices.ListIPAndEOJ()}
 	}
 	found := devices.ListIPAndEOJ()[0]
 

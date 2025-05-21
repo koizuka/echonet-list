@@ -87,7 +87,7 @@ func NewECHONETLiteHandler(ctx context.Context, ip net.IP, debug bool) (*ECHONET
 	commonProps := []Property{
 		operationStatusOn,
 		*identificationNumber.Property(),
-		{echonet_lite.EPCManufacturerCode, manufacturerCodeEDT},
+		{EPC: echonet_lite.EPCManufacturerCode, EDT: manufacturerCodeEDT},
 	}
 	npoProps := []Property{*echonet_lite.ECHONETLite_Version.Property()}
 	npoProps = append(npoProps, commonProps...)
