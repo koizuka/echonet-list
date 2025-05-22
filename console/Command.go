@@ -113,7 +113,7 @@ func parseClassAndInstanceCode(codeStr string) (*client.EOJClassCode, *client.EO
 
 	// クラスコードのパース
 	if len(codeParts[0]) != 4 {
-		return nil, nil, fmt.Errorf("class code must be 4 hexadecimal digits")
+		return nil, nil, fmt.Errorf("class code must be 4 hexadecimal digits: %v", codeParts[0])
 	}
 	classCode64, err := strconv.ParseUint(codeParts[0], 16, 16)
 	if err != nil {
