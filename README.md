@@ -11,6 +11,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 - Persistent storage of discovered devices in a JSON file
 - Support for various device types (air conditioners, lighting, floor heating, etc.)
 - WebSocket server for web UI integration
+- HTTP server for web UI integration
 - TLS support for secure WebSocket connections
 
 ## Documentation
@@ -58,6 +59,9 @@ Run the application:
 - `-ws-tls`: Enable TLS for WebSocket server
 - `-ws-cert-file`: Specify TLS certificate file path
 - `-ws-key-file`: Specify TLS private key file path
+- `-http-enabled`: Enable HTTP server mode for serving web UI
+- `-http-port`: Specify HTTP server port (default: `8081`)
+- `-http-webroot`: Specify HTTP server web root directory (default: `web/bundle`)
 
 Example with debug mode:
 
@@ -110,6 +114,12 @@ key_file = "/path/to/key.pem"
 [websocket_client]
 enabled = false
 addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
+
+# HTTPサーバー設定
+[http_server]
+enabled = false
+port = 8081
+web_root = "web/bundle"
 ```
 
 Command line options take precedence over configuration file settings.
@@ -127,6 +137,16 @@ For detailed information about the WebSocket protocol and client development, pl
 For setting up TLS certificates in development environment, see:
 
 - [mkcert Setup Guide](docs/mkcert_setup_guide.md)
+
+### HTTP Server Support
+
+The application includes an embedded HTTP server to serve the web user interface. This allows for a single binary deployment that provides both the ECHONET Lite WebSocket API and the web frontend.
+
+-   **Web Root**: The HTTP server serves static files from the directory specified by the `-http-webroot` command-line option or the `http_server.web_root` configuration. The default web root is `web/bundle`, which is intended to be the output directory for the Vite build process of the web UI.
+-   **Port**: The server listens on the port specified by `-http-port` or `http_server.port` (default: `8081`).
+-   **TLS**: If WebSocket TLS is enabled (`-ws-tls` or `websocket.tls.enabled`), the HTTP server will also serve over HTTPS using the same certificate and key files (`-ws-cert-file`, `-ws-key-file`).
+
+**Development Workflow**: During web UI development, it is recommended to run the Vite development server independently (e.g., `npm run dev` in the `web/` directory). For integration testing and deployment, enable the HTTP server in the Go application.
 
 ### Commands
 

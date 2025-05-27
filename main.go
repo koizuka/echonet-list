@@ -8,6 +8,7 @@ import (
 	"echonet-list/server"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -48,6 +49,11 @@ func main() {
 	wsKeyFileFlag := flag.String("ws-key-file", "", "TLS秘密鍵ファイルのパスを指定する")
 	daemonFlag := flag.Bool("daemon", false, "デーモンモードを有効にする")
 	pidFileFlag := flag.String("pidfile", "", "PIDファイルのパスを指定する")
+
+	// HTTPサーバー関連のフラグ
+	httpEnabledFlag := flag.Bool("http-enabled", false, "HTTPサーバーを有効にする")
+	httpPortFlag := flag.Int("http-port", 8081, "HTTPサーバーのポートを指定する")
+	httpWebRootFlag := flag.String("http-webroot", "web/bundle", "HTTPサーバーのWebルートディレクトリを指定する")
 
 	// コマンドライン引数の解析
 	flag.Parse()
@@ -97,6 +103,13 @@ func main() {
 		DaemonEnabledSpecified: flag.Lookup("daemon").Value.String() != "false",
 		PIDFile:                *pidFileFlag,
 		PIDFileSpecified:       flag.Lookup("pidfile").Value.String() != "",
+
+		HTTPServerEnabled:          *httpEnabledFlag,
+		HTTPServerEnabledSpecified: flag.Lookup("http-enabled").Value.String() != "false",
+		HTTPServerPort:             *httpPortFlag,
+		HTTPServerPortSpecified:    flag.Lookup("http-port").Value.String() != "8081",
+		HTTPServerWebRoot:          *httpWebRootFlag,
+		HTTPServerWebRootSpecified: flag.Lookup("http-webroot").Value.String() != "web/bundle",
 	}
 
 	cfg.ApplyCommandLineArgs(cmdArgs)
@@ -283,8 +296,66 @@ func main() {
 		c = wsClientInstance
 	}
 
+	// HTTPサーバーモードの場合
+	if cfg.HTTPServer.Enabled {
+		httpAddr := fmt.Sprintf(":%d", cfg.HTTPServer.Port)
+		webRoot := cfg.HTTPServer.WebRoot
+
+		// Webルートディレクトリの存在チェック
+		if _, err := os.Stat(webRoot); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "HTTPサーバーのWebルートディレクトリ '%s' が見つかりません: %v\n", webRoot, err)
+			os.Exit(1)
+		}
+
+		// ファイルサーバーのハンドラを作成
+		fs := http.FileServer(http.Dir(webRoot))
+		http.Handle("/", fs)
+
+		httpServer := &http.Server{
+			Addr: httpAddr,
+			BaseContext: func(_ net.Listener) context.Context {
+				return ctx
+			},
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Printf("HTTPサーバーを起動しました: http://localhost%s (Webルート: %s)\n", httpAddr, webRoot)
+
+			var httpErr error
+			if cfg.WebSocket.TLS.Enabled {
+				// TLSが有効な場合
+				if cfg.WebSocket.TLS.CertFile == "" || cfg.WebSocket.TLS.KeyFile == "" {
+					fmt.Fprintln(os.Stderr, "TLSが有効ですが、HTTPサーバーの証明書または秘密鍵が指定されていません。")
+					os.Exit(1)
+				}
+				fmt.Printf("HTTPSサーバーを起動しました: https://localhost%s (Webルート: %s)\n", httpAddr, webRoot)
+				httpErr = httpServer.ListenAndServeTLS(cfg.WebSocket.TLS.CertFile, cfg.WebSocket.TLS.KeyFile)
+			} else {
+				// TLSが無効な場合
+				httpErr = httpServer.ListenAndServe()
+			}
+
+			if httpErr != nil && httpErr != http.ErrServerClosed {
+				fmt.Fprintf(os.Stderr, "HTTPサーバーの起動に失敗しました: %v\n", httpErr)
+				os.Exit(1)
+			}
+		}()
+
+		// コンテキストがキャンセルされたらHTTPサーバーをシャットダウン
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := httpServer.Shutdown(shutdownCtx); err != nil {
+				fmt.Fprintf(os.Stderr, "HTTPサーバーのシャットダウン中にエラーが発生しました: %v\n", err)
+			}
+		}()
+	}
+
 	// スタンドアロンモードの場合
-	if !websocket && !wsClient {
+	if !websocket && !wsClient && !cfg.HTTPServer.Enabled {
 		// ECHONETLiteHandlerの作成
 		s, err := server.NewServer(ctx, debug)
 		if err != nil {

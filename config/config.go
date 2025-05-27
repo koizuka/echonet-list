@@ -48,6 +48,11 @@ type Config struct {
 		Enabled bool   `toml:"enabled"`
 		PIDFile string `toml:"pid_file"`
 	} `toml:"daemon"`
+	HTTPServer struct {
+		Enabled bool   `toml:"enabled"`
+		Port    int    `toml:"port"`
+		WebRoot string `toml:"web_root"`
+	} `toml:"http_server"`
 }
 
 // NewConfig はデフォルト設定を持つConfigを作成する
@@ -62,6 +67,10 @@ func NewConfig() *Config {
 	// Default daemon settings
 	cfg.Daemon.Enabled = false
 	cfg.Daemon.PIDFile = ""
+	// Default HTTP server settings
+	cfg.HTTPServer.Enabled = false
+	cfg.HTTPServer.Port = 8081
+	cfg.HTTPServer.WebRoot = "web/bundle"
 	return cfg
 }
 
@@ -138,6 +147,16 @@ func (c *Config) ApplyCommandLineArgs(args CommandLineArgs) {
 	if args.PIDFileSpecified {
 		c.Daemon.PIDFile = args.PIDFile
 	}
+	// HTTP server
+	if args.HTTPServerEnabledSpecified {
+		c.HTTPServer.Enabled = args.HTTPServerEnabled
+	}
+	if args.HTTPServerPortSpecified {
+		c.HTTPServer.Port = args.HTTPServerPort
+	}
+	if args.HTTPServerWebRootSpecified {
+		c.HTTPServer.WebRoot = args.HTTPServerWebRoot
+	}
 }
 
 // CommandLineArgs はコマンドライン引数からの値を保持する
@@ -182,6 +201,14 @@ type CommandLineArgs struct {
 	DaemonEnabledSpecified bool
 	PIDFile                string
 	PIDFileSpecified       bool
+
+	// HTTPサーバー設定
+	HTTPServerEnabled          bool
+	HTTPServerEnabledSpecified bool
+	HTTPServerPort             int
+	HTTPServerPortSpecified    bool
+	HTTPServerWebRoot          string
+	HTTPServerWebRootSpecified bool
 }
 
 // ParseCommandLineArgs はコマンドライン引数をパースする
@@ -207,6 +234,10 @@ func ParseCommandLineArgs() CommandLineArgs {
 	wsBothFlag := flag.Bool("ws-both", false, "WebSocketサーバーとクライアントの両方を有効にする（テスト用）")
 	daemonFlag := flag.Bool("daemon", false, "デーモンモードを有効にする")
 	pidFileFlag := flag.String("pidfile", "", "PIDファイルのパスを指定する")
+
+	httpEnabledFlag := flag.Bool("http-enabled", false, "HTTPサーバーを有効にする")
+	httpPortFlag := flag.Int("http-port", 8081, "HTTPサーバーのポートを指定する")
+	httpWebRootFlag := flag.String("http-webroot", "web/bundle", "HTTPサーバーのWebルートディレクトリを指定する")
 
 	// コマンドライン引数を解析
 	flag.Parse()
@@ -275,6 +306,13 @@ func ParseCommandLineArgs() CommandLineArgs {
 	args.DaemonEnabledSpecified = argsMap["daemon"]
 	args.PIDFile = *pidFileFlag
 	args.PIDFileSpecified = argsMap["pidfile"]
+
+	args.HTTPServerEnabled = *httpEnabledFlag
+	args.HTTPServerEnabledSpecified = argsMap["http-enabled"]
+	args.HTTPServerPort = *httpPortFlag
+	args.HTTPServerPortSpecified = argsMap["http-port"]
+	args.HTTPServerWebRoot = *httpWebRootFlag
+	args.HTTPServerWebRootSpecified = argsMap["http-webroot"]
 
 	return args
 }
