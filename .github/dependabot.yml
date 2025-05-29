@@ -14,3 +14,28 @@ updates:
     commit-message:
       prefix: "go mod"
       include: "scope"
+
+  - package-ecosystem: "github-actions" # GitHub Actions workflows
+    directory: "/" # Location of workflow files in .github/workflows
+    schedule:
+      interval: "weekly" # Check for updates once a week
+    open-pull-requests-limit: 5 # Limit number of open PRs
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  - package-ecosystem: "npm" # npm packages for web UI
+    directory: "/web" # Location of package.json file
+    schedule:
+      interval: "weekly" # Check for updates once a week
+    open-pull-requests-limit: 10 # Limit number of open PRs
+    labels:
+      - "dependencies"
+      - "npm"
+      - "web-ui"
+    commit-message:
+      prefix: "npm"
+      include: "scope"
