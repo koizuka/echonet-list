@@ -10,9 +10,8 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 - Set property values on specific devices
 - Persistent storage of discovered devices in a JSON file
 - Support for various device types (air conditioners, lighting, floor heating, etc.)
-- WebSocket server for web UI integration
-- HTTP server for web UI integration
-- TLS support for secure WebSocket connections
+- Integrated WebSocket and HTTP server for web UI
+- TLS support for secure connections
 
 ## Documentation
 
@@ -52,16 +51,15 @@ Run the application:
 - `-log`: Specify a log file name
 - `-config`: Specify a TOML configuration file path (default: `config.toml` in the current directory)
 - `-websocket`: Enable WebSocket server mode
-- `-ws-addr`: Specify WebSocket server address (default: `localhost:8080`)
 - `-ws-client`: Enable WebSocket client mode
 - `-ws-client-addr`: Specify WebSocket client connection address (default: `ws://localhost:8080/ws`)
 - `-ws-both`: Enable both WebSocket server and client modes (for testing)
-- `-ws-tls`: Enable TLS for WebSocket server
+- `-ws-tls`: Enable TLS for the integrated server
 - `-ws-cert-file`: Specify TLS certificate file path
 - `-ws-key-file`: Specify TLS private key file path
-- `-http-enabled`: Enable HTTP server mode for serving web UI
-- `-http-port`: Specify HTTP server port (default: `8081`)
-- `-http-webroot`: Specify HTTP server web root directory (default: `web/bundle`)
+- `-http-enabled`: Enable HTTP server (integrated with WebSocket server)
+- `-http-port`: Specify server port (default: `8080`)
+- `-http-webroot`: Specify web root directory (default: `web/bundle`)
 
 Example with debug mode:
 
@@ -69,10 +67,10 @@ Example with debug mode:
 ./echonet-list -debug
 ```
 
-Example with WebSocket server and TLS:
+Example with integrated server and TLS:
 
 ```bash
-./echonet-list -websocket -ws-tls -ws-cert-file=cert.pem -ws-key-file=key.pem
+./echonet-list -websocket -http-enabled -ws-tls -ws-cert-file=certs/localhost+2.pem -ws-key-file=certs/localhost+2-key.pem
 ```
 
 ### Configuration File
@@ -102,23 +100,24 @@ filename = "echonet-list.log"
 # WebSocketサーバー設定
 [websocket]
 enabled = true
-addr = "localhost:8080"
+# 定期的なプロパティ更新間隔（例: "1m", "30s", "0" で無効）
+periodic_update_interval = "1m"
 
-# TLS設定
-[websocket.tls]
+# TLS設定（HTTPサーバーとWebSocketサーバーで共通）
+[tls]
 enabled = false
-cert_file = "/path/to/cert.pem"
-key_file = "/path/to/key.pem"
+cert_file = "certs/localhost+2.pem"
+key_file = "certs/localhost+2-key.pem"
 
 # WebSocketクライアント設定
 [websocket_client]
 enabled = false
 addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
 
-# HTTPサーバー設定
+# HTTP Server設定（WebSocketと統合）
 [http_server]
 enabled = false
-port = 8081
+port = 8080
 web_root = "web/bundle"
 ```
 
@@ -138,15 +137,20 @@ For setting up TLS certificates in development environment, see:
 
 - [mkcert Setup Guide](docs/mkcert_setup_guide.md)
 
-### HTTP Server Support
+### Integrated Server Support
 
-The application includes an embedded HTTP server to serve the web user interface. This allows for a single binary deployment that provides both the ECHONET Lite WebSocket API and the web frontend.
+The application includes an integrated HTTP and WebSocket server that provides both the ECHONET Lite WebSocket API and web UI from a single port. This eliminates port conflicts and simplifies deployment.
 
--   **Web Root**: The HTTP server serves static files from the directory specified by the `-http-webroot` command-line option or the `http_server.web_root` configuration. The default web root is `web/bundle`, which is intended to be the output directory for the Vite build process of the web UI.
--   **Port**: The server listens on the port specified by `-http-port` or `http_server.port` (default: `8081`).
--   **TLS**: If WebSocket TLS is enabled (`-ws-tls` or `websocket.tls.enabled`), the HTTP server will also serve over HTTPS using the same certificate and key files (`-ws-cert-file`, `-ws-key-file`).
+-   **Single Port**: Both WebSocket (`/ws`) and HTTP static files are served from the same port
+-   **Web Root**: Static files are served from the directory specified by `-http-webroot` or `http_server.web_root` (default: `web/bundle`)
+-   **Port**: The server listens on the port specified by `-http-port` or `http_server.port` (default: `8080`)
+-   **TLS**: If TLS is enabled (`-ws-tls` or `tls.enabled`), both WebSocket and HTTP are served over TLS using the same certificate
 
-**Development Workflow**: During web UI development, it is recommended to run the Vite development server independently (e.g., `npm run dev` in the `web/` directory). For integration testing and deployment, enable the HTTP server in the Go application.
+**URLs**:
+- WebSocket API: `wss://localhost:8080/ws` (with TLS) or `ws://localhost:8080/ws` (without TLS)
+- Web UI: `https://localhost:8080/` (with TLS) or `http://localhost:8080/` (without TLS)
+
+**Development Workflow**: During web UI development, you can run the Vite development server independently (`npm run dev` in the `web/` directory) for faster iteration. For integration testing and deployment, enable both WebSocket and HTTP servers in the Go application.
 
 ### Commands
 

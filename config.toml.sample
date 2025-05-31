@@ -10,18 +10,25 @@ filename = "echonet-list.log"
 # WebSocketサーバー設定
 [websocket]
 enabled = true
-addr = "localhost:8080"
+# 定期的なプロパティ更新間隔（例: "1m", "30s", "0" で無効）
+periodic_update_interval = "1m"
 
-# TLS設定
-[websocket.tls]
+# TLS設定（HTTPサーバーとWebSocketサーバーで共通）
+[tls]
 enabled = false
-cert_file = "certs/cert.pem"
-key_file = "certs/key.pem"
+cert_file = "certs/localhost+2.pem"
+key_file = "certs/localhost+2-key.pem"
 
 # WebSocketクライアント設定
 [websocket_client]
 enabled = false
 addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
+
+# HTTP Server設定（WebSocketと統合）
+[http_server]
+enabled = false
+port = 8080
+web_root = "web/bundle"
 
 # Daemon mode settings
 [daemon]

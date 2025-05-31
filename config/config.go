@@ -30,14 +30,13 @@ type Config struct {
 	} `toml:"log"`
 	WebSocket struct {
 		Enabled                bool   `toml:"enabled"`
-		Addr                   string `toml:"addr"`
 		PeriodicUpdateInterval string `toml:"periodic_update_interval"` // e.g., "1m", "30s", "0" to disable
-		TLS                    struct {
-			Enabled  bool   `toml:"enabled"`
-			CertFile string `toml:"cert_file"`
-			KeyFile  string `toml:"key_file"`
-		} `toml:"tls"`
 	} `toml:"websocket"`
+	TLS struct {
+		Enabled  bool   `toml:"enabled"`
+		CertFile string `toml:"cert_file"`
+		KeyFile  string `toml:"key_file"`
+	} `toml:"tls"`
 	WebSocketClient struct {
 		Enabled bool   `toml:"enabled"`
 		Addr    string `toml:"addr"`
@@ -61,7 +60,6 @@ func NewConfig() *Config {
 		Debug: false,
 	}
 	cfg.Log.Filename = "echonet-list.log"
-	cfg.WebSocket.Addr = "localhost:8080"
 	cfg.WebSocket.PeriodicUpdateInterval = "1m" // Default to 1 minute
 	cfg.WebSocketClient.Addr = "ws://localhost:8080/ws"
 	// Default daemon settings
@@ -69,7 +67,7 @@ func NewConfig() *Config {
 	cfg.Daemon.PIDFile = ""
 	// Default HTTP server settings
 	cfg.HTTPServer.Enabled = false
-	cfg.HTTPServer.Port = 8081
+	cfg.HTTPServer.Port = 8080
 	cfg.HTTPServer.WebRoot = "web/bundle"
 	return cfg
 }
@@ -115,18 +113,16 @@ func (c *Config) ApplyCommandLineArgs(args CommandLineArgs) {
 	if args.WebSocketEnabledSpecified {
 		c.WebSocket.Enabled = args.WebSocketEnabled
 	}
-	if args.WebSocketAddrSpecified {
-		c.WebSocket.Addr = args.WebSocketAddr
-	}
+	// WebSocketアドレスはHTTPサーバーのポートから自動決定されるため削除
 	// websocket TLS
 	if args.WebSocketTLSEnabledSpecified {
-		c.WebSocket.TLS.Enabled = args.WebSocketTLSEnabled
+		c.TLS.Enabled = args.WebSocketTLSEnabled
 	}
 	if args.WebSocketTLSCertFileSpecified {
-		c.WebSocket.TLS.CertFile = args.WebSocketTLSCertFile
+		c.TLS.CertFile = args.WebSocketTLSCertFile
 	}
 	if args.WebSocketTLSKeyFileSpecified {
-		c.WebSocket.TLS.KeyFile = args.WebSocketTLSKeyFile
+		c.TLS.KeyFile = args.WebSocketTLSKeyFile
 	}
 	// websocket client
 	if args.WebSocketClientEnabledSpecified {

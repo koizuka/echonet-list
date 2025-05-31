@@ -8,7 +8,6 @@ import (
 	"echonet-list/server"
 	"flag"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -136,7 +135,6 @@ func main() {
 	debug := cfg.Debug
 	logFilename := cfg.Log.Filename
 	websocket := cfg.WebSocket.Enabled
-	wsAddr := cfg.WebSocket.Addr
 	wsClient := cfg.WebSocketClient.Enabled
 	if cfg.Daemon.Enabled {
 		wsClient = false // Daemon modeではクライアントモードを無効にする
@@ -186,8 +184,11 @@ func main() {
 			}
 		}()
 
+		// HTTPサーバーのアドレスを設定
+		httpAddr := fmt.Sprintf("localhost:%d", cfg.HTTPServer.Port)
+		
 		// WebSocketサーバーの作成と起動
-		wsServer, err := server.NewWebSocketServer(ctx, wsAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler())
+		wsServer, err := server.NewWebSocketServer(ctx, httpAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WebSocketサーバーの作成に失敗しました: %v\n", err)
 			os.Exit(1)
@@ -212,9 +213,11 @@ func main() {
 		readyChan := make(chan struct{})
 		startOptions := server.StartOptions{
 			Ready:                  readyChan,
-			CertFile:               cfg.WebSocket.TLS.CertFile,
-			KeyFile:                cfg.WebSocket.TLS.KeyFile,
+			CertFile:               cfg.TLS.CertFile,
+			KeyFile:                cfg.TLS.KeyFile,
 			PeriodicUpdateInterval: updateInterval,
+			HTTPEnabled:            cfg.HTTPServer.Enabled,
+			HTTPWebRoot:            cfg.HTTPServer.WebRoot,
 		}
 
 		// 設定された定期更新間隔を表示
@@ -225,7 +228,7 @@ func main() {
 		}
 
 		// TLSが有効かどうかを表示
-		if cfg.WebSocket.TLS.Enabled {
+		if cfg.TLS.Enabled {
 			if startOptions.CertFile != "" && startOptions.KeyFile != "" {
 				fmt.Printf("TLSが有効です。証明書: %s, 秘密鍵: %s\n", startOptions.CertFile, startOptions.KeyFile)
 			} else {
@@ -244,7 +247,7 @@ func main() {
 			}
 		}()
 
-		fmt.Printf("WebSocketサーバーを起動しました: %s\n", wsAddr)
+		fmt.Printf("統合サーバーを起動しました: %s\n", httpAddr)
 
 		// WebSocketクライアントモードも有効な場合は、サーバーの Ready チャネルを待機
 		if wsClient {
@@ -261,7 +264,7 @@ func main() {
 	// WebSocketクライアントモードの場合
 	if wsClient {
 		// TLSが有効な場合は、接続先アドレスを修正
-		if cfg.WebSocket.TLS.Enabled && cfg.WebSocket.TLS.CertFile != "" && cfg.WebSocket.TLS.KeyFile != "" {
+		if cfg.TLS.Enabled && cfg.TLS.CertFile != "" && cfg.TLS.KeyFile != "" {
 			// ws:// を wss:// に置き換え
 			if strings.HasPrefix(wsClientAddr, "ws://") {
 				wsClientAddr = "wss://" + wsClientAddr[5:]
@@ -296,63 +299,7 @@ func main() {
 		c = wsClientInstance
 	}
 
-	// HTTPサーバーモードの場合
-	if cfg.HTTPServer.Enabled {
-		httpAddr := fmt.Sprintf(":%d", cfg.HTTPServer.Port)
-		webRoot := cfg.HTTPServer.WebRoot
-
-		// Webルートディレクトリの存在チェック
-		if _, err := os.Stat(webRoot); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "HTTPサーバーのWebルートディレクトリ '%s' が見つかりません: %v\n", webRoot, err)
-			os.Exit(1)
-		}
-
-		// ファイルサーバーのハンドラを作成
-		fs := http.FileServer(http.Dir(webRoot))
-		http.Handle("/", fs)
-
-		httpServer := &http.Server{
-			Addr: httpAddr,
-			BaseContext: func(_ net.Listener) context.Context {
-				return ctx
-			},
-		}
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			fmt.Printf("HTTPサーバーを起動しました: http://localhost%s (Webルート: %s)\n", httpAddr, webRoot)
-
-			var httpErr error
-			if cfg.WebSocket.TLS.Enabled {
-				// TLSが有効な場合
-				if cfg.WebSocket.TLS.CertFile == "" || cfg.WebSocket.TLS.KeyFile == "" {
-					fmt.Fprintln(os.Stderr, "TLSが有効ですが、HTTPサーバーの証明書または秘密鍵が指定されていません。")
-					os.Exit(1)
-				}
-				fmt.Printf("HTTPSサーバーを起動しました: https://localhost%s (Webルート: %s)\n", httpAddr, webRoot)
-				httpErr = httpServer.ListenAndServeTLS(cfg.WebSocket.TLS.CertFile, cfg.WebSocket.TLS.KeyFile)
-			} else {
-				// TLSが無効な場合
-				httpErr = httpServer.ListenAndServe()
-			}
-
-			if httpErr != nil && httpErr != http.ErrServerClosed {
-				fmt.Fprintf(os.Stderr, "HTTPサーバーの起動に失敗しました: %v\n", httpErr)
-				os.Exit(1)
-			}
-		}()
-
-		// コンテキストがキャンセルされたらHTTPサーバーをシャットダウン
-		go func() {
-			<-ctx.Done()
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := httpServer.Shutdown(shutdownCtx); err != nil {
-				fmt.Fprintf(os.Stderr, "HTTPサーバーのシャットダウン中にエラーが発生しました: %v\n", err)
-			}
-		}()
-	}
+	// HTTPサーバーは統合されたWebSocketサーバーで処理される
 
 	// スタンドアロンモードの場合
 	if !websocket && !wsClient && !cfg.HTTPServer.Enabled {
