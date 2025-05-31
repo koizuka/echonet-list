@@ -180,8 +180,14 @@ export function useECHONET(url: string): ECHONETHook {
   const [state, dispatch] = useReducer(echonetReducer, initialState);
   
   const handleServerMessage = useCallback((message: ServerMessage) => {
+    if (import.meta.env.DEV) {
+      console.log('📨 Received server message:', message.type);
+    }
     switch (message.type) {
       case 'initial_state':
+        if (import.meta.env.DEV) {
+          console.log('🎉 Received initial_state with', Object.keys(message.payload.devices || {}).length, 'devices');
+        }
         dispatch({
           type: 'SET_INITIAL_STATE',
           payload: {
@@ -190,6 +196,8 @@ export function useECHONET(url: string): ECHONETHook {
             groups: message.payload.groups,
           },
         });
+        // 初期状態受信時もエラーをクリア（接続完全成功の証拠）
+        dispatch({ type: 'SET_ERROR', payload: { error: null } });
         break;
         
       case 'device_added':
@@ -258,7 +266,18 @@ export function useECHONET(url: string): ECHONETHook {
   }, []);
 
   const handleConnectionStateChange = useCallback((connectionState: ConnectionState) => {
+    if (import.meta.env.DEV) {
+      console.log('🔄 Connection state changed:', connectionState);
+    }
     dispatch({ type: 'SET_CONNECTION_STATE', payload: { state: connectionState } });
+    
+    // 接続成功時はエラーをクリア
+    if (connectionState === 'connected') {
+      if (import.meta.env.DEV) {
+        console.log('✅ Connection successful, clearing error');
+      }
+      dispatch({ type: 'SET_ERROR', payload: { error: null } });
+    }
   }, []);
 
   const handleError = useCallback((error: ErrorInfo) => {

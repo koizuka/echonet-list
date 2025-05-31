@@ -131,7 +131,9 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const connect = useCallback(() => {
     cleanup();
     
-    console.log('🔄 WebSocket接続を開始:', options.url);
+    if (import.meta.env.DEV) {
+      console.log('🔄 WebSocket接続を開始:', options.url);
+    }
     updateConnectionState('connecting');
     updateError(null);
     
@@ -184,19 +186,23 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
                               reconnectAttemptsRef.current < maxReconnectAttempts;
         
         if (shouldReconnect) {
-          console.log('❌ 再接続条件をチェック:', {
-            currentAttempts: reconnectAttemptsRef.current,
-            maxAttempts: maxReconnectAttempts,
-            willReconnect: reconnectAttemptsRef.current < maxReconnectAttempts
-          });
+          if (import.meta.env.DEV) {
+            console.log('❌ 再接続条件をチェック:', {
+              currentAttempts: reconnectAttemptsRef.current,
+              maxAttempts: maxReconnectAttempts,
+              willReconnect: reconnectAttemptsRef.current < maxReconnectAttempts
+            });
+          }
           // Unexpected disconnection, schedule reconnect
           scheduleReconnect();
         } else {
-          console.log('🛑 再接続しません:', {
-            code: event.code,
-            currentAttempts: reconnectAttemptsRef.current,
-            maxAttempts: maxReconnectAttempts
-          });
+          if (import.meta.env.DEV) {
+            console.log('🛑 再接続しません:', {
+              code: event.code,
+              currentAttempts: reconnectAttemptsRef.current,
+              maxAttempts: maxReconnectAttempts
+            });
+          }
         }
       };
     } catch (error) {
@@ -248,13 +254,11 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
 
   // Auto-connect on mount - URLが変更された場合のみ再接続
   useEffect(() => {
-    console.log('🚀 useEffect実行 - 接続開始');
     // 初回接続時は再接続カウンターをリセット
     reconnectAttemptsRef.current = 0;
     connect();
     
     return () => {
-      console.log('🔄 useEffect cleanup');
       cleanup();
     };
   }, [options.url]); // connectとcleanupを依存から除外
