@@ -30,12 +30,12 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const [error, setError] = useState<ErrorInfo | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdCounterRef = useRef(0);
   const pendingRequestsRef = useRef<Map<string, {
     resolve: (value: unknown) => void;
     reject: (error: unknown) => void;
-    timeout: number;
+    timeout: ReturnType<typeof setTimeout>;
   }>>(new Map());
   
   const reconnectAttemptsRef = useRef(0);
@@ -131,6 +131,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const connect = useCallback(() => {
     cleanup();
     
+    console.log('🔄 WebSocket接続を開始:', options.url);
     updateConnectionState('connecting');
     updateError(null);
     
@@ -151,17 +152,51 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         console.error('WebSocket error:', event);
         updateError({
           code: 'WEBSOCKET_ERROR',
-          message: 'WebSocket connection error'
+          message: `WebSocket connection error: ${event.type}`
         });
       };
       
       ws.onclose = (event) => {
-        console.log('WebSocket disconnected:', event.code, event.reason);
+        console.log('WebSocket disconnected:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
         updateConnectionState('disconnected');
         
-        if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        // More specific error handling
+        if (event.code === 1006) {
+          updateError({
+            code: 'CONNECTION_FAILED',
+            message: 'Connection failed - possibly due to SSL certificate issues or server unavailable'
+          });
+        } else if (event.code === 1005) {
+          updateError({
+            code: 'CONNECTION_FAILED',
+            message: 'No status received - server rejected connection'
+          });
+        }
+        
+        // Don't reconnect for certain error codes that indicate permanent failures
+        const permanentFailureCodes = [1005, 1002, 1003, 1007, 1008, 1011];
+        const shouldReconnect = event.code !== 1000 && 
+                              !permanentFailureCodes.includes(event.code) && 
+                              reconnectAttemptsRef.current < maxReconnectAttempts;
+        
+        if (shouldReconnect) {
+          console.log('❌ 再接続条件をチェック:', {
+            currentAttempts: reconnectAttemptsRef.current,
+            maxAttempts: maxReconnectAttempts,
+            willReconnect: reconnectAttemptsRef.current < maxReconnectAttempts
+          });
           // Unexpected disconnection, schedule reconnect
           scheduleReconnect();
+        } else {
+          console.log('🛑 再接続しません:', {
+            code: event.code,
+            currentAttempts: reconnectAttemptsRef.current,
+            maxAttempts: maxReconnectAttempts
+          });
         }
       };
     } catch (error) {
@@ -211,14 +246,18 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     });
   }, []);
 
-  // Auto-connect on mount
+  // Auto-connect on mount - URLが変更された場合のみ再接続
   useEffect(() => {
+    console.log('🚀 useEffect実行 - 接続開始');
+    // 初回接続時は再接続カウンターをリセット
+    reconnectAttemptsRef.current = 0;
     connect();
     
     return () => {
+      console.log('🔄 useEffect cleanup');
       cleanup();
     };
-  }, [connect, cleanup]);
+  }, [options.url]); // connectとcleanupを依存から除外
 
   return {
     connectionState,

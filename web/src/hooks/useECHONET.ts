@@ -267,7 +267,8 @@ export function useECHONET(url: string): ECHONETHook {
 
   const connection = useWebSocketConnection({
     url,
-    reconnectAttempts: 5,
+    // 開発環境では再接続を無効化、本番環境では有効
+    reconnectAttempts: import.meta.env.DEV ? 0 : 5,
     reconnectDelay: 1000,
     maxReconnectDelay: 30000,
     onMessage: handleServerMessage,

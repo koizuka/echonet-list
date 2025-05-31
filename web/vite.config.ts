@@ -13,4 +13,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    port: 3000,
+    host: true,
+    https: {
+      key: '../certs/localhost+2-key.pem',
+      cert: '../certs/localhost+2.pem'
+    }
+  }
 })

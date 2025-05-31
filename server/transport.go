@@ -60,9 +60,14 @@ func NewDefaultWebSocketTransport(ctx context.Context, addr string) *DefaultWebS
 	transportCtx, cancel := context.WithCancel(ctx)
 
 	transport := &DefaultWebSocketTransport{
-		ctx:            transportCtx,
-		cancel:         cancel,
-		upgrader:       websocket.Upgrader{},
+		ctx:    transportCtx,
+		cancel: cancel,
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				// Allow all origins for development
+				return true
+			},
+		},
 		clients:        make(map[string]*websocket.Conn),
 		clientsReverse: make(map[*websocket.Conn]string),
 		clientsMutex:   sync.RWMutex{},
@@ -158,10 +163,20 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 
 // handleWebSocket はWebSocket接続を処理する
 func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	slog.Debug("WebSocket upgrade request received", 
+		"origin", r.Header.Get("Origin"),
+		"host", r.Header.Get("Host"),
+		"upgrade", r.Header.Get("Upgrade"),
+		"connection", r.Header.Get("Connection"),
+		"sec-websocket-key", r.Header.Get("Sec-WebSocket-Key"),
+		"sec-websocket-version", r.Header.Get("Sec-WebSocket-Version"))
+	
 	// Upgrade the HTTP connection to a WebSocket connection
 	conn, err := t.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		slog.Error("Error upgrading to WebSocket", "err", err)
+		slog.Error("Error upgrading to WebSocket", "err", err, 
+			"remote_addr", r.RemoteAddr,
+			"user_agent", r.Header.Get("User-Agent"))
 		return
 	}
 	defer conn.Close()
