@@ -91,12 +91,12 @@ func (t *DefaultWebSocketTransport) SetupStaticFileServer(webRoot string) error 
 	if webRoot == "" {
 		return nil
 	}
-	
+
 	// Webルートディレクトリの存在チェック
 	if _, err := os.Stat(webRoot); os.IsNotExist(err) {
 		return fmt.Errorf("webroot directory '%s' not found: %v", webRoot, err)
 	}
-	
+
 	// 既存のmuxを取得
 	if mux, ok := t.server.Handler.(*http.ServeMux); ok {
 		// ファイルサーバーのハンドラを作成
@@ -105,7 +105,7 @@ func (t *DefaultWebSocketTransport) SetupStaticFileServer(webRoot string) error 
 		mux.Handle("/", fs)
 		slog.Info("Static file server configured", "webroot", webRoot)
 	}
-	
+
 	return nil
 }
 
@@ -187,18 +187,18 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 
 // handleWebSocket はWebSocket接続を処理する
 func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	slog.Debug("WebSocket upgrade request received", 
+	slog.Debug("WebSocket upgrade request received",
 		"origin", r.Header.Get("Origin"),
 		"host", r.Header.Get("Host"),
 		"upgrade", r.Header.Get("Upgrade"),
 		"connection", r.Header.Get("Connection"),
 		"sec-websocket-key", r.Header.Get("Sec-WebSocket-Key"),
 		"sec-websocket-version", r.Header.Get("Sec-WebSocket-Version"))
-	
+
 	// Upgrade the HTTP connection to a WebSocket connection
 	conn, err := t.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		slog.Error("Error upgrading to WebSocket", "err", err, 
+		slog.Error("Error upgrading to WebSocket", "err", err,
 			"remote_addr", r.RemoteAddr,
 			"user_agent", r.Header.Get("User-Agent"))
 		return

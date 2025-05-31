@@ -186,7 +186,7 @@ func main() {
 
 		// HTTPサーバーのアドレスを設定
 		httpAddr := fmt.Sprintf("localhost:%d", cfg.HTTPServer.Port)
-		
+
 		// WebSocketサーバーの作成と起動
 		wsServer, err := server.NewWebSocketServer(ctx, httpAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler())
 		if err != nil {
