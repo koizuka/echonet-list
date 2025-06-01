@@ -23,11 +23,34 @@ function generateEOJIDString(eoj: string): string {
 }
 
 /**
+ * Parse IdentificationNumber from hex string to manufacturer:unique format
+ * Matches Go backend's IdentificationNumber.String() method
+ * Format: FE + 3-byte manufacturer + 13-byte unique identifier
+ * Returns: "manufacturer:unique" (e.g., "000005:00112233445566778899AABBCCDD")
+ */
+function parseIdentificationNumber(hexString: string): string {
+  // Expected format: FE + 6 hex digits (manufacturer) + 26 hex digits (unique)
+  // Total: 2 + 6 + 26 = 34 hex characters
+  if (hexString.length !== 34 || !hexString.startsWith('FE')) {
+    return hexString; // Return as-is if format doesn't match
+  }
+  
+  // Extract manufacturer code (3 bytes = 6 hex chars)
+  const manufacturerCode = hexString.substring(2, 8);
+  
+  // Extract unique identifier (13 bytes = 26 hex chars)
+  const uniqueIdentifier = hexString.substring(8);
+  
+  return `${manufacturerCode}:${uniqueIdentifier}`;
+}
+
+/**
  * Get device identifier for alias matching
  * This matches the Go backend's GetIDString() logic:
  * 1. Find NodeProfileObject device for the same IP
  * 2. Get IdentificationNumber (EPC 83) from NPO
- * 3. Generate ID as: EOJ.IDString() + ":" + IdentificationNumber.String()
+ * 3. Parse IdentificationNumber to manufacturer:unique format
+ * 4. Generate ID as: EOJ.IDString() + ":" + parsed IdentificationNumber
  */
 export function getDeviceIdentifierForAlias(
   device: Device,
@@ -56,8 +79,11 @@ export function getDeviceIdentifierForAlias(
     return device.id;
   }
 
+  // Parse IdentificationNumber to match Go backend format
+  const parsedIdNumber = parseIdentificationNumber(identificationNumberProp.string);
+
   // Generate device identifier: EOJ.IDString() + ":" + IdentificationNumber.String()
-  return `${eojIdString}:${identificationNumberProp.string}`;
+  return `${eojIdString}:${parsedIdNumber}`;
 }
 
 /**

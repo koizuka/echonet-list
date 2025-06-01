@@ -1,6 +1,6 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
-import { getAllLocations, groupDevicesByLocation } from '@/libs/locationHelper';
+import { getAllTabs, getDevicesForTab as getDevicesForTabHelper } from '@/libs/locationHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { PropertyEditor } from '@/components/PropertyEditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,19 +39,14 @@ function App() {
     }
   };
 
-  // Get locations and grouped devices
-  const locations = getAllLocations(echonet.devices, echonet.aliases);
-  const groupedDevices = groupDevicesByLocation(echonet.devices, echonet.aliases);
-
-
-
   // Function to get devices for a specific tab
-  const getDevicesForTab = (location: string) => {
-    if (location === 'All') {
-      return Object.values(echonet.devices);
-    }
-    return groupedDevices[location] || [];
+  const getDevicesForTab = (tabName: string) => {
+    return getDevicesForTabHelper(tabName, echonet.devices, echonet.aliases, echonet.groups);
   };
+
+  // Get all tabs (locations + groups)
+  const tabs = getAllTabs(echonet.devices, echonet.aliases, echonet.groups);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -83,29 +78,29 @@ function App() {
             </CardContent>
           </Card>
         ) : (
-          <Tabs defaultValue={locations[0]} className="w-full">
+          <Tabs defaultValue={tabs[0]} className="w-full">
             <div className="w-full mb-6 overflow-x-auto">
               <TabsList className="w-max min-w-full h-auto p-1 bg-muted flex flex-nowrap justify-start gap-1 sm:flex-wrap sm:w-full">
-              {locations.map((location) => (
+              {tabs.map((tab) => (
                 <TabsTrigger 
-                  key={location} 
-                  value={location} 
+                  key={tab} 
+                  value={tab} 
                   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-3 py-2 text-sm whitespace-nowrap flex-shrink-0"
                 >
-                  <span className="hidden sm:inline">{location}</span>
-                  <span className="sm:hidden">{location.length > 8 ? location.substring(0, 8) + '...' : location}</span>
-                  {location !== 'All' && (
-                    <span className="ml-1 hidden sm:inline">({getDevicesForTab(location).length})</span>
+                  <span className="hidden sm:inline">{tab}</span>
+                  <span className="sm:hidden">{tab.length > 8 ? tab.substring(0, 8) + '...' : tab}</span>
+                  {tab !== 'All' && (
+                    <span className="ml-1 hidden sm:inline">({getDevicesForTab(tab).length})</span>
                   )}
                 </TabsTrigger>
               ))}
               </TabsList>
             </div>
             
-            {locations.map((location) => (
-              <TabsContent key={location} value={location} className="space-y-4">
+            {tabs.map((tab) => (
+              <TabsContent key={tab} value={tab} className="space-y-4">
                 <div className="grid gap-4">
-                  {getDevicesForTab(location).map((device) => {
+                  {getDevicesForTab(tab).map((device) => {
                     const deviceKey = `${device.ip} ${device.eoj}`;
                     const aliasInfo = deviceHasAlias(device, echonet.devices, echonet.aliases);
                     
@@ -169,11 +164,16 @@ function App() {
                   })}
                 </div>
                 
-                {getDevicesForTab(location).length === 0 && (
+                {getDevicesForTab(tab).length === 0 && (
                   <Card>
                     <CardContent className="pt-6">
                       <p className="text-center text-muted-foreground">
-                        No devices found in {location === 'All' ? 'any location' : location}.
+                        {tab === 'All' 
+                          ? 'No devices found.' 
+                          : tab.startsWith('@') 
+                            ? `No devices found in group ${tab}.`
+                            : `No devices found in ${tab}.`
+                        }
                       </p>
                     </CardContent>
                   </Card>

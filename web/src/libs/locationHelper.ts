@@ -1,6 +1,6 @@
 // Utility functions for managing device locations
 
-import type { Device, DeviceAlias } from '@/hooks/types';
+import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 import { getDeviceIdentifierForAlias } from './deviceIdHelper';
 
 // ECHONET Installation Location EPC
@@ -139,6 +139,68 @@ export function getAllLocations(
   
   const sortedLocations = Array.from(locations).sort();
   return ['All', ...sortedLocations];
+}
+
+/**
+ * Get all tabs including locations and device groups
+ * Device groups are prefixed with "@" to distinguish from locations
+ */
+export function getAllTabs(
+  devices: Record<string, Device>,
+  aliases: DeviceAlias,
+  groups: DeviceGroup
+): string[] {
+  // Get location tabs
+  const locationTabs = getAllLocations(devices, aliases);
+  
+  // Get group tabs (prefixed with "@")
+  const groupTabs = Object.keys(groups)
+    .filter(groupName => groupName.startsWith('@'))
+    .sort();
+  
+  // Combine: All, locations, then groups
+  return [...locationTabs, ...groupTabs];
+}
+
+/**
+ * Get devices for a specific tab (location or group)
+ */
+export function getDevicesForTab(
+  tabName: string,
+  devices: Record<string, Device>,
+  aliases: DeviceAlias,
+  groups: DeviceGroup
+): Device[] {
+  if (tabName === 'All') {
+    return Object.values(devices);
+  }
+  
+  // Check if it's a group tab (starts with "@")
+  if (tabName.startsWith('@')) {
+    const groupDeviceIds = groups[tabName] || [];
+    return Object.values(devices).filter(device => {
+      // Generate device identifier using same logic as aliases
+      const deviceIdentifier = getDeviceIdentifierForAlias(device, devices);
+      
+      // Also check device.id directly as fallback
+      const directDeviceId = device.id;
+      
+      // Extract EOJ part from device for partial matching
+      const deviceEOJPart = deviceIdentifier.split(':')[0]; // e.g., "027B04"
+      
+      // Check exact matches first
+      if (groupDeviceIds.includes(deviceIdentifier) || groupDeviceIds.includes(directDeviceId)) {
+        return true;
+      }
+      
+      // Check if any group device ID starts with the same EOJ
+      return groupDeviceIds.some(groupId => groupId.startsWith(deviceEOJPart + ':'));
+    });
+  }
+  
+  // It's a location tab
+  const groupedDevices = groupDevicesByLocation(devices, aliases);
+  return groupedDevices[tabName] || [];
 }
 
 /**
