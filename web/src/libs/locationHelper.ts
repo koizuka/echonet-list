@@ -1,6 +1,7 @@
 // Utility functions for managing device locations
 
 import type { Device, DeviceAlias } from '@/hooks/types';
+import { getDeviceIdentifierForAlias } from './deviceIdHelper';
 
 // ECHONET Installation Location EPC
 const EPC_INSTALLATION_LOCATION = '81';
@@ -32,7 +33,8 @@ const INSTALLATION_LOCATION_NAMES: Record<string, string> = {
  */
 export function extractLocationFromDevice(
   device: Device, 
-  aliases: DeviceAlias
+  aliases: DeviceAlias,
+  allDevices?: Record<string, Device>
 ): string {
   // First priority: Check Installation Location property (EPC 0x81)
   const installationLocationProperty = device.properties[EPC_INSTALLATION_LOCATION];
@@ -48,7 +50,14 @@ export function extractLocationFromDevice(
   }
 
   // Second priority: Extract from device alias
-  const aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
+  let aliasName: string | undefined;
+  if (allDevices) {
+    const deviceIdentifier = getDeviceIdentifierForAlias(device, allDevices);
+    aliasName = Object.entries(aliases).find(([, id]) => id === deviceIdentifier)?.[0];
+  } else {
+    // Fallback to old logic if allDevices not provided
+    aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
+  }
   
   if (aliasName) {
     // Try to extract location from alias
@@ -103,7 +112,7 @@ export function groupDevicesByLocation(
   const grouped: Record<string, Device[]> = {};
   
   Object.values(devices).forEach(device => {
-    const location = extractLocationFromDevice(device, aliases);
+    const location = extractLocationFromDevice(device, aliases, devices);
     if (!grouped[location]) {
       grouped[location] = [];
     }
@@ -124,7 +133,7 @@ export function getAllLocations(
   const locations = new Set<string>();
   
   Object.values(devices).forEach(device => {
-    const location = extractLocationFromDevice(device, aliases);
+    const location = extractLocationFromDevice(device, aliases, devices);
     locations.add(location);
   });
   
@@ -137,9 +146,17 @@ export function getAllLocations(
  */
 export function getDeviceDisplayName(
   device: Device,
-  aliases: DeviceAlias
+  aliases: DeviceAlias,
+  allDevices?: Record<string, Device>
 ): string {
-  const aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
+  let aliasName: string | undefined;
+  if (allDevices) {
+    const deviceIdentifier = getDeviceIdentifierForAlias(device, allDevices);
+    aliasName = Object.entries(aliases).find(([, id]) => id === deviceIdentifier)?.[0];
+  } else {
+    // Fallback to old logic if allDevices not provided
+    aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
+  }
   
   return aliasName || device.name || device.eoj;
 }

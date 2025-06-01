@@ -72,7 +72,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   "ip": "192.168.1.10",
   "eoj": "0130:1",
   "name": "HomeAirConditioner",
-  "id": "013001:00000B:ABCDEF0123456789ABCDEF012345", // 例: EOJ:ManufacturerCode:UniqueIdentifier
+  "id": "013001:00000B:ABCDEF0123456789ABCDEF012345", // GetIDString()で生成: EOJ.IDString():IdentificationNumber.String()
   "properties": {
     "80": { "EDT": "MzA=", "string": "on" },  // EPC "80" (OperationStatus)
     "B3": { "EDT": "MjU=", "string": "25", "number": 25 }   // EPC "B3" (温度設定)
@@ -86,6 +86,11 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   - CCCC: 4桁の16進数クラスコード（例: "0130" = エアコン）
   - I: 10進数インスタンスコード（例: "1"）
 - `name`: デバイスの名前（文字列）
+- `id`: デバイス識別子（`GetIDString()`で生成、デバイスエイリアス照合で使用）
+  - 形式: `EOJ.IDString():IdentificationNumber.String()`
+  - `EOJ.IDString()`: 6桁16進数（例: "013001"）
+  - `IdentificationNumber.String()`: 同一IPのNodeProfileObjectのEPC 83から取得（例: "00000B:ABCDEF0123456789ABCDEF012345"）
+  - **重要**: エイリアス照合では、デバイス自身のIDではなく、同一IPのNodeProfileObjectのIdentificationNumberを使用
 - `properties`: プロパティのマップ
   - キー: 2桁の16進数EPC（プロパティコード）文字列
   - 値: オブジェクト { "EDT": "Base64エンコード文字列", "string": "文字列表現", "number": 数値 }

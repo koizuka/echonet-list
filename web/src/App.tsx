@@ -1,6 +1,7 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import { getAllLocations, groupDevicesByLocation } from '@/libs/locationHelper';
+import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { PropertyEditor } from '@/components/PropertyEditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +42,7 @@ function App() {
   // Get locations and grouped devices
   const locations = getAllLocations(echonet.devices, echonet.aliases);
   const groupedDevices = groupDevicesByLocation(echonet.devices, echonet.aliases);
+
 
 
   // Function to get devices for a specific tab
@@ -95,7 +97,7 @@ function App() {
                 <div className="grid gap-4">
                   {getDevicesForTab(location).map((device) => {
                     const deviceKey = `${device.ip} ${device.eoj}`;
-                    const aliasName = Object.entries(echonet.aliases).find(([, id]) => id === device.id)?.[0];
+                    const aliasInfo = deviceHasAlias(device, echonet.devices, echonet.aliases);
                     
                     return (
                       <Card key={deviceKey}>
@@ -103,9 +105,9 @@ function App() {
                           <div className="flex items-start justify-between">
                             <div className="space-y-1 flex-1">
                               <CardTitle>
-                                {aliasName || device.name}
+                                {aliasInfo.aliasName || device.name}
                               </CardTitle>
-                              {aliasName && (
+                              {aliasInfo.hasAlias && (
                                 <p className="text-sm text-muted-foreground">
                                   Device: {device.name}
                                 </p>
@@ -114,7 +116,7 @@ function App() {
                                 {device.ip} - {device.eoj}
                               </p>
                             </div>
-                            {aliasName && (
+                            {aliasInfo.hasAlias && (
                               <Badge variant="secondary" className="ml-2 text-xs">
                                 Alias
                               </Badge>
