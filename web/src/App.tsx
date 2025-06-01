@@ -84,13 +84,23 @@ function App() {
           </Card>
         ) : (
           <Tabs defaultValue={locations[0]} className="w-full">
-            <TabsList className="grid w-full grid-cols-auto mb-6" style={{ gridTemplateColumns: `repeat(${locations.length}, minmax(0, 1fr))` }}>
+            <div className="w-full mb-6 overflow-x-auto">
+              <TabsList className="w-max min-w-full h-auto p-1 bg-muted flex flex-nowrap justify-start gap-1 sm:flex-wrap sm:w-full">
               {locations.map((location) => (
-                <TabsTrigger key={location} value={location} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  {location} {location !== 'All' && `(${getDevicesForTab(location).length})`}
+                <TabsTrigger 
+                  key={location} 
+                  value={location} 
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-3 py-2 text-sm whitespace-nowrap flex-shrink-0"
+                >
+                  <span className="hidden sm:inline">{location}</span>
+                  <span className="sm:hidden">{location.length > 8 ? location.substring(0, 8) + '...' : location}</span>
+                  {location !== 'All' && (
+                    <span className="ml-1 hidden sm:inline">({getDevicesForTab(location).length})</span>
+                  )}
                 </TabsTrigger>
               ))}
-            </TabsList>
+              </TabsList>
+            </div>
             
             {locations.map((location) => (
               <TabsContent key={location} value={location} className="space-y-4">
