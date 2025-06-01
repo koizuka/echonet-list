@@ -6,12 +6,13 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
-// StartOptions は websocket_server.go で定義されています
+// StartOptions は websocket_server.go で定義されていますが、ここにHTTPサーバー用の設定も追加します
 
 // WebSocketTransport はWebSocketサーバーのネットワーク層を抽象化するインターフェース
 type WebSocketTransport interface {
@@ -60,9 +61,14 @@ func NewDefaultWebSocketTransport(ctx context.Context, addr string) *DefaultWebS
 	transportCtx, cancel := context.WithCancel(ctx)
 
 	transport := &DefaultWebSocketTransport{
-		ctx:            transportCtx,
-		cancel:         cancel,
-		upgrader:       websocket.Upgrader{},
+		ctx:    transportCtx,
+		cancel: cancel,
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				// Allow all origins for development
+				return true
+			},
+		},
 		clients:        make(map[string]*websocket.Conn),
 		clientsReverse: make(map[*websocket.Conn]string),
 		clientsMutex:   sync.RWMutex{},
@@ -78,6 +84,29 @@ func NewDefaultWebSocketTransport(ctx context.Context, addr string) *DefaultWebS
 	}
 
 	return transport
+}
+
+// SetupStaticFileServer は静的ファイル配信を設定する
+func (t *DefaultWebSocketTransport) SetupStaticFileServer(webRoot string) error {
+	if webRoot == "" {
+		return nil
+	}
+
+	// Webルートディレクトリの存在チェック
+	if _, err := os.Stat(webRoot); os.IsNotExist(err) {
+		return fmt.Errorf("webroot directory '%s' not found: %v", webRoot, err)
+	}
+
+	// 既存のmuxを取得
+	if mux, ok := t.server.Handler.(*http.ServeMux); ok {
+		// ファイルサーバーのハンドラを作成
+		fs := http.FileServer(http.Dir(webRoot))
+		// ルートパスに静的ファイル配信を追加（WebSocketより後に追加することで優先度を調整）
+		mux.Handle("/", fs)
+		slog.Info("Static file server configured", "webroot", webRoot)
+	}
+
+	return nil
 }
 
 // Start はWebSocketサーバーを起動する
@@ -158,10 +187,20 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 
 // handleWebSocket はWebSocket接続を処理する
 func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	slog.Debug("WebSocket upgrade request received",
+		"origin", r.Header.Get("Origin"),
+		"host", r.Header.Get("Host"),
+		"upgrade", r.Header.Get("Upgrade"),
+		"connection", r.Header.Get("Connection"),
+		"sec-websocket-key", r.Header.Get("Sec-WebSocket-Key"),
+		"sec-websocket-version", r.Header.Get("Sec-WebSocket-Version"))
+
 	// Upgrade the HTTP connection to a WebSocket connection
 	conn, err := t.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		slog.Error("Error upgrading to WebSocket", "err", err)
+		slog.Error("Error upgrading to WebSocket", "err", err,
+			"remote_addr", r.RemoteAddr,
+			"user_agent", r.Header.Get("User-Agent"))
 		return
 	}
 	defer conn.Close()

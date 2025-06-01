@@ -23,6 +23,9 @@ type StartOptions struct {
 	PeriodicUpdateInterval time.Duration
 	// サーバーの待ち受け完了を通知するチャネル
 	Ready chan struct{}
+	// HTTPサーバーの設定
+	HTTPEnabled bool
+	HTTPWebRoot string
 }
 
 // WebSocketServer implements a WebSocket server for ECHONET Lite
@@ -188,6 +191,15 @@ func (ws *WebSocketServer) handleClientDisconnect(connID string) {
 
 // Start starts the WebSocket server and optionally the periodic updater
 func (ws *WebSocketServer) Start(options StartOptions) error {
+	// HTTPサーバーが有効な場合は静的ファイル配信を設定
+	if options.HTTPEnabled {
+		if transport, ok := ws.transport.(*DefaultWebSocketTransport); ok {
+			if err := transport.SetupStaticFileServer(options.HTTPWebRoot); err != nil {
+				return fmt.Errorf("failed to setup static file server: %v", err)
+			}
+		}
+	}
+
 	// Start the periodic updater ticker if interval is positive
 	if options.PeriodicUpdateInterval > 0 {
 		ws.updateTicker = time.NewTicker(options.PeriodicUpdateInterval)

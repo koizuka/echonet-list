@@ -38,3 +38,33 @@ go.work.sum
 
 # env file
 .env
+
+# Web UI
+web/node_modules/
+web/bundle/
+web/.env
+web/.env.local
+web/.env.development.local
+web/.env.test.local
+web/.env.production.local
+
+# Log files
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
+
+# Runtime data
+web/pids
+web/*.pid
+web/*.seed
+web/*.pid.lock
+
+# Coverage directory used by tools like istanbul
+web/coverage/
+
+# IDE/Editor files
+web/.vscode/
+web/.idea/
+web/*.swp
+web/*.swo
+web/*~

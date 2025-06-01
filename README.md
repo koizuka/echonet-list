@@ -10,13 +10,20 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 - Set property values on specific devices
 - Persistent storage of discovered devices in a JSON file
 - Support for various device types (air conditioners, lighting, floor heating, etc.)
-- WebSocket server for web UI integration
-- TLS support for secure WebSocket connections
+- **Modern Web UI**: Interactive React-based web interface with real-time updates
+- **Tab-based Navigation**: Devices organized by installation location and device groups
+- **Property Editing**: Visual controls for different property types (dropdowns, numeric inputs)
+- **Device Status Indicators**: Visual indicators for operation status and fault conditions
+- **Responsive Design**: Mobile-friendly interface that works on phones, tablets, and desktops
+- Integrated WebSocket and HTTP server for web UI
+- TLS support for secure connections
 
 ## Documentation
 
 - [WebSocket Client Protocol](docs/websocket_client_protocol.md) - WebSocketプロトコルの詳細仕様
 - [Client UI Development Guide](docs/client_ui_development_guide.md) - WebSocketクライアントUI開発ガイド
+- [Web UI Implementation Guide](docs/web_ui_implementation_guide.md) - Web UI実装ガイド
+- [React Hooks Usage Guide](docs/react_hooks_usage_guide.md) - React Hooks使用ガイド
 - [Error Handling Guide](docs/error_handling_guide.md) - エラーハンドリングガイド
 - [mkcert Setup Guide](docs/mkcert_setup_guide.md) - 開発環境の証明書セットアップガイド
 - [Device Types and Examples](docs/device_types.md) - サポートされているデバイスタイプと使用例
@@ -27,14 +34,23 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 ### Prerequisites
 
 - Go 1.21 or later
+- Node.js 18+ and npm (for Web UI development)
 
 ### Building from Source
 
 1. Clone the repository
-2. Build the application:
+2. Build the Go application:
 
 ```bash
 go build
+```
+
+3. Build the Web UI (optional, pre-built version included):
+
+```bash
+cd web
+npm install
+npm run build
 ```
 
 ## Usage
@@ -51,13 +67,15 @@ Run the application:
 - `-log`: Specify a log file name
 - `-config`: Specify a TOML configuration file path (default: `config.toml` in the current directory)
 - `-websocket`: Enable WebSocket server mode
-- `-ws-addr`: Specify WebSocket server address (default: `localhost:8080`)
 - `-ws-client`: Enable WebSocket client mode
 - `-ws-client-addr`: Specify WebSocket client connection address (default: `ws://localhost:8080/ws`)
 - `-ws-both`: Enable both WebSocket server and client modes (for testing)
-- `-ws-tls`: Enable TLS for WebSocket server
+- `-ws-tls`: Enable TLS for the integrated server
 - `-ws-cert-file`: Specify TLS certificate file path
 - `-ws-key-file`: Specify TLS private key file path
+- `-http-enabled`: Enable HTTP server (integrated with WebSocket server)
+- `-http-port`: Specify server port (default: `8080`)
+- `-http-webroot`: Specify web root directory (default: `web/bundle`)
 
 Example with debug mode:
 
@@ -65,10 +83,16 @@ Example with debug mode:
 ./echonet-list -debug
 ```
 
-Example with WebSocket server and TLS:
+Example with Web UI (integrated server):
 
 ```bash
-./echonet-list -websocket -ws-tls -ws-cert-file=cert.pem -ws-key-file=key.pem
+./echonet-list -websocket -http-enabled
+```
+
+Example with Web UI and TLS:
+
+```bash
+./echonet-list -websocket -http-enabled -ws-tls -ws-cert-file=certs/localhost+2.pem -ws-key-file=certs/localhost+2-key.pem
 ```
 
 ### Configuration File
@@ -98,18 +122,25 @@ filename = "echonet-list.log"
 # WebSocketサーバー設定
 [websocket]
 enabled = true
-addr = "localhost:8080"
+# 定期的なプロパティ更新間隔（例: "1m", "30s", "0" で無効）
+periodic_update_interval = "1m"
 
-# TLS設定
-[websocket.tls]
+# TLS設定（HTTPサーバーとWebSocketサーバーで共通）
+[tls]
 enabled = false
-cert_file = "/path/to/cert.pem"
-key_file = "/path/to/key.pem"
+cert_file = "certs/localhost+2.pem"
+key_file = "certs/localhost+2-key.pem"
 
 # WebSocketクライアント設定
 [websocket_client]
 enabled = false
 addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
+
+# HTTP Server設定（WebSocketと統合）
+[http_server]
+enabled = false
+port = 8080
+web_root = "web/bundle"
 ```
 
 Command line options take precedence over configuration file settings.
@@ -127,6 +158,94 @@ For detailed information about the WebSocket protocol and client development, pl
 For setting up TLS certificates in development environment, see:
 
 - [mkcert Setup Guide](docs/mkcert_setup_guide.md)
+
+### Integrated Server Support
+
+The application includes an integrated HTTP and WebSocket server that provides both the ECHONET Lite WebSocket API and web UI from a single port. This eliminates port conflicts and simplifies deployment.
+
+-   **Single Port**: Both WebSocket (`/ws`) and HTTP static files are served from the same port
+-   **Web Root**: Static files are served from the directory specified by `-http-webroot` or `http_server.web_root` (default: `web/bundle`)
+-   **Port**: The server listens on the port specified by `-http-port` or `http_server.port` (default: `8080`)
+-   **TLS**: If TLS is enabled (`-ws-tls` or `tls.enabled`), both WebSocket and HTTP are served over TLS using the same certificate
+
+**URLs**:
+- WebSocket API: `wss://localhost:8080/ws` (with TLS) or `ws://localhost:8080/ws` (without TLS)
+- Web UI: `https://localhost:8080/` (with TLS) or `http://localhost:8080/` (without TLS)
+
+**Development Workflow**: During web UI development, you can run the Vite development server independently (`npm run dev` in the `web/` directory) for faster iteration. For integration testing and deployment, enable both WebSocket and HTTP servers in the Go application.
+
+## Web UI
+
+The application includes a modern, responsive web interface built with React 19 and TypeScript. The Web UI provides an intuitive way to monitor and control ECHONET Lite devices through your web browser.
+
+### Web UI Features
+
+- **Real-time Updates**: Device properties update automatically via WebSocket connection
+- **Tab-based Organization**: Devices are organized by installation location and device groups
+- **Property Editing**: Interactive controls for different property types:
+  - Dropdown menus for enumerated values (operation modes, etc.)
+  - Numeric inputs with validation for temperature, power settings
+  - Toggle switches for on/off controls
+- **Device Status Indicators**: Visual dots showing operation status and fault conditions
+- **Compact/Expanded Views**: Cards can be collapsed to show only essential properties
+- **Tab Persistence**: Selected tab is remembered across page reloads
+- **Device Sorting**: Consistent ordering by device type and installation location
+- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
+- **Device Aliases**: Friendly names for easier device identification
+
+### Web UI Technology Stack
+
+- **Frontend**: React 19 with TypeScript
+- **UI Framework**: shadcn/ui components with Tailwind CSS
+- **Build Tool**: Vite with hot module replacement
+- **Testing**: Vitest with React Testing Library
+- **State Management**: React Hooks (useState, useEffect, useCallback)
+- **Real-time Communication**: WebSocket API for live updates
+
+### Web UI Development
+
+For Web UI development, see the detailed guides:
+
+- [Web UI Implementation Guide](docs/web_ui_implementation_guide.md) - Comprehensive implementation details
+- [React Hooks Usage Guide](docs/react_hooks_usage_guide.md) - Custom hooks for ECHONET Lite integration
+
+#### Quick Start
+
+1. Start the Go server with WebSocket and HTTP enabled:
+
+```bash
+./echonet-list -websocket -http-enabled
+```
+
+2. Open your web browser and navigate to `http://localhost:8080`
+
+#### Development Mode
+
+For faster web UI development with hot reloading:
+
+1. Start the Go server (WebSocket only):
+
+```bash
+./echonet-list -websocket
+```
+
+2. In a separate terminal, start the Vite development server:
+
+```bash
+cd web
+npm run dev
+```
+
+3. Open `http://localhost:5173` for the development version with hot reloading
+
+#### Building for Production
+
+```bash
+cd web
+npm run build
+```
+
+The built files are output to `web/bundle/` and served by the Go HTTP server.
 
 ### Commands
 

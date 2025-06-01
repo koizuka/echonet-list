@@ -49,6 +49,11 @@ func main() {
 	daemonFlag := flag.Bool("daemon", false, "デーモンモードを有効にする")
 	pidFileFlag := flag.String("pidfile", "", "PIDファイルのパスを指定する")
 
+	// HTTPサーバー関連のフラグ
+	httpEnabledFlag := flag.Bool("http-enabled", false, "HTTPサーバーを有効にする")
+	httpPortFlag := flag.Int("http-port", 8081, "HTTPサーバーのポートを指定する")
+	httpWebRootFlag := flag.String("http-webroot", "web/bundle", "HTTPサーバーのWebルートディレクトリを指定する")
+
 	// コマンドライン引数の解析
 	flag.Parse()
 
@@ -97,6 +102,13 @@ func main() {
 		DaemonEnabledSpecified: flag.Lookup("daemon").Value.String() != "false",
 		PIDFile:                *pidFileFlag,
 		PIDFileSpecified:       flag.Lookup("pidfile").Value.String() != "",
+
+		HTTPServerEnabled:          *httpEnabledFlag,
+		HTTPServerEnabledSpecified: flag.Lookup("http-enabled").Value.String() != "false",
+		HTTPServerPort:             *httpPortFlag,
+		HTTPServerPortSpecified:    flag.Lookup("http-port").Value.String() != "8081",
+		HTTPServerWebRoot:          *httpWebRootFlag,
+		HTTPServerWebRootSpecified: flag.Lookup("http-webroot").Value.String() != "web/bundle",
 	}
 
 	cfg.ApplyCommandLineArgs(cmdArgs)
@@ -123,7 +135,6 @@ func main() {
 	debug := cfg.Debug
 	logFilename := cfg.Log.Filename
 	websocket := cfg.WebSocket.Enabled
-	wsAddr := cfg.WebSocket.Addr
 	wsClient := cfg.WebSocketClient.Enabled
 	if cfg.Daemon.Enabled {
 		wsClient = false // Daemon modeではクライアントモードを無効にする
@@ -173,8 +184,11 @@ func main() {
 			}
 		}()
 
+		// HTTPサーバーのアドレスを設定
+		httpAddr := fmt.Sprintf("localhost:%d", cfg.HTTPServer.Port)
+
 		// WebSocketサーバーの作成と起動
-		wsServer, err := server.NewWebSocketServer(ctx, wsAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler())
+		wsServer, err := server.NewWebSocketServer(ctx, httpAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WebSocketサーバーの作成に失敗しました: %v\n", err)
 			os.Exit(1)
@@ -199,9 +213,11 @@ func main() {
 		readyChan := make(chan struct{})
 		startOptions := server.StartOptions{
 			Ready:                  readyChan,
-			CertFile:               cfg.WebSocket.TLS.CertFile,
-			KeyFile:                cfg.WebSocket.TLS.KeyFile,
+			CertFile:               cfg.TLS.CertFile,
+			KeyFile:                cfg.TLS.KeyFile,
 			PeriodicUpdateInterval: updateInterval,
+			HTTPEnabled:            cfg.HTTPServer.Enabled,
+			HTTPWebRoot:            cfg.HTTPServer.WebRoot,
 		}
 
 		// 設定された定期更新間隔を表示
@@ -212,7 +228,7 @@ func main() {
 		}
 
 		// TLSが有効かどうかを表示
-		if cfg.WebSocket.TLS.Enabled {
+		if cfg.TLS.Enabled {
 			if startOptions.CertFile != "" && startOptions.KeyFile != "" {
 				fmt.Printf("TLSが有効です。証明書: %s, 秘密鍵: %s\n", startOptions.CertFile, startOptions.KeyFile)
 			} else {
@@ -231,7 +247,7 @@ func main() {
 			}
 		}()
 
-		fmt.Printf("WebSocketサーバーを起動しました: %s\n", wsAddr)
+		fmt.Printf("統合サーバーを起動しました: %s\n", httpAddr)
 
 		// WebSocketクライアントモードも有効な場合は、サーバーの Ready チャネルを待機
 		if wsClient {
@@ -248,7 +264,7 @@ func main() {
 	// WebSocketクライアントモードの場合
 	if wsClient {
 		// TLSが有効な場合は、接続先アドレスを修正
-		if cfg.WebSocket.TLS.Enabled && cfg.WebSocket.TLS.CertFile != "" && cfg.WebSocket.TLS.KeyFile != "" {
+		if cfg.TLS.Enabled && cfg.TLS.CertFile != "" && cfg.TLS.KeyFile != "" {
 			// ws:// を wss:// に置き換え
 			if strings.HasPrefix(wsClientAddr, "ws://") {
 				wsClientAddr = "wss://" + wsClientAddr[5:]
@@ -283,8 +299,10 @@ func main() {
 		c = wsClientInstance
 	}
 
+	// HTTPサーバーは統合されたWebSocketサーバーで処理される
+
 	// スタンドアロンモードの場合
-	if !websocket && !wsClient {
+	if !websocket && !wsClient && !cfg.HTTPServer.Enabled {
 		// ECHONETLiteHandlerの作成
 		s, err := server.NewServer(ctx, debug)
 		if err != nil {
