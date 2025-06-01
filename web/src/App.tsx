@@ -1,12 +1,12 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
-import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import { getAllTabs, getDevicesForTab as getDevicesForTabHelper } from '@/libs/locationHelper';
-import { deviceHasAlias } from '@/libs/deviceIdHelper';
-import { PropertyEditor } from '@/components/PropertyEditor';
-import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
+import { useCardExpansion } from '@/hooks/useCardExpansion';
+import { DeviceCard } from '@/components/DeviceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ExpandIcon, ShrinkIcon } from 'lucide-react';
 import type { PropertyValue } from '@/hooks/types';
 
 function App() {
@@ -16,6 +16,7 @@ function App() {
     : 'wss://localhost:8080/ws'; // 本番時
   
   const echonet = usePropertyDescriptions(wsUrl);
+  const cardExpansion = useCardExpansion();
 
   // Property change handler
   const handlePropertyChange = async (target: string, epc: string, value: PropertyValue) => {
@@ -48,15 +49,45 @@ function App() {
   // Get all tabs (locations + groups)
   const tabs = getAllTabs(echonet.devices, echonet.aliases, echonet.groups);
 
+  // Get all device keys for expand/collapse all functionality
+  const allDeviceKeys = Object.keys(echonet.devices).map(key => {
+    const device = echonet.devices[key];
+    return `${device.ip} ${device.eoj}`;
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">ECHONET List</h1>
-          <Badge variant="outline" className={`${getConnectionColor(echonet.connectionState)} text-white`}>
-            {echonet.connectionState}
-          </Badge>
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold">ECHONET List</h1>
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Expand/Collapse All Controls */}
+            {Object.keys(echonet.devices).length > 0 && (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => cardExpansion.expandAll(allDeviceKeys)}
+                  className="h-7 sm:h-8 px-2 sm:px-3"
+                >
+                  <ExpandIcon className="h-3 w-3 sm:mr-1" />
+                  <span className="hidden sm:inline ml-1">Expand All</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => cardExpansion.collapseAll()}
+                  className="h-7 sm:h-8 px-2 sm:px-3"
+                >
+                  <ShrinkIcon className="h-3 w-3 sm:mr-1" />
+                  <span className="hidden sm:inline ml-1">Collapse All</span>
+                </Button>
+              </div>
+            )}
+            <Badge variant="outline" className={`${getConnectionColor(echonet.connectionState)} text-white text-xs`}>
+              {echonet.connectionState}
+            </Badge>
+          </div>
         </div>
         
         {echonet.error && (
@@ -80,16 +111,16 @@ function App() {
           </Card>
         ) : (
           <Tabs defaultValue={tabs[0]} className="w-full">
-            <div className="w-full mb-6 overflow-x-auto">
+            <div className="w-full mb-4 overflow-x-auto">
               <TabsList className="w-max min-w-full h-auto p-1 bg-muted flex flex-nowrap justify-start gap-1 sm:flex-wrap sm:w-full">
               {tabs.map((tab) => (
                 <TabsTrigger 
                   key={tab} 
                   value={tab} 
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-3 py-2 text-sm whitespace-nowrap flex-shrink-0"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm whitespace-nowrap flex-shrink-0"
                 >
                   <span className="hidden sm:inline">{tab}</span>
-                  <span className="sm:hidden">{tab.length > 8 ? tab.substring(0, 8) + '...' : tab}</span>
+                  <span className="sm:hidden">{tab.length > 6 ? tab.substring(0, 6) + '...' : tab}</span>
                   {tab !== 'All' && (
                     <span className="ml-1 hidden sm:inline">({getDevicesForTab(tab).length})</span>
                   )}
@@ -100,70 +131,22 @@ function App() {
             
             {tabs.map((tab) => (
               <TabsContent key={tab} value={tab} className="space-y-4">
-                <div className="grid gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
                   {getDevicesForTab(tab).map((device) => {
                     const deviceKey = `${device.ip} ${device.eoj}`;
-                    const aliasInfo = deviceHasAlias(device, echonet.devices, echonet.aliases);
                     
                     return (
-                      <Card key={deviceKey}>
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-1 flex-1">
-                              <div className="flex items-center gap-2">
-                                <CardTitle>
-                                  {aliasInfo.aliasName || device.name}
-                                </CardTitle>
-                                <DeviceStatusIndicators device={device} />
-                              </div>
-                              {aliasInfo.hasAlias && (
-                                <p className="text-sm text-muted-foreground">
-                                  Device: {device.name}
-                                </p>
-                              )}
-                              <p className="text-sm text-muted-foreground">
-                                {device.ip} - {device.eoj}
-                              </p>
-                            </div>
-                            {aliasInfo.hasAlias && (
-                              <Badge variant="secondary" className="ml-2 text-xs">
-                                Alias
-                              </Badge>
-                            )}
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid gap-2">
-                            {Object.entries(device.properties).map(([epc, value]) => {
-                              const classCode = echonet.getDeviceClassCode(device);
-                              const propertyName = getPropertyName(epc, echonet.propertyDescriptions, classCode);
-                              const propertyDescriptor = getPropertyDescriptor(epc, echonet.propertyDescriptions, classCode);
-                              const formattedValue = formatPropertyValue(value, propertyDescriptor);
-                              
-                              return (
-                                <div key={epc} className="flex justify-between items-center">
-                                  <span className="text-sm font-medium">{propertyName}:</span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm">
-                                      {formattedValue}
-                                    </span>
-                                    <PropertyEditor
-                                      device={device}
-                                      epc={epc}
-                                      currentValue={value}
-                                      descriptor={propertyDescriptor}
-                                      onPropertyChange={handlePropertyChange}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Last seen: {new Date(device.lastSeen).toLocaleString()}
-                          </p>
-                        </CardContent>
-                      </Card>
+                      <DeviceCard
+                        key={deviceKey}
+                        device={device}
+                        isExpanded={cardExpansion.isCardExpanded(deviceKey)}
+                        onToggleExpansion={() => cardExpansion.toggleCard(deviceKey)}
+                        onPropertyChange={handlePropertyChange}
+                        propertyDescriptions={echonet.propertyDescriptions}
+                        getDeviceClassCode={echonet.getDeviceClassCode}
+                        devices={echonet.devices}
+                        aliases={echonet.aliases}
+                      />
                     );
                   })}
                 </div>
