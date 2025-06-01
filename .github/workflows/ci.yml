@@ -50,7 +50,7 @@ jobs:
       run: go test -v -race -coverprofile=coverage.out ./...
     
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         file: ./coverage.out
         flags: go-server
@@ -90,7 +90,7 @@ jobs:
       run: npm run build
     
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         file: ./web/coverage/lcov.info
         flags: web-ui
