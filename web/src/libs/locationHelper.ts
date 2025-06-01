@@ -2,6 +2,7 @@
 
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 import { getDeviceIdentifierForAlias } from './deviceIdHelper';
+import { sortDevicesByEOJAndLocation } from './deviceSortHelper';
 
 // ECHONET Installation Location EPC
 const EPC_INSTALLATION_LOCATION = '81';
@@ -164,6 +165,7 @@ export function getAllTabs(
 
 /**
  * Get devices for a specific tab (location or group)
+ * Returns devices sorted by EOJ (classCode:instance) and installation location
  */
 export function getDevicesForTab(
   tabName: string,
@@ -171,14 +173,14 @@ export function getDevicesForTab(
   aliases: DeviceAlias,
   groups: DeviceGroup
 ): Device[] {
-  if (tabName === 'All') {
-    return Object.values(devices);
-  }
+  let filteredDevices: Device[];
   
-  // Check if it's a group tab (starts with "@")
-  if (tabName.startsWith('@')) {
+  if (tabName === 'All') {
+    filteredDevices = Object.values(devices);
+  } else if (tabName.startsWith('@')) {
+    // It's a group tab (starts with "@")
     const groupDeviceIds = groups[tabName] || [];
-    return Object.values(devices).filter(device => {
+    filteredDevices = Object.values(devices).filter(device => {
       // Generate device identifier using same logic as aliases
       const deviceIdentifier = getDeviceIdentifierForAlias(device, devices);
       
@@ -196,11 +198,14 @@ export function getDevicesForTab(
       // Check if any group device ID starts with the same EOJ
       return groupDeviceIds.some(groupId => groupId.startsWith(deviceEOJPart + ':'));
     });
+  } else {
+    // It's a location tab
+    const groupedDevices = groupDevicesByLocation(devices, aliases);
+    filteredDevices = groupedDevices[tabName] || [];
   }
   
-  // It's a location tab
-  const groupedDevices = groupDevicesByLocation(devices, aliases);
-  return groupedDevices[tabName] || [];
+  // Sort all devices by EOJ (classCode:instance) and installation location
+  return sortDevicesByEOJAndLocation(filteredDevices);
 }
 
 /**
