@@ -1,6 +1,7 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getAllTabs, getDevicesForTab as getDevicesForTabHelper } from '@/libs/locationHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
+import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { DeviceCard } from '@/components/DeviceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,12 @@ function App() {
   
   const echonet = usePropertyDescriptions(wsUrl);
   const cardExpansion = useCardExpansion();
+  
+  // Get all tabs (locations + groups)
+  const tabs = getAllTabs(echonet.devices, echonet.aliases, echonet.groups);
+  
+  // Use persistent tab selection
+  const { selectedTab, selectTab } = usePersistedTab(tabs, 'All');
 
   // Property change handler
   const handlePropertyChange = async (target: string, epc: string, value: PropertyValue) => {
@@ -45,9 +52,6 @@ function App() {
   const getDevicesForTab = (tabName: string) => {
     return getDevicesForTabHelper(tabName, echonet.devices, echonet.aliases, echonet.groups);
   };
-
-  // Get all tabs (locations + groups)
-  const tabs = getAllTabs(echonet.devices, echonet.aliases, echonet.groups);
 
   // Get all device keys for expand/collapse all functionality
   const allDeviceKeys = Object.keys(echonet.devices).map(key => {
@@ -110,7 +114,7 @@ function App() {
             </CardContent>
           </Card>
         ) : (
-          <Tabs defaultValue={tabs[0]} className="w-full">
+          <Tabs value={selectedTab} onValueChange={selectTab} className="w-full">
             <div className="w-full mb-4 overflow-x-auto">
               <TabsList className="w-max min-w-full h-auto p-1 bg-muted flex flex-nowrap justify-start gap-1 sm:flex-wrap sm:w-full">
               {tabs.map((tab) => (
