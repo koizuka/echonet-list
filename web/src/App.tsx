@@ -1,4 +1,5 @@
-import { useECHONET } from '@/hooks/useECHONET';
+import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
+import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -8,7 +9,7 @@ function App() {
     ? 'wss://localhost:8080/ws'  // 開発時も直接接続
     : 'wss://localhost:8080/ws'; // 本番時
   
-  const echonet = useECHONET(wsUrl);
+  const echonet = usePropertyDescriptions(wsUrl);
 
   const getConnectionColor = (state: string) => {
     switch (state) {
@@ -55,14 +56,21 @@ function App() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-2">
-                  {Object.entries(device.properties).map(([epc, value]) => (
-                    <div key={epc} className="flex justify-between">
-                      <span className="font-mono text-sm">EPC {epc}:</span>
-                      <span className="text-sm">
-                        {value.string || value.number?.toString() || 'Raw data'}
-                      </span>
-                    </div>
-                  ))}
+                  {Object.entries(device.properties).map(([epc, value]) => {
+                    const classCode = echonet.getDeviceClassCode(device);
+                    const propertyName = getPropertyName(epc, echonet.propertyDescriptions, classCode);
+                    const propertyDescriptor = getPropertyDescriptor(epc, echonet.propertyDescriptions, classCode);
+                    const formattedValue = formatPropertyValue(value, propertyDescriptor);
+                    
+                    return (
+                      <div key={epc} className="flex justify-between">
+                        <span className="text-sm font-medium">{propertyName}:</span>
+                        <span className="text-sm">
+                          {formattedValue}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
                   Last seen: {new Date(device.lastSeen).toLocaleString()}
