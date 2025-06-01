@@ -140,3 +140,65 @@ export function formatPropertyValue(
 
   return 'Raw data';
 }
+
+/**
+ * Checks if device is operational (EPC 0x80 Operation Status is on)
+ * Returns true if operation status is on, false otherwise
+ */
+export function isDeviceOperational(device: Device): boolean {
+  const operationStatus = device.properties['80'];
+  if (!operationStatus) {
+    return false;
+  }
+
+  // Check if the string value indicates "on"
+  if (operationStatus.string) {
+    return operationStatus.string.toLowerCase() === 'on';
+  }
+
+  // Check by EDT value (0x30 = on, 0x31 = off for most devices)
+  if (operationStatus.EDT) {
+    try {
+      const edtBytes = atob(operationStatus.EDT);
+      if (edtBytes.length > 0) {
+        const statusByte = edtBytes.charCodeAt(0);
+        return statusByte === 0x30; // 0x30 = on
+      }
+    } catch {
+      // Ignore decode errors
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks if device has a fault (EPC 0x88 Fault occurrence status is not no_fault)
+ * Returns true if device has a fault, false otherwise
+ */
+export function isDeviceFaulty(device: Device): boolean {
+  const faultStatus = device.properties['88'];
+  if (!faultStatus) {
+    return false;
+  }
+
+  // Check if the string value indicates fault
+  if (faultStatus.string) {
+    return faultStatus.string.toLowerCase() !== 'no_fault';
+  }
+
+  // Check by EDT value (0x42 = no_fault for most devices)
+  if (faultStatus.EDT) {
+    try {
+      const edtBytes = atob(faultStatus.EDT);
+      if (edtBytes.length > 0) {
+        const statusByte = edtBytes.charCodeAt(0);
+        return statusByte !== 0x42; // 0x42 = no_fault
+      }
+    } catch {
+      // Ignore decode errors
+    }
+  }
+
+  return false;
+}

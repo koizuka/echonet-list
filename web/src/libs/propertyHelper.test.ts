@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isPropertySettable } from './propertyHelper';
+import { isPropertySettable, isDeviceOperational, isDeviceFaulty } from './propertyHelper';
 import type { Device } from '@/hooks/types';
 
 describe('propertyHelper', () => {
@@ -97,6 +97,164 @@ describe('propertyHelper', () => {
       expect(isPropertySettable('B3', device)).toBe(true);
       expect(isPropertySettable('FF', device)).toBe(true);
       expect(isPropertySettable('80', device)).toBe(false);
+    });
+  });
+
+  describe('isDeviceOperational', () => {
+    it('should return true when operation status is on (string)', () => {
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {
+          '80': { string: 'on' }
+        }
+      };
+
+      expect(isDeviceOperational(device)).toBe(true);
+    });
+
+    it('should return false when operation status is off (string)', () => {
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {
+          '80': { string: 'off' }
+        }
+      };
+
+      expect(isDeviceOperational(device)).toBe(false);
+    });
+
+    it('should return true when operation status is on (EDT 0x30)', () => {
+      const operationStatusEDT = btoa('\x30'); // 0x30 = on
+      
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {
+          '80': { EDT: operationStatusEDT }
+        }
+      };
+
+      expect(isDeviceOperational(device)).toBe(true);
+    });
+
+    it('should return false when operation status is off (EDT 0x31)', () => {
+      const operationStatusEDT = btoa('\x31'); // 0x31 = off
+      
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {
+          '80': { EDT: operationStatusEDT }
+        }
+      };
+
+      expect(isDeviceOperational(device)).toBe(false);
+    });
+
+    it('should return false when no operation status property', () => {
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {}
+      };
+
+      expect(isDeviceOperational(device)).toBe(false);
+    });
+  });
+
+  describe('isDeviceFaulty', () => {
+    it('should return false when fault status is no_fault (string)', () => {
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {
+          '88': { string: 'no_fault' }
+        }
+      };
+
+      expect(isDeviceFaulty(device)).toBe(false);
+    });
+
+    it('should return true when fault status indicates fault (string)', () => {
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {
+          '88': { string: 'fault_detected' }
+        }
+      };
+
+      expect(isDeviceFaulty(device)).toBe(true);
+    });
+
+    it('should return false when fault status is no_fault (EDT 0x42)', () => {
+      const faultStatusEDT = btoa('\x42'); // 0x42 = no_fault
+      
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {
+          '88': { EDT: faultStatusEDT }
+        }
+      };
+
+      expect(isDeviceFaulty(device)).toBe(false);
+    });
+
+    it('should return true when fault status indicates fault (EDT not 0x42)', () => {
+      const faultStatusEDT = btoa('\x41'); // 0x41 = fault
+      
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {
+          '88': { EDT: faultStatusEDT }
+        }
+      };
+
+      expect(isDeviceFaulty(device)).toBe(true);
+    });
+
+    it('should return false when no fault status property', () => {
+      const device: Device = {
+        id: 'test',
+        ip: '192.168.1.100',
+        eoj: '0130:1',
+        name: 'Test Device',
+        lastSeen: Date.now(),
+        properties: {}
+      };
+
+      expect(isDeviceFaulty(device)).toBe(false);
     });
   });
 });

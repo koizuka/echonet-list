@@ -3,6 +3,7 @@ import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/l
 import { getAllTabs, getDevicesForTab as getDevicesForTabHelper } from '@/libs/locationHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { PropertyEditor } from '@/components/PropertyEditor';
+import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -109,9 +110,12 @@ function App() {
                         <CardHeader>
                           <div className="flex items-start justify-between">
                             <div className="space-y-1 flex-1">
-                              <CardTitle>
-                                {aliasInfo.aliasName || device.name}
-                              </CardTitle>
+                              <div className="flex items-center gap-2">
+                                <CardTitle>
+                                  {aliasInfo.aliasName || device.name}
+                                </CardTitle>
+                                <DeviceStatusIndicators device={device} />
+                              </div>
                               {aliasInfo.hasAlias && (
                                 <p className="text-sm text-muted-foreground">
                                   Device: {device.name}
