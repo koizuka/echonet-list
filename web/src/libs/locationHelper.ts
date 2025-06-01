@@ -48,8 +48,7 @@ export function extractLocationFromDevice(
   }
 
   // Second priority: Extract from device alias
-  const deviceId = `${device.ip} ${device.eoj}`;
-  const aliasName = Object.entries(aliases).find(([, id]) => id === deviceId)?.[0];
+  const aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
   
   if (aliasName) {
     // Try to extract location from alias
@@ -140,8 +139,7 @@ export function getDeviceDisplayName(
   device: Device,
   aliases: DeviceAlias
 ): string {
-  const deviceId = `${device.ip} ${device.eoj}`;
-  const aliasName = Object.entries(aliases).find(([, id]) => id === deviceId)?.[0];
+  const aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
   
   return aliasName || device.name || device.eoj;
 }

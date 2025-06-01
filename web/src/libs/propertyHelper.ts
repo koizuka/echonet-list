@@ -56,12 +56,12 @@ export function getPropertyDescriptor(
 }
 
 /**
- * Extracts the class code from an EOJ string (e.g., "01:30:01" -> "0130")
+ * Extracts the class code from an EOJ string (e.g., "0130:1" -> "0130")
  */
 export function extractClassCodeFromEOJ(eoj: string): string {
   const parts = eoj.split(':');
-  if (parts.length >= 2) {
-    return parts[0] + parts[1];
+  if (parts.length >= 1 && parts[0].length === 4) {
+    return parts[0];
   }
   return '';
 }
