@@ -92,7 +92,7 @@ export function DeviceCard({
   };
 
   return (
-    <Card className="transition-all duration-200 w-full max-w-sm">
+    <Card className="transition-all duration-200 w-full max-w-sm flex flex-col">
       <CardHeader className="pb-2 px-3 pt-3">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 flex-1 min-w-0">
@@ -133,19 +133,20 @@ export function DeviceCard({
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0 px-3 pb-3">
-        {/* Always show primary properties in compact form */}
-        {primaryProps.length > 0 && (
-          <div className={`${isExpanded ? 'space-y-3' : 'space-y-0.5'} ${!isExpanded ? 'mb-2' : 'mb-3'}`}>
-            {primaryProps.map(([epc, value]) => (
-              <PropertyRow key={epc} epc={epc} value={value as PropertyValue} isCompact={!isExpanded} />
-            ))}
-          </div>
-        )}
+      <CardContent className="pt-0 px-3 pb-0 flex flex-col flex-1">
+        {/* Main content area that grows to fill space */}
+        <div className="flex-1">
+          {/* Always show primary properties in compact form */}
+          {primaryProps.length > 0 && (
+            <div className={`${isExpanded ? 'space-y-3' : 'space-y-0.5'} ${!isExpanded ? 'mb-2' : 'mb-3'}`}>
+              {primaryProps.map(([epc, value]) => (
+                <PropertyRow key={epc} epc={epc} value={value as PropertyValue} isCompact={!isExpanded} />
+              ))}
+            </div>
+          )}
 
-        {/* Show secondary properties only when expanded */}
-        {isExpanded && secondaryProps.length > 0 && (
-          <>
+          {/* Show secondary properties only when expanded */}
+          {isExpanded && secondaryProps.length > 0 && (
             <div className="border-t pt-2">
               <h4 className="text-xs font-medium mb-2 text-muted-foreground">
                 Other Properties
@@ -156,13 +157,15 @@ export function DeviceCard({
                 ))}
               </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
 
-        {/* Last seen timestamp */}
-        <p className="text-xs text-muted-foreground mt-2 pt-1 border-t">
-          Last seen: {new Date(device.lastSeen).toLocaleString()}
-        </p>
+        {/* Last seen timestamp - always at bottom */}
+        <div className="border-t pt-2 pb-3 mt-2">
+          <p className="text-xs text-muted-foreground">
+            Last seen: {new Date(device.lastSeen).toLocaleString()}
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
