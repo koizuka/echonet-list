@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown, Edit3, Check, X } from 'lucide-react';
+import { isPropertySettable } from '@/libs/propertyHelper';
 import type { PropertyDescriptor, PropertyValue, Device } from '@/hooks/types';
 
 interface PropertyEditorProps {
@@ -34,7 +35,13 @@ export function PropertyEditor({
   const hasAliases = descriptor?.aliases && Object.keys(descriptor.aliases).length > 0;
   const hasNumberDesc = descriptor?.numberDesc;
   const hasStringDesc = descriptor?.stringDesc;
-  const isSettable = descriptor?.stringSettable || hasNumberDesc || hasAliases;
+  
+  // Check if property is settable based on:
+  // 1. Property descriptor indicates it's settable (stringSettable, numberDesc, or aliases)
+  // 2. Property is listed in Set Property Map (EPC 0x9E)
+  const hasEditCapability = descriptor?.stringSettable || hasNumberDesc || hasAliases;
+  const isInSetPropertyMap = isPropertySettable(epc, device);
+  const isSettable = hasEditCapability && isInSetPropertyMap;
 
   // Handle alias selection
   const handleAliasSelect = async (aliasName: string) => {

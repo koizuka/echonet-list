@@ -1,6 +1,6 @@
 // Utility functions for working with ECHONET property descriptions
 
-import type { PropertyDescriptionData, PropertyDescriptor } from '@/hooks/types';
+import type { PropertyDescriptionData, PropertyDescriptor, Device } from '@/hooks/types';
 
 /**
  * Gets the human-readable property name for an EPC
@@ -64,6 +64,45 @@ export function extractClassCodeFromEOJ(eoj: string): string {
     return parts[0];
   }
   return '';
+}
+
+/**
+ * Checks if a property (EPC) is settable according to Set Property Map (EPC 0x9E)
+ * Returns true if the property is listed in the Set Property Map
+ */
+export function isPropertySettable(epc: string, device: Device): boolean {
+  // EPC 0x9E contains the Set Property Map
+  const setPropertyMap = device.properties['9E'];
+  
+  if (!setPropertyMap?.EDT) {
+    // If no Set Property Map is available, assume not settable
+    return false;
+  }
+
+  try {
+    // Decode the Base64 EDT to get the property map bytes
+    const mapBytes = atob(setPropertyMap.EDT);
+    
+    // First byte is the number of properties
+    if (mapBytes.length < 1) {
+      return false;
+    }
+    
+    const propertyCount = mapBytes.charCodeAt(0);
+    
+    // Check if EPC is in the list
+    const epcCode = parseInt(epc, 16);
+    for (let i = 1; i <= propertyCount && i < mapBytes.length; i++) {
+      if (mapBytes.charCodeAt(i) === epcCode) {
+        return true;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.warn(`Failed to parse Set Property Map for device ${device.ip} ${device.eoj}:`, error);
+    return false;
+  }
 }
 
 /**
