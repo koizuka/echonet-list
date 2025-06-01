@@ -1,7 +1,9 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
+import { PropertyEditor } from '@/components/PropertyEditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import type { PropertyValue } from '@/hooks/types';
 
 function App() {
   // 開発環境と本番環境でWebSocket URLを切り替え
@@ -10,6 +12,16 @@ function App() {
     : 'wss://localhost:8080/ws'; // 本番時
   
   const echonet = usePropertyDescriptions(wsUrl);
+
+  // Property change handler
+  const handlePropertyChange = async (target: string, epc: string, value: PropertyValue) => {
+    try {
+      await echonet.setDeviceProperties(target, { [epc]: value });
+    } catch (error) {
+      console.error('Failed to change property:', error);
+      // TODO: Show user-friendly error message
+    }
+  };
 
   const getConnectionColor = (state: string) => {
     switch (state) {
@@ -63,11 +75,20 @@ function App() {
                     const formattedValue = formatPropertyValue(value, propertyDescriptor);
                     
                     return (
-                      <div key={epc} className="flex justify-between">
+                      <div key={epc} className="flex justify-between items-center">
                         <span className="text-sm font-medium">{propertyName}:</span>
-                        <span className="text-sm">
-                          {formattedValue}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">
+                            {formattedValue}
+                          </span>
+                          <PropertyEditor
+                            device={device}
+                            epc={epc}
+                            currentValue={value}
+                            descriptor={propertyDescriptor}
+                            onPropertyChange={handlePropertyChange}
+                          />
+                        </div>
                       </div>
                     );
                   })}

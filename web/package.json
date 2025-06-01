@@ -12,6 +12,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@radix-ui/react-dropdown-menu": "^2.1.15",
     "@radix-ui/react-slot": "^1.2.3",
     "@types/ws": "^8.18.1",
     "class-variance-authority": "^0.7.1",
