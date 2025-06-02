@@ -13,8 +13,8 @@ import type { PropertyValue } from '@/hooks/types';
 function App() {
   // 開発環境と本番環境でWebSocket URLを切り替え
   const wsUrl = import.meta.env.DEV 
-    ? 'wss://localhost:8080/ws'  // 開発時も直接接続
-    : 'wss://localhost:8080/ws'; // 本番時
+    ? 'wss://localhost:8080/ws'  // 開発時は直接接続
+    : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`; // 本番時は現在のホストを使用
   
   const echonet = usePropertyDescriptions(wsUrl);
   const cardExpansion = useCardExpansion();
