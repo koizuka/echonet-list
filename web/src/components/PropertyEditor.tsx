@@ -123,15 +123,24 @@ export function PropertyEditor({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {Object.keys(descriptor.aliases!).map((aliasName) => (
-              <DropdownMenuItem 
-                key={aliasName}
-                onClick={() => handleAliasSelect(aliasName)}
-                disabled={isLoading}
-              >
-                {aliasName}
-              </DropdownMenuItem>
-            ))}
+            {Object.keys(descriptor.aliases!).map((aliasName) => {
+              const isSelected = currentValue.string === aliasName;
+              return (
+                <DropdownMenuItem 
+                  key={aliasName}
+                  onClick={() => handleAliasSelect(aliasName)}
+                  disabled={isLoading}
+                  className={`flex items-center justify-between ${
+                    isSelected 
+                      ? 'bg-accent/50 text-accent-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground' 
+                      : 'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground'
+                  }`}
+                >
+                  <span>{aliasName}</span>
+                  {isSelected && <Check className="h-3 w-3 ml-2" />}
+                </DropdownMenuItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
