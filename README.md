@@ -74,6 +74,7 @@ Run the application:
 - `-ws-cert-file`: Specify TLS certificate file path
 - `-ws-key-file`: Specify TLS private key file path
 - `-http-enabled`: Enable HTTP server (integrated with WebSocket server)
+- `-http-host`: Specify server host name (default: `localhost`)
 - `-http-port`: Specify server port (default: `8080`)
 - `-http-webroot`: Specify web root directory (default: `web/bundle`)
 
@@ -139,6 +140,7 @@ addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
 # HTTP Server設定（WebSocketと統合）
 [http_server]
 enabled = false
+host = "localhost"
 port = 8080
 web_root = "web/bundle"
 ```
@@ -165,6 +167,7 @@ The application includes an integrated HTTP and WebSocket server that provides b
 
 -   **Single Port**: Both WebSocket (`/ws`) and HTTP static files are served from the same port
 -   **Web Root**: Static files are served from the directory specified by `-http-webroot` or `http_server.web_root` (default: `web/bundle`)
+-   **Host**: The server binds to the host specified by `-http-host` or `http_server.host` (default: `localhost`)
 -   **Port**: The server listens on the port specified by `-http-port` or `http_server.port` (default: `8080`)
 -   **TLS**: If TLS is enabled (`-ws-tls` or `tls.enabled`), both WebSocket and HTTP are served over TLS using the same certificate
 

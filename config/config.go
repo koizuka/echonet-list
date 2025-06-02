@@ -49,6 +49,7 @@ type Config struct {
 	} `toml:"daemon"`
 	HTTPServer struct {
 		Enabled bool   `toml:"enabled"`
+		Host    string `toml:"host"`
 		Port    int    `toml:"port"`
 		WebRoot string `toml:"web_root"`
 	} `toml:"http_server"`
@@ -67,6 +68,7 @@ func NewConfig() *Config {
 	cfg.Daemon.PIDFile = ""
 	// Default HTTP server settings
 	cfg.HTTPServer.Enabled = false
+	cfg.HTTPServer.Host = "localhost"
 	cfg.HTTPServer.Port = 8080
 	cfg.HTTPServer.WebRoot = "web/bundle"
 	return cfg
@@ -147,6 +149,9 @@ func (c *Config) ApplyCommandLineArgs(args CommandLineArgs) {
 	if args.HTTPServerEnabledSpecified {
 		c.HTTPServer.Enabled = args.HTTPServerEnabled
 	}
+	if args.HTTPServerHostSpecified {
+		c.HTTPServer.Host = args.HTTPServerHost
+	}
 	if args.HTTPServerPortSpecified {
 		c.HTTPServer.Port = args.HTTPServerPort
 	}
@@ -172,8 +177,6 @@ type CommandLineArgs struct {
 	// WebSocketサーバー設定
 	WebSocketEnabled          bool
 	WebSocketEnabledSpecified bool
-	WebSocketAddr             string
-	WebSocketAddrSpecified    bool
 
 	// WebSocket TLS設定
 	WebSocketTLSEnabled           bool
@@ -201,6 +204,8 @@ type CommandLineArgs struct {
 	// HTTPサーバー設定
 	HTTPServerEnabled          bool
 	HTTPServerEnabledSpecified bool
+	HTTPServerHost             string
+	HTTPServerHostSpecified    bool
 	HTTPServerPort             int
 	HTTPServerPortSpecified    bool
 	HTTPServerWebRoot          string
@@ -218,7 +223,6 @@ func ParseCommandLineArgs() CommandLineArgs {
 	logFilenameFlag := flag.String("log", "echonet-list.log", "ログファイル名を指定する")
 
 	websocketFlag := flag.Bool("websocket", false, "WebSocketサーバーモードを有効にする")
-	wsAddrFlag := flag.String("ws-addr", "localhost:8080", "WebSocketサーバーのアドレスを指定する")
 
 	wsTLSFlag := flag.Bool("ws-tls", false, "WebSocketサーバーでTLSを有効にする")
 	wsCertFileFlag := flag.String("ws-cert-file", "", "TLS証明書ファイルのパスを指定する")
@@ -232,6 +236,7 @@ func ParseCommandLineArgs() CommandLineArgs {
 	pidFileFlag := flag.String("pidfile", "", "PIDファイルのパスを指定する")
 
 	httpEnabledFlag := flag.Bool("http-enabled", false, "HTTPサーバーを有効にする")
+	httpHostFlag := flag.String("http-host", "localhost", "HTTPサーバーのホスト名を指定する")
 	httpPortFlag := flag.Int("http-port", 8081, "HTTPサーバーのポートを指定する")
 	httpWebRootFlag := flag.String("http-webroot", "web/bundle", "HTTPサーバーのWebルートディレクトリを指定する")
 
@@ -278,9 +283,6 @@ func ParseCommandLineArgs() CommandLineArgs {
 	args.WebSocketEnabled = *websocketFlag
 	args.WebSocketEnabledSpecified = argsMap["websocket"]
 
-	args.WebSocketAddr = *wsAddrFlag
-	args.WebSocketAddrSpecified = argsMap["ws-addr"]
-
 	args.WebSocketTLSEnabled = *wsTLSFlag
 	args.WebSocketTLSEnabledSpecified = argsMap["ws-tls"]
 
@@ -305,6 +307,8 @@ func ParseCommandLineArgs() CommandLineArgs {
 
 	args.HTTPServerEnabled = *httpEnabledFlag
 	args.HTTPServerEnabledSpecified = argsMap["http-enabled"]
+	args.HTTPServerHost = *httpHostFlag
+	args.HTTPServerHostSpecified = argsMap["http-host"]
 	args.HTTPServerPort = *httpPortFlag
 	args.HTTPServerPortSpecified = argsMap["http-port"]
 	args.HTTPServerWebRoot = *httpWebRootFlag

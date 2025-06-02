@@ -27,6 +27,7 @@ addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
 # HTTP Server設定（WebSocketと統合）
 [http_server]
 enabled = false
+host = "localhost"
 port = 8080
 web_root = "web/bundle"
 

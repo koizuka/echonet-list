@@ -37,7 +37,6 @@ func main() {
 
 	// WebSocket関連のフラグ
 	websocketFlag := flag.Bool("websocket", false, "WebSocketサーバーモードを有効にする")
-	wsAddrFlag := flag.String("ws-addr", "localhost:8080", "WebSocketサーバーのアドレスを指定する")
 	wsClientFlag := flag.Bool("ws-client", false, "WebSocketクライアントモードを有効にする")
 	wsClientAddrFlag := flag.String("ws-client-addr", "ws://localhost:8080/ws", "WebSocketクライアントの接続先アドレスを指定する")
 	wsBothFlag := flag.Bool("ws-both", false, "WebSocketサーバーとクライアントの両方を有効にする（テスト用）")
@@ -51,6 +50,7 @@ func main() {
 
 	// HTTPサーバー関連のフラグ
 	httpEnabledFlag := flag.Bool("http-enabled", false, "HTTPサーバーを有効にする")
+	httpHostFlag := flag.String("http-host", "localhost", "HTTPサーバーのホスト名を指定する")
 	httpPortFlag := flag.Int("http-port", 8081, "HTTPサーバーのポートを指定する")
 	httpWebRootFlag := flag.String("http-webroot", "web/bundle", "HTTPサーバーのWebルートディレクトリを指定する")
 
@@ -78,9 +78,6 @@ func main() {
 		WebSocketEnabled:          *websocketFlag,
 		WebSocketEnabledSpecified: flag.Lookup("websocket").Value.String() != "false",
 
-		WebSocketAddr:          *wsAddrFlag,
-		WebSocketAddrSpecified: flag.Lookup("ws-addr").Value.String() != "localhost:8080",
-
 		WebSocketTLSEnabled:          *wsTLSFlag,
 		WebSocketTLSEnabledSpecified: flag.Lookup("ws-tls").Value.String() != "false",
 
@@ -105,6 +102,8 @@ func main() {
 
 		HTTPServerEnabled:          *httpEnabledFlag,
 		HTTPServerEnabledSpecified: flag.Lookup("http-enabled").Value.String() != "false",
+		HTTPServerHost:             *httpHostFlag,
+		HTTPServerHostSpecified:    flag.Lookup("http-host").Value.String() != "localhost",
 		HTTPServerPort:             *httpPortFlag,
 		HTTPServerPortSpecified:    flag.Lookup("http-port").Value.String() != "8081",
 		HTTPServerWebRoot:          *httpWebRootFlag,
@@ -185,7 +184,7 @@ func main() {
 		}()
 
 		// HTTPサーバーのアドレスを設定
-		httpAddr := fmt.Sprintf("localhost:%d", cfg.HTTPServer.Port)
+		httpAddr := fmt.Sprintf("%s:%d", cfg.HTTPServer.Host, cfg.HTTPServer.Port)
 
 		// WebSocketサーバーの作成と起動
 		wsServer, err := server.NewWebSocketServer(ctx, httpAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler())

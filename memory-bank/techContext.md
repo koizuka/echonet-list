@@ -36,13 +36,14 @@ This file provides details about the technical environment and constraints of th
 - **Client**: Connects to the server, sends commands (e.g., get/set properties, manage aliases/groups), and receives state notifications. Implemented in `client/websocket_client.go`.
 - **Startup Options**:
   - `-websocket`: Enable WebSocket server mode.
-  - `-ws-addr`: Specify WebSocket server address (default: `localhost:8080`).
   - `-ws-client`: Enable WebSocket client mode.
   - `-ws-client-addr`: Specify WebSocket server address for the client to connect to (default: `localhost:8080`).
   - `-ws-both`: Enable both WebSocket server and client mode for dogfooding.
   - `-ws-tls`: Enable TLS for WebSocket server.
   - `-ws-cert-file`: Specify TLS certificate file path.
   - `-ws-key-file`: Specify TLS private key file path.
+  - `-http-host`: Specify HTTP server host name (default: `localhost`).
+  - `-http-port`: Specify HTTP server port (default: `8080`).
 - **TLS Support**: WebSocket server can be configured to use TLS (WSS) for secure connections.
   - When TLS is enabled, WebSocket clients should connect using `wss://` instead of `ws://`.
   - The application automatically updates client connection URLs when TLS is enabled.
@@ -64,12 +65,13 @@ This file provides details about the technical environment and constraints of th
 - **Settings**:
   - General settings (debug mode)
   - Log settings (filename)
-  - WebSocket server settings (enabled, address, TLS)
+  - WebSocket server settings (enabled, TLS)
   - WebSocket client settings (enabled, address)
-  - HTTP server settings (planned for Web UI):
+  - HTTP server settings:
     - `http_enabled = true/false`
-    - `http_port = 8081` (example)
-    - `http_webroot = "server/webroot"` (example)
+    - `http_host = "localhost"` (example)
+    - `http_port = 8080` (example)
+    - `http_webroot = "web/bundle"` (example)
 - **Priority**: Command line arguments take precedence over configuration file settings
 - **Sample File**: `config.toml.sample` is provided as a template
 
