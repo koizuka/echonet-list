@@ -213,7 +213,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       });
       updateConnectionState('error');
     }
-  }, [options.url, handleMessage, cleanup, updateConnectionState, updateError, scheduleReconnect, maxReconnectAttempts]);
+  }, [options.url, cleanup, handleMessage, updateConnectionState, updateError, scheduleReconnect, maxReconnectAttempts]);
 
   // Assign connect function to ref for use in scheduleReconnect
   connectRef.current = connect;
@@ -261,7 +261,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     return () => {
       cleanup();
     };
-  }, [options.url]); // connectとcleanupを依存から除外
+  }, [connect, cleanup]);
 
   return {
     connectionState,
