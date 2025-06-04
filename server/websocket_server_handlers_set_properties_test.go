@@ -89,6 +89,20 @@ func TestHandleSetPropertiesFromClient(t *testing.T) {
 			wantError: true,
 			errorCode: protocol.ErrorCodeInvalidParameters,
 		},
+		{
+			name: "String and Number both provided",
+			payload: protocol.SetPropertiesPayload{
+				Target: "192.168.1.10 0130:1",
+				Properties: protocol.PropertyMap{
+					"B3": {
+						String: "25",
+						Number: 20, // Conflicting values
+					},
+				},
+			},
+			wantError: true,
+			errorCode: protocol.ErrorCodeInvalidParameters,
+		},
 	}
 
 	for _, tt := range tests {
