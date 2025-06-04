@@ -68,7 +68,7 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 	return ws, nil
 }
 
-// periodicUpdater runs in a goroutine, triggering property updates every minute
+// periodicUpdater runs in a goroutine, triggering property updates at the configured interval
 // if at least one client is connected.
 func (ws *WebSocketServer) periodicUpdater() {
 	if ws.handler.IsDebug() {
