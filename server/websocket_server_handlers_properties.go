@@ -129,7 +129,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 		switch {
 		case propData.String != "" && propData.Number != 0:
 			// StringとNumberの両方があったらエラー
-			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Conflicting EDT and string for EPC: %s", epcStr)
+			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Conflicting string and number for EPC: %s", epcStr)
 		case propData.Number != 0:
 			converter, ok := desc.Decoder.(echonet_lite.PropertyIntConverter)
 			if !ok {
