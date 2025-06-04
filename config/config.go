@@ -237,7 +237,7 @@ func ParseCommandLineArgs() CommandLineArgs {
 
 	httpEnabledFlag := flag.Bool("http-enabled", false, "HTTPサーバーを有効にする")
 	httpHostFlag := flag.String("http-host", "localhost", "HTTPサーバーのホスト名を指定する")
-	httpPortFlag := flag.Int("http-port", 8081, "HTTPサーバーのポートを指定する")
+	httpPortFlag := flag.Int("http-port", 8080, "HTTPサーバーのポートを指定する")
 	httpWebRootFlag := flag.String("http-webroot", "web/bundle", "HTTPサーバーのWebルートディレクトリを指定する")
 
 	// コマンドライン引数を解析
