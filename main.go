@@ -28,88 +28,15 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-	// コマンドライン引数の定義
-	debugFlag := flag.Bool("debug", false, "デバッグモードを有効にする")
-	logFilenameFlag := flag.String("log", defaultLog, "ログファイル名を指定する")
-
-	// 設定ファイル関連のフラグ
-	configFileFlag := flag.String("config", "", "TOML設定ファイルのパスを指定する")
-
-	// WebSocket関連のフラグ
-	websocketFlag := flag.Bool("websocket", false, "WebSocketサーバーモードを有効にする")
-	wsClientFlag := flag.Bool("ws-client", false, "WebSocketクライアントモードを有効にする")
-	wsClientAddrFlag := flag.String("ws-client-addr", "ws://localhost:8080/ws", "WebSocketクライアントの接続先アドレスを指定する")
-	wsBothFlag := flag.Bool("ws-both", false, "WebSocketサーバーとクライアントの両方を有効にする（テスト用）")
-
-	// TLS関連のフラグ
-	wsTLSFlag := flag.Bool("ws-tls", false, "WebSocketサーバーでTLSを有効にする")
-	wsCertFileFlag := flag.String("ws-cert-file", "", "TLS証明書ファイルのパスを指定する")
-	wsKeyFileFlag := flag.String("ws-key-file", "", "TLS秘密鍵ファイルのパスを指定する")
-	daemonFlag := flag.Bool("daemon", false, "デーモンモードを有効にする")
-	pidFileFlag := flag.String("pidfile", "", "PIDファイルのパスを指定する")
-
-	// HTTPサーバー関連のフラグ
-	httpEnabledFlag := flag.Bool("http-enabled", false, "HTTPサーバーを有効にする")
-	httpHostFlag := flag.String("http-host", "localhost", "HTTPサーバーのホスト名を指定する")
-	httpPortFlag := flag.Int("http-port", 8080, "HTTPサーバーのポートを指定する")
-	httpWebRootFlag := flag.String("http-webroot", "web/bundle", "HTTPサーバーのWebルートディレクトリを指定する")
-
-	// コマンドライン引数の解析
-	flag.Parse()
-
-	// 設定ファイルの読み込み
-	cfg, err := config.LoadConfig(*configFileFlag)
+	// コマンドライン引数を解析し、設定ファイルを読み込む
+	cmdArgs := config.ParseCommandLineArgs()
+	cfg, err := config.LoadConfig(cmdArgs.ConfigFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "設定ファイルの読み込みに失敗しました: %v\n", err)
 		os.Exit(1)
 	}
 
 	// コマンドライン引数を設定に適用
-	cmdArgs := config.CommandLineArgs{
-		ConfigFile:      *configFileFlag,
-		ConfigSpecified: *configFileFlag != "",
-
-		Debug:          *debugFlag,
-		DebugSpecified: flag.Lookup("debug").Value.String() != "false",
-
-		LogFilename:          *logFilenameFlag,
-		LogFilenameSpecified: flag.Lookup("log").Value.String() != defaultLog,
-
-		WebSocketEnabled:          *websocketFlag,
-		WebSocketEnabledSpecified: flag.Lookup("websocket").Value.String() != "false",
-
-		WebSocketTLSEnabled:          *wsTLSFlag,
-		WebSocketTLSEnabledSpecified: flag.Lookup("ws-tls").Value.String() != "false",
-
-		WebSocketTLSCertFile:          *wsCertFileFlag,
-		WebSocketTLSCertFileSpecified: *wsCertFileFlag != "",
-
-		WebSocketTLSKeyFile:          *wsKeyFileFlag,
-		WebSocketTLSKeyFileSpecified: *wsKeyFileFlag != "",
-
-		WebSocketClientEnabled:          *wsClientFlag,
-		WebSocketClientEnabledSpecified: flag.Lookup("ws-client").Value.String() != "false",
-
-		WebSocketClientAddr:          *wsClientAddrFlag,
-		WebSocketClientAddrSpecified: flag.Lookup("ws-client-addr").Value.String() != "ws://localhost:8080/ws",
-
-		WebSocketBoth:          *wsBothFlag,
-		WebSocketBothSpecified: flag.Lookup("ws-both").Value.String() != "false",
-		DaemonEnabled:          *daemonFlag,
-		DaemonEnabledSpecified: flag.Lookup("daemon").Value.String() != "false",
-		PIDFile:                *pidFileFlag,
-		PIDFileSpecified:       flag.Lookup("pidfile").Value.String() != "",
-
-		HTTPServerEnabled:          *httpEnabledFlag,
-		HTTPServerEnabledSpecified: flag.Lookup("http-enabled").Value.String() != "false",
-		HTTPServerHost:             *httpHostFlag,
-		HTTPServerHostSpecified:    flag.Lookup("http-host").Value.String() != "localhost",
-		HTTPServerPort:             *httpPortFlag,
-		HTTPServerPortSpecified:    flag.Lookup("http-port").Value.String() != "0000",
-		HTTPServerWebRoot:          *httpWebRootFlag,
-		HTTPServerWebRootSpecified: flag.Lookup("http-webroot").Value.String() != "web/bundle",
-	}
-
 	cfg.ApplyCommandLineArgs(cmdArgs)
 
 	// Daemon mode pre-checks and PID file handling
