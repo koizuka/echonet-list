@@ -72,7 +72,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       wsRef.current.close();
       wsRef.current = null;
     }
-  }, []);
+  }, []); // cleanupは外部の状態に依存しない
 
   const connectRef = useRef<(() => void) | null>(null);
 
@@ -213,7 +213,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       });
       updateConnectionState('error');
     }
-  }, [options.url, cleanup, handleMessage, updateConnectionState, updateError, scheduleReconnect, maxReconnectAttempts]);
+  }, [options.url, handleMessage, updateConnectionState, updateError, scheduleReconnect, maxReconnectAttempts, cleanup]);
 
   // Assign connect function to ref for use in scheduleReconnect
   connectRef.current = connect;
@@ -261,7 +261,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     return () => {
       cleanup();
     };
-  }, [connect, cleanup]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.url]); // URLが変更された場合のみ再接続
 
   return {
     connectionState,
