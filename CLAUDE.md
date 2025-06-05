@@ -55,7 +55,7 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
 - 構成ファイルは、サーバーが http サーバーを持ち、それが配信することで、 WebSocketサーバーと同一ホストで動作させ、CORS 制約を解決します。
 - 開発:
   - 構成ファイルのソースコードはリポジトリの web サブディレクトリ内で開発します。
-    - node.js, Vite, TypeScript, React 19 を用いて開発します。Vitest でテストを用意します。鳴るべく新しいスタイルを使います。
+    - node.js, Vite, TypeScript, React 19 を用いて開発します。Vitest でテストを用意します。なるべく新しいスタイルを使います。
     - WebSocket の通信クライアント層を用意し、 React Hooks にします。
     - ディレクトリ構成は、以下の様になります:
       - web/
