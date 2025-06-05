@@ -33,7 +33,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.23 or later
 - Node.js 18+ and npm (for Web UI development)
 
 ### Building from Source
