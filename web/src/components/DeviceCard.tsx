@@ -73,7 +73,7 @@ export function DeviceCard({
     return (
       <div className="space-y-1">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-sm font-medium text-muted-foreground flex-shrink-0">
+          <span className="text-sm font-medium text-muted-foreground shrink-0">
             {propertyName}:
           </span>
           <PropertyEditor
@@ -111,7 +111,7 @@ export function DeviceCard({
               {device.ip} - {device.eoj}
             </p>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {aliasInfo.hasAlias && (
               <Badge variant="secondary" className="text-xs px-1">
                 Alias

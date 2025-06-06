@@ -132,8 +132,8 @@ export function PropertyEditor({
                   disabled={isLoading}
                   className={`flex items-center justify-between ${
                     isSelected 
-                      ? 'bg-accent/50 text-accent-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground' 
-                      : 'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground'
+                      ? 'bg-accent/50 text-accent-foreground data-highlighted:bg-accent data-highlighted:text-accent-foreground' 
+                      : 'data-highlighted:bg-accent data-highlighted:text-accent-foreground'
                   }`}
                 >
                   <span>{aliasName}</span>
