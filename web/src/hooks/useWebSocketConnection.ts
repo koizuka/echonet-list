@@ -69,6 +69,12 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     pendingRequestsRef.current.clear();
     
     if (wsRef.current) {
+      // React StrictMode対策：CONNECTING状態でのcloseは静かに処理
+      if (wsRef.current.readyState === WebSocket.CONNECTING) {
+        // エラーハンドラを無効化してからclose
+        wsRef.current.onerror = null;
+        wsRef.current.onclose = null;
+      }
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -262,7 +268,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [options.url]); // URLが変更された場合のみ再接続
+  }, [options.url]); // URLが変更された場合のみ再接続、connectとcleanupは安定化済み
 
   return {
     connectionState,
