@@ -55,9 +55,12 @@ export function DeviceCard({
             <span className="font-medium text-muted-foreground truncate">
               {propertyName}:
             </span>
-            <span className="font-medium truncate">
-              {formattedValue}
-            </span>
+            {/* Show current value only if property doesn't have aliases (no Select component) */}
+            {!propertyDescriptor?.aliases && (
+              <span className="font-medium truncate">
+                {formattedValue}
+              </span>
+            )}
           </div>
           <PropertyEditor
             device={device}
@@ -72,21 +75,26 @@ export function DeviceCard({
 
     return (
       <div className="space-y-1">
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-sm font-medium text-muted-foreground shrink-0">
+        <div className="flex items-start gap-2">
+          <span className="text-sm font-medium text-muted-foreground min-w-0 flex-1 break-words">
             {propertyName}:
           </span>
-          <PropertyEditor
-            device={device}
-            epc={epc}
-            currentValue={value}
-            descriptor={propertyDescriptor}
-            onPropertyChange={onPropertyChange}
-          />
+          <div className="shrink-0">
+            <PropertyEditor
+              device={device}
+              epc={epc}
+              currentValue={value}
+              descriptor={propertyDescriptor}
+              onPropertyChange={onPropertyChange}
+            />
+          </div>
         </div>
-        <div className="text-sm font-medium break-words">
-          {formattedValue}
-        </div>
+        {/* Show current value only if property doesn't have aliases (no Select component) */}
+        {!propertyDescriptor?.aliases && (
+          <div className="text-sm font-medium break-words">
+            {formattedValue}
+          </div>
+        )}
       </div>
     );
   };

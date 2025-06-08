@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { ChevronDown, Edit3, Check, X } from 'lucide-react';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Edit3, Check, X } from 'lucide-react';
 import { isPropertySettable } from '@/libs/propertyHelper';
 import type { PropertyDescriptor, PropertyValue, Device } from '@/hooks/types';
 
@@ -109,40 +110,26 @@ export function PropertyEditor({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Alias dropdown menu */}
+      {/* Alias select */}
       {hasAliases && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              disabled={isLoading}
-              className="h-7 px-2"
-            >
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {Object.keys(descriptor.aliases!).map((aliasName) => {
-              const isSelected = currentValue.string === aliasName;
-              return (
-                <DropdownMenuItem 
-                  key={aliasName}
-                  onClick={() => handleAliasSelect(aliasName)}
-                  disabled={isLoading}
-                  className={`flex items-center justify-between ${
-                    isSelected 
-                      ? 'bg-accent/50 text-accent-foreground data-highlighted:bg-accent data-highlighted:text-accent-foreground' 
-                      : 'data-highlighted:bg-accent data-highlighted:text-accent-foreground'
-                  }`}
-                >
-                  <span>{aliasName}</span>
-                  {isSelected && <Check className="h-3 w-3 ml-2" />}
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Select
+          value={currentValue.string || ''}
+          onValueChange={(value) => handleAliasSelect(value)}
+          disabled={isLoading}
+        >
+          <SelectTrigger className="h-7 w-[120px]">
+            <SelectValue>
+              {currentValue.string || 'Select...'}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(descriptor.aliases!).map((aliasName) => (
+              <SelectItem key={aliasName} value={aliasName}>
+                {aliasName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
 
       {/* String/Number editing */}
