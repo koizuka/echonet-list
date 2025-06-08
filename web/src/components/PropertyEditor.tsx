@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -30,8 +30,16 @@ export function PropertyEditor({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const deviceId = `${device.ip} ${device.eoj}`;
+
+  // Auto-focus input when entering edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
 
   const hasAliases = descriptor?.aliases && Object.keys(descriptor.aliases).length > 0;
   const hasNumberDesc = descriptor?.numberDesc;
@@ -110,8 +118,8 @@ export function PropertyEditor({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Alias select */}
-      {hasAliases && (
+      {/* Alias select - hidden when editing */}
+      {hasAliases && !isEditing && (
         <Select
           value={currentValue.string || ''}
           onValueChange={(value) => handleAliasSelect(value)}
@@ -149,6 +157,7 @@ export function PropertyEditor({
       {isEditing && (
         <div className="flex items-center gap-1">
           <Input
+            ref={inputRef}
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={(e) => {
