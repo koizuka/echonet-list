@@ -186,7 +186,7 @@ The application includes a modern, responsive web interface built with React 19 
 - **Real-time Updates**: Device properties update automatically via WebSocket connection
 - **Tab-based Organization**: Devices are organized by installation location and device groups
 - **Property Editing**: Interactive controls for different property types:
-  - Dropdown menus for enumerated values (operation modes, etc.)
+  - Select controls for enumerated values (operation modes, etc.)
   - Numeric inputs with validation for temperature, power settings
   - Toggle switches for on/off controls
 - **Device Status Indicators**: Visual dots showing operation status and fault conditions
