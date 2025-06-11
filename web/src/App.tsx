@@ -123,10 +123,9 @@ function App() {
                   value={tab} 
                   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm whitespace-nowrap shrink-0"
                 >
-                  <span className="hidden sm:inline">{tab}</span>
-                  <span className="sm:hidden">{tab.length > 6 ? tab.substring(0, 6) + '...' : tab}</span>
+                  {tab}
                   {tab !== 'All' && (
-                    <span className="ml-1 hidden sm:inline">({getDevicesForTab(tab).length})</span>
+                    <span className="ml-1 text-[10px] sm:text-xs">({getDevicesForTab(tab).length})</span>
                   )}
                 </TabsTrigger>
               ))}
