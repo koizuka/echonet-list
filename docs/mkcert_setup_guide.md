@@ -34,7 +34,7 @@ sudo apt install mkcert
 mkcert -install
 ```
 
-2. 証明書が正しくインストールされたことを確認：
+1. 証明書が正しくインストールされたことを確認：
 
 ```bash
 mkcert -CAROOT
@@ -48,7 +48,7 @@ mkcert -CAROOT
 cd /path/to/your/project/certs
 ```
 
-2. 証明書を生成：
+1. 証明書を生成：
 
 ```bash
 mkcert localhost 127.0.0.1 ::1
@@ -70,7 +70,7 @@ cert_file = "certs/localhost+2.pem"
 key_file = "certs/localhost+2-key.pem"
 ```
 
-2. サーバーを起動する際にTLSを有効化：
+1. サーバーを起動する際にTLSを有効化：
 
 ```bash
 ./echonet-list -websocket -ws-tls -ws-cert-file certs/localhost+2.pem -ws-key-file certs/localhost+2-key.pem
@@ -87,13 +87,19 @@ mkcert -CAROOT
 # 表示されたパスから rootCA.pem をコピー
 ```
 
-2. 証明書をメールで送信するか、Webサーバーでホスト
+1. 証明書をメールで送信するか、Webサーバーでホスト
 
-3. iOSデバイスで証明書をインストール：
+1. iOSデバイスで証明書をインストール：
    - 証明書ファイルをタップ
    - 「設定」アプリで「プロファイルがダウンロードされました」をタップ
    - 「インストール」をタップ
-   - 「設定」→「一般」→「プロファイル」で証明書を信頼
+
+1. ルート証明書を信頼する設定（重要）：
+   - 「設定」→「一般」→「情報」→「証明書信頼設定」
+   - インストールした証明書の「ルート証明書を全面的に信頼」をオンにする
+   - 警告メッセージが表示されたら「続ける」をタップ
+
+**注意**: 手動でインストールした証明書はSSL/TLS通信に対して自動的には信頼されません。必ず上記の手順4を実行して、ルート証明書を信頼する必要があります。
 
 ### Android
 
@@ -104,9 +110,9 @@ mkcert -CAROOT
 # 表示されたパスから rootCA.pem をコピー
 ```
 
-2. 証明書をメールで送信するか、Webサーバーでホスト
+1. 証明書をメールで送信するか、Webサーバーでホスト
 
-3. Androidデバイスで証明書をインストール：
+1. Androidデバイスで証明書をインストール：
    - 証明書ファイルをタップ
    - 証明書名を入力
    - 「VPNとアプリ」を選択
@@ -122,13 +128,13 @@ mkcert -CAROOT
 mkcert -CAROOT
 ```
 
-2. 証明書の有効期限を確認：
+1. 証明書の有効期限を確認：
 
 ```bash
 openssl x509 -in localhost+2.pem -text -noout | grep "Not After"
 ```
 
-3. 証明書の情報を確認：
+1. 証明書の情報を確認：
 
 ```bash
 openssl x509 -in localhost+2.pem -text -noout
