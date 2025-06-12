@@ -28,6 +28,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 - [mkcert Setup Guide](docs/mkcert_setup_guide.md) - 開発環境の証明書セットアップガイド
 - [Device Types and Examples](docs/device_types.md) - サポートされているデバイスタイプと使用例
 - [Troubleshooting Guide](docs/troubleshooting.md) - トラブルシューティングガイド
+- [Daemon Setup Guide](docs/daemon-setup.md) - デーモンモードのセットアップガイド
 
 ## Installation
 
@@ -77,6 +78,8 @@ Run the application:
 - `-http-host`: Specify server host name (default: `localhost`)
 - `-http-port`: Specify server port (default: `8080`)
 - `-http-webroot`: Specify web root directory (default: `web/bundle`)
+- `-daemon`: Enable daemon mode (requires WebSocket server to be enabled)
+- `-pidfile`: Specify PID file path (default depends on platform)
 
 Example with debug mode:
 
@@ -94,6 +97,12 @@ Example with Web UI and TLS:
 
 ```bash
 ./echonet-list -websocket -http-enabled -ws-tls -ws-cert-file=certs/localhost+2.pem -ws-key-file=certs/localhost+2-key.pem
+```
+
+Example as daemon (background service):
+
+```bash
+./echonet-list -daemon -websocket -http-enabled
 ```
 
 ### Configuration File
@@ -143,6 +152,11 @@ enabled = false
 host = "localhost"
 port = 8080
 web_root = "web/bundle"
+
+# デーモンモード設定
+[daemon]
+enabled = false
+pid_file = ""  # 省略時はプラットフォーム別のデフォルトパスを使用
 ```
 
 Command line options take precedence over configuration file settings.
@@ -176,6 +190,53 @@ The application includes an integrated HTTP and WebSocket server that provides b
 - Web UI: `https://localhost:8080/` (with TLS) or `http://localhost:8080/` (without TLS)
 
 **Development Workflow**: During web UI development, you can run the Vite development server independently (`npm run dev` in the `web/` directory) for faster iteration. For integration testing and deployment, enable both WebSocket and HTTP servers in the Go application.
+
+### Daemon Mode
+
+The application supports running as a daemon (background service) on Linux and macOS systems. This is useful for running the ECHONET Lite controller as a persistent service that starts automatically on system boot.
+
+#### Daemon Mode Features
+
+- Runs in the background without console UI
+- PID file management for process control
+- Automatic log rotation on SIGHUP signal
+- Platform-specific default paths:
+  - **Linux**: PID file at `/var/run/echonet-list.pid`, logs at `/var/log/echonet-list.log`
+  - **macOS**: PID file at `/usr/local/var/run/echonet-list.pid`, logs at `/usr/local/var/log/echonet-list.log`
+
+#### Quick Start with Daemon Mode
+
+```bash
+# Run as daemon with Web UI
+./echonet-list -daemon -websocket -http-enabled
+
+# Run as daemon with custom PID file
+./echonet-list -daemon -websocket -pidfile /tmp/echonet-list.pid
+```
+
+#### systemd Service (Linux)
+
+For production deployment on Linux systems with systemd:
+
+1. Install the service file:
+```bash
+sudo cp systemd/echonet-list.service /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+2. Start and enable the service:
+```bash
+sudo systemctl start echonet-list
+sudo systemctl enable echonet-list
+```
+
+3. Check service status:
+```bash
+sudo systemctl status echonet-list
+sudo journalctl -u echonet-list -f
+```
+
+For detailed daemon setup instructions, including security configuration, log rotation, and troubleshooting, see the [Daemon Setup Guide](docs/daemon-setup.md).
 
 ## Web UI
 

@@ -31,9 +31,20 @@ host = "localhost"
 port = 8080
 web_root = "web/bundle"
 
-# Daemon mode settings
+# デーモンモード設定
 [daemon]
 # デーモンモードを有効にする
 enabled = false
 # プロセスIDを保存するファイルのパス
+# 省略時のデフォルト値:
+#   Linux: /var/run/echonet-list.pid または /run/echonet-list.pid
+#   macOS: /usr/local/var/run/echonet-list.pid
+#   その他: echonet-list.pid
 pid_file = ""
+# 注意: デーモンモード有効時の動作
+#   - コンソールUIが無効になります
+#   - WebSocketサーバーの有効化が必須です
+#   - ログファイルのデフォルトパスが変更されます:
+#     Linux: /var/log/echonet-list.log
+#     macOS: /usr/local/var/log/echonet-list.log
+#   - SIGHUP シグナルでログローテーションが実行されます

@@ -1,0 +1,33 @@
+[Unit]
+Description=ECHONET Lite Controller Service
+Documentation=https://github.com/echonet-list/echonet-list
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/echonet-list -daemon -websocket
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+
+# セキュリティ設定
+User=echonet
+Group=echonet
+WorkingDirectory=/var/lib/echonet-list
+
+# 権限制限
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/echonet-list /var/log /run
+
+# リソース制限
+LimitNOFILE=4096
+TimeoutStopSec=30s
+
+# 環境変数（必要に応じて）
+Environment="ECHONET_CONFIG=/etc/echonet-list/config.toml"
+
+[Install]
+WantedBy=multi-user.target

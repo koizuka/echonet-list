@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -45,16 +46,28 @@ func main() {
 			fmt.Fprintln(os.Stderr, "デーモンモードでは WebSocket サーバーを有効にする必要があります。-websocket を指定してください。")
 			os.Exit(1)
 		}
-		if cfg.Daemon.PIDFile == "" {
-			fmt.Fprintln(os.Stderr, "デーモンモードでは pidfile を指定する必要があります。-pidfile を指定してください。")
-			os.Exit(1)
-		}
+
+		// PIDファイルの作成
 		pid := os.Getpid()
+		pidDir := filepath.Dir(cfg.Daemon.PIDFile)
+
+		// PIDファイルのディレクトリが存在しない場合は作成を試みる
+		if _, err := os.Stat(pidDir); os.IsNotExist(err) {
+			if err := os.MkdirAll(pidDir, 0755); err != nil {
+				fmt.Fprintf(os.Stderr, "PIDファイルのディレクトリ作成に失敗しました: %v\n", err)
+				fmt.Fprintf(os.Stderr, "ヒント: sudo権限で実行するか、書き込み可能なパスを -pidfile で指定してください。\n")
+				os.Exit(1)
+			}
+		}
+
 		if err := os.WriteFile(cfg.Daemon.PIDFile, []byte(fmt.Sprintf("%d\n", pid)), 0644); err != nil {
 			fmt.Fprintf(os.Stderr, "PIDファイルの作成に失敗しました: %v\n", err)
+			fmt.Fprintf(os.Stderr, "使用しようとしたパス: %s\n", cfg.Daemon.PIDFile)
 			os.Exit(1)
 		}
 		defer os.Remove(cfg.Daemon.PIDFile)
+
+		fmt.Printf("デーモンモードで起動しました (PID: %d, PIDファイル: %s)\n", pid, cfg.Daemon.PIDFile)
 	}
 
 	// 設定値を取得

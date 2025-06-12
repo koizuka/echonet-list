@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"os"
+	"runtime"
 
 	"github.com/BurntSushi/toml"
 )
@@ -21,6 +22,36 @@ const (
 	// DefaultConfigFile はデフォルトの設定ファイル名
 	DefaultConfigFile = "config.toml"
 )
+
+// getDefaultPIDFile はプラットフォーム別のデフォルトPIDファイルパスを返す
+func getDefaultPIDFile() string {
+	switch runtime.GOOS {
+	case "linux":
+		// Linuxでは/var/runまたは/runが一般的
+		if _, err := os.Stat("/run"); err == nil {
+			return "/run/echonet-list.pid"
+		}
+		return "/var/run/echonet-list.pid"
+	case "darwin":
+		// macOSでは/usr/local/var/runが一般的
+		return "/usr/local/var/run/echonet-list.pid"
+	default:
+		// その他のOSではカレントディレクトリ
+		return "echonet-list.pid"
+	}
+}
+
+// getDefaultDaemonLogFile はデーモンモード用のデフォルトログファイルパスを返す
+func getDefaultDaemonLogFile() string {
+	switch runtime.GOOS {
+	case "linux":
+		return "/var/log/echonet-list.log"
+	case "darwin":
+		return "/usr/local/var/log/echonet-list.log"
+	default:
+		return "echonet-list.log"
+	}
+}
 
 // Config はアプリケーション全体の設定を表す
 type Config struct {
@@ -65,7 +96,7 @@ func NewConfig() *Config {
 	cfg.WebSocketClient.Addr = "ws://localhost:8080/ws"
 	// Default daemon settings
 	cfg.Daemon.Enabled = false
-	cfg.Daemon.PIDFile = ""
+	cfg.Daemon.PIDFile = getDefaultPIDFile()
 	// Default HTTP server settings
 	cfg.HTTPServer.Enabled = false
 	cfg.HTTPServer.Host = "localhost"
@@ -157,6 +188,11 @@ func (c *Config) ApplyCommandLineArgs(args CommandLineArgs) {
 	}
 	if args.HTTPServerWebRootSpecified {
 		c.HTTPServer.WebRoot = args.HTTPServerWebRoot
+	}
+
+	// デーモンモードが有効で、ログファイルが指定されていない場合はデーモン用のパスを使用
+	if c.Daemon.Enabled && !args.LogFilenameSpecified && c.Log.Filename == "echonet-list.log" {
+		c.Log.Filename = getDefaultDaemonLogFile()
 	}
 }
 

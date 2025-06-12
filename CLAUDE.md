@@ -12,6 +12,7 @@
 
 - Build: `go build`
 - Run: `./echonet-list [-debug]`
+- Run as daemon: `./echonet-list -daemon -websocket`
 - Test: `go test ./...`
 - Format: `go fmt ./...`
 - Check: `go vet ./...`
@@ -101,4 +102,40 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
   6. すべてのユニットテストが通ったら、ビルドを行います。
   7. ビルドしたターゲットファイルをサーバーが読み込めるよう、適切な修正を行います。
   8. `npm run lint` で警告が出たら修正します。
-  9. サーバーを ./echonet-lite で起動し、ユーザーに動作確認してもらいます。
+  9. サーバーを ./echonet-list で起動し、ユーザーに動作確認してもらいます。
+
+## デーモンモードの実装
+
+### 概要
+
+- バックグラウンドサービスとして動作するためのデーモンモードを実装済み
+- Linux/macOSでsystemdサービスとして運用可能
+- プラットフォーム別のデフォルトパスを自動設定
+
+### 主要ファイル
+
+- `config/config.go`: プラットフォーム別デフォルトパス設定
+  - `getDefaultPIDFile()`: OS別のPIDファイルパスを返す
+  - `getDefaultDaemonLogFile()`: OS別のログファイルパスを返す
+- `main.go`: デーモンモード処理
+  - PIDファイルの作成・削除
+  - ログローテーション対応（SIGHUP）
+  - コンソールUI無効化
+- `systemd/`: systemd関連ファイル
+  - `echonet-list.service`: systemdサービス定義
+  - `config.toml.systemd`: systemd用設定サンプル
+  - `echonet-list.logrotate`: logrotate設定
+
+### デーモンモード時の動作
+
+1. WebSocketサーバーが必須（コンソールUIが使えないため）
+2. PIDファイルを作成（デフォルト: `/var/run/echonet-list.pid`）
+3. ログファイルパスを自動切り替え（デフォルト: `/var/log/echonet-list.log`）
+4. SIGHUPシグナルでログローテーション実行
+5. SIGTERM/SIGINTで正常終了
+
+### デバッグ時の注意
+
+- デーモンモードではコンソール出力が無いため、ログファイルを確認
+- systemdの場合は `journalctl -u echonet-list -f` でもログ確認可能
+- 権限エラーの場合は、書き込み可能なパスを `-pidfile` で指定
