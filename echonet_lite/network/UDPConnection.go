@@ -108,6 +108,19 @@ func (c *UDPConnection) isSelfPacket(src *net.UDPAddr) bool {
 	return false
 }
 
+// IsLocalIP は指定されたIPアドレスが自身のローカルIPのいずれかと一致するかを確認します
+func (c *UDPConnection) IsLocalIP(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	for _, localIP := range c.localIPs {
+		if ip.Equal(localIP) {
+			return true
+		}
+	}
+	return false
+}
+
 // Close はソケットを閉じます
 func (c *UDPConnection) Close() error {
 	return c.UdpConn.Close()

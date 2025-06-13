@@ -139,6 +139,14 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONET
 		return nil // 処理は継続
 	}
 
+	// 自分自身からのmulticastメッセージは無視する
+	if h.session.IsLocalIP(ip) {
+		if h.Debug {
+			slog.Debug("自分自身からのINFメッセージを無視", "ip", ip, "SEOJ", msg.SEOJ)
+		}
+		return nil
+	}
+
 	slog.Info("INFメッセージを受信", "ip", ip, "SEOJ", msg.SEOJ, "DEOJ", msg.DEOJ, "ESV", msg.ESV, "Properties", msg.Properties.String(msg.SEOJ.ClassCode()))
 	// fmt.Printf("INFメッセージを受信: %v %v, DEOJ:%v\n", ip, msg.SEOJ, msg.DEOJ) // DEBUG
 

@@ -54,10 +54,15 @@ export function extractLocationFromDevice(
   let aliasName: string | undefined;
   if (allDevices) {
     const deviceIdentifier = getDeviceIdentifierForAlias(device, allDevices);
-    aliasName = Object.entries(aliases).find(([, id]) => id === deviceIdentifier)?.[0];
+    if (deviceIdentifier) {
+      aliasName = Object.entries(aliases).find(([, id]) => id === deviceIdentifier)?.[0];
+    }
   } else {
     // Fallback to old logic if allDevices not provided
-    aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
+    // Only try alias lookup if device.id is defined
+    if (device.id) {
+      aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
+    }
   }
   
   if (aliasName) {
@@ -184,14 +189,20 @@ export function getDevicesForTab(
       // Generate device identifier using same logic as aliases
       const deviceIdentifier = getDeviceIdentifierForAlias(device, devices);
       
-      // Also check device.id directly as fallback
+      // Skip devices without valid identifier
+      if (deviceIdentifier === undefined) {
+        return false;
+      }
+      
+      // Also check device.id directly as fallback (if defined)
       const directDeviceId = device.id;
       
       // Extract EOJ part from device for partial matching
       const deviceEOJPart = deviceIdentifier.split(':')[0]; // e.g., "027B04"
       
       // Check exact matches first
-      if (groupDeviceIds.includes(deviceIdentifier) || groupDeviceIds.includes(directDeviceId)) {
+      if (groupDeviceIds.includes(deviceIdentifier) || 
+          (directDeviceId && groupDeviceIds.includes(directDeviceId))) {
         return true;
       }
       
@@ -219,10 +230,15 @@ export function getDeviceDisplayName(
   let aliasName: string | undefined;
   if (allDevices) {
     const deviceIdentifier = getDeviceIdentifierForAlias(device, allDevices);
-    aliasName = Object.entries(aliases).find(([, id]) => id === deviceIdentifier)?.[0];
+    if (deviceIdentifier) {
+      aliasName = Object.entries(aliases).find(([, id]) => id === deviceIdentifier)?.[0];
+    }
   } else {
     // Fallback to old logic if allDevices not provided
-    aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
+    // Only try alias lookup if device.id is defined
+    if (device.id) {
+      aliasName = Object.entries(aliases).find(([, id]) => id === device.id)?.[0];
+    }
   }
   
   return aliasName || device.name || device.eoj;

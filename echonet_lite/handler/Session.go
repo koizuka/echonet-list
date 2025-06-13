@@ -90,6 +90,11 @@ type Session struct {
 	failedEPCs      map[string][]echonet_lite.EPCType // 失敗したEPCsを保持するマップ
 }
 
+// IsLocalIP は指定されたIPアドレスが自身のローカルIPのいずれかと一致するかを確認します
+func (s *Session) IsLocalIP(ip net.IP) bool {
+	return s.conn.IsLocalIP(ip)
+}
+
 // SetTimeoutChannel はタイムアウト通知用チャンネルを設定する
 func (s *Session) SetTimeoutChannel(ch chan SessionTimeoutEvent) {
 	s.mu.Lock()

@@ -4,7 +4,7 @@ export type Device = {
   ip: string;
   eoj: string;
   name: string;
-  id: string; // Format: EOJ:ManufacturerCode:UniqueIdentifier
+  id: string | undefined; // Format: EOJ:ManufacturerCode:UniqueIdentifier, undefined when IdentificationNumber (EPC 0x83) is not available
   properties: Record<string, PropertyValue>;
   lastSeen: string; // ISO 8601 format
 };

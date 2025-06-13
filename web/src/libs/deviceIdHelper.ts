@@ -55,7 +55,7 @@ function parseIdentificationNumber(hexString: string): string {
 export function getDeviceIdentifierForAlias(
   device: Device,
   allDevices: Record<string, Device>
-): string {
+): string | undefined {
   // Find NodeProfileObject device for the same IP
   const npoKey = `${device.ip} ${NODE_PROFILE_OBJECT_EOJ}`;
   const npoDevice = allDevices[npoKey];
@@ -107,7 +107,7 @@ export function deviceHasAlias(
   device: Device,
   allDevices: Record<string, Device>,
   aliases: Record<string, string>
-): { hasAlias: boolean; aliasName?: string; deviceIdentifier: string } {
+): { hasAlias: boolean; aliasName?: string; deviceIdentifier: string | undefined } {
   const deviceIdentifier = getDeviceIdentifierForAlias(device, allDevices);
   const aliasName = Object.entries(aliases).find(([, id]) => id === deviceIdentifier)?.[0];
   
