@@ -302,6 +302,17 @@ npm run dev
 
 3. Open `http://localhost:5173` for the development version with hot reloading
 
+#### Custom WebSocket URL for Development
+
+When developing the Web UI, you can connect to a different host's ECHONET server by setting the `VITE_WS_URL` environment variable:
+
+```bash
+cd web
+VITE_WS_URL=wss://192.168.1.100:8080/ws npm run dev
+```
+
+This is useful for testing the Web UI against a server running on a different machine or IP address.
+
 #### Building for Production
 
 ```bash

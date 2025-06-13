@@ -13,7 +13,7 @@ import type { PropertyValue } from '@/hooks/types';
 function App() {
   // 開発環境と本番環境でWebSocket URLを切り替え
   const wsUrl = import.meta.env.DEV 
-    ? 'wss://localhost:8080/ws'  // 開発時は直接接続
+    ? (import.meta.env.VITE_WS_URL || 'wss://localhost:8080/ws')  // 開発時は環境変数またはデフォルト値
     : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`; // 本番時は現在のホストを使用
   
   const echonet = usePropertyDescriptions(wsUrl);

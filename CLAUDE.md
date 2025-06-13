@@ -21,6 +21,7 @@
 
 - Build: `cd web && npm run build`
 - Dev Server: `cd web && npm run dev`
+- Dev Server (with custom WebSocket URL): `cd web && VITE_WS_URL=wss://custom-host:8080/ws npm run dev`
 - Test: `cd web && npm run test`
 - Lint: `cd web && npm run lint`
 
