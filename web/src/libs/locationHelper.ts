@@ -3,7 +3,7 @@
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 import { getDeviceIdentifierForAlias } from './deviceIdHelper';
 import { sortDevicesByEOJAndLocation } from './deviceSortHelper';
-import { isDeviceOperational, isOperationStatusSettable } from './propertyHelper';
+import { isDeviceOperational, isOperationStatusSettable, isDeviceFaulty } from './propertyHelper';
 import { isNodeProfileDevice } from './deviceTypeHelper';
 
 // ECHONET Installation Location EPC
@@ -268,4 +268,12 @@ export function hasAnyOperationalDevice(devices: Device[]): boolean {
   return devices.some(device => 
     isOperationStatusSettable(device) && isDeviceOperational(device)
   );
+}
+
+/**
+ * Check if any device in the array has a fault
+ * Returns true if at least one device has a fault status
+ */
+export function hasAnyFaultyDevice(devices: Device[]): boolean {
+  return devices.some(device => isDeviceFaulty(device));
 }

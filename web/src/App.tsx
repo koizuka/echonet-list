@@ -1,5 +1,5 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
-import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice } from '@/libs/locationHelper';
+import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice } from '@/libs/locationHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { DeviceCard } from '@/components/DeviceCard';
@@ -120,6 +120,7 @@ function App() {
               {tabs.map((tab) => {
                 const tabDevices = getDevicesForTab(tab);
                 const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
+                const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
                 return (
                   <TabsTrigger 
                     key={tab} 
@@ -128,12 +129,20 @@ function App() {
                   >
                     <div className="flex items-center gap-1">
                       {tab !== 'All' && (
-                        <div 
-                          className={`w-2 h-2 rounded-full ${
-                            hasOperationalDevice ? 'bg-green-500' : 'bg-gray-400'
-                          }`}
-                          title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
-                        />
+                        <div className="flex items-center gap-1">
+                          <div 
+                            className={`w-2 h-2 rounded-full ${
+                              hasOperationalDevice ? 'bg-green-500' : 'bg-gray-400'
+                            }`}
+                            title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
+                          />
+                          {hasFaultyDevice && (
+                            <div 
+                              className="w-2 h-2 rounded-full bg-red-500"
+                              title="At least one device has a fault"
+                            />
+                          )}
+                        </div>
                       )}
                       <span>{tab}</span>
                       {tab !== 'All' && (

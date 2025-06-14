@@ -1,8 +1,8 @@
-import { hasAnyOperationalDevice, groupDevicesByLocation, getAllLocations, getDevicesForTab } from './locationHelper';
+import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getDevicesForTab } from './locationHelper';
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 
 describe('locationHelper', () => {
-  const createDevice = (ip: string, eoj: string, operationStatus?: 'on' | 'off'): Device => {
+  const createDevice = (ip: string, eoj: string, operationStatus?: 'on' | 'off', faultStatus?: 'fault' | 'no_fault'): Device => {
     const properties: Record<string, any> = {};
     
     if (operationStatus) {
@@ -11,6 +11,10 @@ describe('locationHelper', () => {
       // Format: first byte = number of properties, followed by EPC codes
       const mapData = String.fromCharCode(1, 0x80); // 1 property: 0x80
       properties['9E'] = { EDT: btoa(mapData) };
+    }
+    
+    if (faultStatus) {
+      properties['88'] = { string: faultStatus };
     }
     
     return {
@@ -75,6 +79,52 @@ describe('locationHelper', () => {
       ];
 
       expect(hasAnyOperationalDevice(devices)).toBe(true);
+    });
+  });
+
+  describe('hasAnyFaultyDevice', () => {
+    it('should return true when at least one device has a fault', () => {
+      const devices = [
+        createDevice('192.168.1.1', '0130:1', 'on', 'no_fault'),
+        createDevice('192.168.1.2', '0130:2', 'off', 'fault'),
+        createDevice('192.168.1.3', '0130:3', 'on', 'no_fault')
+      ];
+
+      expect(hasAnyFaultyDevice(devices)).toBe(true);
+    });
+
+    it('should return false when all devices have no faults', () => {
+      const devices = [
+        createDevice('192.168.1.1', '0130:1', 'on', 'no_fault'),
+        createDevice('192.168.1.2', '0130:2', 'off', 'no_fault'),
+        createDevice('192.168.1.3', '0130:3', 'on', 'no_fault')
+      ];
+
+      expect(hasAnyFaultyDevice(devices)).toBe(false);
+    });
+
+    it('should return false when no devices have fault status property', () => {
+      const devices = [
+        createDevice('192.168.1.1', '0130:1', 'on'),
+        createDevice('192.168.1.2', '0130:2', 'off'),
+        createDevice('192.168.1.3', '0130:3', 'on')
+      ];
+
+      expect(hasAnyFaultyDevice(devices)).toBe(false);
+    });
+
+    it('should return false for empty device array', () => {
+      expect(hasAnyFaultyDevice([])).toBe(false);
+    });
+
+    it('should handle mixed devices with and without fault status', () => {
+      const devices = [
+        createDevice('192.168.1.1', '0130:1', 'on'),
+        createDevice('192.168.1.2', '0130:2', 'off', 'fault'),
+        createDevice('192.168.1.3', '0130:3', 'on', 'no_fault')
+      ];
+
+      expect(hasAnyFaultyDevice(devices)).toBe(true);
     });
   });
 
