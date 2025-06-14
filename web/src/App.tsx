@@ -2,6 +2,7 @@ import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice } from '@/libs/locationHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
+import { useAutoReconnect } from '@/hooks/useAutoReconnect';
 import { DeviceCard } from '@/components/DeviceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,12 @@ function App() {
   
   const echonet = usePropertyDescriptions(wsUrl);
   const cardExpansion = useCardExpansion();
+  
+  // Auto-reconnect when page/browser becomes active
+  useAutoReconnect({
+    connectionState: echonet.connectionState,
+    connect: echonet.connect,
+  });
   
   // Get all tabs (locations + groups)
   const tabs = getAllTabs(echonet.devices, echonet.aliases, echonet.groups);
