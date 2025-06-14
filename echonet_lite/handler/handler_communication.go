@@ -670,11 +670,11 @@ func (h *CommunicationHandler) sendAnnouncementForChangedProperties(eoj EOJ, pro
 	// アナウンス対象のプロパティがある場合、INF通知を送信
 	if len(announcementProps) > 0 {
 		if h.Debug {
-			fmt.Printf("  アナウンス対象プロパティの変更を通知: SEOJ:%v, Properties:%v\n", eoj, announcementProps)
+			slog.Debug("アナウンス対象プロパティの変更を通知", "SEOJ", eoj, "Properties", announcementProps)
 		}
 		err := h.session.Broadcast(eoj, echonet_lite.ESVINF, announcementProps)
 		if err != nil {
-			fmt.Printf("  INF通知の送信に失敗: %v\n", err)
+			slog.Error("INF通知の送信に失敗", "err", err)
 		}
 	}
 }
