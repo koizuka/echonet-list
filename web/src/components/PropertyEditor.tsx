@@ -111,7 +111,7 @@ export function PropertyEditor({
     }
   };
 
-  // Don't render anything if property is not settable
+  // For read-only properties, don't render any controls
   if (!isSettable) {
     return null;
   }

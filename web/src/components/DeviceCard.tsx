@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PropertyEditor } from '@/components/PropertyEditor';
 import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
-import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
+import { getPropertyName, formatPropertyValue, getPropertyDescriptor, isPropertySettable } from '@/libs/propertyHelper';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
@@ -48,53 +48,60 @@ export function DeviceCard({
     const propertyDescriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
     const formattedValue = formatPropertyValue(value, propertyDescriptor);
 
+    // Check if property is settable
+    const hasEditCapability = propertyDescriptor?.stringSettable || propertyDescriptor?.numberDesc || (propertyDescriptor?.aliases && Object.keys(propertyDescriptor.aliases).length > 0);
+    const isInSetPropertyMap = propertyDescriptor && isPropertySettable(epc, device);
+    const isSettable = hasEditCapability && isInSetPropertyMap;
+
     if (isCompact) {
       return (
-        <div className="flex items-center justify-between gap-1 text-xs">
-          <div className="flex items-center gap-1 min-w-0 flex-1">
-            <span className="font-medium text-muted-foreground truncate">
+        <div className="text-xs">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-medium text-muted-foreground">
               {propertyName}:
             </span>
-            {/* Show current value only if property doesn't have aliases (no Select component) */}
-            {!propertyDescriptor?.aliases && (
-              <span className="font-medium truncate">
-                {formattedValue}
-              </span>
-            )}
+            <div className="ml-auto">
+              {isSettable ? (
+                <PropertyEditor
+                  device={device}
+                  epc={epc}
+                  currentValue={value}
+                  descriptor={propertyDescriptor}
+                  onPropertyChange={onPropertyChange}
+                />
+              ) : (
+                <span className="font-medium">
+                  {formattedValue}
+                </span>
+              )}
+            </div>
           </div>
-          <PropertyEditor
-            device={device}
-            epc={epc}
-            currentValue={value}
-            descriptor={propertyDescriptor}
-            onPropertyChange={onPropertyChange}
-          />
         </div>
       );
     }
 
     return (
       <div className="space-y-1">
-        <div className="flex items-start gap-2">
-          <span className="text-sm font-medium text-muted-foreground min-w-0 flex-1 break-words">
+        <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+          <span className="text-sm font-medium text-muted-foreground">
             {propertyName}:
           </span>
-          <div className="shrink-0">
-            <PropertyEditor
-              device={device}
-              epc={epc}
-              currentValue={value}
-              descriptor={propertyDescriptor}
-              onPropertyChange={onPropertyChange}
-            />
+          <div className="ml-auto">
+            {isSettable ? (
+              <PropertyEditor
+                device={device}
+                epc={epc}
+                currentValue={value}
+                descriptor={propertyDescriptor}
+                onPropertyChange={onPropertyChange}
+              />
+            ) : (
+              <div className="text-sm font-medium">
+                {formattedValue}
+              </div>
+            )}
           </div>
         </div>
-        {/* Show current value only if property doesn't have aliases (no Select component) */}
-        {!propertyDescriptor?.aliases && (
-          <div className="text-sm font-medium break-words">
-            {formattedValue}
-          </div>
-        )}
       </div>
     );
   };
