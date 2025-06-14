@@ -127,7 +127,16 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 		return nil, err
 	}
 
+	// コントローラー用のStatus Announcement Property Mapを作成
+	// 設置場所の変更をアナウンスするように設定
+	announcementMap := make(PropertyMap)
+	announcementMap.Set(echonet_lite.EPCInstallationLocation) // 0x81
+
 	controllerProps := commonProps
+	controllerProps = append(controllerProps, Property{
+		EPC: echonet_lite.EPCStatusAnnouncementPropertyMap,
+		EDT: announcementMap.Encode(),
+	})
 
 	// コントローラのプロパティを設定
 	err = localDevices.Set(seoj, controllerProps...)

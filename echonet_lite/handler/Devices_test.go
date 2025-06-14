@@ -958,3 +958,80 @@ func TestDeviceProperties_GetPropertyMap(t *testing.T) {
 		}
 	}
 }
+
+// TestDeviceProperties_IsAnnouncementTarget はアナウンス対象判定をテストします
+func TestDeviceProperties_IsAnnouncementTarget(t *testing.T) {
+	props := make(DeviceProperties)
+	controllerEOJ := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
+
+	// Status Announcement Property Mapを設定（設置場所を含む）
+	announcementMap := make(PropertyMap)
+	announcementMap.Set(echonet_lite.EPCInstallationLocation) // 0x81
+
+	err := props.Set(controllerEOJ,
+		Property{EPC: echonet_lite.EPCOperationStatus, EDT: []byte{0x30}},
+		Property{EPC: echonet_lite.EPCInstallationLocation, EDT: []byte{0x00}},
+		Property{EPC: echonet_lite.EPCStatusAnnouncementPropertyMap, EDT: announcementMap.Encode()},
+	)
+	if err != nil {
+		t.Fatalf("Failed to set controller properties: %v", err)
+	}
+
+	// テストケース
+	testCases := []struct {
+		name     string
+		eoj      EOJ
+		epc      EPCType
+		expected bool
+	}{
+		{
+			name:     "設置場所はアナウンス対象",
+			eoj:      controllerEOJ,
+			epc:      echonet_lite.EPCInstallationLocation,
+			expected: true,
+		},
+		{
+			name:     "動作状態はアナウンス対象ではない",
+			eoj:      controllerEOJ,
+			epc:      echonet_lite.EPCOperationStatus,
+			expected: false,
+		},
+		{
+			name:     "存在しないEOJは常にfalse",
+			eoj:      echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+			epc:      echonet_lite.EPCInstallationLocation,
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := props.IsAnnouncementTarget(tc.eoj, tc.epc)
+			if result != tc.expected {
+				t.Errorf("IsAnnouncementTarget(%v, 0x%02X) = %v, expected %v",
+					tc.eoj, tc.epc, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestDeviceProperties_IsAnnouncementTarget_NoMap はStatus Announcement Property Mapが無い場合のテストです
+func TestDeviceProperties_IsAnnouncementTarget_NoMap(t *testing.T) {
+	props := make(DeviceProperties)
+	controllerEOJ := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
+
+	// Status Announcement Property Mapを設定しない
+	err := props.Set(controllerEOJ,
+		Property{EPC: echonet_lite.EPCOperationStatus, EDT: []byte{0x30}},
+		Property{EPC: echonet_lite.EPCInstallationLocation, EDT: []byte{0x00}},
+	)
+	if err != nil {
+		t.Fatalf("Failed to set controller properties: %v", err)
+	}
+
+	// Status Announcement Property Mapが存在しない場合は常にfalse
+	result := props.IsAnnouncementTarget(controllerEOJ, echonet_lite.EPCInstallationLocation)
+	if result != false {
+		t.Errorf("IsAnnouncementTarget with no Status Announcement Property Map should return false, got %v", result)
+	}
+}
