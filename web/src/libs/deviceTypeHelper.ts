@@ -64,6 +64,15 @@ export function getDeviceSecondaryProperties(device: { properties: Record<string
 }
 
 /**
+ * Checks if a device is a Node Profile device
+ * Node Profile devices have class code 0EF0
+ */
+export function isNodeProfileDevice(device: { eoj: string }): boolean {
+  const classCode = device.eoj.split(':')[0];
+  return classCode === '0EF0';
+}
+
+/**
  * Gets primary properties in the correct display order
  * Ensures Operation Status (0x80) is always first if present
  */

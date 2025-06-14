@@ -4,6 +4,7 @@ import {
   isPropertyPrimary, 
   getDeviceSecondaryProperties,
   getSortedPrimaryProperties,
+  isNodeProfileDevice,
   ESSENTIAL_PROPERTIES,
   DEVICE_PRIMARY_PROPERTIES
 } from './deviceTypeHelper';
@@ -206,6 +207,27 @@ describe('deviceTypeHelper', () => {
       expect(epcs[1]).toBe('81'); // Installation Location second
       expect(epcs[2]).toBe('B3'); // B3 comes before BE alphabetically
       expect(epcs[3]).toBe('BE');
+    });
+  });
+
+  describe('isNodeProfileDevice', () => {
+    it('should return true for Node Profile devices (0EF0)', () => {
+      const nodeProfileDevice = { eoj: '0EF0:1' };
+      expect(isNodeProfileDevice(nodeProfileDevice)).toBe(true);
+    });
+
+    it('should return false for non-Node Profile devices', () => {
+      const airConditioner = { eoj: '0130:1' };
+      const lighting = { eoj: '0290:1' };
+      expect(isNodeProfileDevice(airConditioner)).toBe(false);
+      expect(isNodeProfileDevice(lighting)).toBe(false);
+    });
+
+    it('should handle various EOJ formats', () => {
+      const nodeProfileWithInstance = { eoj: '0EF0:2' };
+      const nodeProfileSimple = { eoj: '0EF0' };
+      expect(isNodeProfileDevice(nodeProfileWithInstance)).toBe(true);
+      expect(isNodeProfileDevice(nodeProfileSimple)).toBe(true);
     });
   });
 });

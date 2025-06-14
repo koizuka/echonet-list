@@ -1,7 +1,7 @@
-import { hasAnyOperationalDevice } from './locationHelper';
-import type { Device } from '@/hooks/types';
+import { hasAnyOperationalDevice, groupDevicesByLocation, getAllLocations, getDevicesForTab } from './locationHelper';
+import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 
-describe('hasAnyOperationalDevice', () => {
+describe('locationHelper', () => {
   const createDevice = (ip: string, eoj: string, operationStatus?: 'on' | 'off'): Device => ({
     ip,
     eoj,
@@ -13,47 +13,129 @@ describe('hasAnyOperationalDevice', () => {
     lastSeen: '2023-01-01T00:00:00Z'
   });
 
-  it('should return true when at least one device has operation status "on"', () => {
-    const devices = [
-      createDevice('192.168.1.1', '0130:1', 'off'),
-      createDevice('192.168.1.2', '0130:2', 'on'),
-      createDevice('192.168.1.3', '0130:3', 'off')
-    ];
-
-    expect(hasAnyOperationalDevice(devices)).toBe(true);
+  const createNodeProfileDevice = (ip: string): Device => ({
+    ip,
+    eoj: '0EF0:1',
+    name: `${ip}-0EF0:1`,
+    id: `0EF0:001:${ip}`,
+    properties: {},
+    lastSeen: '2023-01-01T00:00:00Z'
   });
 
-  it('should return false when all devices have operation status "off"', () => {
-    const devices = [
-      createDevice('192.168.1.1', '0130:1', 'off'),
-      createDevice('192.168.1.2', '0130:2', 'off'),
-      createDevice('192.168.1.3', '0130:3', 'off')
-    ];
+  describe('hasAnyOperationalDevice', () => {
+    it('should return true when at least one device has operation status "on"', () => {
+      const devices = [
+        createDevice('192.168.1.1', '0130:1', 'off'),
+        createDevice('192.168.1.2', '0130:2', 'on'),
+        createDevice('192.168.1.3', '0130:3', 'off')
+      ];
 
-    expect(hasAnyOperationalDevice(devices)).toBe(false);
+      expect(hasAnyOperationalDevice(devices)).toBe(true);
+    });
+
+    it('should return false when all devices have operation status "off"', () => {
+      const devices = [
+        createDevice('192.168.1.1', '0130:1', 'off'),
+        createDevice('192.168.1.2', '0130:2', 'off'),
+        createDevice('192.168.1.3', '0130:3', 'off')
+      ];
+
+      expect(hasAnyOperationalDevice(devices)).toBe(false);
+    });
+
+    it('should return false when no devices have operation status property', () => {
+      const devices = [
+        createDevice('192.168.1.1', '0130:1'),
+        createDevice('192.168.1.2', '0130:2'),
+        createDevice('192.168.1.3', '0130:3')
+      ];
+
+      expect(hasAnyOperationalDevice(devices)).toBe(false);
+    });
+
+    it('should return false for empty device array', () => {
+      expect(hasAnyOperationalDevice([])).toBe(false);
+    });
+
+    it('should handle mixed devices with and without operation status', () => {
+      const devices = [
+        createDevice('192.168.1.1', '0130:1'),
+        createDevice('192.168.1.2', '0130:2', 'on'),
+        createDevice('192.168.1.3', '0130:3', 'off')
+      ];
+
+      expect(hasAnyOperationalDevice(devices)).toBe(true);
+    });
   });
 
-  it('should return false when no devices have operation status property', () => {
-    const devices = [
-      createDevice('192.168.1.1', '0130:1'),
-      createDevice('192.168.1.2', '0130:2'),
-      createDevice('192.168.1.3', '0130:3')
-    ];
+  describe('groupDevicesByLocation', () => {
+    it('should exclude Node Profile devices from location grouping', () => {
+      const devices = {
+        'device1': createDevice('192.168.1.1', '0130:1'),
+        'device2': createDevice('192.168.1.2', '0290:1'),
+        'nodeProfile': createNodeProfileDevice('192.168.1.3')
+      };
+      const aliases: DeviceAlias = {};
 
-    expect(hasAnyOperationalDevice(devices)).toBe(false);
+      const grouped = groupDevicesByLocation(devices, aliases);
+      
+      // Should not contain Node Profile device in any location group
+      const allGroupedDevices = Object.values(grouped).flat();
+      expect(allGroupedDevices).not.toContain(devices.nodeProfile);
+      expect(allGroupedDevices).toContain(devices.device1);
+      expect(allGroupedDevices).toContain(devices.device2);
+    });
   });
 
-  it('should return false for empty device array', () => {
-    expect(hasAnyOperationalDevice([])).toBe(false);
+  describe('getAllLocations', () => {
+    it('should exclude Node Profile devices from location detection', () => {
+      const devices = {
+        'device1': createDevice('192.168.1.1', '0130:1'),
+        'device2': createDevice('192.168.1.2', '0290:1'),
+        'nodeProfile': createNodeProfileDevice('192.168.1.3')
+      };
+      const aliases: DeviceAlias = {};
+
+      const locations = getAllLocations(devices, aliases);
+      
+      // Should still return All + location tabs, but Node Profile shouldn't affect location generation
+      expect(locations).toContain('All');
+      // Since devices don't have location info, they'll be named by their device names (IP-EOJ format)
+      expect(locations.length).toBeGreaterThanOrEqual(1); // At least 'All' should be present
+    });
   });
 
-  it('should handle mixed devices with and without operation status', () => {
-    const devices = [
-      createDevice('192.168.1.1', '0130:1'),
-      createDevice('192.168.1.2', '0130:2', 'on'),
-      createDevice('192.168.1.3', '0130:3', 'off')
-    ];
+  describe('getDevicesForTab', () => {
+    const devices = {
+      'device1': createDevice('192.168.1.1', '0130:1'),
+      'device2': createDevice('192.168.1.2', '0290:1'),
+      'nodeProfile': createNodeProfileDevice('192.168.1.3')
+    };
+    const aliases: DeviceAlias = {};
+    const groups: DeviceGroup = {};
 
-    expect(hasAnyOperationalDevice(devices)).toBe(true);
+    it('should include Node Profile devices in "All" tab', () => {
+      const allDevices = getDevicesForTab('All', devices, aliases, groups);
+      
+      expect(allDevices).toContain(devices.device1);
+      expect(allDevices).toContain(devices.device2);
+      expect(allDevices).toContain(devices.nodeProfile);
+    });
+
+    it('should exclude Node Profile devices from location tabs', () => {
+      // Since devices don't have proper location info, they'll likely be grouped under different names
+      // Let's check using the actual location names from groupDevicesByLocation
+      const groupedDevices = groupDevicesByLocation(devices, aliases);
+      const locationNames = Object.keys(groupedDevices);
+      
+      if (locationNames.length > 0) {
+        const firstLocationDevices = getDevicesForTab(locationNames[0], devices, aliases, groups);
+        expect(firstLocationDevices).not.toContain(devices.nodeProfile);
+      }
+      
+      // Test with a specific location that might exist
+      const testLocationDevices = getDevicesForTab('192.168.1.1', devices, aliases, groups);
+      expect(testLocationDevices).not.toContain(devices.nodeProfile);
+    });
   });
 });

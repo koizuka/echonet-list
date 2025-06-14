@@ -4,6 +4,7 @@ import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 import { getDeviceIdentifierForAlias } from './deviceIdHelper';
 import { sortDevicesByEOJAndLocation } from './deviceSortHelper';
 import { isDeviceOperational } from './propertyHelper';
+import { isNodeProfileDevice } from './deviceTypeHelper';
 
 // ECHONET Installation Location EPC
 const EPC_INSTALLATION_LOCATION = '81';
@@ -111,6 +112,7 @@ export function extractLocationFromDevice(
 
 /**
  * Group devices by their extracted locations
+ * Excludes Node Profile devices from location grouping
  */
 export function groupDevicesByLocation(
   devices: Record<string, Device>,
@@ -119,6 +121,11 @@ export function groupDevicesByLocation(
   const grouped: Record<string, Device[]> = {};
   
   Object.values(devices).forEach(device => {
+    // Skip Node Profile devices for location grouping
+    if (isNodeProfileDevice(device)) {
+      return;
+    }
+    
     const location = extractLocationFromDevice(device, aliases, devices);
     if (!grouped[location]) {
       grouped[location] = [];
@@ -132,6 +139,7 @@ export function groupDevicesByLocation(
 /**
  * Get all unique locations from devices, sorted alphabetically
  * with "All" as the first option
+ * Excludes Node Profile devices from location detection
  */
 export function getAllLocations(
   devices: Record<string, Device>,
@@ -140,6 +148,11 @@ export function getAllLocations(
   const locations = new Set<string>();
   
   Object.values(devices).forEach(device => {
+    // Skip Node Profile devices for location detection
+    if (isNodeProfileDevice(device)) {
+      return;
+    }
+    
     const location = extractLocationFromDevice(device, aliases, devices);
     locations.add(location);
   });
@@ -172,6 +185,7 @@ export function getAllTabs(
 /**
  * Get devices for a specific tab (location or group)
  * Returns devices sorted by EOJ (classCode:instance) and installation location
+ * For location tabs, excludes Node Profile devices. For 'All' tab, includes all devices.
  */
 export function getDevicesForTab(
   tabName: string,
@@ -182,6 +196,7 @@ export function getDevicesForTab(
   let filteredDevices: Device[];
   
   if (tabName === 'All') {
+    // Show all devices including Node Profile in the 'All' tab
     filteredDevices = Object.values(devices);
   } else if (tabName.startsWith('@')) {
     // It's a group tab (starts with "@")
@@ -211,7 +226,7 @@ export function getDevicesForTab(
       return groupDeviceIds.some(groupId => groupId.startsWith(deviceEOJPart + ':'));
     });
   } else {
-    // It's a location tab
+    // It's a location tab - Node Profile devices are already excluded by groupDevicesByLocation
     const groupedDevices = groupDevicesByLocation(devices, aliases);
     filteredDevices = groupedDevices[tabName] || [];
   }
