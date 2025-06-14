@@ -3,7 +3,7 @@
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 import { getDeviceIdentifierForAlias } from './deviceIdHelper';
 import { sortDevicesByEOJAndLocation } from './deviceSortHelper';
-import { isDeviceOperational } from './propertyHelper';
+import { isDeviceOperational, isOperationStatusSettable } from './propertyHelper';
 import { isNodeProfileDevice } from './deviceTypeHelper';
 
 // ECHONET Installation Location EPC
@@ -262,7 +262,10 @@ export function getDeviceDisplayName(
 
 /**
  * Check if any device in the array has operation status "on"
+ * Only considers devices where Operation Status (EPC 0x80) is settable
  */
 export function hasAnyOperationalDevice(devices: Device[]): boolean {
-  return devices.some(device => isDeviceOperational(device));
+  return devices.some(device => 
+    isOperationStatusSettable(device) && isDeviceOperational(device)
+  );
 }

@@ -2,16 +2,26 @@ import { hasAnyOperationalDevice, groupDevicesByLocation, getAllLocations, getDe
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 
 describe('locationHelper', () => {
-  const createDevice = (ip: string, eoj: string, operationStatus?: 'on' | 'off'): Device => ({
-    ip,
-    eoj,
-    name: `${ip}-${eoj}`,
-    id: `${eoj}:001:${ip}`,
-    properties: operationStatus ? {
-      '80': { string: operationStatus }
-    } : {},
-    lastSeen: '2023-01-01T00:00:00Z'
-  });
+  const createDevice = (ip: string, eoj: string, operationStatus?: 'on' | 'off'): Device => {
+    const properties: Record<string, any> = {};
+    
+    if (operationStatus) {
+      properties['80'] = { string: operationStatus };
+      // Add Set Property Map (EPC 0x9E) that includes EPC 0x80 to make it settable
+      // Format: first byte = number of properties, followed by EPC codes
+      const mapData = String.fromCharCode(1, 0x80); // 1 property: 0x80
+      properties['9E'] = { EDT: btoa(mapData) };
+    }
+    
+    return {
+      ip,
+      eoj,
+      name: `${ip}-${eoj}`,
+      id: `${eoj}:001:${ip}`,
+      properties,
+      lastSeen: '2023-01-01T00:00:00Z'
+    };
+  };
 
   const createNodeProfileDevice = (ip: string): Device => ({
     ip,

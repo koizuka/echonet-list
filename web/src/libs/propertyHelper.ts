@@ -202,3 +202,11 @@ export function isDeviceFaulty(device: Device): boolean {
 
   return false;
 }
+
+/**
+ * Checks if device's Operation Status (EPC 0x80) is settable
+ * Returns true if EPC 0x80 is in the Set Property Map, false otherwise
+ */
+export function isOperationStatusSettable(device: Device): boolean {
+  return isPropertySettable('80', device);
+}
