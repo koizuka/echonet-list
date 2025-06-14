@@ -117,14 +117,16 @@ export function DeviceCard({
               </CardTitle>
               <DeviceStatusIndicators device={device} />
             </div>
-            {aliasInfo.hasAlias && (
+            {aliasInfo.hasAlias && isExpanded && (
               <p className="text-xs text-muted-foreground truncate">
                 Device: {device.name}
               </p>
             )}
-            <p className="text-xs text-muted-foreground">
-              {device.ip} - {device.eoj}
-            </p>
+            {isExpanded && (
+              <p className="text-xs text-muted-foreground">
+                {device.ip} - {device.eoj}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {aliasInfo.hasAlias && (
