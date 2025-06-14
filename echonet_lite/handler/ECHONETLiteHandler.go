@@ -115,6 +115,7 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 		operationStatusOn,
 		*identificationNumber.Property(),
 		{EPC: echonet_lite.EPCManufacturerCode, EDT: manufacturerCodeEDT},
+		{EPC: echonet_lite.EPCInstallationLocation, EDT: []byte{0x00}}, // 設置場所：未設定
 	}
 	npoProps := []Property{*echonet_lite.ECHONETLite_Version.Property()}
 	npoProps = append(npoProps, commonProps...)

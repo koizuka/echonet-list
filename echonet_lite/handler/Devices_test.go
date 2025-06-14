@@ -854,6 +854,67 @@ func TestDeviceProperties_SetPropertyMap(t *testing.T) {
 	}
 }
 
+// TestLocalDevices_InstallationLocation はlocalDevicesでの設置場所プロパティをテストします
+func TestLocalDevices_InstallationLocation(t *testing.T) {
+	props := make(DeviceProperties)
+	controllerEOJ := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
+
+	// コントローラーのプロパティを設定（ECHONETLiteHandlerと同じ構成）
+	err := props.Set(controllerEOJ,
+		Property{EPC: echonet_lite.EPCOperationStatus, EDT: []byte{0x30}},              // 動作状態：ON
+		Property{EPC: echonet_lite.EPCInstallationLocation, EDT: []byte{0x00}},         // 設置場所：未設定
+		Property{EPC: echonet_lite.EPCManufacturerCode, EDT: []byte{0x00, 0x00, 0x05}}, // メーカコード
+	)
+	if err != nil {
+		t.Fatalf("Failed to set controller properties: %v", err)
+	}
+
+	// 設置場所プロパティが初期値0で設定されていることを確認
+	installationProp, ok := props.Get(controllerEOJ, echonet_lite.EPCInstallationLocation)
+	if !ok {
+		t.Fatalf("Expected InstallationLocation property to exist, but it doesn't")
+	}
+	if len(installationProp.EDT) != 1 || installationProp.EDT[0] != 0x00 {
+		t.Errorf("Expected InstallationLocation initial value to be [0x00], got %v", installationProp.EDT)
+	}
+
+	// SetPropertyMapに設置場所が含まれていることを確認
+	setPropMapProperty, ok := props.Get(controllerEOJ, echonet_lite.EPCSetPropertyMap)
+	if !ok {
+		t.Fatalf("Expected SetPropertyMap to exist, but it doesn't")
+	}
+
+	propMap := echonet_lite.DecodePropertyMap(setPropMapProperty.EDT)
+	if propMap == nil {
+		t.Fatalf("Failed to decode SetPropertyMap")
+	}
+
+	if !propMap.Has(echonet_lite.EPCInstallationLocation) {
+		t.Errorf("Expected InstallationLocation (0x%02X) to be included in SetPropertyMap, but it's excluded", echonet_lite.EPCInstallationLocation)
+	}
+
+	// 設置場所の値を変更できることを確認
+	newInstallationProps := []Property{
+		{EPC: echonet_lite.EPCInstallationLocation, EDT: []byte{0x08}}, // 台所
+	}
+	resultProps, success := props.SetProperties(controllerEOJ, newInstallationProps)
+	if !success {
+		t.Errorf("Expected SetProperties to succeed for InstallationLocation, but it failed")
+	}
+	if len(resultProps) != 1 || len(resultProps[0].EDT) != 0 {
+		t.Errorf("Expected successful SetProperties to return empty EDT, got %v", resultProps[0].EDT)
+	}
+
+	// 変更された値を確認
+	updatedProp, ok := props.Get(controllerEOJ, echonet_lite.EPCInstallationLocation)
+	if !ok {
+		t.Fatalf("Expected InstallationLocation property to exist after update, but it doesn't")
+	}
+	if len(updatedProp.EDT) != 1 || updatedProp.EDT[0] != 0x08 {
+		t.Errorf("Expected InstallationLocation updated value to be [0x08], got %v", updatedProp.EDT)
+	}
+}
+
 // TestDeviceProperties_GetPropertyMap は GetPropertyMap の動的生成をテストします
 func TestDeviceProperties_GetPropertyMap(t *testing.T) {
 	props := make(DeviceProperties)
