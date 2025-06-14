@@ -1,5 +1,5 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
-import { getAllTabs, getDevicesForTab as getDevicesForTabHelper } from '@/libs/locationHelper';
+import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice } from '@/libs/locationHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { DeviceCard } from '@/components/DeviceCard';
@@ -117,18 +117,32 @@ function App() {
           <Tabs value={selectedTab} onValueChange={selectTab} className="w-full">
             <div className="w-full mb-4 overflow-x-auto">
               <TabsList className="w-max min-w-full h-auto p-1 bg-muted flex flex-nowrap justify-start gap-1 sm:flex-wrap sm:w-full">
-              {tabs.map((tab) => (
-                <TabsTrigger 
-                  key={tab} 
-                  value={tab} 
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm whitespace-nowrap shrink-0"
-                >
-                  {tab}
-                  {tab !== 'All' && (
-                    <span className="ml-1 text-[10px] sm:text-xs">({getDevicesForTab(tab).length})</span>
-                  )}
-                </TabsTrigger>
-              ))}
+              {tabs.map((tab) => {
+                const tabDevices = getDevicesForTab(tab);
+                const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
+                return (
+                  <TabsTrigger 
+                    key={tab} 
+                    value={tab} 
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm whitespace-nowrap shrink-0"
+                  >
+                    <div className="flex items-center gap-1">
+                      {tab !== 'All' && (
+                        <div 
+                          className={`w-2 h-2 rounded-full ${
+                            hasOperationalDevice ? 'bg-green-500' : 'bg-gray-400'
+                          }`}
+                          title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
+                        />
+                      )}
+                      <span>{tab}</span>
+                      {tab !== 'All' && (
+                        <span className="ml-1 text-[10px] sm:text-xs">({tabDevices.length})</span>
+                      )}
+                    </div>
+                  </TabsTrigger>
+                );
+              })}
               </TabsList>
             </div>
             

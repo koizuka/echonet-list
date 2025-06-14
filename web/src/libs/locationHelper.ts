@@ -3,6 +3,7 @@
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 import { getDeviceIdentifierForAlias } from './deviceIdHelper';
 import { sortDevicesByEOJAndLocation } from './deviceSortHelper';
+import { isDeviceOperational } from './propertyHelper';
 
 // ECHONET Installation Location EPC
 const EPC_INSTALLATION_LOCATION = '81';
@@ -242,4 +243,11 @@ export function getDeviceDisplayName(
   }
   
   return aliasName || device.name || device.eoj;
+}
+
+/**
+ * Check if any device in the array has operation status "on"
+ */
+export function hasAnyOperationalDevice(devices: Device[]): boolean {
+  return devices.some(device => isDeviceOperational(device));
 }
