@@ -115,8 +115,8 @@ function App() {
           </Card>
         ) : (
           <Tabs value={selectedTab} onValueChange={selectTab} className="w-full">
-            <div className="w-full mb-4 overflow-x-auto">
-              <TabsList className="w-max min-w-full h-auto p-1 bg-muted flex flex-nowrap justify-start gap-1 sm:flex-wrap sm:w-full">
+            <div className="w-full mb-4">
+              <TabsList className="w-full h-auto p-2 bg-muted flex flex-wrap justify-start gap-2">
               {tabs.map((tab) => {
                 const tabDevices = getDevicesForTab(tab);
                 const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
@@ -124,7 +124,7 @@ function App() {
                   <TabsTrigger 
                     key={tab} 
                     value={tab} 
-                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm whitespace-nowrap shrink-0"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary border-2 border-muted-foreground/30 bg-background px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg"
                   >
                     <div className="flex items-center gap-1">
                       {tab !== 'All' && (
