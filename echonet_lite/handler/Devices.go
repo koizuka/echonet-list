@@ -731,6 +731,8 @@ func (d DeviceProperties) Get(eoj EOJ, epc EPCType) (Property, bool) {
 		}
 		// GetPropertyMapは必ず存在する
 		propertyMap.Set(echonet_lite.EPCGetPropertyMap)
+		// SetPropertyMapも取得可能なプロパティなので、GetPropertyMapに含める
+		propertyMap.Set(echonet_lite.EPCSetPropertyMap)
 
 		return Property{
 			EPC: epc,
