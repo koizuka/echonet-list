@@ -116,7 +116,7 @@ function App() {
         ) : (
           <Tabs value={selectedTab} onValueChange={selectTab} className="w-full">
             <div className="w-full mb-4">
-              <TabsList className="w-full h-auto p-2 bg-muted flex flex-wrap justify-start gap-2">
+              <TabsList className="w-full h-auto p-2 bg-muted flex flex-wrap justify-between gap-2">
               {tabs.map((tab) => {
                 const tabDevices = getDevicesForTab(tab);
                 const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
