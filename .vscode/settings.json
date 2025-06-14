@@ -35,7 +35,8 @@
     "Strs",
     "tmpfiles",
     "unmarshal",
-    "upgrader"
+    "upgrader",
+    "webroot"
   ],
   "eslint.enable": true,
   "eslint.validate": [

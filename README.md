@@ -179,13 +179,14 @@ For setting up TLS certificates in development environment, see:
 
 The application includes an integrated HTTP and WebSocket server that provides both the ECHONET Lite WebSocket API and web UI from a single port. This eliminates port conflicts and simplifies deployment.
 
--   **Single Port**: Both WebSocket (`/ws`) and HTTP static files are served from the same port
--   **Web Root**: Static files are served from the directory specified by `-http-webroot` or `http_server.web_root` (default: `web/bundle`)
--   **Host**: The server binds to the host specified by `-http-host` or `http_server.host` (default: `localhost`)
--   **Port**: The server listens on the port specified by `-http-port` or `http_server.port` (default: `8080`)
--   **TLS**: If TLS is enabled (`-ws-tls` or `tls.enabled`), both WebSocket and HTTP are served over TLS using the same certificate
+- **Single Port**: Both WebSocket (`/ws`) and HTTP static files are served from the same port
+- **Web Root**: Static files are served from the directory specified by `-http-webroot` or `http_server.web_root` (default: `web/bundle`)
+- **Host**: The server binds to the host specified by `-http-host` or `http_server.host` (default: `localhost`)
+- **Port**: The server listens on the port specified by `-http-port` or `http_server.port` (default: `8080`)
+- **TLS**: If TLS is enabled (`-ws-tls` or `tls.enabled`), both WebSocket and HTTP are served over TLS using the same certificate
 
 **URLs**:
+
 - WebSocket API: `wss://localhost:8080/ws` (with TLS) or `ws://localhost:8080/ws` (without TLS)
 - Web UI: `https://localhost:8080/` (with TLS) or `http://localhost:8080/` (without TLS)
 
@@ -219,18 +220,21 @@ The application supports running as a daemon (background service) on Linux and m
 For production deployment on Linux systems with systemd:
 
 1. Install the service file:
+
 ```bash
 sudo cp systemd/echonet-list.service /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
 2. Start and enable the service:
+
 ```bash
 sudo systemctl start echonet-list
 sudo systemctl enable echonet-list
 ```
 
 3. Check service status:
+
 ```bash
 sudo systemctl status echonet-list
 sudo journalctl -u echonet-list -f
