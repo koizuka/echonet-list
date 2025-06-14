@@ -738,6 +738,40 @@ func (d DeviceProperties) Get(eoj EOJ, epc EPCType) (Property, bool) {
 		}, true
 	}
 
+	if epc == echonet_lite.EPCSetPropertyMap {
+		// SetPropertyMap は特別なプロパティで、設定可能なプロパティのみを含むプロパティマップを返す
+		propertyMap := make(PropertyMap)
+
+		// 設定不可能なプロパティを定義
+		readOnlyEPCs := map[EPCType]bool{
+			echonet_lite.EPCOperationStatus:                       true, // 動作状態（読み取り専用）
+			echonet_lite.EPCGetPropertyMap:                        true, // GetPropertyMap（システム生成）
+			echonet_lite.EPCSetPropertyMap:                        true, // SetPropertyMap（システム生成）
+			echonet_lite.EPCStatusAnnouncementPropertyMap:         true, // 状態通知プロパティマップ（システム生成）
+			echonet_lite.EPCStandardVersion:                       true, // 規格Version情報（読み取り専用）
+			echonet_lite.EPCIdentificationNumber:                  true, // 識別番号（読み取り専用）
+			echonet_lite.EPCMeasuredInstantaneousPowerConsumption: true, // 瞬時消費電力計測値（読み取り専用）
+			echonet_lite.EPCMeasuredCumulativePowerConsumption:    true, // 積算消費電力量計測値（読み取り専用）
+			echonet_lite.EPCManufacturerCode:                      true, // メーカコード（読み取り専用）
+			echonet_lite.EPCBusinessFacilityCode:                  true, // 事業場コード（読み取り専用）
+			echonet_lite.EPCProductCode:                           true, // 商品コード（読み取り専用）
+			echonet_lite.EPCProductionNumber:                      true, // 製造番号（読み取り専用）
+			echonet_lite.EPCProductionDate:                        true, // 製造年月日（読み取り専用）
+		}
+
+		// 設定可能なプロパティのみをマップに追加
+		for propEPC := range d[eoj] {
+			if !readOnlyEPCs[propEPC] {
+				propertyMap.Set(propEPC)
+			}
+		}
+
+		return Property{
+			EPC: epc,
+			EDT: propertyMap.Encode(),
+		}, true
+	}
+
 	if _, ok := d[eoj]; !ok {
 		return Property{}, false
 	}

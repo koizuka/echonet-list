@@ -786,3 +786,114 @@ func TestDevices_OfflineStatus(t *testing.T) {
 		t.Errorf("Expected device to be online after SetOffline(false), but IsOffline returned true")
 	}
 }
+
+// TestDeviceProperties_SetPropertyMap は SetPropertyMap の動的生成をテストします
+func TestDeviceProperties_SetPropertyMap(t *testing.T) {
+	props := make(DeviceProperties)
+	eoj := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+
+	// テスト用プロパティを設定
+	err := props.Set(eoj,
+		Property{EPC: echonet_lite.EPCOperationStatus, EDT: []byte{0x30}},              // 動作状態（読み取り専用）
+		Property{EPC: echonet_lite.EPCInstallationLocation, EDT: []byte{0x08}},         // 設置場所（設定可能）
+		Property{EPC: echonet_lite.EPCGetPropertyMap, EDT: []byte{0x80, 0x81}},         // GetPropertyMap（システム生成）
+		Property{EPC: echonet_lite.EPCManufacturerCode, EDT: []byte{0x00, 0x00, 0x05}}, // メーカコード（読み取り専用）
+		Property{EPC: echonet_lite.EPC_HAC_OperationModeSetting, EDT: []byte{0x41}},    // 運転モード設定（設定可能）
+		Property{EPC: echonet_lite.EPC_HAC_TemperatureSetting, EDT: []byte{0x16}},      // 温度設定（設定可能）
+	)
+	if err != nil {
+		t.Fatalf("Failed to set properties: %v", err)
+	}
+
+	// SetPropertyMapを取得
+	setPropMapProperty, ok := props.Get(eoj, echonet_lite.EPCSetPropertyMap)
+	if !ok {
+		t.Fatalf("Expected SetPropertyMap to exist, but it doesn't")
+	}
+
+	// PropertyMapをデコード
+	propMap := echonet_lite.DecodePropertyMap(setPropMapProperty.EDT)
+	if propMap == nil {
+		t.Fatalf("Failed to decode SetPropertyMap")
+	}
+
+	// 読み取り専用プロパティが含まれていないことを確認
+	readOnlyEPCs := []EPCType{
+		echonet_lite.EPCOperationStatus,                       // 動作状態
+		echonet_lite.EPCGetPropertyMap,                        // GetPropertyMap
+		echonet_lite.EPCSetPropertyMap,                        // SetPropertyMap
+		echonet_lite.EPCStatusAnnouncementPropertyMap,         // 状態通知プロパティマップ
+		echonet_lite.EPCStandardVersion,                       // 規格Version情報
+		echonet_lite.EPCIdentificationNumber,                  // 識別番号
+		echonet_lite.EPCMeasuredInstantaneousPowerConsumption, // 瞬時消費電力計測値
+		echonet_lite.EPCMeasuredCumulativePowerConsumption,    // 積算消費電力量計測値
+		echonet_lite.EPCManufacturerCode,                      // メーカコード
+		echonet_lite.EPCBusinessFacilityCode,                  // 事業場コード
+		echonet_lite.EPCProductCode,                           // 商品コード
+		echonet_lite.EPCProductionNumber,                      // 製造番号
+		echonet_lite.EPCProductionDate,                        // 製造年月日
+	}
+
+	for _, epc := range readOnlyEPCs {
+		if propMap.Has(epc) {
+			t.Errorf("Expected read-only EPC 0x%02X to be excluded from SetPropertyMap, but it's included", epc)
+		}
+	}
+
+	// 設定可能プロパティが含まれていることを確認
+	settableEPCs := []EPCType{
+		echonet_lite.EPCInstallationLocation,      // 設置場所
+		echonet_lite.EPC_HAC_OperationModeSetting, // 運転モード設定
+		echonet_lite.EPC_HAC_TemperatureSetting,   // 温度設定
+	}
+
+	for _, epc := range settableEPCs {
+		if !propMap.Has(epc) {
+			t.Errorf("Expected settable EPC 0x%02X to be included in SetPropertyMap, but it's excluded", epc)
+		}
+	}
+}
+
+// TestDeviceProperties_GetPropertyMap は GetPropertyMap の動的生成をテストします
+func TestDeviceProperties_GetPropertyMap(t *testing.T) {
+	props := make(DeviceProperties)
+	eoj := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+
+	// テスト用プロパティを設定
+	err := props.Set(eoj,
+		Property{EPC: echonet_lite.EPCOperationStatus, EDT: []byte{0x30}},
+		Property{EPC: echonet_lite.EPCInstallationLocation, EDT: []byte{0x08}},
+		Property{EPC: echonet_lite.EPCManufacturerCode, EDT: []byte{0x00, 0x00, 0x05}},
+		Property{EPC: echonet_lite.EPC_HAC_OperationModeSetting, EDT: []byte{0x41}},
+	)
+	if err != nil {
+		t.Fatalf("Failed to set properties: %v", err)
+	}
+
+	// GetPropertyMapを取得
+	getPropMapProperty, ok := props.Get(eoj, echonet_lite.EPCGetPropertyMap)
+	if !ok {
+		t.Fatalf("Expected GetPropertyMap to exist, but it doesn't")
+	}
+
+	// PropertyMapをデコード
+	propMap := echonet_lite.DecodePropertyMap(getPropMapProperty.EDT)
+	if propMap == nil {
+		t.Fatalf("Failed to decode GetPropertyMap")
+	}
+
+	// すべてのプロパティが含まれていることを確認
+	expectedEPCs := []EPCType{
+		echonet_lite.EPCOperationStatus,
+		echonet_lite.EPCInstallationLocation,
+		echonet_lite.EPCManufacturerCode,
+		echonet_lite.EPC_HAC_OperationModeSetting,
+		echonet_lite.EPCGetPropertyMap, // GetPropertyMap自体は必ず含まれる
+	}
+
+	for _, epc := range expectedEPCs {
+		if !propMap.Has(epc) {
+			t.Errorf("Expected EPC 0x%02X to be included in GetPropertyMap, but it's excluded", epc)
+		}
+	}
+}
