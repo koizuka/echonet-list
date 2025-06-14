@@ -733,6 +733,7 @@ func (d DeviceProperties) Get(eoj EOJ, epc EPCType) (Property, bool) {
 		propertyMap.Set(echonet_lite.EPCGetPropertyMap)
 		// SetPropertyMapも取得可能なプロパティなので、GetPropertyMapに含める
 		propertyMap.Set(echonet_lite.EPCSetPropertyMap)
+		propertyMap.Set(echonet_lite.EPCStatusAnnouncementPropertyMap)
 
 		return Property{
 			EPC: epc,
@@ -893,4 +894,22 @@ func (d DeviceProperties) FindEOJ(deoj EOJ) []EOJ {
 		return result
 	}
 	return nil
+}
+
+// IsAnnouncementTarget は指定されたEOJとEPCがStatus Announcement Property Mapに含まれているかどうかを判定する
+func (d DeviceProperties) IsAnnouncementTarget(eoj EOJ, epc EPCType) bool {
+	// Status Announcement Property Mapを取得
+	announcementProp, ok := d.Get(eoj, echonet_lite.EPCStatusAnnouncementPropertyMap)
+	if !ok {
+		return false
+	}
+
+	// PropertyMapをデコード
+	propMap := echonet_lite.DecodePropertyMap(announcementProp.EDT)
+	if propMap == nil {
+		return false
+	}
+
+	// 指定されたEPCが含まれているかチェック
+	return propMap.Has(epc)
 }

@@ -89,6 +89,11 @@ func (h *CommunicationHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECH
 	case echonet_lite.ESVSetC, echonet_lite.ESVSetI:
 		responses, success := h.localDevices.SetProperties(eoj, msg.Properties)
 
+		// プロパティ設定が成功した場合、アナウンス対象のプロパティをチェックしてINF通知を送信
+		if success {
+			h.sendAnnouncementForChangedProperties(eoj, msg.Properties)
+		}
+
 		if msg.ESV != echonet_lite.ESVSetI || !success {
 			ESV := echonet_lite.ESVSetI_SNA
 			if msg.ESV == echonet_lite.ESVSetC {
@@ -108,6 +113,11 @@ func (h *CommunicationHandler) onReceiveMessage(ip net.IP, msg *echonet_lite.ECH
 		setResult, setSuccess := h.localDevices.SetProperties(eoj, msg.Properties)
 		getResult, getSuccess := h.localDevices.GetProperties(eoj, msg.SetGetProperties)
 		success := setSuccess && getSuccess
+
+		// プロパティ設定が成功した場合、アナウンス対象のプロパティをチェックしてINF通知を送信
+		if setSuccess {
+			h.sendAnnouncementForChangedProperties(eoj, msg.Properties)
+		}
 
 		ESV := echonet_lite.ESVSetGet_Res
 		if !success {
@@ -640,4 +650,31 @@ func (h *CommunicationHandler) validateEPCsInPropertyMap(device IPAndEOJ, epcs [
 	}
 
 	return len(invalidEPCs) == 0, invalidEPCs, nil
+}
+
+// sendAnnouncementForChangedProperties は、変更されたプロパティがアナウンス対象の場合にINF通知を送信する
+func (h *CommunicationHandler) sendAnnouncementForChangedProperties(eoj EOJ, properties Properties) {
+	var announcementProps Properties
+
+	// 各プロパティがアナウンス対象かどうかチェック
+	for _, prop := range properties {
+		if h.localDevices.IsAnnouncementTarget(eoj, prop.EPC) {
+			// アナウンス対象の場合、現在の値を取得してリストに追加
+			currentProp, ok := h.localDevices.Get(eoj, prop.EPC)
+			if ok {
+				announcementProps = append(announcementProps, currentProp)
+			}
+		}
+	}
+
+	// アナウンス対象のプロパティがある場合、INF通知を送信
+	if len(announcementProps) > 0 {
+		if h.Debug {
+			fmt.Printf("  アナウンス対象プロパティの変更を通知: SEOJ:%v, Properties:%v\n", eoj, announcementProps)
+		}
+		err := h.session.Broadcast(eoj, echonet_lite.ESVINF, announcementProps)
+		if err != nil {
+			fmt.Printf("  INF通知の送信に失敗: %v\n", err)
+		}
+	}
 }
