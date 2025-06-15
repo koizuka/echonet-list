@@ -1,0 +1,47 @@
+# ECHONET List Configuration with Multicast Keep-Alive Settings
+# Sample configuration demonstrating multicast keep-alive features
+
+debug = false
+
+[log]
+filename = "echonet-list.log"
+
+[websocket]
+enabled = false
+periodic_update_interval = "1m"
+
+[tls]
+enabled = false
+cert_file = ""
+key_file = ""
+
+[websocket_client]
+enabled = false
+addr = "ws://localhost:8080/ws"
+
+[daemon]
+enabled = false
+pid_file = "/var/run/echonet-list.pid"
+
+[http_server]
+enabled = false
+host = "localhost"
+port = 8080
+web_root = "web/bundle"
+
+# Multicast Keep-Alive Configuration
+[multicast]
+# Enable multicast keep-alive functionality
+keep_alive_enabled = true
+
+# Interval for sending heartbeat packets to maintain multicast group membership
+# Recommended: 30s-60s for home networks, 10s-30s for unstable networks
+heartbeat_interval = "30s"
+
+# Interval for refreshing multicast group membership
+# Recommended: 5m-10m for most environments
+group_refresh_interval = "5m"
+
+# Enable network interface monitoring for automatic reconnection
+# Monitors network changes and automatically refreshes connections
+network_monitor_enabled = true

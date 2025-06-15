@@ -102,13 +102,13 @@ func (s *Session) SetTimeoutChannel(ch chan SessionTimeoutEvent) {
 	s.TimeoutCh = ch
 }
 
-func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug bool) (*Session, error) {
+func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug bool, keepAliveConfig *network.KeepAliveConfig) (*Session, error) {
 	// タイムアウトなしのコンテキストを作成（キャンセルのみ可能）
 	sessionCtx, cancel := context.WithCancel(ctx)
 
 	multicastIP := echonet_lite.ECHONETLiteMulticastIPv4
 
-	conn, err := network.CreateUDPConnection(sessionCtx, ip, echonet_lite.ECHONETLitePort, multicastIP)
+	conn, err := network.CreateUDPConnection(sessionCtx, ip, echonet_lite.ECHONETLitePort, multicastIP, keepAliveConfig)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		return nil, err

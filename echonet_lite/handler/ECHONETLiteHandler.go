@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"echonet-list/echonet_lite"
+	"echonet-list/echonet_lite/network"
 	"fmt"
 	"log/slog"
 	"net"
@@ -20,10 +21,11 @@ type ECHONETLiteHandler struct {
 }
 
 type ECHONETLieHandlerOptions struct {
-	IP               net.IP // 自ノードのIPアドレス, nilの場合はワイルドカード
-	Debug            bool   // デバッグモード
-	ManufacturerCode string // echonet_lite.ManufacturerCodeEDT のキーのいずれか。省略時は Experimental
-	UniqueIdentifier []byte // 13バイトのユニーク識別子, nilの場合はMACアドレスから生成
+	IP               net.IP                     // 自ノードのIPアドレス, nilの場合はワイルドカード
+	Debug            bool                       // デバッグモード
+	ManufacturerCode string                     // echonet_lite.ManufacturerCodeEDT のキーのいずれか。省略時は Experimental
+	UniqueIdentifier []byte                     // 13バイトのユニーク識別子, nilの場合はMACアドレスから生成
+	KeepAliveConfig  *network.KeepAliveConfig   // マルチキャストキープアライブ設定
 }
 
 // NewECHONETLiteHandler は、ECHONETLiteHandler の新しいインスタンスを作成する
@@ -35,7 +37,7 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	seoj := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
 
 	// 自ノードのセッションを作成
-	session, err := CreateSession(handlerCtx, options.IP, seoj, options.Debug)
+	session, err := CreateSession(handlerCtx, options.IP, seoj, options.Debug, options.KeepAliveConfig)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		return nil, fmt.Errorf("接続に失敗: %w", err)

@@ -84,6 +84,14 @@ type Config struct {
 		Port    int    `toml:"port"`
 		WebRoot string `toml:"web_root"`
 	} `toml:"http_server"`
+
+	// Multicast keep-alive settings
+	Multicast struct {
+		KeepAliveEnabled  bool   `toml:"keep_alive_enabled"`
+		HeartbeatInterval string `toml:"heartbeat_interval"` // e.g., "30s", "1m"
+		GroupRefreshInterval string `toml:"group_refresh_interval"` // e.g., "5m", "10m"
+		NetworkMonitorEnabled bool `toml:"network_monitor_enabled"`
+	} `toml:"multicast"`
 }
 
 // NewConfig はデフォルト設定を持つConfigを作成する
@@ -102,6 +110,13 @@ func NewConfig() *Config {
 	cfg.HTTPServer.Host = "localhost"
 	cfg.HTTPServer.Port = 8080
 	cfg.HTTPServer.WebRoot = "web/bundle"
+	
+	// Default multicast keep-alive settings
+	cfg.Multicast.KeepAliveEnabled = true
+	cfg.Multicast.HeartbeatInterval = "30s"
+	cfg.Multicast.GroupRefreshInterval = "5m"
+	cfg.Multicast.NetworkMonitorEnabled = true
+	
 	return cfg
 }
 

@@ -71,7 +71,6 @@ func main() {
 	}
 
 	// 設定値を取得
-	debug := cfg.Debug
 	logFilename := cfg.Log.Filename
 	websocket := cfg.WebSocket.Enabled
 	wsClient := cfg.WebSocketClient.Enabled
@@ -112,10 +111,18 @@ func main() {
 	// WebSocketサーバーモードの場合
 	if websocket {
 		// ECHONETLiteHandlerの作成
-		s, err := server.NewServer(ctx, debug)
+		s, err := server.NewServer(ctx, cfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
+		}
+
+		// キープアライブ設定の表示
+		if cfg.Multicast.KeepAliveEnabled {
+			fmt.Printf("マルチキャストキープアライブ: 有効 (ハートビート: %s, グループ更新: %s, ネットワーク監視: %v)\n",
+				cfg.Multicast.HeartbeatInterval, cfg.Multicast.GroupRefreshInterval, cfg.Multicast.NetworkMonitorEnabled)
+		} else {
+			fmt.Println("マルチキャストキープアライブ: 無効")
 		}
 		defer func() {
 			if err := s.Close(); err != nil {
@@ -213,7 +220,7 @@ func main() {
 
 		// WebSocketクライアントの作成
 		var err error
-		wsClientInstance, err = client.NewWebSocketClient(ctx, wsClientAddr, debug)
+		wsClientInstance, err = client.NewWebSocketClient(ctx, wsClientAddr, cfg.Debug)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WebSocketクライアントの作成に失敗しました: %v\n", err)
 			os.Exit(1)
@@ -243,10 +250,18 @@ func main() {
 	// スタンドアロンモードの場合
 	if !websocket && !wsClient && !cfg.HTTPServer.Enabled {
 		// ECHONETLiteHandlerの作成
-		s, err := server.NewServer(ctx, debug)
+		s, err := server.NewServer(ctx, cfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
+		}
+
+		// キープアライブ設定の表示
+		if cfg.Multicast.KeepAliveEnabled {
+			fmt.Printf("マルチキャストキープアライブ: 有効 (ハートビート: %s, グループ更新: %s, ネットワーク監視: %v)\n",
+				cfg.Multicast.HeartbeatInterval, cfg.Multicast.GroupRefreshInterval, cfg.Multicast.NetworkMonitorEnabled)
+		} else {
+			fmt.Println("マルチキャストキープアライブ: 無効")
 		}
 		defer func() {
 			if err := s.Close(); err != nil {
