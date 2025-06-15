@@ -21,11 +21,11 @@ type ECHONETLiteHandler struct {
 }
 
 type ECHONETLieHandlerOptions struct {
-	IP               net.IP                     // 自ノードのIPアドレス, nilの場合はワイルドカード
-	Debug            bool                       // デバッグモード
-	ManufacturerCode string                     // echonet_lite.ManufacturerCodeEDT のキーのいずれか。省略時は Experimental
-	UniqueIdentifier []byte                     // 13バイトのユニーク識別子, nilの場合はMACアドレスから生成
-	KeepAliveConfig  *network.KeepAliveConfig   // マルチキャストキープアライブ設定
+	IP               net.IP                   // 自ノードのIPアドレス, nilの場合はワイルドカード
+	Debug            bool                     // デバッグモード
+	ManufacturerCode string                   // echonet_lite.ManufacturerCodeEDT のキーのいずれか。省略時は Experimental
+	UniqueIdentifier []byte                   // 13バイトのユニーク識別子, nilの場合はMACアドレスから生成
+	KeepAliveConfig  *network.KeepAliveConfig // マルチキャストキープアライブ設定
 }
 
 // NewECHONETLiteHandler は、ECHONETLiteHandler の新しいインスタンスを作成する

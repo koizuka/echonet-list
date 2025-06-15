@@ -3,10 +3,10 @@ package network
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"time"
-	"log/slog"
 )
 
 // UDPConnection は UDP ソケットを管理します
@@ -15,7 +15,7 @@ type UDPConnection struct {
 	LocalAddr   *net.UDPAddr
 	localIPs    []net.IP // ローカルインターフェースのIPリスト
 	Port        int
-	multicastIP net.IP   // マルチキャストIPアドレス
+	multicastIP net.IP // マルチキャストIPアドレス
 	mu          sync.RWMutex
 	keepAlive   *MulticastKeepAlive
 }
@@ -169,12 +169,12 @@ func (c *UDPConnection) IsLocalIP(ip net.IP) bool {
 func (c *UDPConnection) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// キープアライブを停止
 	if c.keepAlive != nil {
 		c.stopKeepAlive()
 	}
-	
+
 	return c.UdpConn.Close()
 }
 
@@ -234,7 +234,7 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 // initKeepAlive はキープアライブ機能を初期化します
 func (c *UDPConnection) initKeepAlive(ctx context.Context, config KeepAliveConfig) error {
 	keepAliveCtx, cancel := context.WithCancel(ctx)
-	
+
 	c.keepAlive = &MulticastKeepAlive{
 		enabled:               config.Enabled,
 		heartbeatInterval:     config.HeartbeatInterval,
@@ -255,7 +255,7 @@ func (c *UDPConnection) initKeepAlive(ctx context.Context, config KeepAliveConfi
 	// キープアライブループを開始
 	go c.keepAliveLoop()
 
-	slog.Info("マルチキャストキープアライブが開始されました", 
+	slog.Info("マルチキャストキープアライブが開始されました",
 		"heartbeatInterval", config.HeartbeatInterval,
 		"groupRefreshInterval", config.GroupRefreshInterval,
 		"networkMonitorEnabled", config.NetworkMonitorEnabled)
@@ -328,7 +328,7 @@ func (c *UDPConnection) sendHeartbeat() {
 	// マルチキャストグループのメンバーシップを維持するための最小限のトラフィック
 	// 実際のアプリケーションレベルのハートビートはセッション層で実装される
 	// ここでは単純にソケットの活性化のために空のUDPパケットを送信
-	
+
 	// 空のパケットを送信（1バイトの0x00）
 	heartbeatData := []byte{0x00}
 
@@ -351,7 +351,7 @@ func (c *UDPConnection) refreshMulticastGroup() {
 	// マルチキャスト接続の再初期化（必要に応じて）
 	// 現在の実装では net.ListenMulticastUDP で自動的にグループに参加するため、
 	// 明示的な再参加は不要ですが、将来的にはより詳細な制御が可能
-	
+
 	c.keepAlive.lastGroupRefresh = time.Now()
 	slog.Debug("マルチキャストグループのメンバーシップを確認しました", "multicastIP", c.multicastIP)
 }
@@ -376,7 +376,7 @@ func (c *UDPConnection) monitorNetworkChanges() {
 	// インターフェースの変更をチェック
 	if c.hasNetworkChanged(previousInterfaces, currentInterfaces) {
 		slog.Info("ネットワークインターフェースの変更を検出しました")
-		
+
 		// ネットワークインターフェース情報を更新
 		c.keepAlive.interfacesMu.Lock()
 		c.keepAlive.interfaces = currentInterfaces
@@ -463,7 +463,7 @@ func (c *UDPConnection) TriggerGroupRefresh() {
 func (c *UDPConnection) GetKeepAliveStatus() (enabled bool, lastHeartbeat, lastGroupRefresh time.Time) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if c.keepAlive != nil {
 		return c.keepAlive.enabled, c.keepAlive.lastHeartbeat, c.keepAlive.lastGroupRefresh
 	}
