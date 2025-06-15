@@ -8,6 +8,10 @@
   - Web UI 本体は TypeScript で実装済みで、WebSocket によるリアルタイム通信が動作しています。
     - WebSocket のプロトコルや Web UI 開発ガイドは @docs/ に記述しています。
 
+## 開発メモ
+
+- go のコードをコミットする前にはgo fmtをしてください
+
 ## Server Build & Test Commands
 
 - Build: `go build`
