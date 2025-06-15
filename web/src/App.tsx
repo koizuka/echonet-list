@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExpandIcon, ShrinkIcon } from 'lucide-react';
+import { useState } from 'react';
 import type { PropertyValue } from '@/hooks/types';
 
 function App() {
@@ -31,6 +32,9 @@ function App() {
   
   // Use persistent tab selection
   const { selectedTab, selectTab } = usePersistedTab(tabs, 'All');
+  
+  // Loading state for update operations
+  const [updatingDevices, setUpdatingDevices] = useState<Set<string>>(new Set());
 
   // Property change handler
   const handlePropertyChange = async (target: string, epc: string, value: PropertyValue) => {
@@ -39,6 +43,27 @@ function App() {
     } catch (error) {
       console.error('Failed to change property:', error);
       // TODO: Show user-friendly error message
+    }
+  };
+
+  // Update properties handler
+  const handleUpdateProperties = async (target: string) => {
+    try {
+      // Add device to updating set
+      setUpdatingDevices(prev => new Set([...prev, target]));
+      
+      console.log('Updating properties for:', target);
+      await echonet.updateDeviceProperties([target]);
+    } catch (error) {
+      console.error('Failed to update properties:', error);
+      // TODO: Show user-friendly error message
+    } finally {
+      // Remove device from updating set
+      setUpdatingDevices(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(target);
+        return newSet;
+      });
     }
   };
 
@@ -175,6 +200,8 @@ function App() {
                         isExpanded={cardExpansion.isCardExpanded(deviceKey)}
                         onToggleExpansion={() => cardExpansion.toggleCard(deviceKey)}
                         onPropertyChange={handlePropertyChange}
+                        onUpdateProperties={handleUpdateProperties}
+                        isUpdating={updatingDevices.has(deviceKey)}
                         propertyDescriptions={echonet.propertyDescriptions}
                         getDeviceClassCode={echonet.getDeviceClassCode}
                         devices={echonet.devices}

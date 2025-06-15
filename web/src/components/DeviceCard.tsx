@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ interface DeviceCardProps {
   isExpanded: boolean;
   onToggleExpansion: () => void;
   onPropertyChange: (target: string, epc: string, value: PropertyValue) => Promise<void>;
+  onUpdateProperties?: (target: string) => Promise<void>;
+  isUpdating?: boolean;
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   getDeviceClassCode: (device: Device) => string;
   devices: Record<string, Device>;
@@ -25,6 +27,8 @@ export function DeviceCard({
   isExpanded,
   onToggleExpansion,
   onPropertyChange,
+  onUpdateProperties,
+  isUpdating = false,
   propertyDescriptions,
   getDeviceClassCode,
   devices,
@@ -133,6 +137,18 @@ export function DeviceCard({
               <Badge variant="secondary" className="text-xs px-1">
                 Alias
               </Badge>
+            )}
+            {onUpdateProperties && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onUpdateProperties(`${device.ip} ${device.eoj}`)}
+                className="h-6 w-6 p-0"
+                title={isUpdating ? "Updating..." : "Update device properties"}
+                disabled={isUpdating}
+              >
+                <RefreshCw className={`h-3 w-3 ${isUpdating ? 'animate-spin' : ''}`} />
+              </Button>
             )}
             <Button
               variant="ghost"
