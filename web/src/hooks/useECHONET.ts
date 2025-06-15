@@ -305,11 +305,31 @@ export function useECHONET(url: string): ECHONETHook {
   }, [connection]);
 
   const setDeviceProperties = useCallback(async (target: string, properties: Record<string, PropertyValue>) => {
-    return connection.sendMessage({
+    const response = await connection.sendMessage({
       type: 'set_properties',
       payload: { target, properties },
       requestId: '',
     });
+    
+    // Update local cache immediately on success to prevent UI inconsistency
+    if (response && typeof response === 'object' && 'device' in response) {
+      const deviceData = response.device as Device;
+      
+      // Update each property in the local cache
+      Object.entries(properties).forEach(([epc, value]) => {
+        dispatch({
+          type: 'UPDATE_PROPERTY',
+          payload: {
+            ip: deviceData.ip,
+            eoj: deviceData.eoj,
+            epc: epc.toUpperCase(),
+            value: value,
+          },
+        });
+      });
+    }
+    
+    return response;
   }, [connection]);
 
   const updateDeviceProperties = useCallback(async (targets?: string[], force?: boolean) => {
