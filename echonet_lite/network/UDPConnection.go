@@ -32,6 +32,7 @@ type MulticastKeepAlive struct {
 	interfacesMu          sync.RWMutex
 	lastHeartbeat         time.Time
 	lastGroupRefresh      time.Time
+	lastMu                sync.RWMutex
 	heartbeatCh           chan bool
 	groupRefreshCh        chan bool
 }
@@ -267,6 +268,8 @@ func (c *UDPConnection) initKeepAlive(ctx context.Context, config KeepAliveConfi
 func (c *UDPConnection) stopKeepAlive() {
 	if c.keepAlive != nil && c.keepAlive.cancel != nil {
 		c.keepAlive.cancel()
+		// goroutineが終了するまで少し待機してからnilを設定
+		time.Sleep(10 * time.Millisecond)
 		c.keepAlive = nil
 		slog.Info("マルチキャストキープアライブが停止されました")
 	}
@@ -274,25 +277,29 @@ func (c *UDPConnection) stopKeepAlive() {
 
 // keepAliveLoop はキープアライブのメインループです
 func (c *UDPConnection) keepAliveLoop() {
-	if c.keepAlive == nil {
+	c.mu.RLock()
+	keepAlive := c.keepAlive
+	c.mu.RUnlock()
+
+	if keepAlive == nil {
 		return
 	}
 
-	heartbeatTicker := time.NewTicker(c.keepAlive.heartbeatInterval)
+	heartbeatTicker := time.NewTicker(keepAlive.heartbeatInterval)
 	defer heartbeatTicker.Stop()
 
-	groupRefreshTicker := time.NewTicker(c.keepAlive.groupRefreshInterval)
+	groupRefreshTicker := time.NewTicker(keepAlive.groupRefreshInterval)
 	defer groupRefreshTicker.Stop()
 
 	var networkMonitorTicker *time.Ticker
-	if c.keepAlive.networkMonitorEnabled {
+	if keepAlive.networkMonitorEnabled {
 		networkMonitorTicker = time.NewTicker(10 * time.Second) // ネットワーク監視は10秒間隔
 		defer networkMonitorTicker.Stop()
 	}
 
 	for {
 		select {
-		case <-c.keepAlive.ctx.Done():
+		case <-keepAlive.ctx.Done():
 			slog.Debug("キープアライブループを終了します")
 			return
 
@@ -302,10 +309,10 @@ func (c *UDPConnection) keepAliveLoop() {
 		case <-groupRefreshTicker.C:
 			c.refreshMulticastGroup()
 
-		case <-c.keepAlive.heartbeatCh:
+		case <-keepAlive.heartbeatCh:
 			c.sendHeartbeat()
 
-		case <-c.keepAlive.groupRefreshCh:
+		case <-keepAlive.groupRefreshCh:
 			c.refreshMulticastGroup()
 
 		case <-func() <-chan time.Time {
@@ -321,7 +328,12 @@ func (c *UDPConnection) keepAliveLoop() {
 
 // sendHeartbeat はハートビートを送信します（マルチキャストグループメンバーシップ維持用）
 func (c *UDPConnection) sendHeartbeat() {
-	if c.keepAlive == nil || c.multicastIP == nil {
+	c.mu.RLock()
+	keepAlive := c.keepAlive
+	multicastIP := c.multicastIP
+	c.mu.RUnlock()
+
+	if keepAlive == nil || multicastIP == nil {
 		return
 	}
 
@@ -333,18 +345,25 @@ func (c *UDPConnection) sendHeartbeat() {
 	heartbeatData := []byte{0x00}
 
 	// 注意: これは低レベルのネットワーク keep-alive で、ECHONET Lite プロトコルレベルの通信ではない
-	_, err := c.UdpConn.WriteTo(heartbeatData, &net.UDPAddr{IP: c.multicastIP, Port: c.Port})
+	_, err := c.UdpConn.WriteTo(heartbeatData, &net.UDPAddr{IP: multicastIP, Port: c.Port})
 	if err != nil {
 		slog.Warn("ネットワークキープアライブ送信エラー", "err", err)
 	} else {
-		c.keepAlive.lastHeartbeat = time.Now()
-		slog.Debug("ネットワークキープアライブを送信", "multicastIP", c.multicastIP)
+		keepAlive.lastMu.Lock()
+		keepAlive.lastHeartbeat = time.Now()
+		keepAlive.lastMu.Unlock()
+		slog.Debug("ネットワークキープアライブを送信", "multicastIP", multicastIP)
 	}
 }
 
 // refreshMulticastGroup はマルチキャストグループのメンバーシップを更新します
 func (c *UDPConnection) refreshMulticastGroup() {
-	if c.keepAlive == nil || c.multicastIP == nil {
+	c.mu.RLock()
+	keepAlive := c.keepAlive
+	multicastIP := c.multicastIP
+	c.mu.RUnlock()
+
+	if keepAlive == nil || multicastIP == nil {
 		return
 	}
 
@@ -352,13 +371,19 @@ func (c *UDPConnection) refreshMulticastGroup() {
 	// 現在の実装では net.ListenMulticastUDP で自動的にグループに参加するため、
 	// 明示的な再参加は不要ですが、将来的にはより詳細な制御が可能
 
-	c.keepAlive.lastGroupRefresh = time.Now()
-	slog.Debug("マルチキャストグループのメンバーシップを確認しました", "multicastIP", c.multicastIP)
+	keepAlive.lastMu.Lock()
+	keepAlive.lastGroupRefresh = time.Now()
+	keepAlive.lastMu.Unlock()
+	slog.Debug("マルチキャストグループのメンバーシップを確認しました", "multicastIP", multicastIP)
 }
 
 // monitorNetworkChanges はネットワークインターフェースの変更を監視します
 func (c *UDPConnection) monitorNetworkChanges() {
-	if c.keepAlive == nil || !c.keepAlive.networkMonitorEnabled {
+	c.mu.RLock()
+	keepAlive := c.keepAlive
+	c.mu.RUnlock()
+
+	if keepAlive == nil || !keepAlive.networkMonitorEnabled {
 		return
 	}
 
@@ -369,18 +394,18 @@ func (c *UDPConnection) monitorNetworkChanges() {
 		return
 	}
 
-	c.keepAlive.interfacesMu.Lock()
-	previousInterfaces := c.keepAlive.interfaces
-	c.keepAlive.interfacesMu.Unlock()
+	keepAlive.interfacesMu.Lock()
+	previousInterfaces := keepAlive.interfaces
+	keepAlive.interfacesMu.Unlock()
 
 	// インターフェースの変更をチェック
 	if c.hasNetworkChanged(previousInterfaces, currentInterfaces) {
 		slog.Info("ネットワークインターフェースの変更を検出しました")
 
 		// ネットワークインターフェース情報を更新
-		c.keepAlive.interfacesMu.Lock()
-		c.keepAlive.interfaces = currentInterfaces
-		c.keepAlive.interfacesMu.Unlock()
+		keepAlive.interfacesMu.Lock()
+		keepAlive.interfaces = currentInterfaces
+		keepAlive.interfacesMu.Unlock()
 
 		// ローカルIPアドレスを再取得
 		newLocalIPs, err := GetLocalIPv4s()
@@ -395,7 +420,7 @@ func (c *UDPConnection) monitorNetworkChanges() {
 
 		// グループメンバーシップを強制更新
 		select {
-		case c.keepAlive.groupRefreshCh <- true:
+		case keepAlive.groupRefreshCh <- true:
 		default:
 			// チャンネルがブロックされている場合は無視
 		}
@@ -439,6 +464,8 @@ func (ka *MulticastKeepAlive) updateNetworkInterfaces() error {
 
 // TriggerHeartbeat は手動でハートビートをトリガーします
 func (c *UDPConnection) TriggerHeartbeat() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.keepAlive != nil {
 		select {
 		case c.keepAlive.heartbeatCh <- true:
@@ -450,6 +477,8 @@ func (c *UDPConnection) TriggerHeartbeat() {
 
 // TriggerGroupRefresh は手動でグループ更新をトリガーします
 func (c *UDPConnection) TriggerGroupRefresh() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.keepAlive != nil {
 		select {
 		case c.keepAlive.groupRefreshCh <- true:
@@ -462,10 +491,13 @@ func (c *UDPConnection) TriggerGroupRefresh() {
 // GetKeepAliveStatus はキープアライブの状態を返します
 func (c *UDPConnection) GetKeepAliveStatus() (enabled bool, lastHeartbeat, lastGroupRefresh time.Time) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+	keepAlive := c.keepAlive
+	c.mu.RUnlock()
 
-	if c.keepAlive != nil {
-		return c.keepAlive.enabled, c.keepAlive.lastHeartbeat, c.keepAlive.lastGroupRefresh
+	if keepAlive != nil {
+		keepAlive.lastMu.RLock()
+		defer keepAlive.lastMu.RUnlock()
+		return keepAlive.enabled, keepAlive.lastHeartbeat, keepAlive.lastGroupRefresh
 	}
 	return false, time.Time{}, time.Time{}
 }
