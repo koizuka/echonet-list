@@ -119,8 +119,8 @@ func main() {
 
 		// キープアライブ設定の表示
 		if cfg.Multicast.KeepAliveEnabled {
-			fmt.Printf("マルチキャストキープアライブ: 有効 (ハートビート: %s, グループ更新: %s, ネットワーク監視: %v)\n",
-				cfg.Multicast.HeartbeatInterval, cfg.Multicast.GroupRefreshInterval, cfg.Multicast.NetworkMonitorEnabled)
+			fmt.Printf("マルチキャストキープアライブ: 有効 (グループ更新: %s, ネットワーク監視: %v)\n",
+				cfg.Multicast.GroupRefreshInterval, cfg.Multicast.NetworkMonitorEnabled)
 		} else {
 			fmt.Println("マルチキャストキープアライブ: 無効")
 		}
@@ -258,8 +258,8 @@ func main() {
 
 		// キープアライブ設定の表示
 		if cfg.Multicast.KeepAliveEnabled {
-			fmt.Printf("マルチキャストキープアライブ: 有効 (ハートビート: %s, グループ更新: %s, ネットワーク監視: %v)\n",
-				cfg.Multicast.HeartbeatInterval, cfg.Multicast.GroupRefreshInterval, cfg.Multicast.NetworkMonitorEnabled)
+			fmt.Printf("マルチキャストキープアライブ: 有効 (グループ更新: %s, ネットワーク監視: %v)\n",
+				cfg.Multicast.GroupRefreshInterval, cfg.Multicast.NetworkMonitorEnabled)
 		} else {
 			fmt.Println("マルチキャストキープアライブ: 無効")
 		}

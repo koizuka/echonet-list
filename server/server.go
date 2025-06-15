@@ -20,11 +20,6 @@ func NewServer(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 	// キープアライブ設定を追加
 	if cfg != nil && cfg.Multicast.KeepAliveEnabled {
-		heartbeatInterval, err := time.ParseDuration(cfg.Multicast.HeartbeatInterval)
-		if err != nil {
-			heartbeatInterval = 30 * time.Second // デフォルト値
-		}
-
 		groupRefreshInterval, err := time.ParseDuration(cfg.Multicast.GroupRefreshInterval)
 		if err != nil {
 			groupRefreshInterval = 5 * time.Minute // デフォルト値
@@ -32,7 +27,6 @@ func NewServer(ctx context.Context, cfg *config.Config) (*Server, error) {
 
 		options.KeepAliveConfig = &network.KeepAliveConfig{
 			Enabled:               cfg.Multicast.KeepAliveEnabled,
-			HeartbeatInterval:     heartbeatInterval,
 			GroupRefreshInterval:  groupRefreshInterval,
 			NetworkMonitorEnabled: cfg.Multicast.NetworkMonitorEnabled,
 		}
