@@ -23,6 +23,9 @@ export const DEVICE_PRIMARY_PROPERTIES: Record<string, string[]> = {
   // Single Function Lighting (0291)
   '0291': ['B0'], // Illuminance level
   
+  // Lighting System (02A3)
+  '02A3': ['C0'], // Scene control
+  
   // Electric Water Heater (026B)
   '026B': ['D1', 'D2'], // Hot water temperature, volume
   
