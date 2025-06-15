@@ -25,7 +25,7 @@ describe('deviceTypeHelper', () => {
     });
 
     it('should return essential + device-specific properties for lighting', () => {
-      const properties = getDevicePrimaryProperties('0290'); // Single Function Lighting
+      const properties = getDevicePrimaryProperties('0291'); // Single Function Lighting
       expect(properties).toContain('80'); // Operation Status (essential)
       expect(properties).toContain('81'); // Installation Location (essential)
       expect(properties).toContain('B0'); // Illuminance level (device-specific)
@@ -46,12 +46,12 @@ describe('deviceTypeHelper', () => {
 
     it('should return true for device-specific primary properties', () => {
       expect(isPropertyPrimary('B0', '0130')).toBe(true); // Air conditioner operation mode
-      expect(isPropertyPrimary('B0', '0290')).toBe(true); // Lighting illuminance
+      expect(isPropertyPrimary('B0', '0291')).toBe(true); // Lighting illuminance
     });
 
     it('should return false for non-primary properties', () => {
       expect(isPropertyPrimary('9F', '0130')).toBe(false); // Get Property Map
-      expect(isPropertyPrimary('FF', '0290')).toBe(false); // Unknown property
+      expect(isPropertyPrimary('FF', '0291')).toBe(false); // Unknown property
     });
 
     it('should handle case sensitivity', () => {
@@ -83,7 +83,7 @@ describe('deviceTypeHelper', () => {
 
     it('should return empty array when all properties are primary', () => {
       const device = {
-        eoj: '0290:1', // Single Function Lighting
+        eoj: '0291:1', // Single Function Lighting
         properties: {
           '80': { string: 'on' },     // Primary (essential)
           '81': { string: 'bedroom' }, // Primary (essential)
@@ -113,7 +113,7 @@ describe('deviceTypeHelper', () => {
 
     it('should have device-specific properties defined', () => {
       expect(DEVICE_PRIMARY_PROPERTIES['0130']).toContain('B0'); // Air conditioner
-      expect(DEVICE_PRIMARY_PROPERTIES['0290']).toContain('B0'); // Lighting
+      expect(DEVICE_PRIMARY_PROPERTIES['0291']).toContain('B0'); // Lighting
       expect(DEVICE_PRIMARY_PROPERTIES['027B']).toContain('E1'); // Floor heating
     });
   });
@@ -218,7 +218,7 @@ describe('deviceTypeHelper', () => {
 
     it('should return false for non-Node Profile devices', () => {
       const airConditioner = { eoj: '0130:1' };
-      const lighting = { eoj: '0290:1' };
+      const lighting = { eoj: '0291:1' };
       expect(isNodeProfileDevice(airConditioner)).toBe(false);
       expect(isNodeProfileDevice(lighting)).toBe(false);
     });

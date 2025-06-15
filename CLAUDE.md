@@ -45,6 +45,18 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
 - **レスポンシブデザイン**: モバイル・デスクトップ対応
 - **リアルタイム更新**: WebSocketによるプロパティ変更のリアルタイム反映
 
+### プロパティ表示の仕組み
+
+- **プライマリプロパティ**: `deviceTypeHelper.ts` の `DEVICE_PRIMARY_PROPERTIES` でデバイス種別ごとに定義
+  - デバイスカードの常時表示対象（コンパクト表示時も表示）
+  - 操作ステータス（0x80）と設置場所（0x81）は全デバイス共通のエッセンシャルプロパティ
+  - Single Function Lighting (0291): Illuminance Level (0xB0) など
+- **PropertyEditor**: プロパティの編集可能性と表示方法を制御
+  - aliasありプロパティ: Selectドロップダウンで値選択
+  - aliasなしプロパティ: 現在値表示 + 編集ボタン（数値入力など）
+  - Set Property Map (EPC 0x9E) による編集可能性判定
+- **formatPropertyValue**: プロパティ値の表示フォーマット（単位付き数値、alias名など）
+
 ### 技術詳細
 
 - **フレームワーク**: React 19 + TypeScript
@@ -56,6 +68,7 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
   - `src/components/PropertyEditor.tsx`: プロパティ編集コンポーネント
   - `src/components/DeviceStatusIndicators.tsx`: デバイス状態インジケータ
   - `src/libs/propertyHelper.ts`: プロパティ名・値変換
+  - `src/libs/deviceTypeHelper.ts`: デバイス種別・プライマリプロパティ定義
   - `src/libs/locationHelper.ts`: ロケーション・グループ管理
   - `src/libs/deviceIdHelper.ts`: デバイス識別子処理
 
@@ -112,6 +125,29 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
   7. ビルドしたターゲットファイルをサーバーが読み込めるよう、適切な修正を行います。
   8. `npm run lint` で警告が出たら修正します。
   9. サーバーを ./echonet-list で起動し、ユーザーに動作確認してもらいます。
+
+## Web UI トラブルシューティング
+
+### プロパティが表示されない場合
+
+1. **プライマリプロパティの確認**: `web/src/libs/deviceTypeHelper.ts` の `DEVICE_PRIMARY_PROPERTIES` でデバイスクラスコードが正しく定義されているか
+   - ECHONET Lite仕様書でクラスコードを確認（例：Single Function Lighting = 0291）
+   - EPCコードが正しい形式（大文字の16進数）で定義されているか
+
+2. **サーバー側プロパティ定義の確認**: Go側の `echonet_lite/prop_*.go` ファイルでプロパティが正しく定義されているか
+   - プロパティの型（NumberDesc, StringDesc, aliases）
+   - DefaultEPCsに含まれているか
+
+3. **PropertyEditor の表示条件**:
+   - 編集可能プロパティ: Set Property Map (EPC 0x9E) に含まれているか
+   - alias有りプロパティ: Selectドロップダウンが値を表示
+   - alias無しプロパティ: 現在値 + 編集ボタンで表示
+
+### デバッグ手順
+
+1. ブラウザの開発者ツールでWebSocketメッセージを確認
+2. `formatPropertyValue` 関数の戻り値を確認
+3. デバイスの `properties` オブジェクトに該当EPCが含まれているか確認
 
 ## デーモンモードの実装
 

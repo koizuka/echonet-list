@@ -16,14 +16,11 @@ export const DEVICE_PRIMARY_PROPERTIES: Record<string, string[]> = {
   // Home Air Conditioner (0130)
   '0130': ['B0', 'B3', 'B4', 'BA', 'BB', 'BE'], // Operation mode, Temperature, Humidity, Target temp, etc.
   
-  // Single Function Lighting (0290)
-  '0290': ['B0'], // Illuminance level
-  
   // Floor Heating (027B)
   '027B': ['E1', 'E2', 'F3', 'F4'], // Various temperature sensors
   
   // Add more device types as needed
-  // General Lighting (0291)
+  // Single Function Lighting (0291)
   '0291': ['B0'], // Illuminance level
   
   // Electric Water Heater (026B)

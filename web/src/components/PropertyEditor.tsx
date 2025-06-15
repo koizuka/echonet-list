@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Edit3, Check, X } from 'lucide-react';
-import { isPropertySettable } from '@/libs/propertyHelper';
+import { isPropertySettable, formatPropertyValue } from '@/libs/propertyHelper';
 import type { PropertyDescriptor, PropertyValue, Device } from '@/hooks/types';
 
 interface PropertyEditorProps {
@@ -141,7 +141,25 @@ export function PropertyEditor({
       )}
 
       {/* String/Number editing */}
-      {(hasStringDesc || hasNumberDesc) && !isEditing && (
+      {(hasStringDesc || hasNumberDesc) && !hasAliases && !isEditing && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">
+            {formatPropertyValue(currentValue, descriptor)}
+          </span>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={startEditing}
+            disabled={isLoading}
+            className="h-7 px-2"
+          >
+            <Edit3 className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+      
+      {/* String/Number editing - only edit button when aliases exist */}
+      {(hasStringDesc || hasNumberDesc) && hasAliases && !isEditing && (
         <Button 
           variant="outline" 
           size="sm" 
