@@ -142,6 +142,44 @@ export function formatPropertyValue(
 }
 
 /**
+ * Converts Base64 EDT to hex string representation
+ * Returns formatted hex string like "01 23 45" or null if conversion fails
+ */
+export function edtToHexString(edt: string): string | null {
+  if (!edt) return null;
+  
+  try {
+    const bytes = atob(edt);
+    const hexBytes = [];
+    
+    for (let i = 0; i < bytes.length; i++) {
+      const byte = bytes.charCodeAt(i);
+      hexBytes.push(byte.toString(16).toUpperCase().padStart(2, '0'));
+    }
+    
+    return hexBytes.join(' ');
+  } catch (error) {
+    console.warn('Failed to convert EDT to hex string:', error);
+    return null;
+  }
+}
+
+/**
+ * Checks if a property value should show hex data viewer
+ * Returns true if value has EDT but formatted as "Raw data"
+ */
+export function shouldShowHexViewer(
+  value: { EDT?: string; string?: string; number?: number },
+  descriptor?: PropertyDescriptor
+): boolean {
+  // Only show for values that have EDT but format as "Raw data"
+  if (!value.EDT) return false;
+  
+  const formattedValue = formatPropertyValue(value, descriptor);
+  return formattedValue === 'Raw data';
+}
+
+/**
  * Checks if device is operational (EPC 0x80 Operation Status is on)
  * Returns true if operation status is on, false otherwise
  */

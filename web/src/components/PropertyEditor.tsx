@@ -8,8 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Edit3, Check, X } from 'lucide-react';
-import { isPropertySettable, formatPropertyValue } from '@/libs/propertyHelper';
+import { Edit3, Check, X, Binary } from 'lucide-react';
+import { isPropertySettable, formatPropertyValue, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import type { PropertyDescriptor, PropertyValue, Device } from '@/hooks/types';
 
 interface PropertyEditorProps {
@@ -30,6 +30,7 @@ export function PropertyEditor({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showHexData, setShowHexData] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const deviceId = `${device.ip} ${device.eoj}`;
@@ -44,6 +45,7 @@ export function PropertyEditor({
   const hasAliases = descriptor?.aliases && Object.keys(descriptor.aliases).length > 0;
   const hasNumberDesc = descriptor?.numberDesc;
   const hasStringDesc = descriptor?.stringDesc;
+  const canShowHexViewer = shouldShowHexViewer(currentValue, descriptor);
   
   // Check if property is settable based on:
   // 1. Property descriptor indicates it's settable (stringSettable, numberDesc, or aliases)
@@ -111,8 +113,31 @@ export function PropertyEditor({
     }
   };
 
-  // For read-only properties, don't render any controls
+  // For read-only properties, only show hex viewer if applicable
   if (!isSettable) {
+    if (canShowHexViewer) {
+      return (
+        <div className="relative">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Raw data</span>
+            <Button
+              variant={showHexData ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowHexData(!showHexData)}
+              className="h-6 w-6 p-0"
+              title={showHexData ? "Hide hex data" : "Show hex data"}
+            >
+              <Binary className="h-3 w-3" />
+            </Button>
+          </div>
+          {showHexData && currentValue.EDT && (
+            <div className="absolute top-full left-0 right-0 mt-1 text-xs font-mono bg-muted p-2 rounded border break-all shadow-md z-10 min-w-max">
+              {edtToHexString(currentValue.EDT) || 'Invalid data'}
+            </div>
+          )}
+        </div>
+      );
+    }
     return null;
   }
 
@@ -142,33 +167,71 @@ export function PropertyEditor({
 
       {/* String/Number editing */}
       {(hasStringDesc || hasNumberDesc) && !hasAliases && !isEditing && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">
-            {formatPropertyValue(currentValue, descriptor)}
-          </span>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={startEditing}
-            disabled={isLoading}
-            className="h-7 px-2"
-          >
-            <Edit3 className="h-3 w-3" />
-          </Button>
+        <div className="relative">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">
+              {formatPropertyValue(currentValue, descriptor)}
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={startEditing}
+              disabled={isLoading}
+              className="h-7 px-2"
+            >
+              <Edit3 className="h-3 w-3" />
+            </Button>
+            {canShowHexViewer && (
+              <Button
+                variant={showHexData ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowHexData(!showHexData)}
+                className="h-6 w-6 p-0"
+                title={showHexData ? "Hide hex data" : "Show hex data"}
+              >
+                <Binary className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          {showHexData && canShowHexViewer && currentValue.EDT && (
+            <div className="absolute top-full left-0 right-0 mt-1 text-xs font-mono bg-muted p-2 rounded border break-all shadow-md z-10 min-w-max">
+              {edtToHexString(currentValue.EDT) || 'Invalid data'}
+            </div>
+          )}
         </div>
       )}
       
       {/* String/Number editing - only edit button when aliases exist */}
       {(hasStringDesc || hasNumberDesc) && hasAliases && !isEditing && (
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={startEditing}
-          disabled={isLoading}
-          className="h-7 px-2"
-        >
-          <Edit3 className="h-3 w-3" />
-        </Button>
+        <div className="relative">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={startEditing}
+              disabled={isLoading}
+              className="h-7 px-2"
+            >
+              <Edit3 className="h-3 w-3" />
+            </Button>
+            {canShowHexViewer && (
+              <Button
+                variant={showHexData ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowHexData(!showHexData)}
+                className="h-6 w-6 p-0"
+                title={showHexData ? "Hide hex data" : "Show hex data"}
+              >
+                <Binary className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          {showHexData && canShowHexViewer && currentValue.EDT && (
+            <div className="absolute top-full left-0 right-0 mt-1 text-xs font-mono bg-muted p-2 rounded border break-all shadow-md z-10 min-w-max">
+              {edtToHexString(currentValue.EDT) || 'Invalid data'}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Editing mode */}

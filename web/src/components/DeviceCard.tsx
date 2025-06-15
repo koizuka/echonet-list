@@ -1,10 +1,11 @@
-import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp, RefreshCw, Binary } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PropertyEditor } from '@/components/PropertyEditor';
 import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
-import { getPropertyName, formatPropertyValue, getPropertyDescriptor, isPropertySettable } from '@/libs/propertyHelper';
+import { getPropertyName, formatPropertyValue, getPropertyDescriptor, isPropertySettable, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
@@ -48,6 +49,7 @@ export function DeviceCard({
     value: PropertyValue; 
     isCompact?: boolean;
   }) => {
+    const [showHexData, setShowHexData] = useState(false);
     const propertyName = getPropertyName(epc, propertyDescriptions, classCode);
     const propertyDescriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
     const formattedValue = formatPropertyValue(value, propertyDescriptor);
@@ -56,10 +58,11 @@ export function DeviceCard({
     const hasEditCapability = propertyDescriptor?.stringSettable || propertyDescriptor?.numberDesc || (propertyDescriptor?.aliases && Object.keys(propertyDescriptor.aliases).length > 0);
     const isInSetPropertyMap = propertyDescriptor && isPropertySettable(epc, device);
     const isSettable = hasEditCapability && isInSetPropertyMap;
+    const canShowHexViewer = shouldShowHexViewer(value, propertyDescriptor);
 
     if (isCompact) {
       return (
-        <div className="text-xs">
+        <div className="text-xs relative">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="font-medium text-muted-foreground">
               {propertyName}:
@@ -74,18 +77,36 @@ export function DeviceCard({
                   onPropertyChange={onPropertyChange}
                 />
               ) : (
-                <span className="font-medium">
-                  {formattedValue}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">
+                    {formattedValue}
+                  </span>
+                  {canShowHexViewer && (
+                    <Button
+                      variant={showHexData ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setShowHexData(!showHexData)}
+                      className="h-4 w-4 p-0"
+                      title={showHexData ? "Hide hex data" : "Show hex data"}
+                    >
+                      <Binary className="h-2 w-2" />
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </div>
+          {showHexData && canShowHexViewer && value.EDT && (
+            <div className="absolute top-full left-0 right-0 mt-1 text-xs font-mono bg-muted p-1 rounded border break-all shadow-md z-10">
+              {edtToHexString(value.EDT) || 'Invalid data'}
+            </div>
+          )}
         </div>
       );
     }
 
     return (
-      <div className="space-y-1">
+      <div className="space-y-1 relative">
         <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
           <span className="text-sm font-medium text-muted-foreground">
             {propertyName}:
@@ -100,12 +121,30 @@ export function DeviceCard({
                 onPropertyChange={onPropertyChange}
               />
             ) : (
-              <div className="text-sm font-medium">
-                {formattedValue}
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium">
+                  {formattedValue}
+                </div>
+                {canShowHexViewer && (
+                  <Button
+                    variant={showHexData ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowHexData(!showHexData)}
+                    className="h-6 w-6 p-0"
+                    title={showHexData ? "Hide hex data" : "Show hex data"}
+                  >
+                    <Binary className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
             )}
           </div>
         </div>
+        {showHexData && canShowHexViewer && value.EDT && (
+          <div className="absolute top-full left-0 right-0 mt-1 text-xs font-mono bg-muted p-2 rounded border break-all shadow-md z-10">
+            {edtToHexString(value.EDT) || 'Invalid data'}
+          </div>
+        )}
       </div>
     );
   };
