@@ -129,8 +129,14 @@ func (ws *WebSocketServer) handleClientConnect(connID string) error {
 		slog.Debug("Active clients", "count", ws.activeClients.Load())
 	}
 
-	// Send initial state to the client
-	return ws.sendInitialStateToClient(connID)
+	// Send initial state to the client asynchronously
+	// Don't wait for completion to avoid blocking the connection handler
+	if err := ws.sendInitialStateToClient(connID); err != nil {
+		slog.Error("Failed to start initial state sending", "error", err, "connID", connID)
+		// Don't return error here as connection should still be established
+	}
+
+	return nil
 }
 
 // handleClientMessage is called when a message is received from a client
@@ -235,15 +241,85 @@ func (ws *WebSocketServer) Stop() error {
 // sendInitialStateToClient sends the initial state to a client
 func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	if ws.handler.IsDebug() {
-		slog.Debug("Sending initial state to client")
+		slog.Debug("Sending initial state to client", "connID", connID)
+	}
+
+	// Run initial state generation in a separate goroutine to avoid blocking the connection handler
+	go func() {
+		// Add timeout to prevent indefinite blocking
+		ctx, cancel := context.WithTimeout(ws.ctx, 30*time.Second)
+		defer cancel()
+
+		// Use channel to signal completion or timeout
+		done := make(chan error, 1)
+
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("Panic in initial state generation", "error", r, "connID", connID)
+					done <- fmt.Errorf("panic during initial state generation: %v", r)
+				}
+			}()
+
+			if err := ws.generateAndSendInitialState(connID); err != nil {
+				done <- err
+			} else {
+				done <- nil
+			}
+		}()
+
+		// Wait for completion or timeout
+		select {
+		case err := <-done:
+			if err != nil {
+				slog.Error("Failed to send initial state", "error", err, "connID", connID)
+				// Send error notification to client
+				errorPayload := protocol.ErrorNotificationPayload{
+					Code:    protocol.ErrorCodeInternalServerError,
+					Message: "Failed to load initial state",
+				}
+				_ = ws.sendMessageToClient(connID, protocol.MessageTypeErrorNotification, errorPayload, "")
+			} else {
+				if ws.handler.IsDebug() {
+					slog.Debug("Initial state sent successfully", "connID", connID)
+				}
+			}
+		case <-ctx.Done():
+			slog.Error("Initial state generation timed out", "connID", connID)
+			// Send timeout error to client
+			errorPayload := protocol.ErrorNotificationPayload{
+				Code:    protocol.ErrorCodeInternalServerError,
+				Message: "Initial state loading timed out",
+			}
+			_ = ws.sendMessageToClient(connID, protocol.MessageTypeErrorNotification, errorPayload, "")
+		}
+	}()
+
+	return nil
+}
+
+// generateAndSendInitialState generates and sends the initial state data
+func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
+	if ws.handler.IsDebug() {
+		slog.Debug("Starting initial state generation", "connID", connID)
 	}
 
 	// Get all devices
+	if ws.handler.IsDebug() {
+		slog.Debug("Fetching device list", "connID", connID)
+	}
 	devices := ws.echonetClient.ListDevices(handler.FilterCriteria{})
+	if ws.handler.IsDebug() {
+		slog.Debug("Device list fetched", "connID", connID, "deviceCount", len(devices))
+	}
 
 	// Convert devices to protocol format
 	protoDevices := make(map[string]protocol.Device)
-	for _, device := range devices {
+	for i, device := range devices {
+		if ws.handler.IsDebug() && i < 5 { // Log first 5 devices to avoid spam
+			slog.Debug("Processing device", "connID", connID, "device", device.Device.Specifier(), "index", i)
+		}
+
 		// デバイスの最終更新タイムスタンプを取得
 		lastSeen := ws.handler.GetLastUpdateTime(device.Device)
 
@@ -258,18 +334,34 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 		protoDevices[device.Device.Specifier()] = protoDevice
 	}
 
+	if ws.handler.IsDebug() {
+		slog.Debug("Device conversion completed", "connID", connID, "protoDeviceCount", len(protoDevices))
+	}
+
 	// Get all aliases
+	if ws.handler.IsDebug() {
+		slog.Debug("Fetching alias list", "connID", connID)
+	}
 	aliasList := ws.echonetClient.AliasList()
 	aliases := make(map[string]client.IDString)
 	for _, alias := range aliasList {
 		aliases[alias.Alias] = alias.ID
 	}
+	if ws.handler.IsDebug() {
+		slog.Debug("Alias list fetched", "connID", connID, "aliasCount", len(aliases))
+	}
 
 	// Get all groups
+	if ws.handler.IsDebug() {
+		slog.Debug("Fetching group list", "connID", connID)
+	}
 	groupList := ws.echonetClient.GroupList(nil)
 	groups := make(map[string][]client.IDString)
 	for _, group := range groupList {
 		groups[group.Group] = group.Devices
+	}
+	if ws.handler.IsDebug() {
+		slog.Debug("Group list fetched", "connID", connID, "groupCount", len(groups))
 	}
 
 	// Create initial state payload
@@ -277,6 +369,10 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 		Devices: protoDevices,
 		Aliases: aliases,
 		Groups:  groups,
+	}
+
+	if ws.handler.IsDebug() {
+		slog.Debug("Sending initial state message", "connID", connID)
 	}
 
 	// Send the message
