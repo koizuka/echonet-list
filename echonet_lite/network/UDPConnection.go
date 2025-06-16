@@ -23,24 +23,21 @@ type UDPConnection struct {
 // MulticastKeepAlive はマルチキャストのキープアライブ管理を行います
 type MulticastKeepAlive struct {
 	enabled               bool
-	heartbeatInterval     time.Duration
 	groupRefreshInterval  time.Duration
 	networkMonitorEnabled bool
 	ctx                   context.Context
 	cancel                context.CancelFunc
 	interfaces            []net.Interface
 	interfacesMu          sync.RWMutex
-	lastHeartbeat         time.Time
 	lastGroupRefresh      time.Time
 	lastMu                sync.RWMutex
-	heartbeatCh           chan bool
 	groupRefreshCh        chan bool
+	done                  chan struct{} // goroutine終了通知用
 }
 
 // KeepAliveConfig はキープアライブの設定を表します
 type KeepAliveConfig struct {
 	Enabled               bool
-	HeartbeatInterval     time.Duration
 	GroupRefreshInterval  time.Duration
 	NetworkMonitorEnabled bool
 }
@@ -238,26 +235,25 @@ func (c *UDPConnection) initKeepAlive(ctx context.Context, config KeepAliveConfi
 
 	c.keepAlive = &MulticastKeepAlive{
 		enabled:               config.Enabled,
-		heartbeatInterval:     config.HeartbeatInterval,
 		groupRefreshInterval:  config.GroupRefreshInterval,
 		networkMonitorEnabled: config.NetworkMonitorEnabled,
 		ctx:                   keepAliveCtx,
 		cancel:                cancel,
 		interfaces:            []net.Interface{},
-		heartbeatCh:           make(chan bool, 1),
 		groupRefreshCh:        make(chan bool, 1),
+		done:                  make(chan struct{}),
 	}
 
 	// 初期のネットワークインターフェース情報を取得
 	if err := c.keepAlive.updateNetworkInterfaces(); err != nil {
 		slog.Warn("ネットワークインターフェース情報の取得に失敗", "err", err)
+		// エラーでも継続（空の interface リストで開始）
 	}
 
 	// キープアライブループを開始
 	go c.keepAliveLoop()
 
 	slog.Info("マルチキャストキープアライブが開始されました",
-		"heartbeatInterval", config.HeartbeatInterval,
 		"groupRefreshInterval", config.GroupRefreshInterval,
 		"networkMonitorEnabled", config.NetworkMonitorEnabled)
 
@@ -268,8 +264,8 @@ func (c *UDPConnection) initKeepAlive(ctx context.Context, config KeepAliveConfi
 func (c *UDPConnection) stopKeepAlive() {
 	if c.keepAlive != nil && c.keepAlive.cancel != nil {
 		c.keepAlive.cancel()
-		// goroutineが終了するまで少し待機してからnilを設定
-		time.Sleep(10 * time.Millisecond)
+		// goroutineの終了を待機
+		<-c.keepAlive.done
 		c.keepAlive = nil
 		slog.Info("マルチキャストキープアライブが停止されました")
 	}
@@ -285,8 +281,8 @@ func (c *UDPConnection) keepAliveLoop() {
 		return
 	}
 
-	heartbeatTicker := time.NewTicker(keepAlive.heartbeatInterval)
-	defer heartbeatTicker.Stop()
+	// 終了時にdoneチャンネルを必ずcloseする
+	defer close(keepAlive.done)
 
 	groupRefreshTicker := time.NewTicker(keepAlive.groupRefreshInterval)
 	defer groupRefreshTicker.Stop()
@@ -303,14 +299,8 @@ func (c *UDPConnection) keepAliveLoop() {
 			slog.Debug("キープアライブループを終了します")
 			return
 
-		case <-heartbeatTicker.C:
-			c.sendHeartbeat()
-
 		case <-groupRefreshTicker.C:
 			c.refreshMulticastGroup()
-
-		case <-keepAlive.heartbeatCh:
-			c.sendHeartbeat()
 
 		case <-keepAlive.groupRefreshCh:
 			c.refreshMulticastGroup()
@@ -326,36 +316,6 @@ func (c *UDPConnection) keepAliveLoop() {
 	}
 }
 
-// sendHeartbeat はハートビートを送信します（マルチキャストグループメンバーシップ維持用）
-func (c *UDPConnection) sendHeartbeat() {
-	c.mu.RLock()
-	keepAlive := c.keepAlive
-	multicastIP := c.multicastIP
-	c.mu.RUnlock()
-
-	if keepAlive == nil || multicastIP == nil {
-		return
-	}
-
-	// マルチキャストグループのメンバーシップを維持するための最小限のトラフィック
-	// 実際のアプリケーションレベルのハートビートはセッション層で実装される
-	// ここでは単純にソケットの活性化のために空のUDPパケットを送信
-
-	// 空のパケットを送信（1バイトの0x00）
-	heartbeatData := []byte{0x00}
-
-	// 注意: これは低レベルのネットワーク keep-alive で、ECHONET Lite プロトコルレベルの通信ではない
-	_, err := c.UdpConn.WriteTo(heartbeatData, &net.UDPAddr{IP: multicastIP, Port: c.Port})
-	if err != nil {
-		slog.Warn("ネットワークキープアライブ送信エラー", "err", err)
-	} else {
-		keepAlive.lastMu.Lock()
-		keepAlive.lastHeartbeat = time.Now()
-		keepAlive.lastMu.Unlock()
-		slog.Debug("ネットワークキープアライブを送信", "multicastIP", multicastIP)
-	}
-}
-
 // refreshMulticastGroup はマルチキャストグループのメンバーシップを更新します
 func (c *UDPConnection) refreshMulticastGroup() {
 	c.mu.RLock()
@@ -367,9 +327,11 @@ func (c *UDPConnection) refreshMulticastGroup() {
 		return
 	}
 
-	// マルチキャスト接続の再初期化（必要に応じて）
-	// 現在の実装では net.ListenMulticastUDP で自動的にグループに参加するため、
-	// 明示的な再参加は不要ですが、将来的にはより詳細な制御が可能
+	// IGMP準拠のグループメンバーシップ維持
+	// net.ListenMulticastUDP で自動的にグループに参加するため、
+	// ソケットが有効である限りIGMPメンバーシップは維持される
+	//
+	// このリフレッシュは主にネットワーク変更後の状態確認を目的とする
 
 	keepAlive.lastMu.Lock()
 	keepAlive.lastGroupRefresh = time.Now()
@@ -391,6 +353,7 @@ func (c *UDPConnection) monitorNetworkChanges() {
 	currentInterfaces, err := net.Interfaces()
 	if err != nil {
 		slog.Warn("ネットワークインターフェース情報の取得に失敗", "err", err)
+		// 次回の監視に期待し、エラーでも継続
 		return
 	}
 
@@ -411,6 +374,7 @@ func (c *UDPConnection) monitorNetworkChanges() {
 		newLocalIPs, err := GetLocalIPv4s()
 		if err != nil {
 			slog.Warn("ローカルIPアドレスの再取得に失敗", "err", err)
+			// エラーでも既存のIPリストを保持して継続
 		} else {
 			c.mu.Lock()
 			c.localIPs = newLocalIPs
@@ -462,19 +426,6 @@ func (ka *MulticastKeepAlive) updateNetworkInterfaces() error {
 	return nil
 }
 
-// TriggerHeartbeat は手動でハートビートをトリガーします
-func (c *UDPConnection) TriggerHeartbeat() {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.keepAlive != nil {
-		select {
-		case c.keepAlive.heartbeatCh <- true:
-		default:
-			// チャンネルがブロックされている場合は無視
-		}
-	}
-}
-
 // TriggerGroupRefresh は手動でグループ更新をトリガーします
 func (c *UDPConnection) TriggerGroupRefresh() {
 	c.mu.RLock()
@@ -489,7 +440,7 @@ func (c *UDPConnection) TriggerGroupRefresh() {
 }
 
 // GetKeepAliveStatus はキープアライブの状態を返します
-func (c *UDPConnection) GetKeepAliveStatus() (enabled bool, lastHeartbeat, lastGroupRefresh time.Time) {
+func (c *UDPConnection) GetKeepAliveStatus() (enabled bool, lastGroupRefresh time.Time) {
 	c.mu.RLock()
 	keepAlive := c.keepAlive
 	c.mu.RUnlock()
@@ -497,7 +448,7 @@ func (c *UDPConnection) GetKeepAliveStatus() (enabled bool, lastHeartbeat, lastG
 	if keepAlive != nil {
 		keepAlive.lastMu.RLock()
 		defer keepAlive.lastMu.RUnlock()
-		return keepAlive.enabled, keepAlive.lastHeartbeat, keepAlive.lastGroupRefresh
+		return keepAlive.enabled, keepAlive.lastGroupRefresh
 	}
-	return false, time.Time{}, time.Time{}
+	return false, time.Time{}
 }

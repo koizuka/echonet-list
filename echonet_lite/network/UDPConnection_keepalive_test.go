@@ -11,7 +11,6 @@ func TestKeepAliveConfig(t *testing.T) {
 	// テスト用のキープアライブ設定
 	config := &KeepAliveConfig{
 		Enabled:               true,
-		HeartbeatInterval:     1 * time.Second,
 		GroupRefreshInterval:  2 * time.Second,
 		NetworkMonitorEnabled: true,
 	}
@@ -31,16 +30,12 @@ func TestKeepAliveConfig(t *testing.T) {
 	defer conn.Close()
 
 	// キープアライブ状態をチェック
-	enabled, lastHeartbeat, lastGroupRefresh := conn.GetKeepAliveStatus()
+	enabled, lastGroupRefresh := conn.GetKeepAliveStatus()
 	if !enabled {
 		t.Error("キープアライブが有効になっていません")
 	}
 
-	// 少し待機してからハートビートとグループ更新をテスト
-	time.Sleep(100 * time.Millisecond)
-
-	// 手動でハートビートをトリガー
-	conn.TriggerHeartbeat()
+	// 少し待機してからグループ更新をテスト
 	time.Sleep(100 * time.Millisecond)
 
 	// 手動でグループ更新をトリガー
@@ -48,10 +43,7 @@ func TestKeepAliveConfig(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// 状態が更新されているかチェック
-	_, newLastHeartbeat, newLastGroupRefresh := conn.GetKeepAliveStatus()
-	if !newLastHeartbeat.After(lastHeartbeat) {
-		t.Error("ハートビートが更新されていません")
-	}
+	_, newLastGroupRefresh := conn.GetKeepAliveStatus()
 	if !newLastGroupRefresh.After(lastGroupRefresh) {
 		t.Error("グループ更新が実行されていません")
 	}
@@ -78,7 +70,7 @@ func TestKeepAliveDisabled(t *testing.T) {
 	defer conn.Close()
 
 	// キープアライブ状態をチェック
-	enabled, _, _ := conn.GetKeepAliveStatus()
+	enabled, _ := conn.GetKeepAliveStatus()
 	if enabled {
 		t.Error("キープアライブが無効になっていません")
 	}
@@ -100,7 +92,7 @@ func TestKeepAliveNilConfig(t *testing.T) {
 	defer conn.Close()
 
 	// キープアライブ状態をチェック
-	enabled, _, _ := conn.GetKeepAliveStatus()
+	enabled, _ := conn.GetKeepAliveStatus()
 	if enabled {
 		t.Error("キープアライブが無効になっていません")
 	}
@@ -121,7 +113,7 @@ func TestCreateUDPConnectionBackwardCompatibility(t *testing.T) {
 	defer conn.Close()
 
 	// キープアライブが無効であることを確認
-	enabled, _, _ := conn.GetKeepAliveStatus()
+	enabled, _ := conn.GetKeepAliveStatus()
 	if enabled {
 		t.Error("デフォルトでキープアライブが有効になっています")
 	}

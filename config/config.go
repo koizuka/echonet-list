@@ -88,7 +88,6 @@ type Config struct {
 	// Multicast keep-alive settings
 	Multicast struct {
 		KeepAliveEnabled      bool   `toml:"keep_alive_enabled"`
-		HeartbeatInterval     string `toml:"heartbeat_interval"`     // e.g., "30s", "1m"
 		GroupRefreshInterval  string `toml:"group_refresh_interval"` // e.g., "5m", "10m"
 		NetworkMonitorEnabled bool   `toml:"network_monitor_enabled"`
 	} `toml:"multicast"`
@@ -113,7 +112,6 @@ func NewConfig() *Config {
 
 	// Default multicast keep-alive settings
 	cfg.Multicast.KeepAliveEnabled = true
-	cfg.Multicast.HeartbeatInterval = "30s"
 	cfg.Multicast.GroupRefreshInterval = "5m"
 	cfg.Multicast.NetworkMonitorEnabled = true
 
