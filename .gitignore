@@ -69,3 +69,4 @@ web/.idea/
 web/*.swp
 web/*.swo
 web/*~
+.DS_Store
