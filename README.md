@@ -46,7 +46,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 go build
 ```
 
-3. Build the Web UI (optional, pre-built version included):
+3. Build the Web UI:
 
 ```bash
 cd web
