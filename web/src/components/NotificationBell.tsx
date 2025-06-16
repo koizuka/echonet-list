@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Bell, AlertCircle, AlertTriangle, X } from 'lucide-react';
 import { cn } from '../libs/utils';
 import { formatValue } from '../libs/formatValue';
