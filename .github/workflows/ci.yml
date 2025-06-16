@@ -14,16 +14,25 @@ jobs:
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
+    # Grant permissions for pull_request_target
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       server: ${{ steps.filter.outputs.server }}
       web: ${{ steps.filter.outputs.web }}
       docs: ${{ steps.filter.outputs.docs }}
     steps:
     - uses: actions/checkout@v4
+      with:
+        # For pull_request_target, we need to checkout the PR head
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
     
     - uses: dorny/paths-filter@v3
       id: filter
       with:
+        # Use the correct base for comparison
+        base: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || 'main' }}
         filters: |
           server:
             - '**.go'
