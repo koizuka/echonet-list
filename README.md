@@ -54,6 +54,46 @@ npm install
 npm run build
 ```
 
+### Setting up TLS Certificates (Recommended)
+
+For secure Web UI access, you'll need TLS certificates. For development, use mkcert:
+
+1. Install mkcert:
+
+```bash
+# macOS
+brew install mkcert
+
+# Linux
+sudo apt install libnss3-tools
+curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+chmod +x mkcert-v*-linux-amd64
+sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+```
+
+2. Install the local CA:
+
+```bash
+mkcert -install
+```
+
+3. Generate certificates:
+
+```bash
+mkdir -p certs
+mkcert -cert-file certs/localhost+2.pem -key-file certs/localhost+2-key.pem localhost 127.0.0.1 ::1
+```
+
+4. Run with TLS enabled:
+
+```bash
+./echonet-list -websocket -http-enabled -ws-tls -ws-cert-file=certs/localhost+2.pem -ws-key-file=certs/localhost+2-key.pem
+```
+
+5. Access the Web UI at `https://localhost:8080`
+
+For detailed certificate setup instructions, see the [mkcert Setup Guide](docs/mkcert_setup_guide.md).
+
 ## Usage
 
 Run the application:
@@ -187,8 +227,8 @@ The application includes an integrated HTTP and WebSocket server that provides b
 
 **URLs**:
 
-- WebSocket API: `wss://localhost:8080/ws` (with TLS) or `ws://localhost:8080/ws` (without TLS)
-- Web UI: `https://localhost:8080/` (with TLS) or `http://localhost:8080/` (without TLS)
+- WebSocket API: `wss://localhost:8080/ws`
+- Web UI: `https://localhost:8080/`
 
 **Development Workflow**: During web UI development, you can run the Vite development server independently (`npm run dev` in the `web/` directory) for faster iteration. For integration testing and deployment, enable both WebSocket and HTTP servers in the Go application.
 
@@ -279,22 +319,22 @@ For Web UI development, see the detailed guides:
 
 #### Quick Start
 
-1. Start the Go server with WebSocket and HTTP enabled:
+1. Start the Go server with WebSocket and HTTP enabled (TLS required for modern browsers):
 
 ```bash
-./echonet-list -websocket -http-enabled
+./echonet-list -websocket -http-enabled -ws-tls -ws-cert-file=certs/localhost+2.pem -ws-key-file=certs/localhost+2-key.pem
 ```
 
-2. Open your web browser and navigate to `http://localhost:8080`
+2. Open your web browser and navigate to `https://localhost:8080`
 
 #### Development Mode
 
 For faster web UI development with hot reloading:
 
-1. Start the Go server (WebSocket only):
+1. Start the Go server (WebSocket only with TLS):
 
 ```bash
-./echonet-list -websocket
+./echonet-list -websocket -ws-tls -ws-cert-file=certs/localhost+2.pem -ws-key-file=certs/localhost+2-key.pem
 ```
 
 2. In a separate terminal, start the Vite development server:
@@ -304,7 +344,7 @@ cd web
 npm run dev
 ```
 
-3. Open `http://localhost:5173` for the development version with hot reloading
+3. Open `http://localhost:5173` for the development version with hot reloading (Vite dev server handles HTTPS/WSS proxy)
 
 #### Custom WebSocket URL for Development
 
