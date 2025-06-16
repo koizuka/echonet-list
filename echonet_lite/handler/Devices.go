@@ -193,6 +193,7 @@ type DevicesImpl struct {
 	timestamps     map[string]time.Time        // key is "IP EOJ" format string (IPAndEOJ.Key())
 	EventCh        chan DeviceEvent            // デバイスイベント通知用チャンネル
 	offlineDevices map[string]struct{}         // オフライン状態のデバイス (key: IPAndEOJ.Key())
+	saveMu         sync.Mutex                  // ファイル保存操作の排他制御用
 }
 
 type Devices struct {
@@ -487,6 +488,10 @@ func (d Devices) ListDevicePropertyData() []DevicePropertyData {
 
 // SaveToFile saves the Devices data to a file in the new JSON format with versioning.
 func (d Devices) SaveToFile(filename string) error {
+	// ファイル保存操作の排他制御
+	d.saveMu.Lock()
+	defer d.saveMu.Unlock()
+
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
