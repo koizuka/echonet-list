@@ -1,8 +1,10 @@
 {
   "cSpell.words": [
+    "addstore",
     "aircon",
     "bata",
     "CAROOT",
+    "certutil",
     "choco",
     "chzyer",
     "Daikin",
@@ -15,6 +17,7 @@
     "epcs",
     "ESVINF",
     "ESVINFC",
+    "findstr",
     "firewalld",
     "frontends",
     "iface",
