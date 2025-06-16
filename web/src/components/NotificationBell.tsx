@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, AlertCircle, AlertTriangle, X } from 'lucide-react';
+import { Bell, AlertCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '../libs/utils';
 import { formatValue } from '../libs/formatValue';
 import { Button } from './ui/button';
@@ -76,26 +76,20 @@ export function NotificationBell({
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
             <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Server Logs</h3>
-            <div className="flex items-center gap-2">
-              {logs.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7 px-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  onClick={onClearAll}
-                >
-                  Clear All
-                </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "text-xs h-7 px-2",
+                logs.length === 0 
+                  ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                  : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                onClick={() => setIsOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+              onClick={onClearAll}
+              disabled={logs.length === 0}
+            >
+              Clear All
+            </Button>
           </div>
 
           {/* Content */}
