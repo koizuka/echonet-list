@@ -45,7 +45,7 @@
     "jiti": "^2.4.2",
     "jsdom": "^26.1.0",
     "postcss": "^8.5.4",
-    "tailwindcss": "^4.1.8",
+    "tailwindcss": "^4.1.10",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.33.1",
     "vite": "^6.0.3",
