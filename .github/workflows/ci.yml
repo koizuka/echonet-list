@@ -10,9 +10,53 @@ on:
     branches: [ main, master ]
 
 jobs:
+  # Detect which files have changed to determine which tests to run
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.filter.outputs.server }}
+      web: ${{ steps.filter.outputs.web }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          server:
+            - '**.go'
+            - 'go.mod'
+            - 'go.sum'
+            - 'config/**'
+            - 'client/**'
+            - 'console/**'
+            - 'echonet_lite/**'
+            - 'protocol/**'
+            - 'server/**'
+          web:
+            - 'web/src/**'
+            - 'web/package*.json'
+            - 'web/tsconfig*.json'
+            - 'web/vite.config.ts'
+            - 'web/vitest.config.ts'
+            - 'web/postcss.config.js'
+            - 'web/tailwind.config.js'
+            - 'web/eslint.config.ts'
+            - 'web/index.html'
+            - 'web/public/**'
+          docs:
+            - '**.md'
+            - 'docs/**'
+            - '.vscode/**'
+            - 'systemd/**'
+            - '.github/**'
   go-server:
     name: Go Server Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     
     steps:
     - uses: actions/checkout@v4
@@ -59,6 +103,8 @@ jobs:
   web-ui:
     name: Web UI Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     
     defaults:
       run:
@@ -100,7 +146,13 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: [go-server, web-ui]
+    needs: [changes, go-server, web-ui]
+    # Run if either server or web tests ran (at least one of them)
+    if: |
+      always() && 
+      (needs.changes.outputs.server == 'true' || needs.changes.outputs.web == 'true') &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')
     
     steps:
     - uses: actions/checkout@v4
@@ -140,3 +192,41 @@ jobs:
       run: |
         echo "Integration tests would run here"
         # Future: Add actual integration tests
+
+  # Summary job that provides a single status check for branch protection
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [changes, go-server, web-ui, integration]
+    if: always()
+    
+    steps:
+    - name: Check CI Results
+      run: |
+        echo "Checking CI results..."
+        echo "Server changes: ${{ needs.changes.outputs.server }}"
+        echo "Web changes: ${{ needs.changes.outputs.web }}"
+        echo "Docs only: ${{ needs.changes.outputs.docs }}"
+        
+        # Check if any tests were supposed to run
+        if [[ "${{ needs.changes.outputs.server }}" == "true" || "${{ needs.changes.outputs.web }}" == "true" ]]; then
+          echo "Tests were executed. Checking results..."
+          
+          # Check if any job failed
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "❌ CI failed: One or more tests failed"
+            exit 1
+          fi
+          
+          # Check if any job was cancelled
+          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "⚠️ CI cancelled: One or more jobs were cancelled"
+            exit 1
+          fi
+          
+          echo "✅ All tests passed!"
+        else
+          echo "✅ No code changes detected - skipping tests"
+        fi
+        
+        echo "CI completed successfully!"
