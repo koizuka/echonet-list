@@ -9,7 +9,7 @@ This document describes the multicast keep-alive functionality implemented in EC
 ### 1. Multicast Group Membership Maintenance
 
 - **Automatic Group Join**: Uses `net.ListenMulticastUDP()` for automatic multicast group joining
-- **Periodic Heartbeat**: Sends minimal UDP packets to maintain group membership
+- **IGMP Compliance**: Relies on OS kernel's IGMP implementation for group membership
 - **Group Refresh**: Periodically validates and refreshes multicast group membership
 
 ### 2. Network Monitoring
@@ -17,10 +17,10 @@ This document describes the multicast keep-alive functionality implemented in EC
 - **Interface Monitoring**: Detects network interface changes (up/down, IP changes)
 - **Automatic Recovery**: Automatically refreshes connections when network changes are detected
 - **IP Address Updates**: Updates local IP address cache when network interfaces change
+- **IGMP-based Keep-Alive**: Uses standard IGMP protocol instead of custom heartbeat packets
 
 ### 3. Configurable Keep-Alive Settings
 
-- **Heartbeat Interval**: Configurable interval for sending heartbeat packets (default: 30s)
 - **Group Refresh Interval**: Configurable interval for group membership validation (default: 5m)
 - **Network Monitor**: Enable/disable network interface monitoring (default: enabled)
 
@@ -32,10 +32,6 @@ This document describes the multicast keep-alive functionality implemented in EC
 [multicast]
 # Enable multicast keep-alive functionality
 keep_alive_enabled = true
-
-# Interval for sending heartbeat packets to maintain multicast group membership
-# Recommended: 30s-60s for home networks, 10s-30s for unstable networks
-heartbeat_interval = "30s"
 
 # Interval for refreshing multicast group membership
 # Recommended: 5m-10m for most environments
@@ -51,7 +47,6 @@ network_monitor_enabled = true
 #### Home Networks (Stable)
 
 ```toml
-heartbeat_interval = "60s"
 group_refresh_interval = "10m"
 network_monitor_enabled = true
 ```
@@ -59,7 +54,6 @@ network_monitor_enabled = true
 #### Corporate Networks (Moderate)
 
 ```toml
-heartbeat_interval = "30s"
 group_refresh_interval = "5m"
 network_monitor_enabled = true
 ```
@@ -67,7 +61,6 @@ network_monitor_enabled = true
 #### Unstable Networks (Mobile/WiFi)
 
 ```toml
-heartbeat_interval = "15s"
 group_refresh_interval = "2m"
 network_monitor_enabled = true
 ```
@@ -83,13 +76,13 @@ network_monitor_enabled = true
 - `MulticastKeepAlive` struct: Manages keep-alive state and timers
 - `KeepAliveConfig` struct: Configuration parameters
 - `keepAliveLoop()`: Main keep-alive event loop
-- `sendHeartbeat()`: Sends minimal UDP packets for group membership
+- ~~`sendHeartbeat()`~~: Removed - now relies on OS kernel's IGMP implementation
 - `monitorNetworkChanges()`: Monitors network interface changes
 
 #### Key Methods
 
 - `CreateUDPConnectionWithKeepAlive()`: Creates UDP connection with keep-alive
-- `TriggerHeartbeat()`: Manually triggers heartbeat
+- ~~`TriggerHeartbeat()`~~: Removed - heartbeat functionality replaced by IGMP
 - `TriggerGroupRefresh()`: Manually triggers group refresh
 - `GetKeepAliveStatus()`: Returns current keep-alive status
 
@@ -117,17 +110,24 @@ network_monitor_enabled = true
 
 ## Protocol Considerations
 
-### Heartbeat Packets
+### IGMP Compliance (Updated in PR #33)
 
-- **Size**: Minimal 1-byte packets (`0x00`)
-- **Purpose**: Maintain OS-level multicast group membership
-- **Not ECHONET Lite**: These are low-level network keep-alive packets
-- **Filtering**: Properly filtered by ECHONET Lite message parser (too small to be valid)
+- **RFC 2236**: Full compliance with IGMPv2 specification
+- **Query/Report**: OS kernel handles IGMP Query messages from routers and sends Reports
+- **Timeout**: Default 260-second timeout managed by router (configurable)
+- **No Custom Packets**: Removed application-level heartbeat packets that violated IGMP spec
+
+### IGMP-based Keep-Alive
+
+- **Protocol**: Uses standard IGMP (Internet Group Management Protocol)
+- **OS Integration**: Relies on OS kernel's IGMP implementation
+- **No Custom Packets**: No application-level heartbeat packets
+- **Standards Compliant**: Follows RFC 2236 (IGMPv2) specifications
 
 ### Network Traffic Impact
 
-- **Minimal Overhead**: 1 byte every 30 seconds (default)
-- **Background Traffic**: Runs independently of application traffic
+- **Zero Application Overhead**: No custom keep-alive packets
+- **IGMP Only**: Standard IGMP Query/Report messages handled by OS
 - **No Protocol Interference**: Doesn't affect ECHONET Lite communication
 
 ## Monitoring and Diagnostics
@@ -137,7 +137,7 @@ network_monitor_enabled = true
 #### Info Level
 
 ```
-INFO マルチキャストキープアライブが開始されました heartbeatInterval=30s groupRefreshInterval=5m networkMonitorEnabled=true
+INFO マルチキャストキープアライブが開始されました groupRefreshInterval=5m networkMonitorEnabled=true
 INFO ネットワークインターフェースの変更を検出しました
 INFO マルチキャストキープアライブが停止されました
 ```
@@ -145,7 +145,6 @@ INFO マルチキャストキープアライブが停止されました
 #### Debug Level
 
 ```
-DEBUG ネットワークキープアライブを送信 multicastIP=224.0.23.0
 DEBUG マルチキャストグループのメンバーシップを確認しました multicastIP=224.0.23.0
 DEBUG ローカルIPアドレスを更新しました count=2
 DEBUG キープアライブループを終了します
@@ -154,9 +153,9 @@ DEBUG キープアライブループを終了します
 #### Warning Level
 
 ```
-WARN ネットワークキープアライブ送信エラー err="network is unreachable"
 WARN ネットワークインターフェース情報の取得に失敗 err="operation not permitted"
 WARN ローカルIPアドレスの再取得に失敗 err="no route to host"
+WARN マルチキャストグループの再参加に失敗しました err="network is unreachable"
 ```
 
 ### Status Monitoring
@@ -164,9 +163,8 @@ WARN ローカルIPアドレスの再取得に失敗 err="no route to host"
 Use the `GetKeepAliveStatus()` method to check current status:
 
 ```go
-enabled, lastHeartbeat, lastGroupRefresh := connection.GetKeepAliveStatus()
+enabled, lastGroupRefresh := connection.GetKeepAliveStatus()
 if enabled {
-    fmt.Printf("Last heartbeat: %v\n", lastHeartbeat)
     fmt.Printf("Last group refresh: %v\n", lastGroupRefresh)
 }
 ```
@@ -187,17 +185,23 @@ if enabled {
 - **Cause**: `network_monitor_enabled = false` or insufficient permissions
 - **Solution**: Enable monitoring and check network interface permissions
 
-#### 3. High Network Traffic
+#### 3. IGMP Timeout Issues
 
-- **Symptom**: Unexpected network usage
-- **Cause**: Too frequent heartbeat interval
-- **Solution**: Increase `heartbeat_interval` (e.g., to 60s or 120s)
+- **Symptom**: Multicast group membership timeout
+- **Cause**: Network router IGMP configuration or firewall blocking IGMP
+- **Solution**: Check router IGMP settings and firewall rules for IGMP traffic
 
 #### 4. Multicast Group Leave Issues
 
 - **Symptom**: Application doesn't properly leave multicast group
 - **Cause**: Improper shutdown or context cancellation
 - **Solution**: Ensure proper Close() call and context management
+
+#### 5. Synchronization Issues (Fixed in PR #33)
+
+- **Symptom**: Race conditions or goroutine leaks
+- **Cause**: Improper synchronization in keep-alive shutdown
+- **Solution**: Updated to use `done` channel for proper goroutine termination
 
 ### Network Requirements
 
@@ -249,32 +253,48 @@ sudo ifconfig en0 up
 - New functionality accessed through `*WithKeepAlive` functions
 - Configuration is optional and backward compatible
 
+## Breaking Changes (PR #33)
+
+⚠️ **Configuration Changes Required**
+
+If you have an existing configuration file with `heartbeat_interval`, you must remove this setting:
+
+```diff
+[multicast]
+keep_alive_enabled = true
+-heartbeat_interval = "30s"  # REMOVE THIS LINE
+group_refresh_interval = "5m"
+network_monitor_enabled = true
+```
+
+The heartbeat functionality has been completely removed in favor of IGMP-compliant implementation.
+
 ## Performance Impact
 
 ### Memory Usage
 
-- **Additional Memory**: ~1KB per connection for keep-alive state
+- **Additional Memory**: <1KB per connection for keep-alive state
 - **Goroutines**: 1 additional goroutine per connection
-- **Timers**: 2-3 timers per connection (heartbeat, group refresh, network monitor)
+- **Timers**: 1-2 timers per connection (group refresh, network monitor)
 
 ### CPU Usage
 
 - **Background Processing**: Minimal CPU usage for timers
 - **Network Monitoring**: Low-frequency interface checks (every 10 seconds)
-- **Heartbeat**: Minimal packet creation and transmission
+- **No Heartbeat Overhead**: No CPU usage for packet creation/transmission
 
 ### Network Impact
 
-- **Bandwidth**: ~3 bytes/minute (1 byte per 30s heartbeat)
-- **Packet Rate**: 2 packets/minute additional multicast traffic
+- **Bandwidth**: Zero additional application-level traffic
+- **Packet Rate**: Only standard IGMP messages (handled by OS)
 - **No Effect**: On existing ECHONET Lite protocol communications
 
 ## Future Enhancements
 
 ### Potential Improvements
 
-1. **Adaptive Intervals**: Adjust heartbeat frequency based on network stability
-2. **Connection Quality Metrics**: Track packet loss and latency
-3. **Advanced Network Detection**: Support for more network change scenarios
-4. **Keep-Alive Statistics**: Detailed monitoring and reporting
-5. **Custom Heartbeat Messages**: Application-specific keep-alive content
+1. **Connection Quality Metrics**: Track multicast group membership status
+2. **Advanced Network Detection**: Support for more network change scenarios
+3. **Keep-Alive Statistics**: Detailed monitoring and reporting
+4. **IGMP Version Detection**: Automatic detection of IGMPv2/v3 support
+5. **Router Configuration Helper**: Diagnostic tools for IGMP router settings
