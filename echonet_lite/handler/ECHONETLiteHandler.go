@@ -117,10 +117,17 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 		operationStatusOn,
 		*identificationNumber.Property(),
 		{EPC: echonet_lite.EPCManufacturerCode, EDT: manufacturerCodeEDT},
-		{EPC: echonet_lite.EPCInstallationLocation, EDT: []byte{0x00}}, // 設置場所：未設定
 	}
 	npoProps := []Property{*echonet_lite.ECHONETLite_Version.Property()}
 	npoProps = append(npoProps, commonProps...)
+
+	// NodeProfileObject用のStatus Announcement Property Mapを作成(現在は空)
+	npoAnnouncementMap := make(PropertyMap)
+
+	npoProps = append(npoProps, Property{
+		EPC: echonet_lite.EPCStatusAnnouncementPropertyMap,
+		EDT: npoAnnouncementMap.Encode(),
+	})
 
 	// 自ノードのプロファイルオブジェクトを作成
 	err = localDevices.Set(echonet_lite.NodeProfileObject, npoProps...)
@@ -131,14 +138,18 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 
 	// コントローラー用のStatus Announcement Property Mapを作成
 	// 設置場所の変更をアナウンスするように設定
-	announcementMap := make(PropertyMap)
-	announcementMap.Set(echonet_lite.EPCInstallationLocation) // 0x81
+	controllerAnnouncementMap := make(PropertyMap)
+	controllerAnnouncementMap.Set(echonet_lite.EPCInstallationLocation) // 0x81
 
 	controllerProps := commonProps
 	controllerProps = append(controllerProps, Property{
 		EPC: echonet_lite.EPCStatusAnnouncementPropertyMap,
-		EDT: announcementMap.Encode(),
+		EDT: controllerAnnouncementMap.Encode(),
 	})
+	controllerProps = append(controllerProps, Property{
+		EPC: echonet_lite.EPCInstallationLocation,
+		EDT: []byte{0x00},
+	}) // 設置場所：未設定
 
 	// コントローラのプロパティを設定
 	err = localDevices.Set(seoj, controllerProps...)
