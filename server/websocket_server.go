@@ -68,6 +68,11 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 	return ws, nil
 }
 
+// GetTransport returns the WebSocket transport
+func (ws *WebSocketServer) GetTransport() WebSocketTransport {
+	return ws.transport
+}
+
 // periodicUpdater runs in a goroutine, triggering property updates at the configured interval
 // if at least one client is connected.
 func (ws *WebSocketServer) periodicUpdater() {

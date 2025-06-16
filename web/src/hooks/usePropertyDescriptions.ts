@@ -1,14 +1,15 @@
 import { useEffect, useCallback } from 'react';
 import { useECHONET } from './useECHONET';
 import { extractClassCodeFromEOJ } from '@/libs/propertyHelper';
-import type { Device } from './types';
+import type { Device, ServerMessage } from './types';
 
 /**
  * Hook that automatically fetches property descriptions for devices
  * and provides utility functions for working with property names
  */
-export function usePropertyDescriptions(wsUrl: string) {
-  const echonet = useECHONET(wsUrl);
+
+export function usePropertyDescriptions(wsUrl: string, onMessage?: (message: ServerMessage) => void) {
+  const echonet = useECHONET(wsUrl, onMessage);
 
   // Get unique class codes from all devices
   const getUniqueClassCodes = useCallback((devices: Record<string, Device>): Set<string> => {

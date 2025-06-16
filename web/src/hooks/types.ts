@@ -91,6 +91,16 @@ export type ErrorNotification = {
   payload: ErrorInfo;
 };
 
+export type LogNotification = {
+  type: 'log_notification';
+  payload: {
+    level: 'ERROR' | 'WARN';
+    message: string;
+    time: string; // ISO 8601 format
+    attributes: Record<string, unknown>;
+  };
+};
+
 export type ServerMessage = 
   | InitialState
   | DeviceAdded
@@ -99,7 +109,8 @@ export type ServerMessage =
   | TimeoutNotification
   | DeviceOffline
   | GroupChanged
-  | ErrorNotification;
+  | ErrorNotification
+  | LogNotification;
 
 // Client -> Server Messages (Requests)
 export type BaseRequest<T = Record<string, unknown>> = {
