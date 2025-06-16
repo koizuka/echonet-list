@@ -85,7 +85,10 @@ export function NotificationBell({
                   ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
                   : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               )}
-              onClick={onClearAll}
+              onClick={() => {
+                onClearAll();
+                setIsOpen(false);
+              }}
               disabled={logs.length === 0}
             >
               Clear All
