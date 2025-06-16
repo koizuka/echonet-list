@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { NotificationBell } from './NotificationBell';
@@ -115,7 +114,8 @@ describe('NotificationBell', () => {
     
     fireEvent.click(screen.getByRole('button'));
     
-    expect(screen.getByText('device: 192.168.1.1')).toBeInTheDocument();
+    expect(screen.getByText('device:')).toBeInTheDocument();
+    expect(screen.getByText('192.168.1.1')).toBeInTheDocument();
   });
 
   it('shows correct total count in footer', () => {

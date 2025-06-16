@@ -1,24 +1,16 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import { LogNotifications } from './LogNotifications';
 import type { LogNotification } from '../hooks/types';
 
 describe('LogNotifications', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
+  it('starts with empty logs', () => {
+    const { result } = renderHook(() => LogNotifications({}));
+    
+    expect(result.current.logs).toEqual([]);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('renders nothing when no notifications', () => {
-    const { container } = render(<LogNotifications />);
-    expect(container.firstChild).toBeNull();
-  });
-
-  it('displays error notification', () => {
+  it('adds new log entry when notification is received', () => {
     const notification: LogNotification = {
       type: 'log_notification',
       payload: {
@@ -29,120 +21,120 @@ describe('LogNotifications', () => {
       }
     };
 
-    render(<LogNotifications notification={notification} />);
-
-    expect(screen.getByText('Test error message')).toBeInTheDocument();
-    expect(screen.getByText('device: 192.168.1.1')).toBeInTheDocument();
-  });
-
-  it('displays warning notification', () => {
-    const notification: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'WARN',
-        message: 'Test warning message',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
-
-    render(<LogNotifications notification={notification} />);
-
-    expect(screen.getByText('Test warning message')).toBeInTheDocument();
-  });
-
-  it('auto-hides warning notifications after delay', async () => {
-    const notification: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'WARN',
-        message: 'Auto-hide warning',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
-
-    const { rerender } = render(
-      <LogNotifications notification={notification} autoHideDelay={1000} />
+    const { result, rerender } = renderHook(
+      ({ notification }) => LogNotifications({ notification }),
+      { initialProps: { notification: undefined } }
     );
 
-    // Initially visible
-    expect(screen.getByText('Auto-hide warning')).toBeInTheDocument();
+    expect(result.current.logs).toEqual([]);
 
-    // Should still be in log history
-    expect(screen.getAllByText('Auto-hide warning')).toHaveLength(2); // Toast + history
+    rerender({ notification });
 
-    // Advance time
-    vi.advanceTimersByTime(1000);
+    expect(result.current.logs).toHaveLength(1);
+    expect(result.current.logs[0].message).toBe('Test error message');
+    expect(result.current.logs[0].level).toBe('ERROR');
+    expect(result.current.logs[0].isRead).toBe(false);
+  });
 
-    // Wait for state update
-    await waitFor(() => {
-      // Toast should be hidden, but still in history
-      expect(screen.getAllByText('Auto-hide warning')).toHaveLength(1);
+  it('marks individual log as read', () => {
+    const notification: LogNotification = {
+      type: 'log_notification',
+      payload: {
+        level: 'ERROR',
+        message: 'Test message',
+        time: '2023-04-01T12:00:00Z',
+        attributes: {}
+      }
+    };
+
+    const { result, rerender } = renderHook(
+      ({ notification }) => LogNotifications({ notification }),
+      { initialProps: { notification: undefined } }
+    );
+
+    rerender({ notification });
+    
+    const logId = result.current.logs[0].id;
+    
+    act(() => {
+      result.current.markAsRead(logId);
     });
+
+    expect(result.current.logs[0].isRead).toBe(true);
   });
 
-  it('does not auto-hide error notifications', async () => {
-    const notification: LogNotification = {
+  it('marks all logs as read', () => {
+    const { result, rerender } = renderHook(
+      ({ notification }) => LogNotifications({ notification }),
+      { initialProps: { notification: undefined } }
+    );
+
+    // Add two notifications
+    const notification1: LogNotification = {
       type: 'log_notification',
       payload: {
         level: 'ERROR',
-        message: 'Persistent error',
+        message: 'Message 1',
         time: '2023-04-01T12:00:00Z',
         attributes: {}
       }
     };
 
-    render(<LogNotifications notification={notification} autoHideDelay={1000} />);
+    const notification2: LogNotification = {
+      type: 'log_notification',
+      payload: {
+        level: 'WARN',
+        message: 'Message 2',
+        time: '2023-04-01T12:01:00Z',
+        attributes: {}
+      }
+    };
 
-    expect(screen.getAllByText('Persistent error')).toHaveLength(2); // Toast + history
+    rerender({ notification: notification1 });
+    rerender({ notification: notification2 });
 
-    vi.advanceTimersByTime(2000);
+    expect(result.current.logs).toHaveLength(2);
+    expect(result.current.logs.every(log => !log.isRead)).toBe(true);
 
-    // Should still show both toast and history
-    expect(screen.getAllByText('Persistent error')).toHaveLength(2);
+    act(() => {
+      result.current.markAllAsRead();
+    });
+
+    expect(result.current.logs.every(log => log.isRead)).toBe(true);
   });
 
-  it('dismisses toast when X is clicked', () => {
+  it('clears all logs', () => {
     const notification: LogNotification = {
       type: 'log_notification',
       payload: {
         level: 'ERROR',
-        message: 'Dismissible error',
+        message: 'Test message',
         time: '2023-04-01T12:00:00Z',
         attributes: {}
       }
     };
 
-    render(<LogNotifications notification={notification} />);
+    const { result, rerender } = renderHook(
+      ({ notification }) => LogNotifications({ notification }),
+      { initialProps: { notification: undefined } }
+    );
 
-    const dismissButtons = screen.getAllByLabelText('Dismiss');
-    fireEvent.click(dismissButtons[0]); // Click the toast dismiss button
+    rerender({ notification });
+    
+    expect(result.current.logs).toHaveLength(1);
 
-    // Toast should be gone but still in history
-    expect(screen.getAllByText('Dismissible error')).toHaveLength(1);
-  });
+    act(() => {
+      result.current.clearAllLogs();
+    });
 
-  it('clears all logs when Clear button is clicked', () => {
-    const notification: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Clear test',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
-
-    const { container } = render(<LogNotifications notification={notification} />);
-
-    fireEvent.click(screen.getByText('Clear'));
-
-    expect(container.firstChild).toBeNull();
+    expect(result.current.logs).toEqual([]);
   });
 
   it('respects maxLogs limit', () => {
-    const { rerender } = render(<LogNotifications maxLogs={2} />);
+    const { result, rerender } = renderHook(
+      ({ notification }) => LogNotifications({ notification, maxLogs: 2 }),
+      { initialProps: { notification: undefined } }
+    );
 
     // Add 3 notifications
     for (let i = 1; i <= 3; i++) {
@@ -155,12 +147,44 @@ describe('LogNotifications', () => {
           attributes: {}
         }
       };
-      rerender(<LogNotifications notification={notification} maxLogs={2} />);
+      rerender({ notification });
     }
 
-    // Should only show the last 2
-    expect(screen.queryByText('Message 1')).not.toBeInTheDocument();
-    expect(screen.getByText('Message 2')).toBeInTheDocument();
-    expect(screen.getByText('Message 3')).toBeInTheDocument();
+    // Should only keep the last 2
+    expect(result.current.logs).toHaveLength(2);
+    expect(result.current.logs[0].message).toBe('Message 3'); // Most recent first
+    expect(result.current.logs[1].message).toBe('Message 2');
+  });
+
+  it('calls onLogsChange when logs change', () => {
+    const onLogsChange = vi.fn();
+    const notification: LogNotification = {
+      type: 'log_notification',
+      payload: {
+        level: 'ERROR',
+        message: 'Test message',
+        time: '2023-04-01T12:00:00Z',
+        attributes: {}
+      }
+    };
+
+    const { rerender } = renderHook(
+      ({ notification }) => LogNotifications({ notification, onLogsChange }),
+      { initialProps: { notification: undefined } }
+    );
+
+    expect(onLogsChange).toHaveBeenCalledWith([], 0);
+
+    rerender({ notification });
+
+    expect(onLogsChange).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: 'Test message',
+          isRead: false
+        })
+      ]),
+      1
+    );
   });
 });
