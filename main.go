@@ -140,6 +140,11 @@ func main() {
 			os.Exit(1)
 		}
 
+		// LogManagerにWebSocketトランスポートを設定
+		if err := logManager.SetTransport(wsServer.GetTransport()); err != nil {
+			fmt.Fprintf(os.Stderr, "ログブロードキャスト設定エラー: %v\n", err)
+		}
+
 		// プログラム終了時にWebSocketサーバーを停止する
 		defer func() {
 			if err := wsServer.Stop(); err != nil {

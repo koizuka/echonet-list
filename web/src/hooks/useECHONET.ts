@@ -174,12 +174,17 @@ export type ECHONETHook = {
   // Connection operations
   connect: () => void;
   disconnect: () => void;
+  
+  // Message handler for additional processing
+  onMessage?: (message: ServerMessage) => void;
 };
 
-export function useECHONET(url: string): ECHONETHook {
+export function useECHONET(url: string, onMessage?: (message: ServerMessage) => void): ECHONETHook {
   const [state, dispatch] = useReducer(echonetReducer, initialState);
   
   const handleServerMessage = useCallback((message: ServerMessage) => {
+    // Call external handler if provided
+    onMessage?.(message);
     if (import.meta.env.DEV) {
       console.log('📨 Received server message:', message.type);
     }
@@ -263,7 +268,7 @@ export function useECHONET(url: string): ECHONETHook {
       default:
         console.log('Unhandled server message:', message);
     }
-  }, []);
+  }, [onMessage]);
 
   const handleConnectionStateChange = useCallback((connectionState: ConnectionState) => {
     if (import.meta.env.DEV) {

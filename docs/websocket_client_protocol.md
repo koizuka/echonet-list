@@ -313,6 +313,30 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 }
 ```
 
+### log_notification
+
+サーバー側でError/Warnレベルのログが発生したことを通知します。デバッグやシステム監視に使用できます。
+
+```json
+{
+  "type": "log_notification",
+  "payload": {
+    "level": "ERROR",  // "ERROR" または "WARN"
+    "message": "Device communication timeout",
+    "time": "2023-04-01T12:34:56Z",
+    "attributes": {
+      "device": "192.168.1.10 0130:1",
+      "err": "timeout after 5s"
+    }
+  }
+}
+```
+
+- `level`: ログレベル（"ERROR" または "WARN"）
+- `message`: ログメッセージ
+- `time`: ログ発生時刻（ISO 8601形式）
+- `attributes`: ログに関連する追加情報（key-valueペア）
+
 ## 5. クライアント -> サーバー メッセージ（リクエスト）
 
 クライアントからサーバーへ操作を要求するJSONメッセージです。一意な `requestId`（文字列）を含める必要があります。サーバーは対応する `requestId` を持つ `command_result` メッセージで応答します。
@@ -709,6 +733,16 @@ function handleNotification(type: string, payload: any) {
       
     case "error_notification":
       console.error(`Server Error: ${payload.code} - ${payload.message}`);
+      break;
+      
+    case "log_notification":
+      // ログレベルに応じた処理
+      if (payload.level === "ERROR") {
+        console.error(`[Server ${payload.level}] ${payload.message}`, payload.attributes);
+      } else if (payload.level === "WARN") {
+        console.warn(`[Server ${payload.level}] ${payload.message}`, payload.attributes);
+      }
+      // UI表示やログ保存などの追加処理
       break;
   }
 }

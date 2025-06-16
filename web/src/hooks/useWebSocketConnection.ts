@@ -123,7 +123,27 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         }
       } else {
         // Handle server notification
-        options.onMessage?.(message as ServerMessage);
+        const serverMessage = message as ServerMessage;
+        
+        // Handle log notifications specially
+        if (serverMessage.type === 'log_notification') {
+          const { level, message: logMessage, attributes } = serverMessage.payload as {
+            level: string;
+            message: string;
+            time: string;
+            attributes: Record<string, unknown>;
+          };
+          
+          // Log to console based on level
+          if (level === 'ERROR') {
+            console.error(`[Server ${level}] ${logMessage}`, attributes);
+          } else if (level === 'WARN') {
+            console.warn(`[Server ${level}] ${logMessage}`, attributes);
+          }
+        }
+        
+        // Always pass the message to the handler
+        options.onMessage?.(serverMessage);
       }
     } catch (error) {
       console.error('Failed to parse WebSocket message:', error);

@@ -13,6 +13,7 @@ type LogManager struct {
 	logFilename string
 	file        *os.File
 	mu          sync.Mutex
+	transport   WebSocketTransport
 }
 
 func NewLogManager(logFilename string) (*LogManager, error) {
@@ -34,7 +35,17 @@ func (lm *LogManager) openAndSetLogger() error {
 	if err != nil {
 		return fmt.Errorf("ログファイルを開けませんでした: %w", err)
 	}
-	logger := slog.New(slog.NewTextHandler(file, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	// Create text handler for file logging
+	textHandler := slog.NewTextHandler(file, &slog.HandlerOptions{Level: slog.LevelInfo})
+
+	// Wrap with broadcast handler if transport is available
+	var handler slog.Handler = textHandler
+	if lm.transport != nil {
+		handler = NewBroadcastHandler(textHandler, lm.transport, slog.LevelWarn)
+	}
+
+	logger := slog.New(handler)
 	slog.SetDefault(logger)
 	lm.file = file
 	return nil
@@ -56,6 +67,16 @@ func (lm *LogManager) AutoRotate() {
 			}
 		}
 	}()
+}
+
+// SetTransport sets the WebSocket transport for broadcasting logs
+func (lm *LogManager) SetTransport(transport WebSocketTransport) error {
+	lm.mu.Lock()
+	lm.transport = transport
+	lm.mu.Unlock()
+
+	// Reopen logger to apply the transport
+	return lm.openAndSetLogger()
 }
 
 func (lm *LogManager) Close() error {

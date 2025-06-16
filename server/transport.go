@@ -42,13 +42,19 @@ type WebSocketTransport interface {
 	BroadcastMessage(message []byte) error
 }
 
+// clientConnection wraps a WebSocket connection with a mutex for safe concurrent writes
+type clientConnection struct {
+	conn  *websocket.Conn
+	mutex sync.Mutex
+}
+
 // DefaultWebSocketTransport は WebSocketTransport インターフェースのデフォルト実装
 type DefaultWebSocketTransport struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	server            *http.Server
 	upgrader          websocket.Upgrader
-	clients           map[string]*websocket.Conn
+	clients           map[string]*clientConnection
 	clientsReverse    map[*websocket.Conn]string
 	clientsMutex      sync.RWMutex
 	messageHandler    func(connID string, message []byte) error
@@ -69,7 +75,7 @@ func NewDefaultWebSocketTransport(ctx context.Context, addr string) *DefaultWebS
 				return true
 			},
 		},
-		clients:        make(map[string]*websocket.Conn),
+		clients:        make(map[string]*clientConnection),
 		clientsReverse: make(map[*websocket.Conn]string),
 		clientsMutex:   sync.RWMutex{},
 	}
@@ -161,14 +167,16 @@ func (t *DefaultWebSocketTransport) SetDisconnectHandler(handler func(connID str
 // SendMessage は特定のクライアントにメッセージを送信する
 func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) error {
 	t.clientsMutex.RLock()
-	conn, exists := t.clients[connID]
+	client, exists := t.clients[connID]
 	t.clientsMutex.RUnlock()
 
 	if !exists {
 		return fmt.Errorf("client with ID %s not found", connID)
 	}
 
-	return conn.WriteMessage(websocket.TextMessage, message)
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
+	return client.conn.WriteMessage(websocket.TextMessage, message)
 }
 
 // BroadcastMessage は接続中の全クライアントにメッセージを送信する
@@ -176,10 +184,12 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 	t.clientsMutex.RLock()
 	defer t.clientsMutex.RUnlock()
 
-	for _, conn := range t.clients {
-		if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
+	for _, client := range t.clients {
+		client.mutex.Lock()
+		if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 			slog.Error("Error broadcasting message to client", "err", err)
 		}
+		client.mutex.Unlock()
 	}
 
 	return nil
@@ -209,8 +219,12 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 	connID := fmt.Sprintf("%p", conn)
 
 	// Register the client
+	client := &clientConnection{
+		conn:  conn,
+		mutex: sync.Mutex{},
+	}
 	t.clientsMutex.Lock()
-	t.clients[connID] = conn
+	t.clients[connID] = client
 	t.clientsReverse[conn] = connID
 	t.clientsMutex.Unlock()
 
