@@ -1,8 +1,28 @@
-# ECHONET Lite Controller systemd管理スクリプト
+# Scripts
 
-このディレクトリには、Raspberry Pi (Ubuntu) 環境でECHONET Lite Controllerをsystemdサービスとして管理するためのスクリプトが含まれています。
+このディレクトリには、ECHONET Lite Controllerの開発・運用のためのユーティリティスクリプトが含まれています。
 
 ## 含まれるスクリプト
+
+### build.sh
+
+サーバーとWeb UIの両方をビルドします。
+
+**機能:**
+
+- サーバーバイナリのビルド
+- Web UI の依存関係インストールとビルド
+
+**使用方法:**
+
+```bash
+./script/build.sh
+```
+
+**出力:**
+
+- サーバーバイナリ: `./echonet-list`
+- Web UI バンドル: `./web/bundle/`
 
 ### install-systemd.sh
 
