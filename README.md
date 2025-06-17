@@ -2,6 +2,8 @@
 
 This is a Go application for discovering and controlling ECHONET Lite devices on a local network. ECHONET Lite is a communication protocol for smart home devices, primarily used in Japan.
 
+**Author**: @koizuka
+
 ## Features
 
 - Automatic discovery of ECHONET Lite devices on the local network
