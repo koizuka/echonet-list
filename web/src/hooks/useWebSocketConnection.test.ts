@@ -49,13 +49,11 @@ declare global {
 describe('useWebSocketConnection', () => {
   let mockOnMessage: ReturnType<typeof vi.fn>;
   let mockOnConnectionStateChange: ReturnType<typeof vi.fn>;
-  let mockOnError: ReturnType<typeof vi.fn>;
   let OriginalWebSocket: typeof globalThis.WebSocket;
 
   beforeEach(() => {
     mockOnMessage = vi.fn();
     mockOnConnectionStateChange = vi.fn();
-    mockOnError = vi.fn();
     
     // Store original WebSocket
     OriginalWebSocket = globalThis.WebSocket;
@@ -76,7 +74,6 @@ describe('useWebSocketConnection', () => {
     url: 'ws://localhost:8080/ws',
     onMessage: mockOnMessage,
     onConnectionStateChange: mockOnConnectionStateChange,
-    onError: mockOnError,
   });
 
   const createMockWebSocket = (initialReadyState = 0): MockWebSocketConstructor => {
@@ -109,7 +106,6 @@ describe('useWebSocketConnection', () => {
     
     // Should start connecting due to auto-connect
     expect(result.current.connectionState).toBe('connecting');
-    expect(result.current.error).toBe(null);
   });
 
   it('should provide connection methods', () => {

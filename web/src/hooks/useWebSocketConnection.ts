@@ -3,8 +3,7 @@ import type {
   ServerMessage, 
   ClientMessage, 
   CommandResult, 
-  ConnectionState,
-  ErrorInfo 
+  ConnectionState
 } from './types';
 
 export type WebSocketConnectionOptions = {
@@ -14,7 +13,6 @@ export type WebSocketConnectionOptions = {
   maxReconnectDelay?: number;
   onMessage?: (message: ServerMessage) => void;
   onConnectionStateChange?: (state: ConnectionState) => void;
-  onError?: (error: ErrorInfo) => void;
 };
 
 export type WebSocketConnection = {
@@ -22,12 +20,10 @@ export type WebSocketConnection = {
   sendMessage: <T extends ClientMessage>(message: T) => Promise<unknown>;
   connect: () => void;
   disconnect: () => void;
-  error: ErrorInfo | null;
 };
 
 export function useWebSocketConnection(options: WebSocketConnectionOptions): WebSocketConnection {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
-  const [error, setError] = useState<ErrorInfo | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -48,11 +44,17 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     options.onConnectionStateChange?.(state);
   }, [options]);
 
-  const updateError = useCallback((errorInfo: ErrorInfo | null) => {
-    setError(errorInfo);
-    if (errorInfo) {
-      options.onError?.(errorInfo);
-    }
+  const sendLogNotification = useCallback((level: 'ERROR' | 'WARN', message: string, attributes: Record<string, unknown> = {}) => {
+    const logMessage = {
+      type: 'log_notification' as const,
+      payload: {
+        level,
+        message,
+        time: new Date().toISOString(),
+        attributes
+      }
+    };
+    options.onMessage?.(logMessage);
   }, [options]);
 
   const cleanup = useCallback(() => {
@@ -84,9 +86,11 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
 
   const scheduleReconnect = useCallback(() => {
     if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-      updateError({
-        code: 'MAX_RECONNECT_ATTEMPTS_REACHED',
-        message: `Failed to reconnect after ${maxReconnectAttempts} attempts`
+      const errorMessage = `Failed to reconnect after ${maxReconnectAttempts} attempts`;
+      console.error(errorMessage);
+      sendLogNotification('ERROR', errorMessage, { 
+        component: 'WebSocket',
+        reconnectAttempts: maxReconnectAttempts 
       });
       updateConnectionState('error');
       return;
@@ -97,15 +101,14 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       maxReconnectDelay
     );
 
-    // Clear error immediately when scheduling reconnection
-    updateError(null);
+    // Update connection state to 'connecting' when scheduling reconnection
     updateConnectionState('connecting');
 
     reconnectTimeoutRef.current = setTimeout(() => {
       reconnectAttemptsRef.current++;
       connectRef.current?.();
     }, delay);
-  }, [maxReconnectAttempts, baseReconnectDelay, maxReconnectDelay, updateError, updateConnectionState]);
+  }, [maxReconnectAttempts, baseReconnectDelay, maxReconnectDelay, updateConnectionState, sendLogNotification]);
 
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
@@ -151,12 +154,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       }
     } catch (error) {
       console.error('Failed to parse WebSocket message:', error);
-      updateError({
-        code: 'MESSAGE_PARSE_ERROR',
-        message: 'Failed to parse received message'
-      });
     }
-  }, [options, updateError]);
+  }, [options]);
 
   const connect = useCallback(() => {
     cleanup();
@@ -165,7 +164,6 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       console.log('🔄 WebSocket接続を開始:', options.url);
     }
     updateConnectionState('connecting');
-    updateError(null);
     
     try {
       const ws = new WebSocket(options.url);
@@ -175,16 +173,15 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         console.log('WebSocket connected');
         reconnectAttemptsRef.current = 0;
         updateConnectionState('connected');
-        updateError(null);
       };
       
       ws.onmessage = handleMessage;
       
       ws.onerror = (event) => {
         console.error('WebSocket error:', event);
-        updateError({
-          code: 'WEBSOCKET_ERROR',
-          message: `WebSocket connection error: ${event.type}`
+        sendLogNotification('ERROR', `WebSocket connection error: ${event.type}`, {
+          component: 'WebSocket',
+          eventType: event.type
         });
       };
       
@@ -196,16 +193,30 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         });
         updateConnectionState('disconnected');
         
-        // More specific error handling
+        // Log specific error conditions for debugging and user notification
         if (event.code === 1006) {
-          updateError({
-            code: 'CONNECTION_FAILED',
-            message: 'Connection failed - possibly due to SSL certificate issues or server unavailable'
+          const errorMessage = 'Connection failed - possibly due to SSL certificate issues or server unavailable';
+          console.error(errorMessage);
+          sendLogNotification('ERROR', errorMessage, {
+            component: 'WebSocket',
+            closeCode: event.code,
+            reason: event.reason || 'No reason provided'
           });
         } else if (event.code === 1005) {
-          updateError({
-            code: 'CONNECTION_FAILED',
-            message: 'No status received - server rejected connection'
+          const errorMessage = 'No status received - server rejected connection';
+          console.error(errorMessage);
+          sendLogNotification('ERROR', errorMessage, {
+            component: 'WebSocket', 
+            closeCode: event.code,
+            reason: event.reason || 'No reason provided'
+          });
+        } else if (event.code !== 1000 && !event.wasClean) {
+          // Log other unexpected disconnections
+          sendLogNotification('WARN', `WebSocket disconnected unexpectedly`, {
+            component: 'WebSocket',
+            closeCode: event.code,
+            reason: event.reason || 'No reason provided',
+            wasClean: event.wasClean
           });
         }
         
@@ -236,14 +247,15 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         }
       };
     } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
-      updateError({
-        code: 'CONNECTION_FAILED',
-        message: 'Failed to create WebSocket connection'
+      const errorMessage = `Failed to create WebSocket connection: ${error}`;
+      console.error(errorMessage);
+      sendLogNotification('ERROR', errorMessage, {
+        component: 'WebSocket',
+        error: String(error)
       });
       updateConnectionState('error');
     }
-  }, [options.url, handleMessage, updateConnectionState, updateError, scheduleReconnect, maxReconnectAttempts, cleanup]);
+  }, [options.url, handleMessage, updateConnectionState, scheduleReconnect, maxReconnectAttempts, cleanup, sendLogNotification]);
 
   // Assign connect function to ref for use in scheduleReconnect
   connectRef.current = connect;
@@ -251,8 +263,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const disconnect = useCallback(() => {
     cleanup();
     updateConnectionState('disconnected');
-    updateError(null);
-  }, [cleanup, updateConnectionState, updateError]);
+  }, [cleanup, updateConnectionState]);
 
   const sendMessage = useCallback(<T extends ClientMessage>(message: T): Promise<unknown> => {
     return new Promise((resolve, reject) => {
@@ -299,6 +310,5 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     sendMessage,
     connect,
     disconnect,
-    error,
   };
 }

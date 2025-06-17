@@ -6,7 +6,7 @@ import { useAutoReconnect } from '@/hooks/useAutoReconnect';
 import { DeviceCard } from '@/components/DeviceCard';
 import { LogNotifications } from '@/components/LogNotifications';
 import { NotificationBell } from '@/components/NotificationBell';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -159,16 +159,6 @@ function App() {
           </div>
         </div>
         
-        {echonet.error && (
-          <Card className="mb-4 border-red-500">
-            <CardHeader>
-              <CardTitle className="text-red-500">Error</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>{echonet.error.message}</p>
-            </CardContent>
-          </Card>
-        )}
 
         {Object.keys(echonet.devices).length === 0 && echonet.connectionState === 'connected' ? (
           <Card>

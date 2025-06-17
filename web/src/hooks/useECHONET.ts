@@ -8,7 +8,6 @@ import type {
   PropertyDescriptionData,
   ServerMessage,
   ConnectionState,
-  ErrorInfo,
   PropertyValue
 } from './types';
 
@@ -20,8 +19,7 @@ type ECHONETAction =
   | { type: 'SET_ALIAS'; payload: { alias: string; target?: string; changeType: 'added' | 'updated' | 'deleted' } }
   | { type: 'SET_GROUP'; payload: { group: string; devices?: string[]; changeType: 'added' | 'updated' | 'deleted' } }
   | { type: 'SET_PROPERTY_DESCRIPTION'; payload: { classCode: string; data: PropertyDescriptionData } }
-  | { type: 'SET_CONNECTION_STATE'; payload: { state: ConnectionState } }
-  | { type: 'SET_ERROR'; payload: { error: ErrorInfo | null } };
+  | { type: 'SET_CONNECTION_STATE'; payload: { state: ConnectionState } };
 
 function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETState {
   switch (action.type) {
@@ -122,12 +120,6 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         connectionState: action.payload.state,
       };
       
-    case 'SET_ERROR':
-      return {
-        ...state,
-        error: action.payload.error,
-      };
-      
     default:
       return state;
   }
@@ -138,7 +130,6 @@ const initialState: ECHONETState = {
   aliases: {},
   groups: {},
   connectionState: 'disconnected',
-  error: null,
   propertyDescriptions: {},
 };
 
@@ -148,7 +139,6 @@ export type ECHONETHook = {
   aliases: DeviceAlias;
   groups: DeviceGroup;
   connectionState: ConnectionState;
-  error: ErrorInfo | null;
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   
   // Device operations
@@ -201,8 +191,6 @@ export function useECHONET(url: string, onMessage?: (message: ServerMessage) => 
             groups: message.payload.groups,
           },
         });
-        // 初期状態受信時もエラーをクリア（接続完全成功の証拠）
-        dispatch({ type: 'SET_ERROR', payload: { error: null } });
         break;
         
       case 'device_added':
@@ -253,12 +241,25 @@ export function useECHONET(url: string, onMessage?: (message: ServerMessage) => 
         });
         break;
         
-      case 'error_notification':
-        dispatch({
-          type: 'SET_ERROR',
-          payload: { error: message.payload },
-        });
+      case 'error_notification': {
+        // Convert server error notification to log notification for NotificationBell
+        const errorLogMessage = {
+          type: 'log_notification' as const,
+          payload: {
+            level: 'ERROR' as const,
+            message: `Server Error (${message.payload.code}): ${message.payload.message}`,
+            time: new Date().toISOString(),
+            attributes: {
+              component: 'Server',
+              errorCode: message.payload.code,
+              originalMessage: message.payload.message
+            }
+          }
+        };
+        // Also call external handler if provided
+        onMessage?.(errorLogMessage);
         break;
+      }
         
       case 'timeout_notification':
         // Handle timeout notification if needed
@@ -275,18 +276,6 @@ export function useECHONET(url: string, onMessage?: (message: ServerMessage) => 
       console.log('🔄 Connection state changed:', connectionState);
     }
     dispatch({ type: 'SET_CONNECTION_STATE', payload: { state: connectionState } });
-    
-    // 接続成功時はエラーをクリア
-    if (connectionState === 'connected') {
-      if (import.meta.env.DEV) {
-        console.log('✅ Connection successful, clearing error');
-      }
-      dispatch({ type: 'SET_ERROR', payload: { error: null } });
-    }
-  }, []);
-
-  const handleError = useCallback((error: ErrorInfo) => {
-    dispatch({ type: 'SET_ERROR', payload: { error } });
   }, []);
 
   const connection = useWebSocketConnection({
@@ -297,7 +286,6 @@ export function useECHONET(url: string, onMessage?: (message: ServerMessage) => 
     maxReconnectDelay: 30000,
     onMessage: handleServerMessage,
     onConnectionStateChange: handleConnectionStateChange,
-    onError: handleError,
   });
 
   // Device operations
@@ -439,7 +427,6 @@ export function useECHONET(url: string, onMessage?: (message: ServerMessage) => 
     aliases: state.aliases,
     groups: state.groups,
     connectionState: state.connectionState,
-    error: state.error,
     propertyDescriptions: state.propertyDescriptions,
     
     // Device operations

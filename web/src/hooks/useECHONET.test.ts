@@ -39,14 +39,12 @@ describe('useECHONET', () => {
       capturedCallbacks = {
         onMessage: options.onMessage,
         onConnectionStateChange: options.onConnectionStateChange,
-        onError: options.onError,
       };
       return {
         connectionState: 'disconnected',
         sendMessage: mockSendMessage,
         connect: mockConnect,
         disconnect: mockDisconnect,
-        error: null,
       };
     });
   });
@@ -60,7 +58,6 @@ describe('useECHONET', () => {
     expect(result.current.aliases).toEqual({});
     expect(result.current.groups).toEqual({});
     expect(result.current.connectionState).toBe('disconnected');
-    expect(result.current.error).toBe(null);
     expect(result.current.propertyDescriptions).toEqual({});
   });
 

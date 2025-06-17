@@ -210,6 +210,5 @@ export type ECHONETState = {
   aliases: DeviceAlias;
   groups: DeviceGroup;
   connectionState: ConnectionState;
-  error: ErrorInfo | null;
   propertyDescriptions: Record<string, PropertyDescriptionData>; // classCode -> PropertyDescriptionData
 };

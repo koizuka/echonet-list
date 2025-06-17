@@ -31,7 +31,7 @@ function App() {
   }
 
   if (echonet.connectionState === 'error') {
-    return <div>接続エラー: {echonet.error?.message}</div>;
+    return <div>接続エラーが発生しました</div>;
   }
 
   return (
@@ -385,7 +385,7 @@ function GroupManager({ echonet }: { echonet: ECHONETHook }) {
 
 ```tsx
 function ConnectionStatus({ echonet }: { echonet: ECHONETHook }) {
-  const { connectionState, error } = echonet;
+  const { connectionState } = echonet;
 
   const getStatusDisplay = () => {
     switch (connectionState) {
@@ -407,11 +407,6 @@ function ConnectionStatus({ echonet }: { echonet: ECHONETHook }) {
   return (
     <div style={{ color: status.color }}>
       <strong>接続状態: {status.text}</strong>
-      {error && (
-        <div style={{ color: 'red' }}>
-          エラー: {error.message} (コード: {error.code})
-        </div>
-      )}
       
       {connectionState === 'disconnected' && (
         <button onClick={echonet.connect}>再接続</button>
