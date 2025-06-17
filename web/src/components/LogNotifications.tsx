@@ -59,11 +59,18 @@ export function LogNotifications({
     setLogs([]);
   }, []);
 
+  const clearByCategory = useCallback((category: string) => {
+    setLogs(prev => prev.filter(log => 
+      log.attributes.component !== category
+    ));
+  }, []);
+
   // Return functions for parent component to use
   return {
     logs,
     markAsRead,
     markAllAsRead,
-    clearAllLogs
+    clearAllLogs,
+    clearByCategory
   } as const;
 }

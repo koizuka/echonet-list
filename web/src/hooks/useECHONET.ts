@@ -169,7 +169,11 @@ export type ECHONETHook = {
   onMessage?: (message: ServerMessage) => void;
 };
 
-export function useECHONET(url: string, onMessage?: (message: ServerMessage) => void): ECHONETHook {
+export function useECHONET(
+  url: string, 
+  onMessage?: (message: ServerMessage) => void,
+  onWebSocketConnected?: () => void
+): ECHONETHook {
   const [state, dispatch] = useReducer(echonetReducer, initialState);
   
   const handleServerMessage = useCallback((message: ServerMessage) => {
@@ -286,6 +290,7 @@ export function useECHONET(url: string, onMessage?: (message: ServerMessage) => 
     maxReconnectDelay: 30000,
     onMessage: handleServerMessage,
     onConnectionStateChange: handleConnectionStateChange,
+    onWebSocketConnected,
   });
 
   // Device operations

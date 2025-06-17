@@ -13,6 +13,7 @@ export type WebSocketConnectionOptions = {
   maxReconnectDelay?: number;
   onMessage?: (message: ServerMessage) => void;
   onConnectionStateChange?: (state: ConnectionState) => void;
+  onWebSocketConnected?: () => void;
 };
 
 export type WebSocketConnection = {
@@ -173,6 +174,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         console.log('WebSocket connected');
         reconnectAttemptsRef.current = 0;
         updateConnectionState('connected');
+        // Call the onWebSocketConnected callback to clear WebSocket error logs
+        options.onWebSocketConnected?.();
       };
       
       ws.onmessage = handleMessage;
