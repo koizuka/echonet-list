@@ -20,6 +20,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 
 ## Documentation
 
+- [Console UI Usage Guide](docs/console_ui_usage.md) - コンソールUIの操作方法
 - [WebSocket Client Protocol](docs/websocket_client_protocol.md) - WebSocketプロトコルの詳細仕様
 - [Client UI Development Guide](docs/client_ui_development_guide.md) - WebSocketクライアントUI開発ガイド
 - [Web UI Implementation Guide](docs/web_ui_implementation_guide.md) - Web UI実装ガイド
@@ -376,113 +377,21 @@ npm run build
 
 The built files are output to `web/bundle/` and served by the Go HTTP server.
 
-### Commands
+### Console UI
 
-The application provides a command-line interface with the following commands:
+The application provides an interactive command-line interface for device discovery and control. For detailed information about using the console UI, see the [Console UI Usage Guide](docs/console_ui_usage.md).
 
-#### Discover Devices
+## Development Resources
 
-```bash
-> discover
-```
+### ECHONET Lite Specifications (Japanese)
 
-This command broadcasts a discovery message to find all ECHONET Lite devices on the network.
+When developing features for ECHONET Lite devices, refer to the official specifications:
 
-#### List Devices
+- [ECHONET Lite Specification Documents](https://echonet.jp/spec_g/)
+  - [ECHONET Lite Protocol Specification](https://echonet.jp/spec_v114_lite/) - Core protocol and communication specifications
+  - [ECHONET Lite Device Object Specifications](https://echonet.jp/spec_object_rr2/) - Device types, properties, and object definitions
 
-```bash
-> devices
-> list
-```
-
-Lists all discovered devices. You can filter the results:
-
-```bash
-> devices [ipAddress] [classCode[:instanceCode]] [-all|-props] [EPC1 EPC2 ...]
-```
-
-Options:
-
-- `ipAddress`: Filter by IP address (e.g., 192.168.0.212)
-- `classCode`: Filter by class code (4 hexadecimal digits, e.g., 0130)
-- `instanceCode`: Filter by instance code (1-255, e.g., 0130:1)
-- `-all`: Show all properties
-- `-props`: Show only known properties
-- `EPC`: Show only specific properties (2 hexadecimal digits, e.g., 80)
-
-#### Get Property Values
-
-```bash
-> get [ipAddress] classCode[:instanceCode] epc1 [epc2...] [-skip-validation]
-```
-
-Gets property values from a specific device:
-
-- `ipAddress`: Target device IP address (optional if only one device matches the class code)
-- `classCode`: Class code (4 hexadecimal digits, required)
-- `instanceCode`: Instance code (1-255, defaults to 1 if omitted)
-- `epc`: Property code to get (2 hexadecimal digits, e.g., 80)
-- `-skip-validation`: Skip device existence validation (useful for testing timeout behavior)
-
-#### Set Property Values
-
-```bash
-> set [ipAddress] classCode[:instanceCode] property1 [property2...]
-```
-
-Sets property values on a specific device:
-
-- `ipAddress`: Target device IP address (optional if only one device matches the class code)
-- `classCode`: Class code (4 hexadecimal digits, required)
-- `instanceCode`: Instance code (1-255, defaults to 1 if omitted)
-- `property`: Property to set, in one of these formats:
-  - `EPC:EDT` (e.g., 80:30)
-  - `EPC` (e.g., 80) - displays available aliases for this EPC
-  - Alias name (e.g., `on`) - automatically expanded to the corresponding EPC:EDT
-  - Examples:
-    - `on` (equivalent to setting operation status to ON)
-    - `off` (equivalent to setting operation status to OFF)
-    - `80:on` (equivalent to setting operation status to ON)
-    - `b0:auto` (equivalent to setting air conditioner to auto mode)
-
-#### Update Device Properties
-
-```bash
-> update [ipAddress] [classCode[:instanceCode]]
-```
-
-Updates all properties of devices that match the specified criteria:
-
-- `ipAddress`: Filter by IP address (e.g., 192.168.0.212)
-- `classCode`: Filter by class code (4 hexadecimal digits, e.g., 0130)
-- `instanceCode`: Filter by instance code (1-255, e.g., 0130:1)
-
-This command retrieves all properties listed in the device's GetPropertyMap and updates the local cache. It can be used to refresh the property values of one or multiple devices.
-
-#### Device Aliases
-
-```bash
-> alias
-> alias <aliasName>
-> alias <aliasName> [ipAddress] classCode[:instanceCode] [property1 property2...]
-> alias -delete <aliasName>
-```
-
-Manages device aliases for easier reference:
-
-- No arguments: Lists all registered aliases
-- `<aliasName>`: Shows information about the specified alias
-- `<aliasName> [ipAddress] classCode[:instanceCode] [property1 property2...]`: Creates or updates an alias for a device
-- `-delete <aliasName>`: Deletes the specified alias
-
-Examples:
-
-```bash
-> alias ac 192.168.0.3 0130:1           # Create alias 'ac' for air conditioner at 192.168.0.3
-> alias ac 0130                          # Create alias 'ac' for the only air conditioner (if only one exists)
-> alias aircon1 0130 living1             # Create alias 'aircon1' for air conditioner with installation location 'living1'
-> alias aircon2 0130 on kitchen1         # Create alias 'aircon2' for powered-on air conditioner in the kitchen1
-```
+These specifications are essential references for understanding device classes, property codes (EPC), and protocol details.
 
 ## Contributing
 
