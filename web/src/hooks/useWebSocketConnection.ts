@@ -97,6 +97,10 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       maxReconnectDelay
     );
 
+    // Clear error immediately when scheduling reconnection
+    updateError(null);
+    updateConnectionState('connecting');
+
     reconnectTimeoutRef.current = setTimeout(() => {
       reconnectAttemptsRef.current++;
       connectRef.current?.();
