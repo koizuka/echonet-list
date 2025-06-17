@@ -10,15 +10,13 @@ interface NotificationBellProps {
   unreadCount: number;
   onMarkAllAsRead: () => void;
   onClearAll: () => void;
-  onClearByCategory: (category: string) => void;
 }
 
 export function NotificationBell({ 
   logs, 
   unreadCount, 
   onMarkAllAsRead, 
-  onClearAll,
-  onClearByCategory
+  onClearAll
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);

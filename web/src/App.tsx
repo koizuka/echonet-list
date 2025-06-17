@@ -157,7 +157,6 @@ function App() {
               unreadCount={unreadCount}
               onMarkAllAsRead={logManager.markAllAsRead}
               onClearAll={logManager.clearAllLogs}
-              onClearByCategory={logManager.clearByCategory}
             />
           </div>
         </div>

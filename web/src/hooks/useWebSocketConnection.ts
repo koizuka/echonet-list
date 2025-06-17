@@ -258,7 +258,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       });
       updateConnectionState('error');
     }
-  }, [options.url, handleMessage, updateConnectionState, scheduleReconnect, maxReconnectAttempts, cleanup, sendLogNotification]);
+  }, [options, handleMessage, updateConnectionState, scheduleReconnect, maxReconnectAttempts, cleanup, sendLogNotification]);
 
   // Assign connect function to ref for use in scheduleReconnect
   connectRef.current = connect;
