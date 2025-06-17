@@ -4,7 +4,7 @@ import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
 import { DeviceCard } from '@/components/DeviceCard';
-import { LogNotifications } from '@/components/LogNotifications';
+import { useLogNotifications } from '@/hooks/useLogNotifications';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExpandIcon, ShrinkIcon } from 'lucide-react';
 import { useState } from 'react';
 import type { PropertyValue, LogNotification } from '@/hooks/types';
-import type { LogEntry } from '@/components/LogNotifications';
+import type { LogEntry } from '@/hooks/useLogNotifications';
 
 function App() {
   // 開発環境と本番環境でWebSocket URLを切り替え
@@ -21,12 +21,15 @@ function App() {
     ? (import.meta.env.VITE_WS_URL || 'wss://localhost:8080/ws')  // 開発時は環境変数またはデフォルト値
     : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`; // 本番時は現在のホストを使用
   
+  // Track the latest log notification
+  const [latestLogNotification, setLatestLogNotification] = useState<LogNotification | undefined>();
+  
   // Log notification state
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Log notification handlers
-  const logManager = LogNotifications({ 
+  const logManager = useLogNotifications({ 
     notification: latestLogNotification,
     onLogsChange: (newLogs, newUnreadCount) => {
       setLogs(newLogs);
@@ -59,9 +62,6 @@ function App() {
   
   // Loading state for update operations
   const [updatingDevices, setUpdatingDevices] = useState<Set<string>>(new Set());
-  
-  // Track the latest log notification
-  const [latestLogNotification, setLatestLogNotification] = useState<LogNotification | undefined>();
 
   // Property change handler
   const handlePropertyChange = async (target: string, epc: string, value: PropertyValue) => {

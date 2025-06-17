@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { LogEntry } from './LogNotifications';
+import type { LogEntry } from '../hooks/useLogNotifications';
 import { NotificationBell } from './NotificationBell';
 
 describe('NotificationBell', () => {
