@@ -20,13 +20,13 @@ periodic_update_interval = "1m"  # 定期更新間隔
 enabled = true
 host = "0.0.0.0"  # すべてのインターフェースでリッスン
 port = 8080
-web_root = "/usr/local/share/echonet-list/web/bundle"
+web_root = "/usr/local/share/echonet-list/web"
 
 # TLS設定（HTTPSを使用する場合）
 [tls]
-enabled = false
-# cert_file = "/etc/echonet-list/certs/server.crt"
-# key_file = "/etc/echonet-list/certs/server.key"
+enabled = true
+cert_file = "/etc/echonet-list/certs/localhost+2.pem"
+key_file = "/etc/echonet-list/certs/localhost+2-key.pem"
 
 # デーモン設定
 [daemon]

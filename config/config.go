@@ -28,8 +28,9 @@ func getDefaultPIDFile() string {
 	switch runtime.GOOS {
 	case "linux":
 		// Linuxでは/var/runまたは/runが一般的
+		// systemdサービスの場合は専用ディレクトリを使用
 		if _, err := os.Stat("/run"); err == nil {
-			return "/run/echonet-list.pid"
+			return "/run/echonet-list/echonet-list.pid"
 		}
 		return "/var/run/echonet-list.pid"
 	case "darwin":

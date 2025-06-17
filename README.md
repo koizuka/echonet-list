@@ -282,6 +282,16 @@ sudo journalctl -u echonet-list -f
 
 For detailed daemon setup instructions, including security configuration, log rotation, and troubleshooting, see the [Daemon Setup Guide](docs/daemon-setup.md).
 
+#### systemd管理スクリプト (Raspberry Pi/Ubuntu)
+
+Raspberry Pi (Ubuntu) 環境での簡単なセットアップとメンテナンス用のスクリプトを提供しています：
+
+- **インストール**: `sudo ./script/install-systemd.sh`
+- **アンインストール**: `sudo ./script/uninstall-systemd.sh`  
+- **アップデート**: `sudo ./script/update.sh`
+
+詳細は [script/README.md](script/README.md) を参照してください。
+
 ## Web UI
 
 The application includes a modern, responsive web interface built with React 19 and TypeScript. The Web UI provides an intuitive way to monitor and control ECHONET Lite devices through your web browser.

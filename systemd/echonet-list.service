@@ -5,8 +5,9 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/echonet-list -daemon -websocket
+ExecStart=/usr/local/bin/echonet-list -daemon -websocket -config /etc/echonet-list/config.toml
 ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/run/echonet-list/echonet-list.pid
 Restart=on-failure
 RestartSec=5s
 
@@ -20,7 +21,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/echonet-list /var/log /run
+ReadWritePaths=/var/lib/echonet-list /var/log /run/echonet-list
 
 # リソース制限
 LimitNOFILE=4096
