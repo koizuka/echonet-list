@@ -8,7 +8,6 @@ import type { LogEntry } from '../hooks/useLogNotifications';
 interface NotificationBellProps {
   logs: LogEntry[];
   unreadCount: number;
-  onMarkAsRead: (id: string) => void;
   onMarkAllAsRead: () => void;
   onClearAll: () => void;
   onClearByCategory: (category: string) => void;
@@ -17,7 +16,6 @@ interface NotificationBellProps {
 export function NotificationBell({ 
   logs, 
   unreadCount, 
-  onMarkAsRead: _onMarkAsRead, 
   onMarkAllAsRead, 
   onClearAll,
   onClearByCategory

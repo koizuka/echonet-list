@@ -45,11 +45,6 @@ export function useLogNotifications({
     onLogsChange?.(logs, unreadCount);
   }, [logs, onLogsChange]);
 
-  const markAsRead = useCallback((id: string) => {
-    setLogs(prev => prev.map(log => 
-      log.id === id ? { ...log, isRead: true } : log
-    ));
-  }, []);
 
   const markAllAsRead = useCallback(() => {
     setLogs(prev => prev.map(log => ({ ...log, isRead: true })));
@@ -68,7 +63,6 @@ export function useLogNotifications({
   // Return functions for parent component to use
   return {
     logs,
-    markAsRead,
     markAllAsRead,
     clearAllLogs,
     clearByCategory

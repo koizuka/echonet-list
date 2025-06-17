@@ -155,7 +155,6 @@ function App() {
             <NotificationBell
               logs={logs}
               unreadCount={unreadCount}
-              onMarkAsRead={logManager.markAsRead}
               onMarkAllAsRead={logManager.markAllAsRead}
               onClearAll={logManager.clearAllLogs}
               onClearByCategory={logManager.clearByCategory}

@@ -26,7 +26,6 @@ describe('NotificationBell', () => {
   const defaultProps = {
     logs: mockLogs,
     unreadCount: 1,
-    onMarkAsRead: vi.fn(),
     onMarkAllAsRead: vi.fn(),
     onClearAll: vi.fn(),
     onClearByCategory: vi.fn()
