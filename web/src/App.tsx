@@ -160,11 +160,14 @@ function App() {
         </div>
         
 
-        {Object.keys(echonet.devices).length === 0 && echonet.connectionState === 'connected' ? (
+        {Object.keys(echonet.devices).length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <p className="text-center text-muted-foreground">
-                No devices found. Click refresh to discover devices.
+                {echonet.connectionState === 'connected' 
+                  ? 'No devices found. Click refresh to discover devices.'
+                  : `サーバーに接続できません (${echonet.connectionState})`
+                }
               </p>
             </CardContent>
           </Card>
