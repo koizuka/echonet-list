@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { LogNotification } from '../hooks/types';
+import type { LogNotification } from './types';
 
 export interface LogEntry {
   id: string;
@@ -16,7 +16,7 @@ interface LogNotificationsProps {
   onLogsChange?: (logs: LogEntry[], unreadCount: number) => void;
 }
 
-export function LogNotifications({ 
+export function useLogNotifications({ 
   notification, 
   maxLogs = 50,
   onLogsChange
@@ -45,11 +45,6 @@ export function LogNotifications({
     onLogsChange?.(logs, unreadCount);
   }, [logs, onLogsChange]);
 
-  const markAsRead = useCallback((id: string) => {
-    setLogs(prev => prev.map(log => 
-      log.id === id ? { ...log, isRead: true } : log
-    ));
-  }, []);
 
   const markAllAsRead = useCallback(() => {
     setLogs(prev => prev.map(log => ({ ...log, isRead: true })));
@@ -59,11 +54,17 @@ export function LogNotifications({
     setLogs([]);
   }, []);
 
+  const clearByCategory = useCallback((category: string) => {
+    setLogs(prev => prev.filter(log => 
+      log.attributes.component !== category
+    ));
+  }, []);
+
   // Return functions for parent component to use
   return {
     logs,
-    markAsRead,
     markAllAsRead,
-    clearAllLogs
+    clearAllLogs,
+    clearByCategory
   } as const;
 }

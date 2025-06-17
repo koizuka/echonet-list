@@ -8,8 +8,12 @@ import type { Device, ServerMessage } from './types';
  * and provides utility functions for working with property names
  */
 
-export function usePropertyDescriptions(wsUrl: string, onMessage?: (message: ServerMessage) => void) {
-  const echonet = useECHONET(wsUrl, onMessage);
+export function usePropertyDescriptions(
+  wsUrl: string, 
+  onMessage?: (message: ServerMessage) => void,
+  onWebSocketConnected?: () => void
+) {
+  const echonet = useECHONET(wsUrl, onMessage, onWebSocketConnected);
 
   // Get unique class codes from all devices
   const getUniqueClassCodes = useCallback((devices: Record<string, Device>): Set<string> => {

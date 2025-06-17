@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { LogEntry } from './LogNotifications';
+import type { LogEntry } from '../hooks/useLogNotifications';
 import { NotificationBell } from './NotificationBell';
 
 describe('NotificationBell', () => {
@@ -26,7 +26,6 @@ describe('NotificationBell', () => {
   const defaultProps = {
     logs: mockLogs,
     unreadCount: 1,
-    onMarkAsRead: vi.fn(),
     onMarkAllAsRead: vi.fn(),
     onClearAll: vi.fn()
   };
@@ -125,4 +124,5 @@ describe('NotificationBell', () => {
     
     expect(screen.getByText('2 logs total')).toBeInTheDocument();
   });
+
 });

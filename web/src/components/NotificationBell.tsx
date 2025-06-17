@@ -3,12 +3,11 @@ import { Bell, AlertCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '../libs/utils';
 import { formatValue } from '../libs/formatValue';
 import { Button } from './ui/button';
-import type { LogEntry } from './LogNotifications';
+import type { LogEntry } from '../hooks/useLogNotifications';
 
 interface NotificationBellProps {
   logs: LogEntry[];
   unreadCount: number;
-  onMarkAsRead: (id: string) => void;
   onMarkAllAsRead: () => void;
   onClearAll: () => void;
 }
@@ -16,9 +15,8 @@ interface NotificationBellProps {
 export function NotificationBell({ 
   logs, 
   unreadCount, 
-  onMarkAsRead: _onMarkAsRead, 
   onMarkAllAsRead, 
-  onClearAll 
+  onClearAll
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
