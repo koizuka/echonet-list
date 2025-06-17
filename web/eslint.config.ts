@@ -7,7 +7,7 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['bundle', '*.config.*', '**/*.test.ts', '**/*.test.tsx'] },
+  { ignores: ['bundle', '*.config.*'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
@@ -38,6 +38,26 @@ export default tseslint.config(
       react: {
         version: 'detect',
       },
+    },
+  },
+  // Test-specific configuration
+  {
+    files: ['**/*.test.{ts,tsx}'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: {
+        ...globals.browser,
+        // Add test-specific globals if needed
+      },
+      parserOptions: {
+        project: ['./tsconfig.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      // Relax some rules for test files
+      '@typescript-eslint/no-explicit-any': 'off',
+      'react/display-name': 'off',
     },
   },
 );

@@ -42,6 +42,7 @@ go.work.sum
 # Web UI
 web/node_modules/
 web/bundle/
+web/tsconfig.build.tsbuildinfo
 web/tsconfig.tsbuildinfo
 web/.env
 web/.env.local

@@ -117,7 +117,7 @@ describe('usePersistedTab', () => {
     
     const { result, rerender } = renderHook(
       ({ tabs }) => usePersistedTab(tabs),
-      { initialProps: { tabs: [] } } // Start with empty tabs
+      { initialProps: { tabs: [] as string[]} } // Start with empty tabs
     );
     
     // Should start with saved tab even if tabs are empty
@@ -134,7 +134,7 @@ describe('usePersistedTab', () => {
     
     const { result, rerender } = renderHook(
       ({ tabs }) => usePersistedTab(tabs),
-      { initialProps: { tabs: [] } } // Start with empty tabs
+      { initialProps: { tabs: [] as string[]} } // Start with empty tabs
     );
     
     // Should start with saved tab

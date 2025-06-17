@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build --outDir bundle",
+    "build": "tsc -b tsconfig.build.json && vite build --outDir bundle",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",

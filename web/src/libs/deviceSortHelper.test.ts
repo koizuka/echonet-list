@@ -8,7 +8,7 @@ describe('deviceSortHelper', () => {
     ip,
     eoj,
     name: `Device ${eoj}`,
-    lastSeen: Date.now(),
+    lastSeen: new Date().toISOString(),
     properties: installationLocation ? {
       '81': { string: installationLocation }
     } : {}

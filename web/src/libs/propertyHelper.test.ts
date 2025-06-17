@@ -15,7 +15,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '9E': { EDT: setPropertyMapEDT }
         }
@@ -36,7 +36,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+    lastSeen: new Date().toISOString(),
         properties: {}
       };
 
@@ -49,7 +49,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+    lastSeen: new Date().toISOString(),
         properties: {
           '9E': { EDT: 'invalid-base64' }
         }
@@ -67,7 +67,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '9E': { EDT: setPropertyMapEDT }
         }
@@ -85,7 +85,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '9E': { EDT: setPropertyMapEDT }
         }
@@ -107,7 +107,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '80': { string: 'on' }
         }
@@ -122,7 +122,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '80': { string: 'off' }
         }
@@ -139,7 +139,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '80': { EDT: operationStatusEDT }
         }
@@ -156,7 +156,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '80': { EDT: operationStatusEDT }
         }
@@ -171,7 +171,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {}
       };
 
@@ -186,7 +186,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '88': { string: 'no_fault' }
         }
@@ -201,7 +201,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '88': { string: 'fault_detected' }
         }
@@ -218,7 +218,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '88': { EDT: faultStatusEDT }
         }
@@ -235,7 +235,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '88': { EDT: faultStatusEDT }
         }
@@ -250,7 +250,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-        lastSeen: Date.now(),
+        lastSeen: new Date().toISOString(),
         properties: {}
       };
 

@@ -23,7 +23,7 @@ describe('LogNotifications', () => {
 
     const { result, rerender } = renderHook(
       ({ notification }) => LogNotifications({ notification }),
-      { initialProps: { notification: undefined } }
+      { initialProps: { notification: undefined as LogNotification | undefined } }
     );
 
     expect(result.current.logs).toEqual([]);
@@ -49,7 +49,7 @@ describe('LogNotifications', () => {
 
     const { result, rerender } = renderHook(
       ({ notification }) => LogNotifications({ notification }),
-      { initialProps: { notification: undefined } }
+      { initialProps: { notification: undefined as LogNotification | undefined } }
     );
 
     rerender({ notification });
@@ -66,7 +66,7 @@ describe('LogNotifications', () => {
   it('marks all logs as read', () => {
     const { result, rerender } = renderHook(
       ({ notification }) => LogNotifications({ notification }),
-      { initialProps: { notification: undefined } }
+      { initialProps: { notification: undefined as LogNotification | undefined } }
     );
 
     // Add two notifications
@@ -116,7 +116,7 @@ describe('LogNotifications', () => {
 
     const { result, rerender } = renderHook(
       ({ notification }) => LogNotifications({ notification }),
-      { initialProps: { notification: undefined } }
+      { initialProps: { notification: undefined as LogNotification | undefined } }
     );
 
     rerender({ notification });
@@ -133,7 +133,7 @@ describe('LogNotifications', () => {
   it('respects maxLogs limit', () => {
     const { result, rerender } = renderHook(
       ({ notification }) => LogNotifications({ notification, maxLogs: 2 }),
-      { initialProps: { notification: undefined } }
+      { initialProps: { notification: undefined as LogNotification | undefined } }
     );
 
     // Add 3 notifications
@@ -170,7 +170,7 @@ describe('LogNotifications', () => {
 
     const { rerender } = renderHook(
       ({ notification }) => LogNotifications({ notification, onLogsChange }),
-      { initialProps: { notification: undefined } }
+      { initialProps: { notification: undefined as LogNotification | undefined } }
     );
 
     expect(onLogsChange).toHaveBeenCalledWith([], 0);

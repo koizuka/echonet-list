@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import { NotificationBell } from './NotificationBell';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import type { LogEntry } from './LogNotifications';
+import { NotificationBell } from './NotificationBell';
 
 describe('NotificationBell', () => {
   const mockLogs: LogEntry[] = [

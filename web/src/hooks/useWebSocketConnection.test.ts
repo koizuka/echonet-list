@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketConnection } from './useWebSocketConnection';
-import type { ServerMessage, CommandResult } from './types';
 
 // Mock WebSocket interface for testing
 interface MockWebSocketInstance {
@@ -131,7 +130,7 @@ describe('useWebSocketConnection', () => {
 
   it('should handle WebSocket connection flow', () => {
     // Focus on what we can verify: that the hook properly manages connection state changes
-    let connectionStateChanges: string[] = [];
+    const connectionStateChanges: string[] = [];
     const trackStateChanges = (state: string) => {
       connectionStateChanges.push(state);
     };
