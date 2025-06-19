@@ -26,6 +26,10 @@ type ECHONETLieHandlerOptions struct {
 	ManufacturerCode string                   // echonet_lite.ManufacturerCodeEDT のキーのいずれか。省略時は Experimental
 	UniqueIdentifier []byte                   // 13バイトのユニーク識別子, nilの場合はMACアドレスから生成
 	KeepAliveConfig  *network.KeepAliveConfig // マルチキャストキープアライブ設定
+	// テストモード用ファイルパス
+	TestDevicesFile string // テスト用デバイスファイルパス（空文字の場合はデフォルトファイル）
+	TestAliasesFile string // テスト用エイリアスファイルパス（空文字の場合はデフォルトファイル）
+	TestGroupsFile  string // テスト用グループファイルパス（空文字の場合はデフォルトファイル）
 }
 
 // NewECHONETLiteHandler は、ECHONETLiteHandler の新しいインスタンスを作成する
@@ -51,30 +55,42 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	// Devicesにイベントチャンネルを設定
 	devices.SetEventChannel(deviceEventCh)
 
-	// DeviceFileName のファイルが存在するなら読み込む
-	err = devices.LoadFromFile(DeviceFileName)
+	// テストファイルまたはデフォルトファイルからデバイス情報を読み込む
+	devicesFile := DeviceFileName
+	if options.TestDevicesFile != "" {
+		devicesFile = options.TestDevicesFile
+	}
+	err = devices.LoadFromFile(devicesFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("デバイス情報の読み込みに失敗: %w", err)
+		return nil, fmt.Errorf("デバイス情報の読み込みに失敗 (file: %s): %w", devicesFile, err)
 	}
 
 	aliases := NewDeviceAliases()
 
-	// DeviceAliasesFileName のファイルが存在するなら読み込む
-	err = aliases.LoadFromFile(DeviceAliasesFileName)
+	// テストファイルまたはデフォルトファイルからエイリアス情報を読み込む
+	aliasesFile := DeviceAliasesFileName
+	if options.TestAliasesFile != "" {
+		aliasesFile = options.TestAliasesFile
+	}
+	err = aliases.LoadFromFile(aliasesFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("エイリアス情報の読み込みに失敗: %w", err)
+		return nil, fmt.Errorf("エイリアス情報の読み込みに失敗 (file: %s): %w", aliasesFile, err)
 	}
 
 	// デバイスグループを管理するオブジェクトを作成
 	groups := NewDeviceGroups()
 
-	// DeviceGroupsFileName のファイルが存在するなら読み込む
-	err = groups.LoadFromFile(DeviceGroupsFileName)
+	// テストファイルまたはデフォルトファイルからグループ情報を読み込む
+	groupsFile := DeviceGroupsFileName
+	if options.TestGroupsFile != "" {
+		groupsFile = options.TestGroupsFile
+	}
+	err = groups.LoadFromFile(groupsFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("グループ情報の読み込みに失敗: %w", err)
+		return nil, fmt.Errorf("グループ情報の読み込みに失敗 (file: %s): %w", groupsFile, err)
 	}
 
 	localDevices := make(DeviceProperties)

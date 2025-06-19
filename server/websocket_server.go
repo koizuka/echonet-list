@@ -308,7 +308,10 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	if ws.handler.IsDebug() {
 		slog.Debug("Fetching device list", "connID", connID)
 	}
-	devices := ws.echonetClient.ListDevices(handler.FilterCriteria{})
+	var devices []handler.DeviceAndProperties
+	if ws.echonetClient != nil {
+		devices = ws.echonetClient.ListDevices(handler.FilterCriteria{})
+	}
 	if ws.handler.IsDebug() {
 		slog.Debug("Device list fetched", "connID", connID, "deviceCount", len(devices))
 	}
@@ -318,6 +321,12 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	for i, device := range devices {
 		if ws.handler.IsDebug() && i < 5 { // Log first 5 devices to avoid spam
 			slog.Debug("Processing device", "connID", connID, "device", device.Device.Specifier(), "index", i)
+		}
+
+		// デバイス構造体のnilチェック
+		if device.Device.IP == nil {
+			slog.Warn("Skipping device with nil IP", "connID", connID, "device", device.Device.Specifier())
+			continue
 		}
 
 		// デバイスの最終更新タイムスタンプを取得
@@ -342,10 +351,14 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	if ws.handler.IsDebug() {
 		slog.Debug("Fetching alias list", "connID", connID)
 	}
-	aliasList := ws.echonetClient.AliasList()
 	aliases := make(map[string]client.IDString)
-	for _, alias := range aliasList {
-		aliases[alias.Alias] = alias.ID
+	if ws.echonetClient != nil {
+		aliasList := ws.echonetClient.AliasList()
+		for _, alias := range aliasList {
+			if alias.Alias != "" && alias.ID != "" {
+				aliases[alias.Alias] = alias.ID
+			}
+		}
 	}
 	if ws.handler.IsDebug() {
 		slog.Debug("Alias list fetched", "connID", connID, "aliasCount", len(aliases))
@@ -355,10 +368,14 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	if ws.handler.IsDebug() {
 		slog.Debug("Fetching group list", "connID", connID)
 	}
-	groupList := ws.echonetClient.GroupList(nil)
 	groups := make(map[string][]client.IDString)
-	for _, group := range groupList {
-		groups[group.Group] = group.Devices
+	if ws.echonetClient != nil {
+		groupList := ws.echonetClient.GroupList(nil)
+		for _, group := range groupList {
+			if group.Group != "" {
+				groups[group.Group] = group.Devices
+			}
+		}
 	}
 	if ws.handler.IsDebug() {
 		slog.Debug("Group list fetched", "connID", connID, "groupCount", len(groups))
