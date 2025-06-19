@@ -150,12 +150,12 @@ export function DeviceCard({
   };
 
   return (
-    <Card className="transition-all duration-200 w-full max-w-sm flex flex-col">
+    <Card className="transition-all duration-200 w-full max-w-sm flex flex-col" data-testid={`device-card-${device.ip}-${device.eoj}`}>
       <CardHeader className="pb-2 px-3 pt-3">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-sm font-semibold truncate">
+              <CardTitle className="text-sm font-semibold truncate" data-testid="device-title">
                 {aliasInfo.aliasName || device.name}
               </CardTitle>
               <DeviceStatusIndicators device={device} />
@@ -185,6 +185,7 @@ export function DeviceCard({
                 className="h-6 w-6 p-0"
                 title={isUpdating ? "Updating..." : "Update device properties"}
                 disabled={isUpdating}
+                data-testid="update-properties-button"
               >
                 <RefreshCw className={`h-3 w-3 ${isUpdating ? 'animate-spin' : ''}`} />
               </Button>
@@ -194,6 +195,7 @@ export function DeviceCard({
               size="sm"
               onClick={onToggleExpansion}
               className="h-6 w-6 p-0"
+              data-testid="expand-collapse-button"
             >
               {isExpanded ? (
                 <ChevronUp className="h-3 w-3" />

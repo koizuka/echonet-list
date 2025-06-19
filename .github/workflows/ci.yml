@@ -44,6 +44,7 @@ jobs:
             - 'echonet_lite/**'
             - 'protocol/**'
             - 'server/**'
+            - 'integration/**'
           web:
             - 'web/src/**'
             - 'web/package*.json'
@@ -199,8 +200,16 @@ jobs:
     
     - name: Run integration tests
       run: |
-        echo "Integration tests would run here"
-        # Future: Add actual integration tests
+        # Ensure web bundle is built
+        if [ ! -d "web/bundle" ]; then
+          cd web
+          npm ci
+          npm run build
+          cd ..
+        fi
+        
+        # Run integration tests
+        go test -v -tags=integration -timeout=5m ./integration/tests/...
 
   # Summary job that provides a single status check for branch protection
   ci-summary:

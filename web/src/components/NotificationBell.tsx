@@ -54,6 +54,7 @@ export function NotificationBell({
           hasUnreadLogs && "text-red-600 hover:text-red-700"
         )}
         onClick={handleToggleDropdown}
+        data-testid="notification-bell-button"
       >
         <Bell className={cn(
           "h-5 w-5",
@@ -62,7 +63,7 @@ export function NotificationBell({
         
         {/* Unread count badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]" data-testid="notification-count">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -70,7 +71,7 @@ export function NotificationBell({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50" data-testid="notification-dropdown">
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
             <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Server Logs</h3>
