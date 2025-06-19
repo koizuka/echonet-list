@@ -97,7 +97,7 @@ func TestFullStackIntegration(t *testing.T) {
 	helpers.AssertTrue(t, ok, "グループ一覧の形式確認")
 	helpers.AssertTrue(t, len(groups) > 0, "グループが存在することを確認")
 
-	t.Logf("フルスタック統合テスト完了 - デバイス: %d, エイリアス: %d, グループ: %d", 
+	t.Logf("フルスタック統合テスト完了 - デバイス: %d, エイリアス: %d, グループ: %d",
 		len(devices), len(aliases), len(groups))
 }
 
@@ -243,7 +243,7 @@ func TestRealTimeUpdates(t *testing.T) {
 		},
 		10*time.Second,
 	)
-	
+
 	if err == nil {
 		t.Logf("プロパティ変更応答を受信: %+v", setResponse)
 	} else {

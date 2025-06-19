@@ -172,7 +172,7 @@ func TestDeviceGroups(t *testing.T) {
 	// テストフィクスチャに含まれるグループの確認
 	expectedGroups := []string{"@Test Lights", "@All Test Devices"}
 	groupNames := make([]string, 0, len(groups))
-	
+
 	for _, group := range groups {
 		if groupMap, ok := group.(map[string]interface{}); ok {
 			if groupName, ok := groupMap["group"].(string); ok {

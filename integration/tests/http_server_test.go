@@ -96,7 +96,7 @@ func TestHTTPServerStaticFiles(t *testing.T) {
 			if resp.StatusCode == 404 {
 				t.Logf("パス %s はファイルが存在しないため404を返しました（期待される動作）", path)
 			} else {
-				helpers.AssertTrue(t, resp.StatusCode >= 200 && resp.StatusCode < 300, 
+				helpers.AssertTrue(t, resp.StatusCode >= 200 && resp.StatusCode < 300,
 					"HTTPステータスコード確認")
 			}
 
@@ -190,7 +190,7 @@ func TestHTTPServerHealthCheck(t *testing.T) {
 		t.Run("HealthCheck_"+strings.ReplaceAll(path, "/", "_"), func(t *testing.T) {
 			url := server.GetHTTPURL() + path
 			resp, err := client.Get(url)
-			
+
 			if err != nil {
 				t.Logf("ヘルスチェックパス %s は実装されていません（期待される動作）", path)
 				return
@@ -201,11 +201,11 @@ func TestHTTPServerHealthCheck(t *testing.T) {
 			if resp.StatusCode != 404 {
 				helpers.AssertTrue(t, resp.StatusCode >= 200 && resp.StatusCode < 300,
 					"ヘルスチェックのステータスコード確認")
-				
+
 				body, err := io.ReadAll(resp.Body)
 				helpers.AssertNoError(t, err, "ヘルスチェックレスポンスの読み取り")
-				
-				t.Logf("ヘルスチェック %s - ステータス: %d, レスポンス: %s", 
+
+				t.Logf("ヘルスチェック %s - ステータス: %d, レスポンス: %s",
 					path, resp.StatusCode, string(body))
 			} else {
 				t.Logf("ヘルスチェックパス %s は404を返しました（実装されていません）", path)

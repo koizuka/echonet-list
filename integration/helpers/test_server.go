@@ -50,7 +50,7 @@ func NewTestServer() (*TestServer, error) {
 	cfg.HTTPServer.Port = port
 	cfg.HTTPServer.Host = "localhost"
 	cfg.Log.Filename = filepath.Join(tempDir, "test-echonet-list.log")
-	
+
 	// テストモードを有効化
 	cfg.TestMode.Enabled = true
 

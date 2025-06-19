@@ -62,7 +62,7 @@ func TestServerStartupAndShutdown(t *testing.T) {
 func TestMultipleServerInstances(t *testing.T) {
 	// 複数のサーバーインスタンスを作成してポート競合がないことを確認
 	servers := make([]*helpers.TestServer, 3)
-	
+
 	// サーバーを順次作成・起動
 	for i := 0; i < 3; i++ {
 		server, err := helpers.NewTestServer()
@@ -89,7 +89,7 @@ func TestMultipleServerInstances(t *testing.T) {
 	ports := make(map[int]bool)
 	for _, server := range servers {
 		helpers.AssertTrue(t, server.IsRunning(), "サーバーの実行状態")
-		
+
 		if ports[server.Port] {
 			t.Errorf("ポート%dが重複しています", server.Port)
 		}
