@@ -141,16 +141,24 @@ func (ws *WebSocketServer) handleClientConnect(connID string) error {
 
 // handleClientMessage is called when a message is received from a client
 func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) error {
+	if ws.handler.IsDebug() {
+		slog.Debug("Received WebSocket message", "connID", connID, "message", string(message))
+	}
+
 	// Parse the message
 	msg, err := protocol.ParseMessage(message)
 	if err != nil {
-		slog.Error("Error parsing message", "err", err)
+		slog.Error("Error parsing message", "err", err, "connID", connID)
 		// エラー応答を送信
 		errorPayload := protocol.ErrorNotificationPayload{
 			Code:    protocol.ErrorCodeInvalidRequestFormat,
 			Message: fmt.Sprintf("Error parsing message: %v", err),
 		}
 		return ws.sendMessageToClient(connID, protocol.MessageTypeErrorNotification, errorPayload, "")
+	}
+
+	if ws.handler.IsDebug() {
+		slog.Debug("Parsed message", "connID", connID, "type", msg.Type, "requestID", msg.RequestID)
 	}
 
 	handle := func(handler func(msg *protocol.Message) protocol.CommandResultPayload) error {
@@ -177,6 +185,7 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 		return handle(ws.handleDiscoverDevicesFromClient)
 	case protocol.MessageTypeGetPropertyDescription:
 		return handle(ws.handleGetPropertyDescriptionFromClient)
+
 	default:
 		slog.Error("Unknown message type", "type", msg.Type)
 		// エラー応答を送信

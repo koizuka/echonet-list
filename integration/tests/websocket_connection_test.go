@@ -33,19 +33,18 @@ func TestWebSocketConnection(t *testing.T) {
 	helpers.AssertNoError(t, err, "WebSocket接続の作成")
 	defer wsConn.Close()
 
-	// 接続成功を確認するため、メッセージを送信
-	testMessage := map[string]interface{}{
-		"type": "ping",
-	}
+	// 接続成功を確認するため、initial_state メッセージを待機
+	// WebSocket接続すると自動的に initial_state が送信される
+	response, err := wsConn.WaitForMessage(
+		func(msg map[string]interface{}) bool {
+			msgType, ok := msg["type"].(string)
+			return ok && msgType == "initial_state"
+		},
+		5*time.Second,
+	)
+	helpers.AssertNoError(t, err, "initial_state メッセージの受信")
 
-	err = wsConn.SendMessage(testMessage)
-	helpers.AssertNoError(t, err, "メッセージの送信")
-
-	// 応答を受信
-	response, err := wsConn.ReceiveMessage(5 * time.Second)
-	helpers.AssertNoError(t, err, "応答の受信")
-
-	t.Logf("受信したメッセージ: %+v", response)
+	t.Logf("受信したinitial_state: %+v", response)
 
 	// WebSocket接続を閉じる
 	err = wsConn.Close()
@@ -81,21 +80,16 @@ func TestMultipleWebSocketConnections(t *testing.T) {
 		connections[i] = conn
 	}
 
-	// 全ての接続を使用してメッセージを送信
+	// 全ての接続から initial_state メッセージを受信
 	for i, conn := range connections {
-		testMessage := map[string]interface{}{
-			"type":   "ping",
-			"client": i + 1,
-		}
-
-		err = conn.SendMessage(testMessage)
-		helpers.AssertNoError(t, err, "クライアントのメッセージ送信")
-	}
-
-	// 全ての接続から応答を受信
-	for i, conn := range connections {
-		response, err := conn.ReceiveMessage(5 * time.Second)
-		helpers.AssertNoError(t, err, "クライアントの応答受信")
+		response, err := conn.WaitForMessage(
+			func(msg map[string]interface{}) bool {
+				msgType, ok := msg["type"].(string)
+				return ok && msgType == "initial_state"
+			},
+			5*time.Second,
+		)
+		helpers.AssertNoError(t, err, "クライアントのinitial_state受信")
 
 		t.Logf("クライアント%d 受信メッセージ: %+v", i+1, response)
 	}
@@ -131,31 +125,35 @@ func TestWebSocketMessageExchange(t *testing.T) {
 	helpers.AssertNoError(t, err, "WebSocket接続の作成")
 	defer wsConn.Close()
 
-	// デバイス一覧を要求
-	listMessage := map[string]interface{}{
-		"type": "list_devices",
-	}
-
-	err = wsConn.SendMessage(listMessage)
-	helpers.AssertNoError(t, err, "デバイス一覧要求の送信")
-
-	// デバイス一覧の応答を待機
+	// initial_state メッセージを受信してデバイス情報を取得
 	response, err := wsConn.WaitForMessage(
 		func(msg map[string]interface{}) bool {
 			msgType, ok := msg["type"].(string)
-			return ok && msgType == "device_list"
+			return ok && msgType == "initial_state"
 		},
 		10*time.Second,
 	)
-	helpers.AssertNoError(t, err, "デバイス一覧の応答受信")
+	helpers.AssertNoError(t, err, "initial_state メッセージの受信")
 
-	t.Logf("デバイス一覧: %+v", response)
+	t.Logf("initial_state: %+v", response)
 
 	// 応答にデバイス情報が含まれていることを確認
-	if devices, ok := response["devices"]; ok {
-		t.Logf("デバイス数: %d", len(devices.([]interface{})))
+	if payload, ok := response["payload"]; ok {
+		if payloadMap, ok := payload.(map[string]interface{}); ok {
+			if devices, ok := payloadMap["devices"]; ok {
+				if devicesMap, ok := devices.(map[string]interface{}); ok {
+					t.Logf("デバイス数: %d", len(devicesMap))
+				} else {
+					t.Error("デバイス情報の形式が正しくありません")
+				}
+			} else {
+				t.Error("payloadにデバイス情報が含まれていません")
+			}
+		} else {
+			t.Error("payloadの形式が正しくありません")
+		}
 	} else {
-		t.Error("応答にデバイス情報が含まれていません")
+		t.Error("応答にpayloadが含まれていません")
 	}
 }
 
@@ -183,7 +181,17 @@ func TestWebSocketConnectionTimeout(t *testing.T) {
 	helpers.AssertNoError(t, err, "WebSocket接続の作成")
 	defer wsConn.Close()
 
-	// 存在しないメッセージタイプを待機してタイムアウトを確認
+	// まず initial_state を受信して、その後存在しないメッセージタイプを待機してタイムアウトを確認
+	_, err = wsConn.WaitForMessage(
+		func(msg map[string]interface{}) bool {
+			msgType, ok := msg["type"].(string)
+			return ok && msgType == "initial_state"
+		},
+		5*time.Second,
+	)
+	helpers.AssertNoError(t, err, "initial_state の受信")
+
+	// 次に存在しないメッセージタイプを待機してタイムアウトを確認
 	_, err = wsConn.WaitForMessage(
 		func(msg map[string]interface{}) bool {
 			msgType, ok := msg["type"].(string)
