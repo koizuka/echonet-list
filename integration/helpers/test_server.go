@@ -46,7 +46,7 @@ func NewTestServer() (*TestServer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("プロジェクトルートの取得に失敗: %v", err)
 	}
-	
+
 	// テスト用設定を作成
 	cfg := config.NewConfig()
 	cfg.Debug = true
