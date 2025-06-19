@@ -59,12 +59,17 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	devicesFile := DeviceFileName
 	if options.TestDevicesFile != "" {
 		devicesFile = options.TestDevicesFile
+		slog.Info("テストモード: デバイスファイルを使用", "file", devicesFile)
+	} else {
+		slog.Info("デフォルトファイルを使用", "file", devicesFile)
 	}
 	err = devices.LoadFromFile(devicesFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
+		slog.Error("デバイス情報の読み込みに失敗", "file", devicesFile, "error", err)
 		return nil, fmt.Errorf("デバイス情報の読み込みに失敗 (file: %s): %w", devicesFile, err)
 	}
+	slog.Info("デバイス情報の読み込み完了", "file", devicesFile, "deviceCount", devices.CountAll())
 
 	aliases := NewDeviceAliases()
 
@@ -72,12 +77,17 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	aliasesFile := DeviceAliasesFileName
 	if options.TestAliasesFile != "" {
 		aliasesFile = options.TestAliasesFile
+		slog.Info("テストモード: エイリアスファイルを使用", "file", aliasesFile)
+	} else {
+		slog.Info("デフォルトファイルを使用", "file", aliasesFile)
 	}
 	err = aliases.LoadFromFile(aliasesFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
+		slog.Error("エイリアス情報の読み込みに失敗", "file", aliasesFile, "error", err)
 		return nil, fmt.Errorf("エイリアス情報の読み込みに失敗 (file: %s): %w", aliasesFile, err)
 	}
+	slog.Info("エイリアス情報の読み込み完了", "file", aliasesFile, "aliasCount", aliases.Count())
 
 	// デバイスグループを管理するオブジェクトを作成
 	groups := NewDeviceGroups()
@@ -86,12 +96,17 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	groupsFile := DeviceGroupsFileName
 	if options.TestGroupsFile != "" {
 		groupsFile = options.TestGroupsFile
+		slog.Info("テストモード: グループファイルを使用", "file", groupsFile)
+	} else {
+		slog.Info("デフォルトファイルを使用", "file", groupsFile)
 	}
 	err = groups.LoadFromFile(groupsFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
+		slog.Error("グループ情報の読み込みに失敗", "file", groupsFile, "error", err)
 		return nil, fmt.Errorf("グループ情報の読み込みに失敗 (file: %s): %w", groupsFile, err)
 	}
+	slog.Info("グループ情報の読み込み完了", "file", groupsFile, "groupCount", groups.Count())
 
 	localDevices := make(DeviceProperties)
 	operationStatusOn, ok := echonet_lite.ProfileSuperClass_PropertyTable.FindAlias("on")
@@ -323,6 +338,18 @@ func (h *ECHONETLiteHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
 	return h.data.AliasGet(alias)
 }
 
+// GetDeviceByAlias は、エイリアスからデバイスを取得する（client.AliasManagerインターフェース用）
+func (h *ECHONETLiteHandler) GetDeviceByAlias(alias string) (IPAndEOJ, bool) {
+	device, err := h.data.AliasGet(&alias)
+	if err != nil {
+		return IPAndEOJ{}, false
+	}
+	if device == nil {
+		return IPAndEOJ{}, false
+	}
+	return *device, true
+}
+
 // GetDevices は、デバイス指定子に一致するデバイスを取得する
 func (h *ECHONETLiteHandler) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
 	return h.data.GetDevices(deviceSpec)
@@ -374,4 +401,36 @@ func (h *ECHONETLiteHandler) GetLastUpdateTime(device IPAndEOJ) time.Time {
 		return time.Time{}
 	}
 	return h.data.GetLastUpdateTime(device)
+}
+
+// PropertyDescProviderインターフェースの実装
+
+// GetAllPropertyAliases は、全てのプロパティエイリアスを取得する
+func (h *ECHONETLiteHandler) GetAllPropertyAliases() map[string]echonet_lite.PropertyDescription {
+	// 一時的な実装: 空のマップを返す
+	return make(map[string]echonet_lite.PropertyDescription)
+}
+
+// GetPropertyDesc は、指定されたクラスコードとEPCのプロパティ記述を取得する
+func (h *ECHONETLiteHandler) GetPropertyDesc(classCode EOJClassCode, epc EPCType) (*echonet_lite.PropertyDesc, bool) {
+	// 一時的な実装: 常にfalseを返す
+	return nil, false
+}
+
+// IsPropertyDefaultEPC は、指定されたプロパティがデフォルトEPCかどうかを判定する
+func (h *ECHONETLiteHandler) IsPropertyDefaultEPC(classCode EOJClassCode, epc EPCType) bool {
+	// 一時的な実装: 常にfalseを返す
+	return false
+}
+
+// FindPropertyAlias は、指定されたエイリアスからプロパティを検索する
+func (h *ECHONETLiteHandler) FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool) {
+	// 一時的な実装: 常に空のプロパティとfalseを返す
+	return Property{}, false
+}
+
+// AvailablePropertyAliases は、指定されたクラスコードで利用可能なプロパティエイリアスを取得する
+func (h *ECHONETLiteHandler) AvailablePropertyAliases(classCode EOJClassCode) map[string]echonet_lite.PropertyDescription {
+	// 一時的な実装: 空のマップを返す
+	return make(map[string]echonet_lite.PropertyDescription)
 }

@@ -311,3 +311,10 @@ type GroupDevicePair struct {
 	Group   string
 	Devices []IDString
 }
+
+// Count はグループの総数を返す
+func (g *DeviceGroups) Count() int {
+	g.mutex.RLock()
+	defer g.mutex.RUnlock()
+	return len(g.groups)
+}

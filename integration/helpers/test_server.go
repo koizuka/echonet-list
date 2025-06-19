@@ -104,7 +104,7 @@ func (ts *TestServer) Start() error {
 
 	// WebSocketサーバーを作成
 	httpAddr := fmt.Sprintf("%s:%d", ts.Config.HTTPServer.Host, ts.Config.HTTPServer.Port)
-	wsServer, err := server.NewWebSocketServer(ts.ctx, httpAddr, nil, s.GetHandler())
+	wsServer, err := server.NewWebSocketServer(ts.ctx, httpAddr, s.GetHandler(), s.GetHandler())
 	if err != nil {
 		return fmt.Errorf("WebSocketサーバーの作成に失敗: %v", err)
 	}

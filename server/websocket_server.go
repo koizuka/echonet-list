@@ -311,6 +311,8 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	var devices []handler.DeviceAndProperties
 	if ws.echonetClient != nil {
 		devices = ws.echonetClient.ListDevices(handler.FilterCriteria{})
+	} else {
+		slog.Warn("echonetClient is nil, returning empty device list", "connID", connID)
 	}
 	if ws.handler.IsDebug() {
 		slog.Debug("Device list fetched", "connID", connID, "deviceCount", len(devices))
@@ -359,6 +361,8 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 				aliases[alias.Alias] = alias.ID
 			}
 		}
+	} else {
+		slog.Warn("echonetClient is nil for alias list", "connID", connID)
 	}
 	if ws.handler.IsDebug() {
 		slog.Debug("Alias list fetched", "connID", connID, "aliasCount", len(aliases))
@@ -376,6 +380,8 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 				groups[group.Group] = group.Devices
 			}
 		}
+	} else {
+		slog.Warn("echonetClient is nil for group list", "connID", connID)
 	}
 	if ws.handler.IsDebug() {
 		slog.Debug("Group list fetched", "connID", connID, "groupCount", len(groups))
@@ -389,7 +395,7 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	}
 
 	if ws.handler.IsDebug() {
-		slog.Debug("Sending initial state message", "connID", connID)
+		slog.Debug("Sending initial state message", "connID", connID, "totalDevices", len(protoDevices), "totalAliases", len(aliases), "totalGroups", len(groups))
 	}
 
 	// Send the message
