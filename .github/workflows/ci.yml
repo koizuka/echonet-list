@@ -192,20 +192,29 @@ jobs:
     - name: Build Go server
       run: go build -o echonet-list
     
-    - name: Build Web UI
+    - name: Build Web UI (for integration tests)
       run: |
         cd web
         npm ci
         npm run build
+        cd ..
+        
+        # Verify bundle exists
+        if [ ! -d "web/bundle" ]; then
+          echo "ERROR: web/bundle directory not found after build"
+          ls -la web/
+          exit 1
+        fi
+        
+        echo "✅ Web bundle built successfully:"
+        ls -la web/bundle/
     
     - name: Run integration tests
       run: |
-        # Ensure web bundle is built
+        # Double-check bundle exists before running tests
         if [ ! -d "web/bundle" ]; then
-          cd web
-          npm ci
-          npm run build
-          cd ..
+          echo "CRITICAL ERROR: web/bundle missing before integration tests"
+          exit 1
         fi
         
         # Run integration tests

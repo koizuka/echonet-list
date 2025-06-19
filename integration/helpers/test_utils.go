@@ -45,8 +45,12 @@ func NewWebSocketConnection(serverURL string) (*WebSocketConnection, error) {
 
 // SendMessage はWebSocketメッセージを送信する
 func (wsc *WebSocketConnection) SendMessage(message interface{}) error {
-	if wsc.closed {
+	if wsc == nil || wsc.closed {
 		return fmt.Errorf("接続が既に閉じられています")
+	}
+
+	if wsc.conn == nil {
+		return fmt.Errorf("接続が初期化されていません")
 	}
 
 	return wsc.conn.WriteJSON(message)
@@ -54,8 +58,12 @@ func (wsc *WebSocketConnection) SendMessage(message interface{}) error {
 
 // ReceiveMessage はWebSocketメッセージを受信する
 func (wsc *WebSocketConnection) ReceiveMessage(timeout time.Duration) (map[string]interface{}, error) {
-	if wsc.closed {
+	if wsc == nil || wsc.closed {
 		return nil, fmt.Errorf("接続が既に閉じられています")
+	}
+
+	if wsc.conn == nil {
+		return nil, fmt.Errorf("接続が初期化されていません")
 	}
 
 	// タイムアウトを設定
@@ -92,12 +100,15 @@ func (wsc *WebSocketConnection) WaitForMessage(predicate func(map[string]interfa
 
 // Close はWebSocket接続を閉じる
 func (wsc *WebSocketConnection) Close() error {
-	if wsc.closed {
+	if wsc == nil || wsc.closed {
 		return nil
 	}
 
 	wsc.closed = true
-	return wsc.conn.Close()
+	if wsc.conn != nil {
+		return wsc.conn.Close()
+	}
+	return nil
 }
 
 // CreateTempFile は一時ファイルを作成する

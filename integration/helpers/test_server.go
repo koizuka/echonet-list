@@ -41,6 +41,12 @@ func NewTestServer() (*TestServer, error) {
 		return nil, fmt.Errorf("一時ディレクトリの作成に失敗: %v", err)
 	}
 
+	// プロジェクトルートを取得
+	projectRoot, err := GetAbsolutePath("../../")
+	if err != nil {
+		return nil, fmt.Errorf("プロジェクトルートの取得に失敗: %v", err)
+	}
+	
 	// テスト用設定を作成
 	cfg := config.NewConfig()
 	cfg.Debug = true
@@ -49,6 +55,7 @@ func NewTestServer() (*TestServer, error) {
 	cfg.HTTPServer.Enabled = true
 	cfg.HTTPServer.Port = port
 	cfg.HTTPServer.Host = "localhost"
+	cfg.HTTPServer.WebRoot = filepath.Join(projectRoot, "web/bundle")
 	cfg.Log.Filename = filepath.Join(tempDir, "test-echonet-list.log")
 
 	// テストモードを有効化

@@ -21,7 +21,7 @@ enabled = false  # Disable client mode for testing
 
 # HTTP Server settings
 [http_server]
-enabled = true
+enabled = true  # Enable HTTP server for web UI integration tests
 port = 0  # Use random available port
 web_root = "web/bundle"
 
