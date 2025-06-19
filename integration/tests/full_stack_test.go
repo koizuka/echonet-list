@@ -223,23 +223,25 @@ func TestRealTimeUpdates(t *testing.T) {
 	// 短い待機でWebSocket接続を安定化
 	time.Sleep(1 * time.Second)
 
-	// 送信者からプロパティ変更要求を送信
-	setPropertyMessage := map[string]interface{}{
-		"type":  "set_property",
-		"ip":    "192.168.1.100",
-		"eoj":   "0130",
-		"epc":   "80", // 動作状態
-		"value": "31", // ON
+	// 送信者からプロパティ変更要求を送信（実際のWebSocketプロトコルを使用）
+	setPropertiesMessage := map[string]interface{}{
+		"type":   "set_properties",
+		"target": "192.168.1.100 0130:1",
+		"properties": map[string]interface{}{
+			"80": map[string]interface{}{
+				"string": "on",
+			},
+		},
 	}
 
-	err = senderConn.SendMessage(setPropertyMessage)
+	err = senderConn.SendMessage(setPropertiesMessage)
 	helpers.AssertNoError(t, err, "プロパティ変更要求の送信")
 
-	// プロパティ変更の応答を確認
+	// プロパティ変更のcommand_result応答を確認
 	setResponse, err := senderConn.WaitForMessage(
 		func(msg map[string]interface{}) bool {
 			msgType, ok := msg["type"].(string)
-			return ok && msgType == "set_property_response"
+			return ok && msgType == "command_result"
 		},
 		10*time.Second,
 	)

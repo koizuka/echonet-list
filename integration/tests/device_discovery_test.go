@@ -33,34 +33,29 @@ func TestDeviceDiscovery(t *testing.T) {
 	helpers.AssertNoError(t, err, "WebSocket接続の作成")
 	defer wsConn.Close()
 
-	// デバイス一覧を要求
-	listMessage := map[string]interface{}{
-		"type": "list_devices",
-	}
-
-	err = wsConn.SendMessage(listMessage)
-	helpers.AssertNoError(t, err, "デバイス一覧要求の送信")
-
-	// デバイス一覧の応答を待機
+	// initial_state メッセージを受信してデバイス情報を取得
 	response, err := wsConn.WaitForMessage(
 		func(msg map[string]interface{}) bool {
 			msgType, ok := msg["type"].(string)
-			return ok && msgType == "device_list"
+			return ok && msgType == "initial_state"
 		},
 		10*time.Second,
 	)
-	helpers.AssertNoError(t, err, "デバイス一覧の応答受信")
+	helpers.AssertNoError(t, err, "initial_state メッセージの受信")
 
-	// 応答にデバイス情報が含まれていることを確認
-	devices, ok := response["devices"].([]interface{})
+	// payloadからデバイス情報を取得
+	payload, ok := response["payload"].(map[string]interface{})
+	helpers.AssertTrue(t, ok, "initial_state payloadの形式確認")
+
+	devicesMap, ok := payload["devices"].(map[string]interface{})
 	helpers.AssertTrue(t, ok, "デバイス一覧の形式確認")
-	helpers.AssertTrue(t, len(devices) > 0, "デバイスが発見されていることを確認")
+	helpers.AssertTrue(t, len(devicesMap) > 0, "デバイスが発見されていることを確認")
 
-	t.Logf("発見されたデバイス数: %d", len(devices))
+	t.Logf("発見されたデバイス数: %d", len(devicesMap))
 
 	// テストフィクスチャから期待される最小デバイス数を確認
-	// test-devices.jsonには3つのデバイスが含まれている
-	helpers.AssertTrue(t, len(devices) >= 3, "期待されるデバイス数の確認")
+	// test-devices.jsonには5つのデバイスが含まれている（デバイス3つ + Node Profile 2つ）
+	helpers.AssertTrue(t, len(devicesMap) >= 3, "期待されるデバイス数の確認")
 }
 
 func TestDeviceAliases(t *testing.T) {
@@ -87,26 +82,21 @@ func TestDeviceAliases(t *testing.T) {
 	helpers.AssertNoError(t, err, "WebSocket接続の作成")
 	defer wsConn.Close()
 
-	// エイリアス一覧を要求
-	aliasMessage := map[string]interface{}{
-		"type": "list_aliases",
-	}
-
-	err = wsConn.SendMessage(aliasMessage)
-	helpers.AssertNoError(t, err, "エイリアス一覧要求の送信")
-
-	// エイリアス一覧の応答を待機
+	// initial_state メッセージを受信してエイリアス情報を取得
 	response, err := wsConn.WaitForMessage(
 		func(msg map[string]interface{}) bool {
 			msgType, ok := msg["type"].(string)
-			return ok && msgType == "alias_list"
+			return ok && msgType == "initial_state"
 		},
 		10*time.Second,
 	)
-	helpers.AssertNoError(t, err, "エイリアス一覧の応答受信")
+	helpers.AssertNoError(t, err, "initial_state メッセージの受信")
 
-	// 応答にエイリアス情報が含まれていることを確認
-	aliases, ok := response["aliases"].(map[string]interface{})
+	// payloadからエイリアス情報を取得
+	payload, ok := response["payload"].(map[string]interface{})
+	helpers.AssertTrue(t, ok, "initial_state payloadの形式確認")
+
+	aliases, ok := payload["aliases"].(map[string]interface{})
 	helpers.AssertTrue(t, ok, "エイリアス一覧の形式確認")
 	helpers.AssertTrue(t, len(aliases) > 0, "エイリアスが存在することを確認")
 
@@ -144,26 +134,21 @@ func TestDeviceGroups(t *testing.T) {
 	helpers.AssertNoError(t, err, "WebSocket接続の作成")
 	defer wsConn.Close()
 
-	// グループ一覧を要求
-	groupMessage := map[string]interface{}{
-		"type": "list_groups",
-	}
-
-	err = wsConn.SendMessage(groupMessage)
-	helpers.AssertNoError(t, err, "グループ一覧要求の送信")
-
-	// グループ一覧の応答を待機
+	// initial_state メッセージを受信してグループ情報を取得
 	response, err := wsConn.WaitForMessage(
 		func(msg map[string]interface{}) bool {
 			msgType, ok := msg["type"].(string)
-			return ok && msgType == "group_list"
+			return ok && msgType == "initial_state"
 		},
 		10*time.Second,
 	)
-	helpers.AssertNoError(t, err, "グループ一覧の応答受信")
+	helpers.AssertNoError(t, err, "initial_state メッセージの受信")
 
-	// 応答にグループ情報が含まれていることを確認
-	groups, ok := response["groups"].([]interface{})
+	// payloadからグループ情報を取得
+	payload, ok := response["payload"].(map[string]interface{})
+	helpers.AssertTrue(t, ok, "initial_state payloadの形式確認")
+
+	groups, ok := payload["groups"].(map[string]interface{})
 	helpers.AssertTrue(t, ok, "グループ一覧の形式確認")
 	helpers.AssertTrue(t, len(groups) > 0, "グループが存在することを確認")
 
@@ -171,25 +156,9 @@ func TestDeviceGroups(t *testing.T) {
 
 	// テストフィクスチャに含まれるグループの確認
 	expectedGroups := []string{"@Test Lights", "@All Test Devices"}
-	groupNames := make([]string, 0, len(groups))
-
-	for _, group := range groups {
-		if groupMap, ok := group.(map[string]interface{}); ok {
-			if groupName, ok := groupMap["group"].(string); ok {
-				groupNames = append(groupNames, groupName)
-			}
-		}
-	}
-
 	for _, expectedGroup := range expectedGroups {
-		found := false
-		for _, groupName := range groupNames {
-			if groupName == expectedGroup {
-				found = true
-				break
-			}
-		}
-		helpers.AssertTrue(t, found, "期待されるグループ"+expectedGroup+"の存在確認")
+		_, exists := groups[expectedGroup]
+		helpers.AssertTrue(t, exists, "期待されるグループ"+expectedGroup+"の存在確認")
 	}
 }
 
@@ -217,31 +186,35 @@ func TestPropertyOperations(t *testing.T) {
 	helpers.AssertNoError(t, err, "WebSocket接続の作成")
 	defer wsConn.Close()
 
-	// プロパティ読み取りテスト
-	getPropertyMessage := map[string]interface{}{
-		"type": "get_property",
-		"ip":   "192.168.1.100",
-		"eoj":  "0130",
-		"epc":  "80", // 動作状態
-	}
-
-	err = wsConn.SendMessage(getPropertyMessage)
-	helpers.AssertNoError(t, err, "プロパティ取得要求の送信")
-
-	// プロパティ応答を待機
+	// initial_state メッセージからプロパティ情報を確認
 	response, err := wsConn.WaitForMessage(
 		func(msg map[string]interface{}) bool {
 			msgType, ok := msg["type"].(string)
-			return ok && msgType == "property_response"
+			return ok && msgType == "initial_state"
 		},
 		10*time.Second,
 	)
-	helpers.AssertNoError(t, err, "プロパティ応答の受信")
+	helpers.AssertNoError(t, err, "initial_state メッセージの受信")
 
-	// 応答にプロパティ値が含まれていることを確認
-	value, ok := response["value"]
-	helpers.AssertTrue(t, ok, "プロパティ値の存在確認")
-	helpers.AssertNotEqual(t, nil, value, "プロパティ値がnilでないことを確認")
+	// payloadからデバイス情報とプロパティを確認
+	payload, ok := response["payload"].(map[string]interface{})
+	helpers.AssertTrue(t, ok, "initial_state payloadの形式確認")
 
-	t.Logf("取得したプロパティ値: %v", value)
+	devicesMap, ok := payload["devices"].(map[string]interface{})
+	helpers.AssertTrue(t, ok, "デバイス一覧の形式確認")
+
+	// テストデバイスのプロパティを確認
+	deviceKey := "192.168.1.100 0130:1"
+	device, ok := devicesMap[deviceKey].(map[string]interface{})
+	helpers.AssertTrue(t, ok, "テストデバイスの存在確認")
+
+	properties, ok := device["properties"].(map[string]interface{})
+	helpers.AssertTrue(t, ok, "プロパティの存在確認")
+
+	// EPC 80（動作状態）のプロパティを確認
+	property80, ok := properties["80"].(map[string]interface{})
+	helpers.AssertTrue(t, ok, "プロパティ80の存在確認")
+	helpers.AssertNotEqual(t, nil, property80, "プロパティ値がnilでないことを確認")
+
+	t.Logf("取得したプロパティ値: %v", property80)
 }
