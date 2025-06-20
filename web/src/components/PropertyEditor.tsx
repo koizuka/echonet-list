@@ -9,7 +9,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Edit3, Check, X, Binary } from 'lucide-react';
-import { isPropertySettable, formatPropertyValue, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
+import { isPropertySettable, formatPropertyValueWithTranslation, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
+import { translateInstallationLocation } from '@/libs/locationHelper';
 import type { PropertyDescriptor, PropertyValue, Device } from '@/hooks/types';
 
 interface PropertyEditorProps {
@@ -53,6 +54,9 @@ export function PropertyEditor({
   const hasEditCapability = descriptor?.stringSettable || hasNumberDesc || hasAliases;
   const isInSetPropertyMap = isPropertySettable(epc, device);
   const isSettable = hasEditCapability && isInSetPropertyMap;
+  
+  // Check if this is Installation Location property (EPC 0x81)
+  const isInstallationLocation = epc === '81';
 
   // Handle alias selection
   const handleAliasSelect = async (aliasName: string) => {
@@ -152,13 +156,15 @@ export function PropertyEditor({
         >
           <SelectTrigger className="h-7 w-[120px]" data-testid={`alias-select-trigger-${epc}`}>
             <SelectValue>
-              {currentValue.string || 'Select...'}
+              {currentValue.string ? 
+                (isInstallationLocation ? translateInstallationLocation(currentValue.string) : currentValue.string) 
+                : 'Select...'}
             </SelectValue>
           </SelectTrigger>
           <SelectContent data-testid={`alias-select-content-${epc}`}>
             {Object.keys(descriptor.aliases!).map((aliasName) => (
               <SelectItem key={aliasName} value={aliasName} data-testid={`alias-option-${aliasName}`}>
-                {aliasName}
+                {isInstallationLocation ? translateInstallationLocation(aliasName) : aliasName}
               </SelectItem>
             ))}
           </SelectContent>
@@ -170,7 +176,7 @@ export function PropertyEditor({
         <div className="relative">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">
-              {formatPropertyValue(currentValue, descriptor)}
+              {formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateInstallationLocation)}
             </span>
             <Button 
               variant="outline" 

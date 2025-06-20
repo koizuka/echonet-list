@@ -142,6 +142,26 @@ export function formatPropertyValue(
 }
 
 /**
+ * Format property value with localization support
+ * This is a wrapper around formatPropertyValue that handles translation for specific EPCs
+ */
+export function formatPropertyValueWithTranslation(
+  value: { EDT?: string; string?: string; number?: number },
+  descriptor?: PropertyDescriptor,
+  epc?: string,
+  translateFunc?: (value: string) => string
+): string {
+  const formattedValue = formatPropertyValue(value, descriptor);
+  
+  // Translate Installation Location (EPC 0x81)
+  if (epc === '81' && value.string && translateFunc) {
+    return translateFunc(value.string);
+  }
+  
+  return formattedValue;
+}
+
+/**
  * Converts Base64 EDT to hex string representation
  * Returns formatted hex string like "01 23 45" or null if conversion fails
  */

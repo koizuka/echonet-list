@@ -1,5 +1,6 @@
-import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getDevicesForTab } from './locationHelper';
+import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getDevicesForTab, getInstallationLocationNames, translateInstallationLocation } from './locationHelper';
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
+import { beforeEach, afterEach } from 'vitest';
 
 describe('locationHelper', () => {
   const createDevice = (ip: string, eoj: string, operationStatus?: 'on' | 'off', faultStatus?: 'fault' | 'no_fault'): Device => {
@@ -196,6 +197,95 @@ describe('locationHelper', () => {
       // Test with a specific location that might exist
       const testLocationDevices = getDevicesForTab('192.168.1.1', devices, aliases, groups);
       expect(testLocationDevices).not.toContain(devices.nodeProfile);
+    });
+  });
+
+  describe('getInstallationLocationNames', () => {
+    let originalNavigatorLanguage: any;
+
+    beforeEach(() => {
+      originalNavigatorLanguage = Object.getOwnPropertyDescriptor(window.navigator, 'language');
+    });
+
+    afterEach(() => {
+      if (originalNavigatorLanguage) {
+        Object.defineProperty(window.navigator, 'language', originalNavigatorLanguage);
+      }
+    });
+
+    const mockNavigatorLanguage = (language: string) => {
+      Object.defineProperty(window.navigator, 'language', {
+        value: language,
+        writable: true,
+        configurable: true
+      });
+    };
+
+    it('should return English names when browser language is English', () => {
+      mockNavigatorLanguage('en-US');
+      const names = getInstallationLocationNames();
+      expect(names.living).toBe('Living Room');
+      expect(names.kitchen).toBe('Kitchen');
+      expect(names.bathroom).toBe('Bathroom');
+    });
+
+    it('should return Japanese names when browser language is Japanese', () => {
+      mockNavigatorLanguage('ja-JP');
+      const names = getInstallationLocationNames();
+      expect(names.living).toBe('リビング');
+      expect(names.kitchen).toBe('キッチン');
+      expect(names.bathroom).toBe('浴室');
+    });
+  });
+
+  describe('translateInstallationLocation', () => {
+    let originalNavigatorLanguage: any;
+
+    beforeEach(() => {
+      originalNavigatorLanguage = Object.getOwnPropertyDescriptor(window.navigator, 'language');
+    });
+
+    afterEach(() => {
+      if (originalNavigatorLanguage) {
+        Object.defineProperty(window.navigator, 'language', originalNavigatorLanguage);
+      }
+    });
+
+    const mockNavigatorLanguage = (language: string) => {
+      Object.defineProperty(window.navigator, 'language', {
+        value: language,
+        writable: true,
+        configurable: true
+      });
+    };
+
+    it('should translate location names to English', () => {
+      mockNavigatorLanguage('en-US');
+      expect(translateInstallationLocation('living')).toBe('Living Room');
+      expect(translateInstallationLocation('Living')).toBe('Living Room');
+      expect(translateInstallationLocation('LIVING')).toBe('Living Room');
+    });
+
+    it('should translate location names to Japanese', () => {
+      mockNavigatorLanguage('ja-JP');
+      expect(translateInstallationLocation('living')).toBe('リビング');
+      expect(translateInstallationLocation('kitchen')).toBe('キッチン');
+    });
+
+    it('should handle location names with numbers', () => {
+      mockNavigatorLanguage('en-US');
+      expect(translateInstallationLocation('living2')).toBe('Living Room 2');
+      expect(translateInstallationLocation('room123')).toBe('Room 123');
+
+      mockNavigatorLanguage('ja-JP');
+      expect(translateInstallationLocation('living2')).toBe('リビング 2');
+      expect(translateInstallationLocation('room123')).toBe('部屋 123');
+    });
+
+    it('should return original name if no translation found', () => {
+      mockNavigatorLanguage('en-US');
+      expect(translateInstallationLocation('unknown')).toBe('unknown');
+      expect(translateInstallationLocation('custom location')).toBe('custom location');
     });
   });
 });

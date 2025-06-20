@@ -10,7 +10,7 @@
 
 ## 開発メモ
 
-- go のコードをコミットする前にはgo fmtをしてください
+- go のコードをコミットする前には`gofmt -w`をしてください
 
 ## Server Build & Test Commands
 
@@ -18,7 +18,7 @@
 - Run: `./echonet-list [-debug]`
 - Run as daemon: `./echonet-list -daemon -websocket`
 - Test: `go test ./...`
-- Format: `go fmt ./...`
+- Format: `gofmt -w .`
 - Check: `go vet ./...`
 
 ## Web UI Build & Test Commands

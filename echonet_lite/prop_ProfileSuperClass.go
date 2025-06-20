@@ -93,7 +93,7 @@ func InstallationLocationAliases() map[string][]byte {
 	placeNames := map[byte]string{
 		1: "living", 2: "dining", 3: "kitchen", 4: "bathroom",
 		5: "lavatory", 6: "washroom", 7: "passageway", 8: "room",
-		9: "storeroom", 10: "entrance", 11: "storage", 12: "garden",
+		9: "staircase", 10: "entrance", 11: "storage", 12: "garden",
 		13: "garage", 14: "balcony", 15: "others",
 	}
 

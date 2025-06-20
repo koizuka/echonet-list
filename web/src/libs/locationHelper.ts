@@ -5,12 +5,13 @@ import { getDeviceIdentifierForAlias } from './deviceIdHelper';
 import { sortDevicesByEOJAndLocation } from './deviceSortHelper';
 import { isDeviceOperational, isOperationStatusSettable, isDeviceFaulty } from './propertyHelper';
 import { isNodeProfileDevice } from './deviceTypeHelper';
+import { getCurrentLocale } from './languageHelper';
 
 // ECHONET Installation Location EPC
 const EPC_INSTALLATION_LOCATION = '81';
 
-// ECHONET Installation Location mapping (based on ECHONET Lite spec)
-const INSTALLATION_LOCATION_NAMES: Record<string, string> = {
+// ECHONET Installation Location mapping - English (based on ECHONET Lite spec)
+const INSTALLATION_LOCATION_NAMES_EN: Record<string, string> = {
   'living': 'Living Room',
   'dining': 'Dining Room', 
   'kitchen': 'Kitchen',
@@ -19,7 +20,7 @@ const INSTALLATION_LOCATION_NAMES: Record<string, string> = {
   'washroom': 'Washroom',
   'passageway': 'Passageway',
   'room': 'Room',
-  'storeroom': 'Storeroom',
+  'staircase': 'Staircase',
   'entrance': 'Entrance',
   'storage': 'Storage',
   'garden': 'Garden',
@@ -29,6 +30,62 @@ const INSTALLATION_LOCATION_NAMES: Record<string, string> = {
   'unspecified': 'Unspecified',
   'undetermined': 'Undetermined'
 };
+
+// ECHONET Installation Location mapping - Japanese
+const INSTALLATION_LOCATION_NAMES_JA: Record<string, string> = {
+  'living': 'リビング',
+  'dining': 'ダイニング', 
+  'kitchen': 'キッチン',
+  'bathroom': '浴室',
+  'lavatory': 'トイレ',
+  'washroom': '洗面所',
+  'passageway': '廊下',
+  'room': '部屋',
+  'staircase': '階段室',
+  'entrance': '玄関',
+  'storage': '納戸',
+  'garden': '庭',
+  'garage': 'ガレージ',
+  'balcony': 'バルコニー',
+  'others': 'その他',
+  'unspecified': '未指定',
+  'undetermined': '未定'
+};
+
+/**
+ * Get installation location names based on current locale
+ */
+export function getInstallationLocationNames(): Record<string, string> {
+  const locale = getCurrentLocale();
+  return locale === 'ja' ? INSTALLATION_LOCATION_NAMES_JA : INSTALLATION_LOCATION_NAMES_EN;
+}
+
+/**
+ * Translate installation location alias name to localized name
+ * This is used for displaying alias values in PropertyEditor
+ */
+export function translateInstallationLocation(aliasName: string): string {
+  const locationNames = getInstallationLocationNames();
+  const lowerAlias = aliasName.toLowerCase();
+  
+  // Try direct match
+  if (locationNames[lowerAlias]) {
+    return locationNames[lowerAlias];
+  }
+  
+  // Try to extract base location and number (e.g., "Living2" -> "Living Room 2")
+  const match = lowerAlias.match(/^([a-z]+)(\d*)$/);
+  if (match) {
+    const [, baseKey, number] = match;
+    const locationName = locationNames[baseKey];
+    if (locationName) {
+      return number ? `${locationName} ${number}` : locationName;
+    }
+  }
+  
+  // Return original if no translation found
+  return aliasName;
+}
 
 /**
  * Extract location from device's installation location property (EPC 0x81)
@@ -43,12 +100,13 @@ export function extractLocationFromDevice(
   const installationLocationProperty = device.properties[EPC_INSTALLATION_LOCATION];
   if (installationLocationProperty?.string) {
     const locationString = installationLocationProperty.string.toLowerCase();
+    const installationLocationNames = getInstallationLocationNames();
     
     // Extract base location key and any trailing number
     const match = locationString.match(/^([a-z]+)(\d*)$/);
     if (match) {
       const [, baseKey, number] = match;
-      const locationName = INSTALLATION_LOCATION_NAMES[baseKey];
+      const locationName = installationLocationNames[baseKey];
       if (locationName) {
         // If there's a number, append it to the location name
         return number ? `${locationName} ${number}` : locationName;
@@ -56,7 +114,7 @@ export function extractLocationFromDevice(
     }
     
     // Try exact match if pattern doesn't match
-    const locationName = INSTALLATION_LOCATION_NAMES[locationString];
+    const locationName = installationLocationNames[locationString];
     if (locationName) {
       return locationName;
     }

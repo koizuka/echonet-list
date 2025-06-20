@@ -20,6 +20,7 @@
     "findstr",
     "firewalld",
     "frontends",
+    "gofmt",
     "Goroutines",
     "iface",
     "ifaces",

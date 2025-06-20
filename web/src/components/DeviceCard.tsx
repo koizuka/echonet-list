@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PropertyEditor } from '@/components/PropertyEditor';
 import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
-import { getPropertyName, formatPropertyValue, getPropertyDescriptor, isPropertySettable, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
+import { getPropertyName, formatPropertyValueWithTranslation, getPropertyDescriptor, isPropertySettable, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
+import { translateInstallationLocation } from '@/libs/locationHelper';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
@@ -52,7 +53,7 @@ export function DeviceCard({
     const [showHexData, setShowHexData] = useState(false);
     const propertyName = getPropertyName(epc, propertyDescriptions, classCode);
     const propertyDescriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
-    const formattedValue = formatPropertyValue(value, propertyDescriptor);
+    const formattedValue = formatPropertyValueWithTranslation(value, propertyDescriptor, epc, translateInstallationLocation);
 
     // Check if property is settable
     const hasEditCapability = propertyDescriptor?.stringSettable || propertyDescriptor?.numberDesc || (propertyDescriptor?.aliases && Object.keys(propertyDescriptor.aliases).length > 0);
