@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Edit3, Check, X, Binary } from 'lucide-react';
 import { isPropertySettable, formatPropertyValueWithTranslation, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
-import { translateInstallationLocation } from '@/libs/locationHelper';
+import { translateLocationId } from '@/libs/locationHelper';
 import type { PropertyDescriptor, PropertyValue, Device } from '@/hooks/types';
 
 interface PropertyEditorProps {
@@ -157,14 +157,14 @@ export function PropertyEditor({
           <SelectTrigger className="h-7 w-[120px]" data-testid={`alias-select-trigger-${epc}`}>
             <SelectValue>
               {currentValue.string ? 
-                (isInstallationLocation ? translateInstallationLocation(currentValue.string) : currentValue.string) 
+                (isInstallationLocation ? translateLocationId(currentValue.string) : currentValue.string) 
                 : 'Select...'}
             </SelectValue>
           </SelectTrigger>
           <SelectContent data-testid={`alias-select-content-${epc}`}>
             {Object.keys(descriptor.aliases!).map((aliasName) => (
               <SelectItem key={aliasName} value={aliasName} data-testid={`alias-option-${aliasName}`}>
-                {isInstallationLocation ? translateInstallationLocation(aliasName) : aliasName}
+                {isInstallationLocation ? translateLocationId(aliasName) : aliasName}
               </SelectItem>
             ))}
           </SelectContent>
@@ -176,7 +176,7 @@ export function PropertyEditor({
         <div className="relative">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">
-              {formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateInstallationLocation)}
+              {formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateLocationId)}
             </span>
             <Button 
               variant="outline" 

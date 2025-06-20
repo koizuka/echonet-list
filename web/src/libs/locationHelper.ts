@@ -60,32 +60,6 @@ export function getInstallationLocationNames(): Record<string, string> {
   return locale === 'ja' ? INSTALLATION_LOCATION_NAMES_JA : INSTALLATION_LOCATION_NAMES_EN;
 }
 
-/**
- * Translate installation location alias name to localized name
- * This is used for displaying alias values in PropertyEditor
- */
-export function translateInstallationLocation(aliasName: string): string {
-  const locationNames = getInstallationLocationNames();
-  const lowerAlias = aliasName.toLowerCase();
-  
-  // Try direct match
-  if (locationNames[lowerAlias]) {
-    return locationNames[lowerAlias];
-  }
-  
-  // Try to extract base location and number (e.g., "Living2" -> "Living Room 2")
-  const match = lowerAlias.match(/^([a-z]+)(\d*)$/);
-  if (match) {
-    const [, baseKey, number] = match;
-    const locationName = locationNames[baseKey];
-    if (locationName) {
-      return number ? `${locationName} ${number}` : locationName;
-    }
-  }
-  
-  // Return original if no translation found
-  return aliasName;
-}
 
 /**
  * Extract location from device's installation location property (EPC 0x81)
@@ -209,15 +183,23 @@ export function groupDevicesByLocation(
 }
 
 /**
+ * Extract raw installation location value from device (used for tab IDs)
+ */
+export function extractRawLocationFromDevice(device: Device): string {
+  const installationLocationProperty = device.properties[EPC_INSTALLATION_LOCATION];
+  return installationLocationProperty?.string || 'unknown';
+}
+
+/**
  * Get all unique locations from devices, sorted alphabetically
  * with "All" as the first option
  * Excludes Node Profile devices from location detection
+ * Returns location IDs for internal use
  */
 export function getAllLocations(
-  devices: Record<string, Device>,
-  aliases: DeviceAlias
+  devices: Record<string, Device>
 ): string[] {
-  const locations = new Set<string>();
+  const locationIds = new Set<string>();
   
   Object.values(devices).forEach(device => {
     // Skip Node Profile devices for location detection
@@ -225,54 +207,111 @@ export function getAllLocations(
       return;
     }
     
-    const location = extractLocationFromDevice(device, aliases, devices);
-    locations.add(location);
+    const locationId = extractRawLocationFromDevice(device);
+    locationIds.add(locationId);
   });
   
-  const sortedLocations = Array.from(locations).sort();
-  return ['All', ...sortedLocations];
+  const sortedLocationIds = Array.from(locationIds).sort();
+  return ['All', ...sortedLocationIds];
+}
+
+
+/**
+ * Translate location ID to display name
+ */
+export function translateLocationId(locationId: string): string {
+  if (locationId === 'All') {
+    return locationId;
+  }
+  
+  const locationNames = getInstallationLocationNames();
+  const lowerLocationId = locationId.toLowerCase();
+  
+  // Try direct match
+  if (locationNames[lowerLocationId]) {
+    return locationNames[lowerLocationId];
+  }
+  
+  // Try to extract base location and number (e.g., "living2" -> "Living Room 2")
+  const match = lowerLocationId.match(/^([a-z]+)(\d*)$/);
+  if (match) {
+    const [, baseKey, number] = match;
+    const locationName = locationNames[baseKey];
+    if (locationName) {
+      return number ? `${locationName} ${number}` : locationName;
+    }
+  }
+  
+  // Return capitalized ID if no translation found
+  return locationId.charAt(0).toUpperCase() + locationId.slice(1);
 }
 
 /**
  * Get all tabs including locations and device groups
  * Device groups are prefixed with "@" to distinguish from locations
+ * Returns tab IDs for internal use
  */
 export function getAllTabs(
   devices: Record<string, Device>,
-  aliases: DeviceAlias,
   groups: DeviceGroup
 ): string[] {
-  // Get location tabs
-  const locationTabs = getAllLocations(devices, aliases);
+  // Get location tab IDs
+  const locationTabIds = getAllLocations(devices);
   
-  // Get group tabs (prefixed with "@")
-  const groupTabs = Object.keys(groups)
+  // Get group tab IDs (prefixed with "@")
+  const groupTabIds = Object.keys(groups)
     .filter(groupName => groupName.startsWith('@'))
     .sort();
   
   // Combine: All, locations, then groups
-  return [...locationTabs, ...groupTabs];
+  return [...locationTabIds, ...groupTabIds];
+}
+
+
+/**
+ * Group devices by their raw location IDs
+ * Excludes Node Profile devices from location grouping
+ */
+export function groupDevicesByLocationId(
+  devices: Record<string, Device>
+): Record<string, Device[]> {
+  const grouped: Record<string, Device[]> = {};
+  
+  Object.values(devices).forEach(device => {
+    // Skip Node Profile devices for location grouping
+    if (isNodeProfileDevice(device)) {
+      return;
+    }
+    
+    const locationId = extractRawLocationFromDevice(device);
+    if (!grouped[locationId]) {
+      grouped[locationId] = [];
+    }
+    grouped[locationId].push(device);
+  });
+  
+  return grouped;
 }
 
 /**
  * Get devices for a specific tab (location or group)
  * Returns devices sorted by EOJ (classCode:instance) and installation location
  * For location tabs, excludes Node Profile devices. For 'All' tab, includes all devices.
+ * Takes tab ID as input (raw location ID or group name)
  */
 export function getDevicesForTab(
-  tabName: string,
+  tabId: string,
   devices: Record<string, Device>,
-  aliases: DeviceAlias,
   groups: DeviceGroup
 ): Device[] {
   let filteredDevices: Device[];
   
-  if (tabName === 'All') {
+  if (tabId === 'All') {
     // Show all devices including Node Profile in the 'All' tab
     filteredDevices = Object.values(devices);
-  } else if (tabName.startsWith('@')) {
+  } else if (tabId.startsWith('@')) {
     // It's a group tab (starts with "@")
-    const groupDeviceIds = groups[tabName] || [];
+    const groupDeviceIds = groups[tabId] || [];
     filteredDevices = Object.values(devices).filter(device => {
       // Generate device identifier using same logic as aliases
       const deviceIdentifier = getDeviceIdentifierForAlias(device, devices);
@@ -298,14 +337,15 @@ export function getDevicesForTab(
       return groupDeviceIds.some(groupId => groupId.startsWith(deviceEOJPart + ':'));
     });
   } else {
-    // It's a location tab - Node Profile devices are already excluded by groupDevicesByLocation
-    const groupedDevices = groupDevicesByLocation(devices, aliases);
-    filteredDevices = groupedDevices[tabName] || [];
+    // It's a location tab - use raw location ID
+    const groupedDevices = groupDevicesByLocationId(devices);
+    filteredDevices = groupedDevices[tabId] || [];
   }
   
   // Sort all devices by EOJ (classCode:instance) and installation location
   return sortDevicesByEOJAndLocation(filteredDevices);
 }
+
 
 /**
  * Get display name for device (alias if available, otherwise device name)

@@ -1,5 +1,5 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
-import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice } from '@/libs/locationHelper';
+import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId } from '@/libs/locationHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
@@ -54,11 +54,11 @@ function App() {
     connect: echonet.connect,
   });
   
-  // Get all tabs (locations + groups)
-  const tabs = getAllTabs(echonet.devices, echonet.aliases, echonet.groups);
+  // Get all tab IDs (location IDs + groups)
+  const tabIds = getAllTabs(echonet.devices, echonet.groups);
   
   // Use persistent tab selection
-  const { selectedTab, selectTab } = usePersistedTab(tabs, 'All');
+  const { selectedTab, selectTab } = usePersistedTab(tabIds, 'All');
   
   // Loading state for update operations
   const [updatingDevices, setUpdatingDevices] = useState<Set<string>>(new Set());
@@ -107,9 +107,9 @@ function App() {
     }
   };
 
-  // Function to get devices for a specific tab
-  const getDevicesForTab = (tabName: string) => {
-    return getDevicesForTabHelper(tabName, echonet.devices, echonet.aliases, echonet.groups);
+  // Function to get devices for a specific tab ID
+  const getDevicesForTab = (tabId: string) => {
+    return getDevicesForTabHelper(tabId, echonet.devices, echonet.groups);
   };
 
   // Get all device keys for expand/collapse all functionality
@@ -179,19 +179,20 @@ function App() {
           <Tabs value={selectedTab} onValueChange={selectTab} className="w-full" data-testid="device-tabs">
             <div className="w-full mb-4">
               <TabsList className="w-full h-auto p-2 bg-muted flex flex-wrap justify-between gap-2">
-              {tabs.map((tab) => {
-                const tabDevices = getDevicesForTab(tab);
+              {tabIds.map((tabId) => {
+                const tabDevices = getDevicesForTab(tabId);
                 const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
                 const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
+                const displayName = translateLocationId(tabId);
                 return (
                   <TabsTrigger 
-                    key={tab} 
-                    value={tab} 
+                    key={tabId} 
+                    value={tabId} 
                     className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary border-2 border-muted-foreground/30 bg-background px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg"
-                    data-testid={`tab-${tab}`}
+                    data-testid={`tab-${tabId}`}
                   >
                     <div className="flex items-center gap-1">
-                      {tab !== 'All' && (
+                      {tabId !== 'All' && (
                         <div className="flex items-center gap-1">
                           <div 
                             className={`w-2 h-2 rounded-full ${
@@ -207,8 +208,8 @@ function App() {
                           )}
                         </div>
                       )}
-                      <span>{tab}</span>
-                      {tab !== 'All' && (
+                      <span>{displayName}</span>
+                      {tabId !== 'All' && (
                         <span className="ml-1 text-[10px] sm:text-xs">({tabDevices.length})</span>
                       )}
                     </div>
@@ -218,10 +219,10 @@ function App() {
               </TabsList>
             </div>
             
-            {tabs.map((tab) => (
-              <TabsContent key={tab} value={tab} className="space-y-4" data-testid={`tab-content-${tab}`}>
+            {tabIds.map((tabId) => (
+              <TabsContent key={tabId} value={tabId} className="space-y-4" data-testid={`tab-content-${tabId}`}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
-                  {getDevicesForTab(tab).map((device) => {
+                  {getDevicesForTab(tabId).map((device) => {
                     const deviceKey = `${device.ip} ${device.eoj}`;
                     
                     return (
@@ -242,15 +243,15 @@ function App() {
                   })}
                 </div>
                 
-                {getDevicesForTab(tab).length === 0 && (
+                {getDevicesForTab(tabId).length === 0 && (
                   <Card>
                     <CardContent className="pt-6">
                       <p className="text-center text-muted-foreground">
-                        {tab === 'All' 
+                        {tabId === 'All' 
                           ? 'No devices found.' 
-                          : tab.startsWith('@') 
-                            ? `No devices found in group ${tab}.`
-                            : `No devices found in ${tab}.`
+                          : tabId.startsWith('@') 
+                            ? `No devices found in group ${tabId}.`
+                            : `No devices found in ${translateLocationId(tabId)}.`
                         }
                       </p>
                     </CardContent>

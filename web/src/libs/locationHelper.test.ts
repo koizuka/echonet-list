@@ -1,4 +1,4 @@
-import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getDevicesForTab, getInstallationLocationNames, translateInstallationLocation } from './locationHelper';
+import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getDevicesForTab, getInstallationLocationNames, translateLocationId } from './locationHelper';
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 import { beforeEach, afterEach } from 'vitest';
 
@@ -155,9 +155,8 @@ describe('locationHelper', () => {
         'device2': createDevice('192.168.1.2', '0290:1'),
         'nodeProfile': createNodeProfileDevice('192.168.1.3')
       };
-      const aliases: DeviceAlias = {};
 
-      const locations = getAllLocations(devices, aliases);
+      const locations = getAllLocations(devices);
       
       // Should still return All + location tabs, but Node Profile shouldn't affect location generation
       expect(locations).toContain('All');
@@ -176,7 +175,7 @@ describe('locationHelper', () => {
     const groups: DeviceGroup = {};
 
     it('should include Node Profile devices in "All" tab', () => {
-      const allDevices = getDevicesForTab('All', devices, aliases, groups);
+      const allDevices = getDevicesForTab('All', devices, groups);
       
       expect(allDevices).toContain(devices.device1);
       expect(allDevices).toContain(devices.device2);
@@ -190,12 +189,12 @@ describe('locationHelper', () => {
       const locationNames = Object.keys(groupedDevices);
       
       if (locationNames.length > 0) {
-        const firstLocationDevices = getDevicesForTab(locationNames[0], devices, aliases, groups);
+        const firstLocationDevices = getDevicesForTab(locationNames[0], devices, groups);
         expect(firstLocationDevices).not.toContain(devices.nodeProfile);
       }
       
       // Test with a specific location that might exist
-      const testLocationDevices = getDevicesForTab('192.168.1.1', devices, aliases, groups);
+      const testLocationDevices = getDevicesForTab('192.168.1.1', devices, groups);
       expect(testLocationDevices).not.toContain(devices.nodeProfile);
     });
   });
@@ -238,7 +237,7 @@ describe('locationHelper', () => {
     });
   });
 
-  describe('translateInstallationLocation', () => {
+  describe('translateLocationId', () => {
     let originalNavigatorLanguage: any;
 
     beforeEach(() => {
@@ -261,31 +260,31 @@ describe('locationHelper', () => {
 
     it('should translate location names to English', () => {
       mockNavigatorLanguage('en-US');
-      expect(translateInstallationLocation('living')).toBe('Living Room');
-      expect(translateInstallationLocation('Living')).toBe('Living Room');
-      expect(translateInstallationLocation('LIVING')).toBe('Living Room');
+      expect(translateLocationId('living')).toBe('Living Room');
+      expect(translateLocationId('Living')).toBe('Living Room');
+      expect(translateLocationId('LIVING')).toBe('Living Room');
     });
 
     it('should translate location names to Japanese', () => {
       mockNavigatorLanguage('ja-JP');
-      expect(translateInstallationLocation('living')).toBe('リビング');
-      expect(translateInstallationLocation('kitchen')).toBe('キッチン');
+      expect(translateLocationId('living')).toBe('リビング');
+      expect(translateLocationId('kitchen')).toBe('キッチン');
     });
 
     it('should handle location names with numbers', () => {
       mockNavigatorLanguage('en-US');
-      expect(translateInstallationLocation('living2')).toBe('Living Room 2');
-      expect(translateInstallationLocation('room123')).toBe('Room 123');
+      expect(translateLocationId('living2')).toBe('Living Room 2');
+      expect(translateLocationId('room123')).toBe('Room 123');
 
       mockNavigatorLanguage('ja-JP');
-      expect(translateInstallationLocation('living2')).toBe('リビング 2');
-      expect(translateInstallationLocation('room123')).toBe('部屋 123');
+      expect(translateLocationId('living2')).toBe('リビング 2');
+      expect(translateLocationId('room123')).toBe('部屋 123');
     });
 
     it('should return original name if no translation found', () => {
       mockNavigatorLanguage('en-US');
-      expect(translateInstallationLocation('unknown')).toBe('unknown');
-      expect(translateInstallationLocation('custom location')).toBe('custom location');
+      expect(translateLocationId('unknown')).toBe('Unknown');
+      expect(translateLocationId('custom location')).toBe('Custom location');
     });
   });
 });
