@@ -42,11 +42,25 @@ export function extractLocationFromDevice(
   // First priority: Check Installation Location property (EPC 0x81)
   const installationLocationProperty = device.properties[EPC_INSTALLATION_LOCATION];
   if (installationLocationProperty?.string) {
-    const locationKey = installationLocationProperty.string.toLowerCase();
-    const locationName = INSTALLATION_LOCATION_NAMES[locationKey];
+    const locationString = installationLocationProperty.string.toLowerCase();
+    
+    // Extract base location key and any trailing number
+    const match = locationString.match(/^([a-z]+)(\d*)$/);
+    if (match) {
+      const [, baseKey, number] = match;
+      const locationName = INSTALLATION_LOCATION_NAMES[baseKey];
+      if (locationName) {
+        // If there's a number, append it to the location name
+        return number ? `${locationName} ${number}` : locationName;
+      }
+    }
+    
+    // Try exact match if pattern doesn't match
+    const locationName = INSTALLATION_LOCATION_NAMES[locationString];
     if (locationName) {
       return locationName;
     }
+    
     // If it's a valid string but not in our mapping, use it as-is (capitalized)
     return installationLocationProperty.string.charAt(0).toUpperCase() + 
            installationLocationProperty.string.slice(1);
