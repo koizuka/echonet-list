@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { Edit3, Check, X, Binary } from 'lucide-react';
 import { isPropertySettable, formatPropertyValueWithTranslation, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { translateLocationId } from '@/libs/locationHelper';
@@ -31,6 +32,7 @@ export function PropertyEditor({
 }: PropertyEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const [sliderValue, setSliderValue] = useState<number[]>([0]);
   const [isLoading, setIsLoading] = useState(false);
   const [showHexData, setShowHexData] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,12 +82,19 @@ export function PropertyEditor({
 
   // Handle string/number editing
   const startEditing = () => {
-    if (currentValue.string) {
-      setEditValue(currentValue.string);
-    } else if (currentValue.number !== undefined) {
+    if (currentValue.number !== undefined) {
+      // Priority: use number value if available
       setEditValue(currentValue.number.toString());
+      setSliderValue([currentValue.number]);
+    } else if (currentValue.string && !hasNumberDesc) {
+      // String value for non-numeric properties
+      setEditValue(currentValue.string);
     } else {
+      // Default case or alias+number combination
       setEditValue('');
+      if (hasNumberDesc && descriptor?.numberDesc) {
+        setSliderValue([descriptor.numberDesc.min]);
+      }
     }
     setIsEditing(true);
   };
@@ -93,6 +102,7 @@ export function PropertyEditor({
   const cancelEditing = () => {
     setIsEditing(false);
     setEditValue('');
+    setSliderValue([0]);
   };
 
   const saveEdit = async () => {
@@ -116,11 +126,19 @@ export function PropertyEditor({
       await onPropertyChange(deviceId, epc, propertyValue);
       setIsEditing(false);
       setEditValue('');
+      setSliderValue([0]);
     } catch (error) {
       console.error('Failed to set property:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle slider value change
+  const handleSliderChange = (value: number[]) => {
+    const numValue = value[0];
+    setSliderValue(value);
+    setEditValue(numValue.toString());
   };
 
   // For read-only properties, only show hex viewer if applicable
@@ -235,6 +253,7 @@ export function PropertyEditor({
               onClick={startEditing}
               disabled={isLoading}
               className="h-7 px-2"
+              data-testid={`edit-button-${epc}`}
             >
               <Edit3 className="h-3 w-3" />
             </Button>
@@ -260,47 +279,83 @@ export function PropertyEditor({
 
       {/* Editing mode */}
       {isEditing && (
-        <div className="flex items-center gap-1">
-          <Input
-            ref={inputRef}
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                saveEdit();
-              } else if (e.key === 'Escape') {
-                cancelEditing();
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <Input
+              ref={inputRef}
+              value={editValue}
+              onChange={(e) => {
+                setEditValue(e.target.value);
+                // Update slider if it's a valid number
+                if (hasNumberDesc && descriptor?.numberDesc) {
+                  const numValue = parseInt(e.target.value, 10);
+                  if (!isNaN(numValue)) {
+                    setSliderValue([Math.max(descriptor.numberDesc.min, Math.min(descriptor.numberDesc.max, numValue))]);
+                  }
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  saveEdit();
+                } else if (e.key === 'Escape') {
+                  cancelEditing();
+                }
+              }}
+              placeholder={
+                hasNumberDesc 
+                  ? `${descriptor.numberDesc!.min}-${descriptor.numberDesc!.max}${descriptor.numberDesc!.unit}` 
+                  : 'Enter value'
               }
-            }}
-            placeholder={
-              hasNumberDesc 
-                ? `${descriptor.numberDesc!.min}-${descriptor.numberDesc!.max}${descriptor.numberDesc!.unit}` 
-                : 'Enter value'
-            }
-            className="h-7 text-xs w-20"
-            disabled={isLoading}
-            data-testid={`edit-input-${epc}`}
-          />
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={saveEdit}
-            disabled={isLoading || !editValue.trim()}
-            className="h-7 px-1"
-            data-testid={`save-button-${epc}`}
-          >
-            <Check className="h-3 w-3" />
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={cancelEditing}
-            disabled={isLoading}
-            className="h-7 px-1"
-            data-testid={`cancel-button-${epc}`}
-          >
-            <X className="h-3 w-3" />
-          </Button>
+              className="h-7 text-xs w-20"
+              disabled={isLoading}
+              data-testid={`edit-input-${epc}`}
+            />
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={saveEdit}
+                disabled={isLoading || !editValue.trim()}
+                className="h-7 px-1"
+                data-testid={`save-button-${epc}`}
+              >
+                <Check className="h-3 w-3" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={cancelEditing}
+                disabled={isLoading}
+                className="h-7 px-1"
+                data-testid={`cancel-button-${epc}`}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+          
+          {/* Slider for number properties */}
+          {hasNumberDesc && descriptor?.numberDesc && (
+            <div className="w-48 px-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs text-muted-foreground">{descriptor.numberDesc.min}</span>
+                <Slider
+                  value={sliderValue}
+                  onValueChange={handleSliderChange}
+                  min={descriptor.numberDesc.min}
+                  max={descriptor.numberDesc.max}
+                  step={1}
+                  className="flex-1"
+                  disabled={isLoading}
+                  data-testid={`slider-${epc}`}
+                />
+                <span className="text-xs text-muted-foreground">{descriptor.numberDesc.max}</span>
+              </div>
+              <div className="text-center text-xs text-muted-foreground">
+                {sliderValue[0]}{descriptor.numberDesc.unit}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

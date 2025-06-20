@@ -3,6 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PropertyEditor } from './PropertyEditor';
 import type { Device, PropertyDescriptor } from '@/hooks/types';
 
+// Mock ResizeObserver for tests
+global.ResizeObserver = vi.fn(() => ({
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+  unobserve: vi.fn(),
+}));
+
 describe('PropertyEditor', () => {
   const mockDevice: Device = {
     ip: '192.168.1.100',
@@ -249,6 +256,134 @@ describe('PropertyEditor', () => {
 
       expect(screen.queryByTestId('operation-status-switch-81')).not.toBeInTheDocument();
       expect(screen.getByTestId('alias-select-trigger-81')).toBeInTheDocument();
+    });
+  });
+
+  describe('Slider functionality for numeric properties', () => {
+    const temperatureDescriptor: PropertyDescriptor = {
+      description: 'Temperature setting',
+      numberDesc: {
+        min: 16,
+        max: 30,
+        offset: 0,
+        unit: '°C',
+        edtLen: 1
+      }
+    };
+
+    const deviceWithTemperatureSettable = {
+      ...mockDevice,
+      properties: {
+        ...mockDevice.properties,
+        'B3': { number: 22 },
+        '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xB3)) } // Set Property Map with EPCs 0x80 and 0xB3
+      }
+    };
+
+    it('should render slider for numeric properties in edit mode', () => {
+      render(
+        <PropertyEditor
+          device={deviceWithTemperatureSettable}
+          epc="B3"
+          currentValue={{ number: 22 }}
+          descriptor={temperatureDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+        />
+      );
+
+      // Click edit button to enter edit mode
+      const editButton = screen.getByTestId('edit-button-B3');
+      fireEvent.click(editButton);
+
+      // Check that slider is present
+      const slider = screen.getByTestId('slider-B3');
+      expect(slider).toBeInTheDocument();
+
+      // Check min/max labels
+      expect(screen.getByText('16')).toBeInTheDocument();
+      expect(screen.getByText('30')).toBeInTheDocument();
+      
+      // Check unit display
+      expect(screen.getByText('22°C')).toBeInTheDocument();
+    });
+
+    it('should sync input and slider values', () => {
+      render(
+        <PropertyEditor
+          device={deviceWithTemperatureSettable}
+          epc="B3"
+          currentValue={{ number: 22 }}
+          descriptor={temperatureDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+        />
+      );
+
+      // Enter edit mode
+      const editButton = screen.getByTestId('edit-button-B3');
+      fireEvent.click(editButton);
+
+      const input = screen.getByTestId('edit-input-B3');
+      
+      // Change input value
+      fireEvent.change(input, { target: { value: '25' } });
+      expect(input).toHaveValue('25');
+      
+      // Check that unit display updated
+      expect(screen.getByText('25°C')).toBeInTheDocument();
+    });
+
+    it('should handle alias+number property correctly', () => {
+      const mixedDescriptor: PropertyDescriptor = {
+        description: 'Mixed property',
+        aliases: {
+          'auto': 'QVU=',
+          'manual': 'TUFOVA=='
+        },
+        numberDesc: {
+          min: 0,
+          max: 100,
+          offset: 0,
+          unit: '%',
+          edtLen: 1
+        }
+      };
+
+      const deviceWithMixedProperty = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          'CF': { string: 'auto' }, // Currently showing alias
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xCF)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithMixedProperty}
+          epc="CF"
+          currentValue={{ string: 'auto' }}
+          descriptor={mixedDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+        />
+      );
+
+      // Should show dropdown, not switch (because more than 2 aliases)
+      expect(screen.getByTestId('alias-select-trigger-CF')).toBeInTheDocument();
+
+      // Click edit button to enter edit mode
+      const editButton = screen.getByTestId('edit-button-CF');
+      fireEvent.click(editButton);
+
+      // Should show slider for number editing
+      const slider = screen.getByTestId('slider-CF');
+      expect(slider).toBeInTheDocument();
+      
+      // Input should be empty (no current number value)
+      const input = screen.getByTestId('edit-input-CF');
+      expect(input).toHaveValue('');
+      
+      // Should show min value on slider (0%)
+      expect(screen.getByText('0%')).toBeInTheDocument();
     });
   });
 });
