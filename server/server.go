@@ -18,11 +18,11 @@ func NewServer(ctx context.Context, cfg *config.Config) (*Server, error) {
 	// ハンドラーオプションを作成
 	options := handler.ECHONETLieHandlerOptions{Debug: cfg.Debug}
 
-	// テストモード設定を追加
-	if cfg != nil && cfg.TestMode.Enabled {
-		options.TestDevicesFile = cfg.TestMode.DevicesFile
-		options.TestAliasesFile = cfg.TestMode.AliasesFile
-		options.TestGroupsFile = cfg.TestMode.GroupsFile
+	// データファイルパス設定を追加
+	if cfg != nil {
+		options.DevicesFile = cfg.DataFiles.DevicesFile
+		options.AliasesFile = cfg.DataFiles.AliasesFile
+		options.GroupsFile = cfg.DataFiles.GroupsFile
 	}
 
 	// キープアライブ設定を追加

@@ -93,13 +93,12 @@ type Config struct {
 		NetworkMonitorEnabled bool   `toml:"network_monitor_enabled"`
 	} `toml:"multicast"`
 
-	// Test mode settings
-	TestMode struct {
-		Enabled     bool   `toml:"enabled"`
+	// Data file paths
+	DataFiles struct {
 		DevicesFile string `toml:"devices_file"`
 		AliasesFile string `toml:"aliases_file"`
 		GroupsFile  string `toml:"groups_file"`
-	} `toml:"test_mode"`
+	} `toml:"data_files"`
 }
 
 // NewConfig はデフォルト設定を持つConfigを作成する
@@ -124,11 +123,10 @@ func NewConfig() *Config {
 	cfg.Multicast.GroupRefreshInterval = "5m"
 	cfg.Multicast.NetworkMonitorEnabled = true
 
-	// Default test mode settings
-	cfg.TestMode.Enabled = false
-	cfg.TestMode.DevicesFile = ""
-	cfg.TestMode.AliasesFile = ""
-	cfg.TestMode.GroupsFile = ""
+	// Default data file paths (empty means use default locations)
+	cfg.DataFiles.DevicesFile = ""
+	cfg.DataFiles.AliasesFile = ""
+	cfg.DataFiles.GroupsFile = ""
 
 	return cfg
 }
@@ -223,18 +221,15 @@ func (c *Config) ApplyCommandLineArgs(args CommandLineArgs) {
 		c.Log.Filename = getDefaultDaemonLogFile()
 	}
 
-	// Test mode flags
-	if args.TestModeEnabledSpecified {
-		c.TestMode.Enabled = args.TestModeEnabled
+	// Data file paths
+	if args.DevicesFileSpecified {
+		c.DataFiles.DevicesFile = args.DevicesFile
 	}
-	if args.TestModeDevicesFileSpecified {
-		c.TestMode.DevicesFile = args.TestModeDevicesFile
+	if args.AliasesFileSpecified {
+		c.DataFiles.AliasesFile = args.AliasesFile
 	}
-	if args.TestModeAliasesFileSpecified {
-		c.TestMode.AliasesFile = args.TestModeAliasesFile
-	}
-	if args.TestModeGroupsFileSpecified {
-		c.TestMode.GroupsFile = args.TestModeGroupsFile
+	if args.GroupsFileSpecified {
+		c.DataFiles.GroupsFile = args.GroupsFile
 	}
 }
 
@@ -289,15 +284,13 @@ type CommandLineArgs struct {
 	HTTPServerWebRoot          string
 	HTTPServerWebRootSpecified bool
 
-	// Test mode flags
-	TestModeEnabled              bool
-	TestModeEnabledSpecified     bool
-	TestModeDevicesFile          string
-	TestModeDevicesFileSpecified bool
-	TestModeAliasesFile          string
-	TestModeAliasesFileSpecified bool
-	TestModeGroupsFile           string
-	TestModeGroupsFileSpecified  bool
+	// Data file paths
+	DevicesFile          string
+	DevicesFileSpecified bool
+	AliasesFile          string
+	AliasesFileSpecified bool
+	GroupsFile           string
+	GroupsFileSpecified  bool
 }
 
 // ParseCommandLineArgs はコマンドライン引数をパースする
@@ -328,10 +321,9 @@ func ParseCommandLineArgs() CommandLineArgs {
 	httpPortFlag := flag.Int("http-port", 8080, "HTTPサーバーのポートを指定する")
 	httpWebRootFlag := flag.String("http-webroot", "web/bundle", "HTTPサーバーのWebルートディレクトリを指定する")
 
-	testModeFlag := flag.Bool("test-mode", false, "テストモードを有効にする")
-	testModeDevicesFileFlag := flag.String("test-devices", "", "テスト用のdevices.jsonファイルのパスを指定する")
-	testModeAliasesFileFlag := flag.String("test-aliases", "", "テスト用のaliases.jsonファイルのパスを指定する")
-	testModeGroupsFileFlag := flag.String("test-groups", "", "テスト用のgroups.jsonファイルのパスを指定する")
+	devicesFileFlag := flag.String("devices-file", "", "devices.jsonファイルのパスを指定する（デフォルト: devices.json）")
+	aliasesFileFlag := flag.String("aliases-file", "", "aliases.jsonファイルのパスを指定する（デフォルト: aliases.json）")
+	groupsFileFlag := flag.String("groups-file", "", "groups.jsonファイルのパスを指定する（デフォルト: groups.json）")
 
 	// コマンドライン引数を解析
 	flag.Parse()
@@ -407,14 +399,12 @@ func ParseCommandLineArgs() CommandLineArgs {
 	args.HTTPServerWebRoot = *httpWebRootFlag
 	args.HTTPServerWebRootSpecified = argsMap["http-webroot"]
 
-	args.TestModeEnabled = *testModeFlag
-	args.TestModeEnabledSpecified = argsMap["test-mode"]
-	args.TestModeDevicesFile = *testModeDevicesFileFlag
-	args.TestModeDevicesFileSpecified = argsMap["test-devices"]
-	args.TestModeAliasesFile = *testModeAliasesFileFlag
-	args.TestModeAliasesFileSpecified = argsMap["test-aliases"]
-	args.TestModeGroupsFile = *testModeGroupsFileFlag
-	args.TestModeGroupsFileSpecified = argsMap["test-groups"]
+	args.DevicesFile = *devicesFileFlag
+	args.DevicesFileSpecified = argsMap["devices-file"]
+	args.AliasesFile = *aliasesFileFlag
+	args.AliasesFileSpecified = argsMap["aliases-file"]
+	args.GroupsFile = *groupsFileFlag
+	args.GroupsFileSpecified = argsMap["groups-file"]
 
 	return args
 }

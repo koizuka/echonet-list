@@ -58,8 +58,7 @@ func NewTestServer() (*TestServer, error) {
 	cfg.HTTPServer.WebRoot = filepath.Join(projectRoot, "web/bundle")
 	cfg.Log.Filename = filepath.Join(tempDir, "test-echonet-list.log")
 
-	// テストモードを有効化
-	cfg.TestMode.Enabled = true
+	// データファイルパスは必要に応じて後で設定
 
 	// コンテキスト作成
 	ctx, cancel := context.WithCancel(context.Background())
@@ -74,9 +73,9 @@ func NewTestServer() (*TestServer, error) {
 
 // SetTestFixtures はテスト用のフィクスチャファイルを設定する
 func (ts *TestServer) SetTestFixtures(devicesFile, aliasesFile, groupsFile string) {
-	ts.Config.TestMode.DevicesFile = devicesFile
-	ts.Config.TestMode.AliasesFile = aliasesFile
-	ts.Config.TestMode.GroupsFile = groupsFile
+	ts.Config.DataFiles.DevicesFile = devicesFile
+	ts.Config.DataFiles.AliasesFile = aliasesFile
+	ts.Config.DataFiles.GroupsFile = groupsFile
 }
 
 // Start はテストサーバーを起動する

@@ -26,10 +26,18 @@ type ECHONETLieHandlerOptions struct {
 	ManufacturerCode string                   // echonet_lite.ManufacturerCodeEDT のキーのいずれか。省略時は Experimental
 	UniqueIdentifier []byte                   // 13バイトのユニーク識別子, nilの場合はMACアドレスから生成
 	KeepAliveConfig  *network.KeepAliveConfig // マルチキャストキープアライブ設定
-	// テストモード用ファイルパス
-	TestDevicesFile string // テスト用デバイスファイルパス（空文字の場合はデフォルトファイル）
-	TestAliasesFile string // テスト用エイリアスファイルパス（空文字の場合はデフォルトファイル）
-	TestGroupsFile  string // テスト用グループファイルパス（空文字の場合はデフォルトファイル）
+	// カスタムファイルパス（空文字の場合はデフォルトファイルを使用）
+	DevicesFile string // デバイスファイルパス
+	AliasesFile string // エイリアスファイルパス
+	GroupsFile  string // グループファイルパス
+}
+
+// getFileOrDefault は、カスタムファイル名が空文字の場合にデフォルトファイル名を返す
+func getFileOrDefault(customFile, defaultFile string) string {
+	if customFile == "" {
+		return defaultFile
+	}
+	return customFile
 }
 
 // NewECHONETLiteHandler は、ECHONETLiteHandler の新しいインスタンスを作成する
@@ -55,14 +63,9 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	// Devicesにイベントチャンネルを設定
 	devices.SetEventChannel(deviceEventCh)
 
-	// テストファイルまたはデフォルトファイルからデバイス情報を読み込む
-	devicesFile := DeviceFileName
-	if options.TestDevicesFile != "" {
-		devicesFile = options.TestDevicesFile
-		slog.Info("テストモード: デバイスファイルを使用", "file", devicesFile)
-	} else {
-		slog.Info("デフォルトファイルを使用", "file", devicesFile)
-	}
+	// デバイス情報を読み込む
+	devicesFile := getFileOrDefault(options.DevicesFile, DeviceFileName)
+	slog.Info("デバイスファイルを使用", "file", devicesFile)
 	err = devices.LoadFromFile(devicesFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
@@ -73,14 +76,9 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 
 	aliases := NewDeviceAliases()
 
-	// テストファイルまたはデフォルトファイルからエイリアス情報を読み込む
-	aliasesFile := DeviceAliasesFileName
-	if options.TestAliasesFile != "" {
-		aliasesFile = options.TestAliasesFile
-		slog.Info("テストモード: エイリアスファイルを使用", "file", aliasesFile)
-	} else {
-		slog.Info("デフォルトファイルを使用", "file", aliasesFile)
-	}
+	// エイリアス情報を読み込む
+	aliasesFile := getFileOrDefault(options.AliasesFile, DeviceAliasesFileName)
+	slog.Info("エイリアスファイルを使用", "file", aliasesFile)
 	err = aliases.LoadFromFile(aliasesFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
@@ -92,14 +90,9 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	// デバイスグループを管理するオブジェクトを作成
 	groups := NewDeviceGroups()
 
-	// テストファイルまたはデフォルトファイルからグループ情報を読み込む
-	groupsFile := DeviceGroupsFileName
-	if options.TestGroupsFile != "" {
-		groupsFile = options.TestGroupsFile
-		slog.Info("テストモード: グループファイルを使用", "file", groupsFile)
-	} else {
-		slog.Info("デフォルトファイルを使用", "file", groupsFile)
-	}
+	// グループ情報を読み込む
+	groupsFile := getFileOrDefault(options.GroupsFile, DeviceGroupsFileName)
+	slog.Info("グループファイルを使用", "file", groupsFile)
 	err = groups.LoadFromFile(groupsFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル

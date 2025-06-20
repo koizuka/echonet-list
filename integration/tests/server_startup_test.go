@@ -115,7 +115,7 @@ func TestConfigurationLoading(t *testing.T) {
 	helpers.AssertTrue(t, cfg.WebSocket.Enabled, "WebSocketサーバーの有効化確認")
 	helpers.AssertFalse(t, cfg.TLS.Enabled, "TLSの無効化確認")
 	helpers.AssertTrue(t, cfg.HTTPServer.Enabled, "HTTPサーバーの有効化確認")
-	helpers.AssertTrue(t, cfg.TestMode.Enabled, "テストモードの有効化確認")
+	// データファイルパス設定は後で行うため、ここでは確認しない
 
 	// フィクスチャファイルを設定
 	fixturesDir, err := helpers.GetAbsolutePath("../fixtures")
@@ -128,9 +128,9 @@ func TestConfigurationLoading(t *testing.T) {
 	server.SetTestFixtures(devicesFile, aliasesFile, groupsFile)
 
 	// フィクスチャファイルパスが正しく設定されていることを確認
-	helpers.AssertEqual(t, devicesFile, cfg.TestMode.DevicesFile, "デバイスファイルパスの確認")
-	helpers.AssertEqual(t, aliasesFile, cfg.TestMode.AliasesFile, "エイリアスファイルパスの確認")
-	helpers.AssertEqual(t, groupsFile, cfg.TestMode.GroupsFile, "グループファイルパスの確認")
+	helpers.AssertEqual(t, devicesFile, cfg.DataFiles.DevicesFile, "デバイスファイルパスの確認")
+	helpers.AssertEqual(t, aliasesFile, cfg.DataFiles.AliasesFile, "エイリアスファイルパスの確認")
+	helpers.AssertEqual(t, groupsFile, cfg.DataFiles.GroupsFile, "グループファイルパスの確認")
 
 	// フィクスチャファイルが存在することを確認
 	helpers.AssertTrue(t, helpers.FileExists(devicesFile), "デバイスファイルの存在確認")
