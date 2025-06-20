@@ -22,7 +22,7 @@ describe('PropertyEditor', () => {
     mockOnPropertyChange.mockClear();
   });
 
-  describe('Operation status (EPC 0x80) with Switch UI', () => {
+  describe('Properties with only on/off aliases (Switch UI)', () => {
     const operationStatusDescriptor: PropertyDescriptor = {
       description: 'Operation status',
       aliases: {
@@ -31,8 +31,8 @@ describe('PropertyEditor', () => {
       }
     };
 
-    it('should render a switch for Operation status', () => {
-      const { container } = render(
+    it('should render a switch for properties with only on/off aliases', () => {
+      render(
         <PropertyEditor
           device={mockDevice}
           epc="80"
@@ -42,8 +42,6 @@ describe('PropertyEditor', () => {
         />
       );
 
-      // Debug output
-      console.log('Rendered HTML:', container.innerHTML);
       
       const switchElement = screen.getByTestId('operation-status-switch-80');
       expect(switchElement).toBeInTheDocument();
@@ -113,7 +111,7 @@ describe('PropertyEditor', () => {
       expect(switchElement).not.toBeDisabled();
     });
 
-    it('should not render switch for non-Operation status properties', () => {
+    it('should not render switch for properties with more than two aliases', () => {
       const otherDescriptor: PropertyDescriptor = {
         description: 'Illuminance level',
         aliases: {
@@ -146,7 +144,7 @@ describe('PropertyEditor', () => {
       expect(screen.getByTestId('alias-select-trigger-B0')).toBeInTheDocument();
     });
 
-    it('should not render switch when Operation status has no aliases', () => {
+    it('should not render switch when property has no aliases', () => {
       render(
         <PropertyEditor
           device={mockDevice}
@@ -160,7 +158,41 @@ describe('PropertyEditor', () => {
       expect(screen.queryByTestId('operation-status-switch-80')).not.toBeInTheDocument();
     });
 
-    it('should not render switch when Operation status aliases do not include on/off', () => {
+    it('should render switch for non-0x80 properties with only on/off aliases', () => {
+      const fanDescriptor: PropertyDescriptor = {
+        description: 'Fan power',
+        aliases: {
+          'on': 'MA==',
+          'off': 'MQ=='
+        }
+      };
+
+      // Device with property CF settable (example: fan power)
+      const deviceWithCFSettable = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          'CF': { string: 'off' },
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xCF)) } // Set Property Map with EPCs 0x80 and 0xCF
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithCFSettable}
+          epc="CF"
+          currentValue={{ string: 'off' }}
+          descriptor={fanDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+        />
+      );
+
+      const switchElement = screen.getByTestId('operation-status-switch-CF');
+      expect(switchElement).toBeInTheDocument();
+      expect(switchElement).toHaveAttribute('aria-checked', 'false');
+    });
+
+    it('should not render switch when aliases are not exactly on/off', () => {
       const customAliasDescriptor: PropertyDescriptor = {
         description: 'Operation status',
         aliases: {
@@ -185,7 +217,7 @@ describe('PropertyEditor', () => {
   });
 
   describe('Other alias properties', () => {
-    it('should render dropdown for non-Operation status alias properties', () => {
+    it('should render dropdown for alias properties with more than two options', () => {
       const locationDescriptor: PropertyDescriptor = {
         description: 'Installation location',
         aliases: {

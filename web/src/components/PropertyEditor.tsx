@@ -59,8 +59,9 @@ export function PropertyEditor({
   // Check if this is Installation Location property (EPC 0x81)
   const isInstallationLocation = epc === '81';
   
-  // Check if this is Operation status property (EPC 0x80) with on/off aliases
-  const isOperationStatus = epc === '80' && hasAliases && descriptor?.aliases && 
+  // Check if this property has exactly 'on' and 'off' aliases (for switch UI)
+  const hasOnOffAliases = hasAliases && descriptor?.aliases && 
+    Object.keys(descriptor.aliases).length === 2 &&
     'on' in descriptor.aliases && 'off' in descriptor.aliases;
 
   // Handle alias selection
@@ -152,8 +153,8 @@ export function PropertyEditor({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Switch for Operation status */}
-      {isOperationStatus && !isEditing && (
+      {/* Switch for properties with only on/off aliases */}
+      {hasOnOffAliases && !isEditing && (
         <Switch
           checked={currentValue.string === 'on'}
           onCheckedChange={(checked) => handleAliasSelect(checked ? 'on' : 'off')}
@@ -163,8 +164,8 @@ export function PropertyEditor({
         />
       )}
       
-      {/* Alias select - hidden when editing and not for Operation status */}
-      {hasAliases && !isOperationStatus && !isEditing && (
+      {/* Alias select - hidden when editing and not for on/off properties */}
+      {hasAliases && !hasOnOffAliases && !isEditing && (
         <Select
           value={currentValue.string || ''}
           onValueChange={(value) => handleAliasSelect(value)}
