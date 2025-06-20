@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -282,12 +283,24 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 		case err := <-done:
 			if err != nil {
 				slog.Error("Failed to send initial state", "error", err, "connID", connID)
-				// Send error notification to client
+
+				// Check if the error is due to client disconnect
+				if isClientDisconnectedError(err) {
+					slog.Debug("Client disconnected during initial state generation", "connID", connID)
+					// Don't try to send error notification to disconnected client
+					return
+				}
+
+				// Send error notification to client only if still connected
 				errorPayload := protocol.ErrorNotificationPayload{
 					Code:    protocol.ErrorCodeInternalServerError,
 					Message: "Failed to load initial state",
 				}
-				_ = ws.sendMessageToClient(connID, protocol.MessageTypeErrorNotification, errorPayload, "")
+				if sendErr := ws.sendMessageToClient(connID, protocol.MessageTypeErrorNotification, errorPayload, ""); sendErr != nil {
+					if !isClientDisconnectedError(sendErr) {
+						slog.Error("Failed to send error notification", "error", sendErr, "connID", connID)
+					}
+				}
 			} else {
 				if ws.handler.IsDebug() {
 					slog.Debug("Initial state sent successfully", "connID", connID)
@@ -295,16 +308,35 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 			}
 		case <-ctx.Done():
 			slog.Error("Initial state generation timed out", "connID", connID)
-			// Send timeout error to client
+			// Send timeout error to client only if still connected
 			errorPayload := protocol.ErrorNotificationPayload{
 				Code:    protocol.ErrorCodeInternalServerError,
 				Message: "Initial state loading timed out",
 			}
-			_ = ws.sendMessageToClient(connID, protocol.MessageTypeErrorNotification, errorPayload, "")
+			if sendErr := ws.sendMessageToClient(connID, protocol.MessageTypeErrorNotification, errorPayload, ""); sendErr != nil {
+				if !isClientDisconnectedError(sendErr) {
+					slog.Error("Failed to send timeout notification", "error", sendErr, "connID", connID)
+				}
+			}
 		}
 	}()
 
 	return nil
+}
+
+// isClientDisconnectedError checks if the error indicates that the client has disconnected
+func isClientDisconnectedError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for common client disconnection error patterns
+	errStr := err.Error()
+	return strings.Contains(errStr, "client with ID") && strings.Contains(errStr, "not found") ||
+		strings.Contains(errStr, "connection reset by peer") ||
+		strings.Contains(errStr, "broken pipe") ||
+		strings.Contains(errStr, "use of closed network connection") ||
+		strings.Contains(errStr, "failed to send message to client")
 }
 
 // generateAndSendInitialState generates and sends the initial state data

@@ -169,7 +169,10 @@ function App() {
             <CardContent className="pt-6">
               <p className="text-center text-muted-foreground">
                 {echonet.connectionState === 'connected' 
-                  ? 'No devices found. Click refresh to discover devices.'
+                  ? (echonet.initialStateReceived 
+                      ? 'No devices found. Click refresh to discover devices.'
+                      : 'サーバーから初期情報が受信できていません'
+                    )
                   : `サーバーに接続できません (${echonet.connectionState})`
                 }
               </p>

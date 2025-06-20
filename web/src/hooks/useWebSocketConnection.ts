@@ -28,6 +28,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdCounterRef = useRef(0);
   const pendingRequestsRef = useRef<Map<string, {
     resolve: (value: unknown) => void;
@@ -62,6 +63,11 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
+    }
+    
+    if (connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = null;
     }
     
     // Reject all pending requests
@@ -158,7 +164,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     }
   }, [options]);
 
-  const connect = useCallback(() => {
+  const actualConnect = useCallback(() => {
     cleanup();
     
     if (import.meta.env.DEV) {
@@ -224,7 +230,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         }
         
         // Don't reconnect for certain error codes that indicate permanent failures
-        const permanentFailureCodes = [1005, 1002, 1003, 1007, 1008, 1011];
+        const permanentFailureCodes = [1002, 1003, 1007, 1008, 1011];
         const shouldReconnect = event.code !== 1000 && 
                               !permanentFailureCodes.includes(event.code) && 
                               reconnectAttemptsRef.current < maxReconnectAttempts;
@@ -259,6 +265,24 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       updateConnectionState('error');
     }
   }, [options, handleMessage, updateConnectionState, scheduleReconnect, maxReconnectAttempts, cleanup, sendLogNotification]);
+
+  // Debounced connect function to handle React StrictMode double mounting
+  const connect = useCallback(() => {
+    // Clear any pending connection attempt
+    if (connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = null;
+    }
+    
+    // In development mode (but not test), add a small delay to handle StrictMode double mounting
+    if (import.meta.env.DEV && !import.meta.env.MODE?.includes('test')) {
+      connectTimeoutRef.current = setTimeout(() => {
+        actualConnect();
+      }, 50); // 50ms delay in dev mode
+    } else {
+      actualConnect();
+    }
+  }, [actualConnect]);
 
   // Assign connect function to ref for use in scheduleReconnect
   connectRef.current = connect;

@@ -29,6 +29,7 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         devices: action.payload.devices,
         aliases: action.payload.aliases,
         groups: action.payload.groups,
+        initialStateReceived: true,
       };
       
     case 'ADD_DEVICE': {
@@ -131,6 +132,7 @@ const initialState: ECHONETState = {
   groups: {},
   connectionState: 'disconnected',
   propertyDescriptions: {},
+  initialStateReceived: false,
 };
 
 export type ECHONETHook = {
@@ -140,6 +142,7 @@ export type ECHONETHook = {
   groups: DeviceGroup;
   connectionState: ConnectionState;
   propertyDescriptions: Record<string, PropertyDescriptionData>;
+  initialStateReceived: boolean;
   
   // Device operations
   getDeviceProperties: (targets: string[], epcs: string[]) => Promise<unknown>;
@@ -433,6 +436,7 @@ export function useECHONET(
     groups: state.groups,
     connectionState: state.connectionState,
     propertyDescriptions: state.propertyDescriptions,
+    initialStateReceived: state.initialStateReceived,
     
     // Device operations
     getDeviceProperties,

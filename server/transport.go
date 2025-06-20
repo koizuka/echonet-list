@@ -176,7 +176,24 @@ func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) e
 
 	client.mutex.Lock()
 	defer client.mutex.Unlock()
-	return client.conn.WriteMessage(websocket.TextMessage, message)
+
+	err := client.conn.WriteMessage(websocket.TextMessage, message)
+	if err != nil {
+		// Check if this is a connection close error
+		if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) {
+			slog.Debug("Client connection already closed", "connID", connID, "err", err)
+			// Remove the client from the map since it's already closed
+			t.clientsMutex.Lock()
+			delete(t.clients, connID)
+			if conn := client.conn; conn != nil {
+				delete(t.clientsReverse, conn)
+			}
+			t.clientsMutex.Unlock()
+		}
+		return fmt.Errorf("failed to send message to client %s: %w", connID, err)
+	}
+
+	return nil
 }
 
 // BroadcastMessage は接続中の全クライアントにメッセージを送信する

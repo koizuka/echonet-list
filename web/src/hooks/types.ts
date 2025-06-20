@@ -211,4 +211,5 @@ export type ECHONETState = {
   groups: DeviceGroup;
   connectionState: ConnectionState;
   propertyDescriptions: Record<string, PropertyDescriptionData>; // classCode -> PropertyDescriptionData
+  initialStateReceived: boolean;
 };
