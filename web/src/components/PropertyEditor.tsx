@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Edit3, Check, X, Binary } from 'lucide-react';
 import { isPropertySettable, formatPropertyValueWithTranslation, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { translateLocationId } from '@/libs/locationHelper';
@@ -57,6 +58,10 @@ export function PropertyEditor({
   
   // Check if this is Installation Location property (EPC 0x81)
   const isInstallationLocation = epc === '81';
+  
+  // Check if this is Operation status property (EPC 0x80) with on/off aliases
+  const isOperationStatus = epc === '80' && hasAliases && descriptor?.aliases && 
+    'on' in descriptor.aliases && 'off' in descriptor.aliases;
 
   // Handle alias selection
   const handleAliasSelect = async (aliasName: string) => {
@@ -147,8 +152,19 @@ export function PropertyEditor({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Alias select - hidden when editing */}
-      {hasAliases && !isEditing && (
+      {/* Switch for Operation status */}
+      {isOperationStatus && !isEditing && (
+        <Switch
+          checked={currentValue.string === 'on'}
+          onCheckedChange={(checked) => handleAliasSelect(checked ? 'on' : 'off')}
+          disabled={isLoading}
+          data-testid={`operation-status-switch-${epc}`}
+          className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-400"
+        />
+      )}
+      
+      {/* Alias select - hidden when editing and not for Operation status */}
+      {hasAliases && !isOperationStatus && !isEditing && (
         <Select
           value={currentValue.string || ''}
           onValueChange={(value) => handleAliasSelect(value)}
