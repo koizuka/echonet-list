@@ -141,16 +141,24 @@ func (ws *WebSocketServer) handleClientConnect(connID string) error {
 
 // handleClientMessage is called when a message is received from a client
 func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) error {
+	if ws.handler.IsDebug() {
+		slog.Debug("Received WebSocket message", "connID", connID, "message", string(message))
+	}
+
 	// Parse the message
 	msg, err := protocol.ParseMessage(message)
 	if err != nil {
-		slog.Error("Error parsing message", "err", err)
+		slog.Error("Error parsing message", "err", err, "connID", connID)
 		// エラー応答を送信
 		errorPayload := protocol.ErrorNotificationPayload{
 			Code:    protocol.ErrorCodeInvalidRequestFormat,
 			Message: fmt.Sprintf("Error parsing message: %v", err),
 		}
 		return ws.sendMessageToClient(connID, protocol.MessageTypeErrorNotification, errorPayload, "")
+	}
+
+	if ws.handler.IsDebug() {
+		slog.Debug("Parsed message", "connID", connID, "type", msg.Type, "requestID", msg.RequestID)
 	}
 
 	handle := func(handler func(msg *protocol.Message) protocol.CommandResultPayload) error {
@@ -177,6 +185,7 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 		return handle(ws.handleDiscoverDevicesFromClient)
 	case protocol.MessageTypeGetPropertyDescription:
 		return handle(ws.handleGetPropertyDescriptionFromClient)
+
 	default:
 		slog.Error("Unknown message type", "type", msg.Type)
 		// エラー応答を送信
@@ -308,7 +317,12 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	if ws.handler.IsDebug() {
 		slog.Debug("Fetching device list", "connID", connID)
 	}
-	devices := ws.echonetClient.ListDevices(handler.FilterCriteria{})
+	var devices []handler.DeviceAndProperties
+	if ws.echonetClient != nil {
+		devices = ws.echonetClient.ListDevices(handler.FilterCriteria{})
+	} else {
+		slog.Warn("echonetClient is nil, returning empty device list", "connID", connID)
+	}
 	if ws.handler.IsDebug() {
 		slog.Debug("Device list fetched", "connID", connID, "deviceCount", len(devices))
 	}
@@ -318,6 +332,12 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	for i, device := range devices {
 		if ws.handler.IsDebug() && i < 5 { // Log first 5 devices to avoid spam
 			slog.Debug("Processing device", "connID", connID, "device", device.Device.Specifier(), "index", i)
+		}
+
+		// デバイス構造体のnilチェック
+		if device.Device.IP == nil {
+			slog.Warn("Skipping device with nil IP", "connID", connID, "device", device.Device.Specifier())
+			continue
 		}
 
 		// デバイスの最終更新タイムスタンプを取得
@@ -342,10 +362,16 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	if ws.handler.IsDebug() {
 		slog.Debug("Fetching alias list", "connID", connID)
 	}
-	aliasList := ws.echonetClient.AliasList()
 	aliases := make(map[string]client.IDString)
-	for _, alias := range aliasList {
-		aliases[alias.Alias] = alias.ID
+	if ws.echonetClient != nil {
+		aliasList := ws.echonetClient.AliasList()
+		for _, alias := range aliasList {
+			if alias.Alias != "" && alias.ID != "" {
+				aliases[alias.Alias] = alias.ID
+			}
+		}
+	} else {
+		slog.Warn("echonetClient is nil for alias list", "connID", connID)
 	}
 	if ws.handler.IsDebug() {
 		slog.Debug("Alias list fetched", "connID", connID, "aliasCount", len(aliases))
@@ -355,10 +381,16 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	if ws.handler.IsDebug() {
 		slog.Debug("Fetching group list", "connID", connID)
 	}
-	groupList := ws.echonetClient.GroupList(nil)
 	groups := make(map[string][]client.IDString)
-	for _, group := range groupList {
-		groups[group.Group] = group.Devices
+	if ws.echonetClient != nil {
+		groupList := ws.echonetClient.GroupList(nil)
+		for _, group := range groupList {
+			if group.Group != "" {
+				groups[group.Group] = group.Devices
+			}
+		}
+	} else {
+		slog.Warn("echonetClient is nil for group list", "connID", connID)
 	}
 	if ws.handler.IsDebug() {
 		slog.Debug("Group list fetched", "connID", connID, "groupCount", len(groups))
@@ -372,7 +404,7 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	}
 
 	if ws.handler.IsDebug() {
-		slog.Debug("Sending initial state message", "connID", connID)
+		slog.Debug("Sending initial state message", "connID", connID, "totalDevices", len(protoDevices), "totalAliases", len(aliases), "totalGroups", len(groups))
 	}
 
 	// Send the message

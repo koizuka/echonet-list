@@ -247,3 +247,10 @@ func (da *DeviceAliases) LoadFromFile(filename string) error {
 
 	return nil
 }
+
+// Count はエイリアスの総数を返す
+func (da *DeviceAliases) Count() int {
+	da.mu.RLock()
+	defer da.mu.RUnlock()
+	return len(da.aliases)
+}

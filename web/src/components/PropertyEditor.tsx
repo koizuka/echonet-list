@@ -150,14 +150,14 @@ export function PropertyEditor({
           onValueChange={(value) => handleAliasSelect(value)}
           disabled={isLoading}
         >
-          <SelectTrigger className="h-7 w-[120px]">
+          <SelectTrigger className="h-7 w-[120px]" data-testid={`alias-select-trigger-${epc}`}>
             <SelectValue>
               {currentValue.string || 'Select...'}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent data-testid={`alias-select-content-${epc}`}>
             {Object.keys(descriptor.aliases!).map((aliasName) => (
-              <SelectItem key={aliasName} value={aliasName}>
+              <SelectItem key={aliasName} value={aliasName} data-testid={`alias-option-${aliasName}`}>
                 {aliasName}
               </SelectItem>
             ))}
@@ -178,6 +178,7 @@ export function PropertyEditor({
               onClick={startEditing}
               disabled={isLoading}
               className="h-7 px-2"
+              data-testid={`edit-button-${epc}`}
             >
               <Edit3 className="h-3 w-3" />
             </Button>
@@ -255,6 +256,7 @@ export function PropertyEditor({
             }
             className="h-7 text-xs w-20"
             disabled={isLoading}
+            data-testid={`edit-input-${epc}`}
           />
           <Button 
             variant="outline" 
@@ -262,6 +264,7 @@ export function PropertyEditor({
             onClick={saveEdit}
             disabled={isLoading || !editValue.trim()}
             className="h-7 px-1"
+            data-testid={`save-button-${epc}`}
           >
             <Check className="h-3 w-3" />
           </Button>
@@ -271,6 +274,7 @@ export function PropertyEditor({
             onClick={cancelEditing}
             disabled={isLoading}
             className="h-7 px-1"
+            data-testid={`cancel-button-${epc}`}
           >
             <X className="h-3 w-3" />
           </Button>

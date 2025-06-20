@@ -1,0 +1,31 @@
+# Integration test configuration
+
+# General settings
+debug = true
+
+# Log settings
+[log]
+filename = "test-echonet-list.log"
+
+# WebSocket server settings
+[websocket]
+enabled = true
+
+# TLS settings
+[tls]
+enabled = false  # Disable TLS for simpler testing
+
+# WebSocket client settings  
+[websocket_client]
+enabled = false  # Disable client mode for testing
+
+# HTTP Server settings
+[http_server]
+enabled = true  # Enable HTTP server for web UI integration tests
+port = 0  # Use random available port
+web_root = "web/bundle"
+
+# Multicast settings
+[multicast]
+keep_alive_enabled = false  # Disable for testing
+network_monitor_enabled = false  # Disable for testing

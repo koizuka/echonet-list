@@ -593,6 +593,17 @@ func (h Devices) Len() int {
 	return len(h.data)
 }
 
+// CountAll は全てのデバイス（IPとEOJの組み合わせ）の総数を返す
+func (h Devices) CountAll() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	count := 0
+	for _, eojMap := range h.data {
+		count += len(eojMap)
+	}
+	return count
+}
+
 func (h Devices) ListIPAndEOJ() []IPAndEOJ {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

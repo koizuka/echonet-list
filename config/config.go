@@ -92,6 +92,13 @@ type Config struct {
 		GroupRefreshInterval  string `toml:"group_refresh_interval"` // e.g., "5m", "10m"
 		NetworkMonitorEnabled bool   `toml:"network_monitor_enabled"`
 	} `toml:"multicast"`
+
+	// Data file paths
+	DataFiles struct {
+		DevicesFile string `toml:"devices_file"`
+		AliasesFile string `toml:"aliases_file"`
+		GroupsFile  string `toml:"groups_file"`
+	} `toml:"data_files"`
 }
 
 // NewConfig はデフォルト設定を持つConfigを作成する
@@ -115,6 +122,11 @@ func NewConfig() *Config {
 	cfg.Multicast.KeepAliveEnabled = true
 	cfg.Multicast.GroupRefreshInterval = "5m"
 	cfg.Multicast.NetworkMonitorEnabled = true
+
+	// Default data file paths (empty means use default locations)
+	cfg.DataFiles.DevicesFile = ""
+	cfg.DataFiles.AliasesFile = ""
+	cfg.DataFiles.GroupsFile = ""
 
 	return cfg
 }
@@ -208,6 +220,17 @@ func (c *Config) ApplyCommandLineArgs(args CommandLineArgs) {
 	if c.Daemon.Enabled && !args.LogFilenameSpecified && c.Log.Filename == "echonet-list.log" {
 		c.Log.Filename = getDefaultDaemonLogFile()
 	}
+
+	// Data file paths
+	if args.DevicesFileSpecified {
+		c.DataFiles.DevicesFile = args.DevicesFile
+	}
+	if args.AliasesFileSpecified {
+		c.DataFiles.AliasesFile = args.AliasesFile
+	}
+	if args.GroupsFileSpecified {
+		c.DataFiles.GroupsFile = args.GroupsFile
+	}
 }
 
 // CommandLineArgs はコマンドライン引数からの値を保持する
@@ -260,6 +283,14 @@ type CommandLineArgs struct {
 	HTTPServerPortSpecified    bool
 	HTTPServerWebRoot          string
 	HTTPServerWebRootSpecified bool
+
+	// Data file paths
+	DevicesFile          string
+	DevicesFileSpecified bool
+	AliasesFile          string
+	AliasesFileSpecified bool
+	GroupsFile           string
+	GroupsFileSpecified  bool
 }
 
 // ParseCommandLineArgs はコマンドライン引数をパースする
@@ -289,6 +320,10 @@ func ParseCommandLineArgs() CommandLineArgs {
 	httpHostFlag := flag.String("http-host", "localhost", "HTTPサーバーのホスト名を指定する")
 	httpPortFlag := flag.Int("http-port", 8080, "HTTPサーバーのポートを指定する")
 	httpWebRootFlag := flag.String("http-webroot", "web/bundle", "HTTPサーバーのWebルートディレクトリを指定する")
+
+	devicesFileFlag := flag.String("devices-file", "", "devices.jsonファイルのパスを指定する（デフォルト: devices.json）")
+	aliasesFileFlag := flag.String("aliases-file", "", "aliases.jsonファイルのパスを指定する（デフォルト: aliases.json）")
+	groupsFileFlag := flag.String("groups-file", "", "groups.jsonファイルのパスを指定する（デフォルト: groups.json）")
 
 	// コマンドライン引数を解析
 	flag.Parse()
@@ -363,6 +398,13 @@ func ParseCommandLineArgs() CommandLineArgs {
 	args.HTTPServerPortSpecified = argsMap["http-port"]
 	args.HTTPServerWebRoot = *httpWebRootFlag
 	args.HTTPServerWebRootSpecified = argsMap["http-webroot"]
+
+	args.DevicesFile = *devicesFileFlag
+	args.DevicesFileSpecified = argsMap["devices-file"]
+	args.AliasesFile = *aliasesFileFlag
+	args.AliasesFileSpecified = argsMap["aliases-file"]
+	args.GroupsFile = *groupsFileFlag
+	args.GroupsFileSpecified = argsMap["groups-file"]
 
 	return args
 }

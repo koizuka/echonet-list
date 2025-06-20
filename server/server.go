@@ -18,6 +18,13 @@ func NewServer(ctx context.Context, cfg *config.Config) (*Server, error) {
 	// ハンドラーオプションを作成
 	options := handler.ECHONETLieHandlerOptions{Debug: cfg.Debug}
 
+	// データファイルパス設定を追加
+	if cfg != nil {
+		options.DevicesFile = cfg.DataFiles.DevicesFile
+		options.AliasesFile = cfg.DataFiles.AliasesFile
+		options.GroupsFile = cfg.DataFiles.GroupsFile
+	}
+
 	// キープアライブ設定を追加
 	if cfg != nil && cfg.Multicast.KeepAliveEnabled {
 		groupRefreshInterval, err := time.ParseDuration(cfg.Multicast.GroupRefreshInterval)

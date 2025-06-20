@@ -26,6 +26,18 @@ type ECHONETLieHandlerOptions struct {
 	ManufacturerCode string                   // echonet_lite.ManufacturerCodeEDT のキーのいずれか。省略時は Experimental
 	UniqueIdentifier []byte                   // 13バイトのユニーク識別子, nilの場合はMACアドレスから生成
 	KeepAliveConfig  *network.KeepAliveConfig // マルチキャストキープアライブ設定
+	// カスタムファイルパス（空文字の場合はデフォルトファイルを使用）
+	DevicesFile string // デバイスファイルパス
+	AliasesFile string // エイリアスファイルパス
+	GroupsFile  string // グループファイルパス
+}
+
+// getFileOrDefault は、カスタムファイル名が空文字の場合にデフォルトファイル名を返す
+func getFileOrDefault(customFile, defaultFile string) string {
+	if customFile == "" {
+		return defaultFile
+	}
+	return customFile
 }
 
 // NewECHONETLiteHandler は、ECHONETLiteHandler の新しいインスタンスを作成する
@@ -51,31 +63,43 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	// Devicesにイベントチャンネルを設定
 	devices.SetEventChannel(deviceEventCh)
 
-	// DeviceFileName のファイルが存在するなら読み込む
-	err = devices.LoadFromFile(DeviceFileName)
+	// デバイス情報を読み込む
+	devicesFile := getFileOrDefault(options.DevicesFile, DeviceFileName)
+	slog.Info("デバイスファイルを使用", "file", devicesFile)
+	err = devices.LoadFromFile(devicesFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("デバイス情報の読み込みに失敗: %w", err)
+		slog.Error("デバイス情報の読み込みに失敗", "file", devicesFile, "error", err)
+		return nil, fmt.Errorf("デバイス情報の読み込みに失敗 (file: %s): %w", devicesFile, err)
 	}
+	slog.Info("デバイス情報の読み込み完了", "file", devicesFile, "deviceCount", devices.CountAll())
 
 	aliases := NewDeviceAliases()
 
-	// DeviceAliasesFileName のファイルが存在するなら読み込む
-	err = aliases.LoadFromFile(DeviceAliasesFileName)
+	// エイリアス情報を読み込む
+	aliasesFile := getFileOrDefault(options.AliasesFile, DeviceAliasesFileName)
+	slog.Info("エイリアスファイルを使用", "file", aliasesFile)
+	err = aliases.LoadFromFile(aliasesFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("エイリアス情報の読み込みに失敗: %w", err)
+		slog.Error("エイリアス情報の読み込みに失敗", "file", aliasesFile, "error", err)
+		return nil, fmt.Errorf("エイリアス情報の読み込みに失敗 (file: %s): %w", aliasesFile, err)
 	}
+	slog.Info("エイリアス情報の読み込み完了", "file", aliasesFile, "aliasCount", aliases.Count())
 
 	// デバイスグループを管理するオブジェクトを作成
 	groups := NewDeviceGroups()
 
-	// DeviceGroupsFileName のファイルが存在するなら読み込む
-	err = groups.LoadFromFile(DeviceGroupsFileName)
+	// グループ情報を読み込む
+	groupsFile := getFileOrDefault(options.GroupsFile, DeviceGroupsFileName)
+	slog.Info("グループファイルを使用", "file", groupsFile)
+	err = groups.LoadFromFile(groupsFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("グループ情報の読み込みに失敗: %w", err)
+		slog.Error("グループ情報の読み込みに失敗", "file", groupsFile, "error", err)
+		return nil, fmt.Errorf("グループ情報の読み込みに失敗 (file: %s): %w", groupsFile, err)
 	}
+	slog.Info("グループ情報の読み込み完了", "file", groupsFile, "groupCount", groups.Count())
 
 	localDevices := make(DeviceProperties)
 	operationStatusOn, ok := echonet_lite.ProfileSuperClass_PropertyTable.FindAlias("on")
@@ -307,6 +331,18 @@ func (h *ECHONETLiteHandler) AliasGet(alias *string) (*IPAndEOJ, error) {
 	return h.data.AliasGet(alias)
 }
 
+// GetDeviceByAlias は、エイリアスからデバイスを取得する（client.AliasManagerインターフェース用）
+func (h *ECHONETLiteHandler) GetDeviceByAlias(alias string) (IPAndEOJ, bool) {
+	device, err := h.data.AliasGet(&alias)
+	if err != nil {
+		return IPAndEOJ{}, false
+	}
+	if device == nil {
+		return IPAndEOJ{}, false
+	}
+	return *device, true
+}
+
 // GetDevices は、デバイス指定子に一致するデバイスを取得する
 func (h *ECHONETLiteHandler) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
 	return h.data.GetDevices(deviceSpec)
@@ -358,4 +394,36 @@ func (h *ECHONETLiteHandler) GetLastUpdateTime(device IPAndEOJ) time.Time {
 		return time.Time{}
 	}
 	return h.data.GetLastUpdateTime(device)
+}
+
+// PropertyDescProviderインターフェースの実装
+
+// GetAllPropertyAliases は、全てのプロパティエイリアスを取得する
+func (h *ECHONETLiteHandler) GetAllPropertyAliases() map[string]echonet_lite.PropertyDescription {
+	// 一時的な実装: 空のマップを返す
+	return make(map[string]echonet_lite.PropertyDescription)
+}
+
+// GetPropertyDesc は、指定されたクラスコードとEPCのプロパティ記述を取得する
+func (h *ECHONETLiteHandler) GetPropertyDesc(classCode EOJClassCode, epc EPCType) (*echonet_lite.PropertyDesc, bool) {
+	// 一時的な実装: 常にfalseを返す
+	return nil, false
+}
+
+// IsPropertyDefaultEPC は、指定されたプロパティがデフォルトEPCかどうかを判定する
+func (h *ECHONETLiteHandler) IsPropertyDefaultEPC(classCode EOJClassCode, epc EPCType) bool {
+	// 一時的な実装: 常にfalseを返す
+	return false
+}
+
+// FindPropertyAlias は、指定されたエイリアスからプロパティを検索する
+func (h *ECHONETLiteHandler) FindPropertyAlias(classCode EOJClassCode, alias string) (Property, bool) {
+	// 一時的な実装: 常に空のプロパティとfalseを返す
+	return Property{}, false
+}
+
+// AvailablePropertyAliases は、指定されたクラスコードで利用可能なプロパティエイリアスを取得する
+func (h *ECHONETLiteHandler) AvailablePropertyAliases(classCode EOJClassCode) map[string]echonet_lite.PropertyDescription {
+	// 一時的な実装: 空のマップを返す
+	return make(map[string]echonet_lite.PropertyDescription)
 }

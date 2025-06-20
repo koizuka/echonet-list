@@ -132,6 +132,7 @@ function App() {
                   size="sm"
                   onClick={() => cardExpansion.expandAll(allDeviceKeys)}
                   className="h-7 sm:h-8 px-2 sm:px-3"
+                  data-testid="expand-all-button"
                 >
                   <ExpandIcon className="h-3 w-3 sm:mr-1" />
                   <span className="hidden sm:inline ml-1">Expand All</span>
@@ -141,13 +142,14 @@ function App() {
                   size="sm"
                   onClick={() => cardExpansion.collapseAll()}
                   className="h-7 sm:h-8 px-2 sm:px-3"
+                  data-testid="collapse-all-button"
                 >
                   <ShrinkIcon className="h-3 w-3 sm:mr-1" />
                   <span className="hidden sm:inline ml-1">Collapse All</span>
                 </Button>
               </div>
             )}
-            <Badge variant="outline" className={`${getConnectionColor(echonet.connectionState)} text-white text-xs`}>
+            <Badge variant="outline" className={`${getConnectionColor(echonet.connectionState)} text-white text-xs`} data-testid="connection-status">
               {echonet.connectionState}
             </Badge>
             
@@ -174,7 +176,7 @@ function App() {
             </CardContent>
           </Card>
         ) : (
-          <Tabs value={selectedTab} onValueChange={selectTab} className="w-full">
+          <Tabs value={selectedTab} onValueChange={selectTab} className="w-full" data-testid="device-tabs">
             <div className="w-full mb-4">
               <TabsList className="w-full h-auto p-2 bg-muted flex flex-wrap justify-between gap-2">
               {tabs.map((tab) => {
@@ -186,6 +188,7 @@ function App() {
                     key={tab} 
                     value={tab} 
                     className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary border-2 border-muted-foreground/30 bg-background px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg"
+                    data-testid={`tab-${tab}`}
                   >
                     <div className="flex items-center gap-1">
                       {tab !== 'All' && (
@@ -216,7 +219,7 @@ function App() {
             </div>
             
             {tabs.map((tab) => (
-              <TabsContent key={tab} value={tab} className="space-y-4">
+              <TabsContent key={tab} value={tab} className="space-y-4" data-testid={`tab-content-${tab}`}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
                   {getDevicesForTab(tab).map((device) => {
                     const deviceKey = `${device.ip} ${device.eoj}`;
