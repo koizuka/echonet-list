@@ -13,13 +13,14 @@ describe('deviceTypeHelper', () => {
   describe('getDevicePrimaryProperties', () => {
     it('should return essential properties for unknown device types', () => {
       const properties = getDevicePrimaryProperties('9999'); // Unknown class code
-      expect(properties).toEqual(['80', '81']); // Essential properties only
+      expect(properties).toEqual(['80']); // Essential properties only
     });
 
     it('should return essential + device-specific properties for air conditioner', () => {
       const properties = getDevicePrimaryProperties('0130'); // Home Air Conditioner
       expect(properties).toContain('80'); // Operation Status (essential)
-      expect(properties).toContain('81'); // Installation Location (essential)
+      expect(properties).toContain('A0'); // Air flow rate (device-specific)
+      expect(properties).toContain('A3'); // Air flow direction (device-specific)
       expect(properties).toContain('B0'); // Operation mode (device-specific)
       expect(properties).toContain('B3'); // Temperature (device-specific)
     });
@@ -27,7 +28,6 @@ describe('deviceTypeHelper', () => {
     it('should return essential + device-specific properties for lighting', () => {
       const properties = getDevicePrimaryProperties('0291'); // Single Function Lighting
       expect(properties).toContain('80'); // Operation Status (essential)
-      expect(properties).toContain('81'); // Installation Location (essential)
       expect(properties).toContain('B0'); // Illuminance level (device-specific)
     });
 
@@ -41,7 +41,7 @@ describe('deviceTypeHelper', () => {
   describe('isPropertyPrimary', () => {
     it('should return true for essential properties', () => {
       expect(isPropertyPrimary('80', '9999')).toBe(true); // Operation Status
-      expect(isPropertyPrimary('81', '9999')).toBe(true); // Installation Location
+      expect(isPropertyPrimary('81', '9999')).toBe(false); // Installation Location (not essential anymore)
     });
 
     it('should return true for device-specific primary properties', () => {
@@ -66,7 +66,7 @@ describe('deviceTypeHelper', () => {
         eoj: '0130:1', // Home Air Conditioner
         properties: {
           '80': { string: 'on' },     // Primary (essential)
-          '81': { string: 'living' }, // Primary (essential)
+          '81': { string: 'living' }, // Secondary (not essential anymore)
           'B0': { string: 'cool' },   // Primary (device-specific)
           '9F': { EDT: 'base64' },    // Secondary
           'FF': { string: 'test' }    // Secondary
@@ -77,7 +77,6 @@ describe('deviceTypeHelper', () => {
       expect(secondaryProps).toContain('9F');
       expect(secondaryProps).toContain('FF');
       expect(secondaryProps).not.toContain('80');
-      expect(secondaryProps).not.toContain('81');
       expect(secondaryProps).not.toContain('B0');
     });
 
@@ -86,13 +85,13 @@ describe('deviceTypeHelper', () => {
         eoj: '0291:1', // Single Function Lighting
         properties: {
           '80': { string: 'on' },     // Primary (essential)
-          '81': { string: 'bedroom' }, // Primary (essential)
+          '81': { string: 'bedroom' }, // Secondary (not essential anymore)
           'B0': { number: 50 }        // Primary (device-specific)
         }
       };
 
       const secondaryProps = getDeviceSecondaryProperties(device);
-      expect(secondaryProps).toEqual([]);
+      expect(secondaryProps).toEqual(['81']); // '81' is now secondary (not essential)
     });
 
     it('should handle devices with no properties', () => {
@@ -108,7 +107,7 @@ describe('deviceTypeHelper', () => {
 
   describe('constants', () => {
     it('should have correct essential properties', () => {
-      expect(ESSENTIAL_PROPERTIES).toEqual(['80', '81']);
+      expect(ESSENTIAL_PROPERTIES).toEqual(['80']);
     });
 
     it('should have device-specific properties defined', () => {
@@ -119,38 +118,44 @@ describe('deviceTypeHelper', () => {
   });
 
   describe('getSortedPrimaryProperties', () => {
-    it('should prioritize Operation Status (0x80) first', () => {
+    it('should maintain the order defined in primary properties', () => {
       const device = {
         eoj: '0130:1', // Home Air Conditioner
         properties: {
           'B0': { string: 'cool' },   // Operation mode
           '81': { string: 'living' }, // Installation Location
           '80': { string: 'on' },     // Operation Status
-          'B3': { number: 25 }        // Temperature
+          'B3': { number: 25 },       // Temperature
+          'A0': { string: 'auto' },   // Air flow rate
+          'A3': { string: 'swing' },  // Air flow direction
+          'BA': { number: 24 },       // Target temperature
+          'BB': { number: 50 },       // Target humidity
+          'BE': { string: 'auto' }    // Target flow
         }
       };
 
       const sortedProps = getSortedPrimaryProperties(device);
+      const epcs = sortedProps.map(([epc]) => epc);
       
-      // Operation Status should be first
-      expect(sortedProps[0][0]).toBe('80');
-      expect(sortedProps[1][0]).toBe('81'); // Installation Location should be second
+      // Should follow the order: ESSENTIAL_PROPERTIES first, then DEVICE_PRIMARY_PROPERTIES order
+      expect(epcs).toEqual(['80', 'BA', 'BB', 'BE', 'B0', 'B3', 'A0', 'A3']);
     });
 
-    it('should handle missing Operation Status gracefully', () => {
+    it('should handle missing properties gracefully', () => {
       const device = {
         eoj: '0130:1',
         properties: {
           'B0': { string: 'cool' },
-          '81': { string: 'living' },
-          'B3': { number: 25 }
+          'B3': { number: 25 },
+          'BE': { number: 22 }
         }
       };
 
       const sortedProps = getSortedPrimaryProperties(device);
+      const epcs = sortedProps.map(([epc]) => epc);
       
-      // Installation Location should be first when Operation Status is missing
-      expect(sortedProps[0][0]).toBe('81');
+      // Should only include properties that exist, in defined order
+      expect(epcs).toEqual(['BE', 'B0', 'B3']);
     });
 
     it('should only return primary properties', () => {
@@ -170,10 +175,10 @@ describe('deviceTypeHelper', () => {
       // Should only contain primary properties
       const epcs = sortedProps.map(([epc]) => epc);
       expect(epcs).toContain('80');
-      expect(epcs).toContain('81');
       expect(epcs).toContain('B0');
       expect(epcs).not.toContain('9F');
       expect(epcs).not.toContain('FF');
+      expect(epcs).not.toContain('81'); // 81 is not essential anymore
     });
 
     it('should return empty array for device with no primary properties', () => {
@@ -189,24 +194,24 @@ describe('deviceTypeHelper', () => {
       expect(sortedProps).toEqual([]);
     });
 
-    it('should sort other properties alphabetically after essential ones', () => {
+    it('should maintain device-specific property order', () => {
       const device = {
         eoj: '0130:1',
         properties: {
-          'BE': { number: 22 },       // Target temperature (alphabetically later)
-          '80': { string: 'on' },     // Operation Status (should be first)
-          'B3': { number: 25 },       // Temperature (alphabetically earlier)
-          '81': { string: 'living' }  // Installation Location (should be second)
+          'BE': { number: 22 },       // Target flow
+          '80': { string: 'on' },     // Operation Status (essential, should be first)
+          'B3': { number: 25 },       // Temperature
+          'BB': { number: 50 },       // Target humidity
+          'B0': { string: 'cool' },   // Operation mode
+          'BA': { number: 24 }        // Target temperature
         }
       };
 
       const sortedProps = getSortedPrimaryProperties(device);
       const epcs = sortedProps.map(([epc]) => epc);
       
-      expect(epcs[0]).toBe('80'); // Operation Status first
-      expect(epcs[1]).toBe('81'); // Installation Location second
-      expect(epcs[2]).toBe('B3'); // B3 comes before BE alphabetically
-      expect(epcs[3]).toBe('BE');
+      // Should follow definition order: essential first, then device-specific in order
+      expect(epcs).toEqual(['80', 'BA', 'BB', 'BE', 'B0', 'B3']);
     });
   });
 

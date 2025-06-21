@@ -5,7 +5,7 @@
  * These are common across all device types
  * Order matters: Operation Status should always be first
  */
-export const ESSENTIAL_PROPERTIES = ['80', '81'] as const; // Operation Status, Installation Location
+export const ESSENTIAL_PROPERTIES = ['80'] as const; // Operation Status
 
 /**
  * Device type specific primary properties for compact display
@@ -14,10 +14,10 @@ export const ESSENTIAL_PROPERTIES = ['80', '81'] as const; // Operation Status, 
  */
 export const DEVICE_PRIMARY_PROPERTIES: Record<string, string[]> = {
   // Home Air Conditioner (0130)
-  '0130': ['B0', 'B3', 'B4', 'BA', 'BB', 'BE'], // Operation mode, Temperature, Humidity, Target temp, etc.
+  '0130': ['BA', 'BB', 'BE', 'B0', 'B3', 'B4', 'A0', 'A3'], // Target temp, Target humidity, Target flow, Operation mode, Temperature, Humidity, Air flow, etc.
   
   // Floor Heating (027B)
-  '027B': ['E1', 'E2', 'F3', 'F4'], // Various temperature sensors
+  '027B': ['E2', 'F3', 'F4', 'E1'], // Various temperature sensors
   
   // Add more device types as needed
   // Single Function Lighting (0291)
@@ -74,23 +74,14 @@ export function isNodeProfileDevice(device: { eoj: string }): boolean {
 
 /**
  * Gets primary properties in the correct display order
- * Ensures Operation Status (0x80) is always first if present
+ * Ensures properties are displayed in the order they are defined
  */
 export function getSortedPrimaryProperties(device: { properties: Record<string, unknown>; eoj: string }): [string, unknown][] {
   const classCode = device.eoj.split(':')[0];
   const primaryProperties = getDevicePrimaryProperties(classCode);
   
-  // Filter to only properties that exist on the device
-  const availableProps = Object.entries(device.properties).filter(([epc]) => 
-    primaryProperties.includes(epc)
-  );
-  
-  // Sort by priority: Operation Status first, then Installation Location, then others
-  return availableProps.sort(([epcA], [epcB]) => {
-    if (epcA === '80') return -1; // Operation Status always first
-    if (epcB === '80') return 1;
-    if (epcA === '81') return -1; // Installation Location second
-    if (epcB === '81') return 1;
-    return epcA.localeCompare(epcB); // Alphabetical for others
-  });
+  // Filter to only properties that exist on the device and maintain the order
+  return primaryProperties
+    .filter(epc => epc in device.properties)
+    .map(epc => [epc, device.properties[epc]] as [string, unknown]);
 }
