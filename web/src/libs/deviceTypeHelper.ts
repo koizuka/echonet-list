@@ -14,7 +14,7 @@ export const ESSENTIAL_PROPERTIES = ['80'] as const; // Operation Status
  */
 export const DEVICE_PRIMARY_PROPERTIES: Record<string, string[]> = {
   // Home Air Conditioner (0130)
-  '0130': ['BA', 'BB', 'BE', 'B0', 'B3', 'B4', 'A0', 'A3'], // Target temp, Target humidity, Target flow, Operation mode, Temperature, Humidity, Air flow, etc.
+  '0130': ['BB', 'BA', 'BE', 'B0', 'B3', 'B4', 'A0', 'A3'], // Target temp, Target humidity, Target flow, Operation mode, Temperature, Humidity, Air flow, etc.
   
   // Floor Heating (027B)
   '027B': ['E2', 'F3', 'F4', 'E1'], // Various temperature sensors

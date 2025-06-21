@@ -138,7 +138,7 @@ describe('deviceTypeHelper', () => {
       const epcs = sortedProps.map(([epc]) => epc);
       
       // Should follow the order: ESSENTIAL_PROPERTIES first, then DEVICE_PRIMARY_PROPERTIES order
-      expect(epcs).toEqual(['80', 'BA', 'BB', 'BE', 'B0', 'B3', 'A0', 'A3']);
+      expect(epcs).toEqual(['80', 'BB', 'BA', 'BE', 'B0', 'B3', 'A0', 'A3']);
     });
 
     it('should handle missing properties gracefully', () => {
@@ -211,7 +211,7 @@ describe('deviceTypeHelper', () => {
       const epcs = sortedProps.map(([epc]) => epc);
       
       // Should follow definition order: essential first, then device-specific in order
-      expect(epcs).toEqual(['80', 'BA', 'BB', 'BE', 'B0', 'B3']);
+      expect(epcs).toEqual(['80', 'BB', 'BA', 'BE', 'B0', 'B3']);
     });
   });
 
