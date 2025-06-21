@@ -4,6 +4,8 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 
 **Author**: @koizuka
 
+<img width="1273" alt="image" src="https://github.com/user-attachments/assets/8be3b42e-c402-4ae2-b2a2-677ea0e678a6" />
+
 ## Features
 
 - Automatic discovery of ECHONET Lite devices on the local network
