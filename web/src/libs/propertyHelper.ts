@@ -154,8 +154,15 @@ export function formatPropertyValueWithTranslation(
   const formattedValue = formatPropertyValue(value, descriptor);
   
   // Translate Installation Location (EPC 0x81)
-  if (epc === '81' && value.string && translateFunc) {
-    return translateFunc(value.string);
+  // Try to translate both the original string value and the decoded alias name
+  if (epc === '81' && translateFunc) {
+    if (value.string) {
+      return translateFunc(value.string);
+    }
+    // Also try to translate the formatted value (decoded alias name)
+    if (formattedValue && formattedValue !== 'Raw data') {
+      return translateFunc(formattedValue);
+    }
   }
   
   return formattedValue;

@@ -6,11 +6,14 @@ import { useAutoReconnect } from '@/hooks/useAutoReconnect';
 import { DeviceCard } from '@/components/DeviceCard';
 import { useLogNotifications } from '@/hooks/useLogNotifications';
 import { NotificationBell } from '@/components/NotificationBell';
+import { GroupNameEditor } from '@/components/GroupNameEditor';
+import { GroupMemberEditor } from '@/components/GroupMemberEditor';
+import { GroupManagementPanel } from '@/components/GroupManagementPanel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExpandIcon, ShrinkIcon } from 'lucide-react';
+import { ExpandIcon, ShrinkIcon, Plus } from 'lucide-react';
 import { useState } from 'react';
 import type { PropertyValue, LogNotification } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
@@ -64,6 +67,12 @@ function App() {
   const [updatingDevices, setUpdatingDevices] = useState<Set<string>>(new Set());
   // Track alias operations loading state
   const [aliasLoading, setAliasLoading] = useState(false);
+  
+  // Group management states
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
+  const [editingGroupMembers, setEditingGroupMembers] = useState<string | null>(null);
+  const [groupOperationLoading, setGroupOperationLoading] = useState(false);
 
   // Property change handler
   const handlePropertyChange = async (target: string, epc: string, value: PropertyValue) => {
@@ -119,6 +128,52 @@ function App() {
       throw error; // Re-throw to let AliasEditor handle the error
     } finally {
       setAliasLoading(false);
+    }
+  };
+
+  // Group handlers
+  const handleCreateGroup = async (groupName: string) => {
+    try {
+      setGroupOperationLoading(true);
+      await echonet.addGroup(groupName, []);
+      setIsCreatingGroup(false);
+      selectTab(groupName); // Switch to the new group tab
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      throw error;
+    } finally {
+      setGroupOperationLoading(false);
+    }
+  };
+
+  const handleRenameGroup = async (oldName: string, newName: string) => {
+    try {
+      setGroupOperationLoading(true);
+      // Get current members
+      const members = echonet.groups[oldName] || [];
+      // Create new group with members
+      await echonet.addGroup(newName, members);
+      // Delete old group
+      await echonet.deleteGroup(oldName);
+      setEditingGroupName(null);
+      selectTab(newName); // Switch to the renamed group tab
+    } catch (error) {
+      console.error('Failed to rename group:', error);
+      throw error;
+    } finally {
+      setGroupOperationLoading(false);
+    }
+  };
+
+  const handleDeleteGroup = async (groupName: string) => {
+    try {
+      setGroupOperationLoading(true);
+      await echonet.deleteGroup(groupName);
+      selectTab('All'); // Switch to All tab after deletion
+    } catch (error) {
+      console.error('Failed to delete group:', error);
+    } finally {
+      setGroupOperationLoading(false);
     }
   };
 
@@ -247,12 +302,83 @@ function App() {
                   </TabsTrigger>
                 );
               })}
+              {/* Add Group Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsCreatingGroup(true)}
+                className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
+                data-testid="add-group-button"
+              >
+                <Plus className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">新規グループ</span>
+              </Button>
               </TabsList>
             </div>
             
+            {/* Show group creation interface if creating */}
+            {isCreatingGroup && (
+              <Card className="mb-4">
+                <CardContent className="pt-6">
+                  <GroupNameEditor
+                    groupName="@"
+                    existingGroups={Object.keys(echonet.groups)}
+                    onSave={handleCreateGroup}
+                    onCancel={() => setIsCreatingGroup(false)}
+                    isLoading={groupOperationLoading}
+                  />
+                </CardContent>
+              </Card>
+            )}
+            
             {tabIds.map((tabId) => (
               <TabsContent key={tabId} value={tabId} className="space-y-4" data-testid={`tab-content-${tabId}`}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
+                {/* Show group management panel for group tabs */}
+                {tabId.startsWith('@') && !editingGroupName && (
+                  <GroupManagementPanel
+                    groupName={tabId}
+                    onRename={() => setEditingGroupName(tabId)}
+                    onDelete={() => handleDeleteGroup(tabId)}
+                    onEditMembers={() => setEditingGroupMembers(tabId)}
+                    isEditingMembers={editingGroupMembers === tabId}
+                    onDoneEditingMembers={() => setEditingGroupMembers(null)}
+                  />
+                )}
+                
+                {/* Show group name editor if editing group name */}
+                {editingGroupName === tabId && (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <GroupNameEditor
+                        groupName={tabId}
+                        existingGroups={Object.keys(echonet.groups).filter(g => g !== tabId)}
+                        onSave={(newName) => handleRenameGroup(tabId, newName)}
+                        onCancel={() => setEditingGroupName(null)}
+                        isLoading={groupOperationLoading}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Show member editor if editing members */}
+                {editingGroupMembers === tabId ? (
+                  <GroupMemberEditor
+                    groupName={tabId}
+                    groupMembers={echonet.groups[tabId] || []}
+                    allDevices={echonet.devices}
+                    aliases={echonet.aliases}
+                    onAddToGroup={async (group, devices) => {
+                      await echonet.addToGroup(group, devices);
+                    }}
+                    onRemoveFromGroup={async (group, devices) => {
+                      await echonet.removeFromGroup(group, devices);
+                    }}
+                    propertyDescriptions={echonet.propertyDescriptions}
+                    getDeviceClassCode={echonet.getDeviceClassCode}
+                    isLoading={groupOperationLoading}
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
                   {getDevicesForTab(tabId).map((device) => {
                     const deviceKey = `${device.ip} ${device.eoj}`;
                     
@@ -275,9 +401,10 @@ function App() {
                       />
                     );
                   })}
-                </div>
+                  </div>
+                )}
                 
-                {getDevicesForTab(tabId).length === 0 && (
+                {!editingGroupMembers && getDevicesForTab(tabId).length === 0 && (
                   <Card>
                     <CardContent className="pt-6">
                       <p className="text-center text-muted-foreground">
