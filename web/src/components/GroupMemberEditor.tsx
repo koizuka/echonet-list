@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { GripVertical, Plus, Minus } from 'lucide-react';
+import { GripVertical, Plus, Minus, Users } from 'lucide-react';
 import { translateLocationId } from '@/libs/locationHelper';
 import { getDeviceAliases } from '@/libs/deviceIdHelper';
 import { formatPropertyValueWithTranslation, getPropertyDescriptor } from '@/libs/propertyHelper';
@@ -18,6 +18,7 @@ interface GroupMemberEditorProps {
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   getDeviceClassCode: (device: Device) => string;
   isLoading?: boolean;
+  onDone?: () => void;
 }
 
 export function GroupMemberEditor({
@@ -30,6 +31,7 @@ export function GroupMemberEditor({
   propertyDescriptions,
   getDeviceClassCode,
   isLoading = false,
+  onDone,
 }: GroupMemberEditorProps) {
   const [dragOverSection, setDragOverSection] = useState<'members' | 'available' | null>(null);
   const [draggingDevice, setDraggingDevice] = useState<string | null>(null);
@@ -271,6 +273,25 @@ export function GroupMemberEditor({
 
   return (
     <div className="space-y-4">
+      {/* Done Button - only show if onDone callback is provided */}
+      {onDone && (
+        <Card>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onDone}
+              disabled={isLoading}
+              title="メンバー編集を終了"
+              data-testid="done-editing-button"
+            >
+              <Users className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">編集を終了</span>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Group Members Section */}
       <div className="space-y-2">
         <h3 className="text-sm font-medium">{groupName} のメンバー</h3>

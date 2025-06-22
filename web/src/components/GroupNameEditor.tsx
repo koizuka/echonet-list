@@ -19,7 +19,8 @@ export function GroupNameEditor({
   onCancel,
   isLoading = false,
 }: GroupNameEditorProps) {
-  const [inputValue, setInputValue] = useState(groupName);
+  // Remove '@' prefix from initial value if present
+  const [inputValue, setInputValue] = useState(groupName.startsWith('@') ? groupName.slice(1) : groupName);
   const [error, setError] = useState<string | undefined>();
   const [isComposing, setIsComposing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,8 +37,9 @@ export function GroupNameEditor({
     const newValue = e.target.value;
     setInputValue(newValue);
     
-    // Validate the new value
-    const validationError = validateGroupName(newValue, existingGroups);
+    // Validate the new value with '@' prefix
+    const fullGroupName = '@' + newValue;
+    const validationError = validateGroupName(fullGroupName, existingGroups);
     setError(validationError);
   };
 
@@ -45,19 +47,21 @@ export function GroupNameEditor({
     // Disabled while loading
     if (isLoading) return true;
     
-    // Check validation
-    const validationError = validateGroupName(inputValue, existingGroups);
+    // Check validation with '@' prefix
+    const fullGroupName = '@' + inputValue;
+    const validationError = validateGroupName(fullGroupName, existingGroups);
     if (validationError) return true;
     
     // Check if value has changed
-    if (inputValue === groupName) return true;
+    if (fullGroupName === groupName) return true;
     
     return false;
   };
 
   const handleSave = () => {
     if (!getIsSaveDisabled()) {
-      onSave(inputValue);
+      // Save with '@' prefix
+      onSave('@' + inputValue);
     }
   };
 
@@ -74,17 +78,20 @@ export function GroupNameEditor({
   return (
     <div className="space-y-2 max-w-sm">
       <div className="flex gap-2">
-        <Input
-          ref={inputRef}
-          value={inputValue}
-          onChange={handleInputChange}
-          placeholder="グループ名を入力"
-          className="h-7 text-xs flex-1"
-          disabled={isLoading}
-          onCompositionStart={() => setIsComposing(true)}
-          onCompositionEnd={() => setIsComposing(false)}
-          onKeyDown={handleKeyDown}
-        />
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-muted-foreground">@</span>
+          <Input
+            ref={inputRef}
+            value={inputValue}
+            onChange={handleInputChange}
+            placeholder="グループ名を入力"
+            className="h-7 text-xs flex-1"
+            disabled={isLoading}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={() => setIsComposing(false)}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <Button
             variant="ghost"

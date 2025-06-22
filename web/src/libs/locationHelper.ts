@@ -324,17 +324,13 @@ export function getDevicesForTab(
       // Also check device.id directly as fallback (if defined)
       const directDeviceId = device.id;
       
-      // Extract EOJ part from device for partial matching
-      const deviceEOJPart = deviceIdentifier.split(':')[0]; // e.g., "027B04"
-      
       // Check exact matches first
       if (groupDeviceIds.includes(deviceIdentifier) || 
           (directDeviceId && groupDeviceIds.includes(directDeviceId))) {
         return true;
       }
       
-      // Check if any group device ID starts with the same EOJ
-      return groupDeviceIds.some(groupId => groupId.startsWith(deviceEOJPart + ':'));
+      return false;
     });
   } else {
     // It's a location tab - use raw location ID

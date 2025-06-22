@@ -68,13 +68,17 @@ function App() {
   const [editingGroupMembers, setEditingGroupMembers] = useState<string | null>(null);
   const [groupOperationLoading, setGroupOperationLoading] = useState(false);
   const [newGroupTabName, setNewGroupTabName] = useState<string | null>(null);
+  const [pendingGroupName, setPendingGroupName] = useState<string | null>(null);
   const isAutoSelectingRef = useRef(false);
 
   // Get all tab IDs (location IDs + groups + new group tab if creating)
   const tabIds = useMemo(() => {
     const baseTabIds = getAllTabs(echonet.devices, echonet.groups);
-    return newGroupTabName ? [...baseTabIds, newGroupTabName] : baseTabIds;
-  }, [echonet.devices, echonet.groups, newGroupTabName]);
+    const additionalTabs = [];
+    if (newGroupTabName) additionalTabs.push(newGroupTabName);
+    if (pendingGroupName && !baseTabIds.includes(pendingGroupName)) additionalTabs.push(pendingGroupName);
+    return [...baseTabIds, ...additionalTabs];
+  }, [echonet.devices, echonet.groups, newGroupTabName, pendingGroupName]);
   
   // Use persistent tab selection
   const { selectedTab, selectTab } = usePersistedTab(tabIds, 'All');
@@ -91,13 +95,30 @@ function App() {
     }
   }, [newGroupTabName, isCreatingGroup, tabIds, selectTab]);
 
+  // Auto-select pending group tab when it's created
+  useEffect(() => {
+    if (pendingGroupName && editingGroupMembers === pendingGroupName && tabIds.includes(pendingGroupName)) {
+      isAutoSelectingRef.current = true;
+      selectTab(pendingGroupName);
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        isAutoSelectingRef.current = false;
+      }, 100);
+    }
+  }, [pendingGroupName, editingGroupMembers, tabIds, selectTab]);
+
   // Cancel group creation when switching away from the new group tab
   useEffect(() => {
     if (isCreatingGroup && newGroupTabName && selectedTab !== newGroupTabName && !isAutoSelectingRef.current) {
       setIsCreatingGroup(false);
       setNewGroupTabName(null);
     }
-  }, [selectedTab, isCreatingGroup, newGroupTabName]);
+    // Also cancel pending group creation
+    if (pendingGroupName && editingGroupMembers === pendingGroupName && selectedTab !== pendingGroupName && !isAutoSelectingRef.current) {
+      setPendingGroupName(null);
+      setEditingGroupMembers(null);
+    }
+  }, [selectedTab, isCreatingGroup, newGroupTabName, pendingGroupName, editingGroupMembers]);
 
   // Property change handler
   const handlePropertyChange = async (target: string, epc: string, value: PropertyValue) => {
@@ -158,18 +179,12 @@ function App() {
 
   // Group handlers
   const handleCreateGroup = async (groupName: string) => {
-    try {
-      setGroupOperationLoading(true);
-      await echonet.addGroup(groupName, []);
-      setIsCreatingGroup(false);
-      setNewGroupTabName(null);
-      selectTab(groupName); // Switch to the new group tab
-    } catch (error) {
-      console.error('Failed to create group:', error);
-      throw error;
-    } finally {
-      setGroupOperationLoading(false);
-    }
+    // Instead of creating empty group, transition to member editing mode
+    setIsCreatingGroup(false);
+    setNewGroupTabName(null);
+    setPendingGroupName(groupName);
+    setEditingGroupMembers(groupName);
+    // selectTab will be called via useEffect when tabIds is updated
   };
 
   const handleRenameGroup = async (oldName: string, newName: string) => {
@@ -356,28 +371,34 @@ function App() {
                     <CardContent className="pt-6">
                       <GroupNameEditor
                         groupName="@"
-                        existingGroups={Object.keys(echonet.groups)}
+                        existingGroups={[...Object.keys(echonet.groups), ...(pendingGroupName ? [pendingGroupName] : [])]}
                         onSave={handleCreateGroup}
                         onCancel={() => {
                           setIsCreatingGroup(false);
                           setNewGroupTabName(null);
                           selectTab('All');
                         }}
-                        isLoading={groupOperationLoading}
+                        isLoading={false}
                       />
                     </CardContent>
                   </Card>
                 )}
                 
-                {/* Show group management panel for group tabs */}
-                {tabId.startsWith('@') && !editingGroupName && tabId !== newGroupTabName && (
+                {/* Show group management panel for group tabs (but not for pending groups) */}
+                {tabId.startsWith('@') && !editingGroupName && tabId !== newGroupTabName && tabId !== pendingGroupName && (
                   <GroupManagementPanel
                     groupName={tabId}
                     onRename={() => setEditingGroupName(tabId)}
                     onDelete={() => handleDeleteGroup(tabId)}
                     onEditMembers={() => setEditingGroupMembers(tabId)}
                     isEditingMembers={editingGroupMembers === tabId}
-                    onDoneEditingMembers={() => setEditingGroupMembers(null)}
+                    onDoneEditingMembers={() => {
+                      setEditingGroupMembers(null);
+                      // Clear pending group name if this was a new group
+                      if (pendingGroupName === tabId) {
+                        setPendingGroupName(null);
+                      }
+                    }}
                   />
                 )}
                 
@@ -405,6 +426,10 @@ function App() {
                     aliases={echonet.aliases}
                     onAddToGroup={async (group, devices) => {
                       await echonet.addToGroup(group, devices);
+                      // If this is a pending group, mark it as created
+                      if (pendingGroupName === group) {
+                        setPendingGroupName(null);
+                      }
                     }}
                     onRemoveFromGroup={async (group, devices) => {
                       await echonet.removeFromGroup(group, devices);
@@ -412,6 +437,10 @@ function App() {
                     propertyDescriptions={echonet.propertyDescriptions}
                     getDeviceClassCode={echonet.getDeviceClassCode}
                     isLoading={groupOperationLoading}
+                    onDone={pendingGroupName === tabId ? () => {
+                      setEditingGroupMembers(null);
+                      setPendingGroupName(null);
+                    } : undefined}
                   />
                 ) : tabId !== newGroupTabName && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
