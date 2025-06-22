@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PropertyEditor } from '@/components/PropertyEditor';
+import { AliasEditor } from '@/components/AliasEditor';
 import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
 import { getPropertyName, formatPropertyValueWithTranslation, getPropertyDescriptor, isPropertySettable, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { translateLocationId } from '@/libs/locationHelper';
@@ -22,6 +23,9 @@ interface DeviceCardProps {
   getDeviceClassCode: (device: Device) => string;
   devices: Record<string, Device>;
   aliases: Record<string, string>;
+  onAddAlias?: (alias: string, target: string) => Promise<void>;
+  onDeleteAlias?: (alias: string) => Promise<void>;
+  isAliasLoading?: boolean;
 }
 
 export function DeviceCard({
@@ -34,7 +38,10 @@ export function DeviceCard({
   propertyDescriptions,
   getDeviceClassCode,
   devices,
-  aliases
+  aliases,
+  onAddAlias,
+  onDeleteAlias,
+  isAliasLoading = false
 }: DeviceCardProps) {
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const classCode = getDeviceClassCode(device);
@@ -167,9 +174,22 @@ export function DeviceCard({
               </p>
             )}
             {isExpanded && (
-              <p className="text-xs text-muted-foreground">
-                {device.ip} - {device.eoj}
-              </p>
+              <>
+                <p className="text-xs text-muted-foreground">
+                  {device.ip} - {device.eoj}
+                </p>
+                {onAddAlias && onDeleteAlias && (
+                  <div className="mt-2">
+                    <AliasEditor
+                      device={device}
+                      currentAlias={aliasInfo.aliasName}
+                      onAddAlias={onAddAlias}
+                      onDeleteAlias={onDeleteAlias}
+                      isLoading={isAliasLoading}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
