@@ -312,24 +312,6 @@ export function useECHONET(
       requestId: '',
     });
     
-    // Update local cache immediately on success to prevent UI inconsistency
-    if (response && typeof response === 'object' && 'device' in response) {
-      const deviceData = response.device as Device;
-      
-      // Update each property in the local cache
-      Object.entries(properties).forEach(([epc, value]) => {
-        dispatch({
-          type: 'UPDATE_PROPERTY',
-          payload: {
-            ip: deviceData.ip,
-            eoj: deviceData.eoj,
-            epc: epc.toUpperCase(),
-            value: value,
-          },
-        });
-      });
-    }
-    
     return response;
   }, [connection]);
 
