@@ -34,7 +34,13 @@ export function GroupNameEditor({
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
+    let newValue = e.target.value;
+    
+    // Remove leading '@' if user types it
+    if (newValue.startsWith('@')) {
+      newValue = newValue.slice(1);
+    }
+    
     setInputValue(newValue);
     
     // Validate the new value with '@' prefix

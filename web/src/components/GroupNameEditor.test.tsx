@@ -18,7 +18,7 @@ describe('GroupNameEditor', () => {
   it('should render input with initial group name', () => {
     render(<GroupNameEditor {...defaultProps} />);
     const input = screen.getByRole('textbox');
-    expect(input).toHaveValue('@testgroup');
+    expect(input).toHaveValue('testgroup'); // '@' prefix should be removed from input
   });
 
   it('should render save and cancel buttons', () => {
@@ -40,7 +40,7 @@ describe('GroupNameEditor', () => {
     const saveButton = screen.getByTitle('保存');
     
     // Clear and type new value
-    fireEvent.change(input, { target: { value: '@newgroup' } });
+    fireEvent.change(input, { target: { value: 'newgroup' } });
     
     expect(saveButton).not.toBeDisabled();
   });
@@ -50,12 +50,12 @@ describe('GroupNameEditor', () => {
     
     const input = screen.getByRole('textbox');
     
-    // Test missing @
-    fireEvent.change(input, { target: { value: 'group' } });
-    expect(screen.getByText('グループ名は @ で始まる必要があります')).toBeInTheDocument();
+    // Test empty input (will become "@" which is invalid)
+    fireEvent.change(input, { target: { value: '' } });
+    expect(screen.getByText('グループ名は @ の後に少なくとも1文字必要です')).toBeInTheDocument();
     
     // Test whitespace
-    fireEvent.change(input, { target: { value: '@group name' } });
+    fireEvent.change(input, { target: { value: 'group name' } });
     expect(screen.getByText('グループ名に空白文字を含めることはできません')).toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe('GroupNameEditor', () => {
     render(<GroupNameEditor {...defaultProps} />);
     
     const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: '@group1' } });
+    fireEvent.change(input, { target: { value: 'group1' } });
     
     expect(screen.getByText('このグループ名は既に使用されています')).toBeInTheDocument();
   });
@@ -74,7 +74,7 @@ describe('GroupNameEditor', () => {
     const input = screen.getByRole('textbox');
     const saveButton = screen.getByTitle('保存');
     
-    fireEvent.change(input, { target: { value: '@group 1' } });
+    fireEvent.change(input, { target: { value: 'group 1' } });
     
     expect(saveButton).toBeDisabled();
   });
@@ -85,7 +85,7 @@ describe('GroupNameEditor', () => {
     const input = screen.getByRole('textbox');
     const saveButton = screen.getByTitle('保存');
     
-    fireEvent.change(input, { target: { value: '@newgroup' } });
+    fireEvent.change(input, { target: { value: 'newgroup' } });
     fireEvent.click(saveButton);
     
     expect(defaultProps.onSave).toHaveBeenCalledWith('@newgroup');
@@ -105,7 +105,7 @@ describe('GroupNameEditor', () => {
     
     const input = screen.getByRole('textbox');
     
-    fireEvent.change(input, { target: { value: '@newgroup' } });
+    fireEvent.change(input, { target: { value: 'newgroup' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     
     expect(defaultProps.onSave).toHaveBeenCalledWith('@newgroup');
@@ -134,7 +134,7 @@ describe('GroupNameEditor', () => {
     const input = screen.getByRole('textbox');
     
     // Clear and type new value
-    fireEvent.change(input, { target: { value: '@新しいグループ' } });
+    fireEvent.change(input, { target: { value: '新しいグループ' } });
     
     // Start composition
     fireEvent.compositionStart(input);
@@ -161,5 +161,56 @@ describe('GroupNameEditor', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(input);
     });
+  });
+
+  it('should remove leading @ from user input', () => {
+    render(<GroupNameEditor {...defaultProps} />);
+    
+    const input = screen.getByRole('textbox');
+    const saveButton = screen.getByTitle('保存');
+    
+    // User types '@' at the beginning
+    fireEvent.change(input, { target: { value: '@newgroup' } });
+    
+    // Input should show 'newgroup' (without @)
+    expect(input).toHaveValue('newgroup');
+    
+    // Save should work with the cleaned input
+    expect(saveButton).not.toBeDisabled();
+    
+    fireEvent.click(saveButton);
+    expect(defaultProps.onSave).toHaveBeenCalledWith('@newgroup');
+  });
+
+  it('should handle multiple @ symbols by removing only the first one', () => {
+    render(<GroupNameEditor {...defaultProps} />);
+    
+    const input = screen.getByRole('textbox');
+    const saveButton = screen.getByTitle('保存');
+    
+    // User types multiple @ symbols
+    fireEvent.change(input, { target: { value: '@@test@group' } });
+    
+    // Input should show '@test@group' (only first @ removed)
+    expect(input).toHaveValue('@test@group');
+    
+    fireEvent.click(saveButton);
+    expect(defaultProps.onSave).toHaveBeenCalledWith('@@test@group');
+  });
+
+  it('should handle @ in the middle of input correctly', () => {
+    render(<GroupNameEditor {...defaultProps} />);
+    
+    const input = screen.getByRole('textbox');
+    const saveButton = screen.getByTitle('保存');
+    
+    // User types @ in the middle (should be preserved)
+    fireEvent.change(input, { target: { value: 'test@group' } });
+    
+    // Input should show 'test@group' (no change since @ is not at the beginning)
+    expect(input).toHaveValue('test@group');
+    
+    fireEvent.click(saveButton);
+    expect(defaultProps.onSave).toHaveBeenCalledWith('@test@group');
   });
 });
