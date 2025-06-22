@@ -12,14 +12,16 @@ interface AliasEditorProps {
   onAddAlias: (alias: string, target: string) => Promise<void>;
   onDeleteAlias: (alias: string) => Promise<void>;
   isLoading?: boolean;
+  deviceIdentifier: string;
 }
 
 export function AliasEditor({
-  device,
+  device: _device, // Not used but kept for future extensibility
   currentAlias,
   onAddAlias,
   onDeleteAlias,
-  isLoading = false
+  isLoading = false,
+  deviceIdentifier
 }: AliasEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(currentAlias || '');
@@ -55,12 +57,6 @@ export function AliasEditor({
       return;
     }
 
-    // device.id should be available since the component is only rendered when device.id exists
-    if (!device.id) {
-      setError('デバイスIDが取得できません');
-      return;
-    }
-
     setIsSaving(true);
     try {
       // If updating existing alias, delete old one first
@@ -68,8 +64,8 @@ export function AliasEditor({
         await onDeleteAlias(currentAlias);
       }
       
-      // Add the new alias
-      await onAddAlias(inputValue, device.id);
+      // Add the new alias using the correct device identifier
+      await onAddAlias(inputValue, deviceIdentifier);
       
       setIsEditing(false);
       setError(undefined);

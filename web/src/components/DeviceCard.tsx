@@ -9,7 +9,7 @@ import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
 import { getPropertyName, formatPropertyValueWithTranslation, getPropertyDescriptor, isPropertySettable, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { translateLocationId } from '@/libs/locationHelper';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
-import { deviceHasAlias } from '@/libs/deviceIdHelper';
+import { deviceHasAlias, getDeviceIdentifierForAlias } from '@/libs/deviceIdHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
 
 interface DeviceCardProps {
@@ -45,6 +45,7 @@ export function DeviceCard({
 }: DeviceCardProps) {
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const classCode = getDeviceClassCode(device);
+  const deviceIdentifier = getDeviceIdentifierForAlias(device, devices);
 
   // Get primary properties in sorted order (Operation Status first)
   const primaryProps = getSortedPrimaryProperties(device);
@@ -178,7 +179,7 @@ export function DeviceCard({
                 <p className="text-xs text-muted-foreground">
                   {device.ip} - {device.eoj}
                 </p>
-                {onAddAlias && onDeleteAlias && device.id && (
+                {onAddAlias && onDeleteAlias && deviceIdentifier && (
                   <div className="mt-2">
                     <AliasEditor
                       device={device}
@@ -186,6 +187,7 @@ export function DeviceCard({
                       onAddAlias={onAddAlias}
                       onDeleteAlias={onDeleteAlias}
                       isLoading={isAliasLoading}
+                      deviceIdentifier={deviceIdentifier}
                     />
                   </div>
                 )}

@@ -37,6 +37,7 @@ describe('AliasEditor', () => {
           currentAlias={undefined}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -52,6 +53,7 @@ describe('AliasEditor', () => {
           currentAlias={undefined}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -72,6 +74,7 @@ describe('AliasEditor', () => {
           currentAlias="living_ac"
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -87,6 +90,7 @@ describe('AliasEditor', () => {
           currentAlias="living_ac"
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -104,6 +108,7 @@ describe('AliasEditor', () => {
           currentAlias="living_ac"
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -124,6 +129,7 @@ describe('AliasEditor', () => {
           currentAlias={undefined}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -143,6 +149,7 @@ describe('AliasEditor', () => {
           currentAlias={undefined}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -165,6 +172,7 @@ describe('AliasEditor', () => {
           currentAlias={undefined}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -189,6 +197,7 @@ describe('AliasEditor', () => {
           currentAlias={undefined}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -202,7 +211,7 @@ describe('AliasEditor', () => {
       fireEvent.click(saveButton);
 
       await waitFor(() => {
-        expect(mockOnAddAlias).toHaveBeenCalledWith('kitchen_ac', mockDevice.id);
+        expect(mockOnAddAlias).toHaveBeenCalledWith('kitchen_ac', '013001:00000B:ABCDEF0123456789ABCDEF012345');
       });
     });
 
@@ -213,6 +222,7 @@ describe('AliasEditor', () => {
           currentAlias="living_ac"
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -227,7 +237,7 @@ describe('AliasEditor', () => {
 
       await waitFor(() => {
         expect(mockOnDeleteAlias).toHaveBeenCalledWith('living_ac');
-        expect(mockOnAddAlias).toHaveBeenCalledWith('bedroom_ac', mockDevice.id);
+        expect(mockOnAddAlias).toHaveBeenCalledWith('bedroom_ac', '013001:00000B:ABCDEF0123456789ABCDEF012345');
       });
     });
 
@@ -238,6 +248,7 @@ describe('AliasEditor', () => {
           currentAlias="living_ac"
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -261,6 +272,7 @@ describe('AliasEditor', () => {
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           isLoading={true}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
         />
       );
 
@@ -269,14 +281,15 @@ describe('AliasEditor', () => {
     });
   });
 
-  describe('device without ID', () => {
-    it('should show error when trying to save without device ID', async () => {
+  describe('device identifier prop', () => {
+    it('should use provided deviceIdentifier for alias operations', async () => {
       render(
         <AliasEditor
           device={mockDeviceWithoutId}
           currentAlias={undefined}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="test_device_id"
         />
       );
 
@@ -289,8 +302,9 @@ describe('AliasEditor', () => {
       const saveButton = screen.getByTitle('保存');
       fireEvent.click(saveButton);
 
-      expect(screen.getByText('デバイスIDが取得できません')).toBeInTheDocument();
-      expect(mockOnAddAlias).not.toHaveBeenCalled();
+      await waitFor(() => {
+        expect(mockOnAddAlias).toHaveBeenCalledWith('test_alias', 'test_device_id');
+      });
     });
   });
 });
