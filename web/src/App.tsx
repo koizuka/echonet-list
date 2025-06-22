@@ -62,6 +62,8 @@ function App() {
   
   // Loading state for update operations
   const [updatingDevices, setUpdatingDevices] = useState<Set<string>>(new Set());
+  // Track alias operations loading state
+  const [aliasLoading, setAliasLoading] = useState(false);
 
   // Property change handler
   const handlePropertyChange = async (target: string, epc: string, value: PropertyValue) => {
@@ -91,6 +93,32 @@ function App() {
         newSet.delete(target);
         return newSet;
       });
+    }
+  };
+
+  // Add alias handler
+  const handleAddAlias = async (alias: string, target: string) => {
+    try {
+      setAliasLoading(true);
+      await echonet.addAlias(alias, target);
+    } catch (error) {
+      console.error('Failed to add alias:', error);
+      throw error; // Re-throw to let AliasEditor handle the error
+    } finally {
+      setAliasLoading(false);
+    }
+  };
+
+  // Delete alias handler
+  const handleDeleteAlias = async (alias: string) => {
+    try {
+      setAliasLoading(true);
+      await echonet.deleteAlias(alias);
+    } catch (error) {
+      console.error('Failed to delete alias:', error);
+      throw error; // Re-throw to let AliasEditor handle the error
+    } finally {
+      setAliasLoading(false);
     }
   };
 
@@ -241,6 +269,9 @@ function App() {
                         getDeviceClassCode={echonet.getDeviceClassCode}
                         devices={echonet.devices}
                         aliases={echonet.aliases}
+                        onAddAlias={handleAddAlias}
+                        onDeleteAlias={handleDeleteAlias}
+                        isAliasLoading={aliasLoading}
                       />
                     );
                   })}
