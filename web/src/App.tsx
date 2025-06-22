@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExpandIcon, ShrinkIcon, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { PropertyValue, LogNotification } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
 
@@ -57,12 +57,6 @@ function App() {
     connect: echonet.connect,
   });
   
-  // Get all tab IDs (location IDs + groups)
-  const tabIds = getAllTabs(echonet.devices, echonet.groups);
-  
-  // Use persistent tab selection
-  const { selectedTab, selectTab } = usePersistedTab(tabIds, 'All');
-  
   // Loading state for update operations
   const [updatingDevices, setUpdatingDevices] = useState<Set<string>>(new Set());
   // Track alias operations loading state
@@ -73,6 +67,37 @@ function App() {
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [editingGroupMembers, setEditingGroupMembers] = useState<string | null>(null);
   const [groupOperationLoading, setGroupOperationLoading] = useState(false);
+  const [newGroupTabName, setNewGroupTabName] = useState<string | null>(null);
+  const isAutoSelectingRef = useRef(false);
+
+  // Get all tab IDs (location IDs + groups + new group tab if creating)
+  const tabIds = useMemo(() => {
+    const baseTabIds = getAllTabs(echonet.devices, echonet.groups);
+    return newGroupTabName ? [...baseTabIds, newGroupTabName] : baseTabIds;
+  }, [echonet.devices, echonet.groups, newGroupTabName]);
+  
+  // Use persistent tab selection
+  const { selectedTab, selectTab } = usePersistedTab(tabIds, 'All');
+
+  // Auto-select new group tab when it's created
+  useEffect(() => {
+    if (newGroupTabName && isCreatingGroup && tabIds.includes(newGroupTabName)) {
+      isAutoSelectingRef.current = true;
+      selectTab(newGroupTabName);
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        isAutoSelectingRef.current = false;
+      }, 100);
+    }
+  }, [newGroupTabName, isCreatingGroup, tabIds, selectTab]);
+
+  // Cancel group creation when switching away from the new group tab
+  useEffect(() => {
+    if (isCreatingGroup && newGroupTabName && selectedTab !== newGroupTabName && !isAutoSelectingRef.current) {
+      setIsCreatingGroup(false);
+      setNewGroupTabName(null);
+    }
+  }, [selectedTab, isCreatingGroup, newGroupTabName]);
 
   // Property change handler
   const handlePropertyChange = async (target: string, epc: string, value: PropertyValue) => {
@@ -137,6 +162,7 @@ function App() {
       setGroupOperationLoading(true);
       await echonet.addGroup(groupName, []);
       setIsCreatingGroup(false);
+      setNewGroupTabName(null);
       selectTab(groupName); // Switch to the new group tab
     } catch (error) {
       console.error('Failed to create group:', error);
@@ -306,7 +332,12 @@ function App() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsCreatingGroup(true)}
+                onClick={() => {
+                  const tempTabName = '@新規グループ';
+                  setNewGroupTabName(tempTabName);
+                  setIsCreatingGroup(true);
+                }}
+                disabled={isCreatingGroup}
                 className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
                 data-testid="add-group-button"
               >
@@ -316,25 +347,30 @@ function App() {
               </TabsList>
             </div>
             
-            {/* Show group creation interface if creating */}
-            {isCreatingGroup && (
-              <Card className="mb-4">
-                <CardContent className="pt-6">
-                  <GroupNameEditor
-                    groupName="@"
-                    existingGroups={Object.keys(echonet.groups)}
-                    onSave={handleCreateGroup}
-                    onCancel={() => setIsCreatingGroup(false)}
-                    isLoading={groupOperationLoading}
-                  />
-                </CardContent>
-              </Card>
-            )}
             
             {tabIds.map((tabId) => (
               <TabsContent key={tabId} value={tabId} className="space-y-4" data-testid={`tab-content-${tabId}`}>
+                {/* Show group creation interface if creating a new group in this tab */}
+                {tabId === newGroupTabName && isCreatingGroup && (
+                  <Card className="mb-4">
+                    <CardContent className="pt-6">
+                      <GroupNameEditor
+                        groupName="@"
+                        existingGroups={Object.keys(echonet.groups)}
+                        onSave={handleCreateGroup}
+                        onCancel={() => {
+                          setIsCreatingGroup(false);
+                          setNewGroupTabName(null);
+                          selectTab('All');
+                        }}
+                        isLoading={groupOperationLoading}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+                
                 {/* Show group management panel for group tabs */}
-                {tabId.startsWith('@') && !editingGroupName && (
+                {tabId.startsWith('@') && !editingGroupName && tabId !== newGroupTabName && (
                   <GroupManagementPanel
                     groupName={tabId}
                     onRename={() => setEditingGroupName(tabId)}
@@ -377,7 +413,7 @@ function App() {
                     getDeviceClassCode={echonet.getDeviceClassCode}
                     isLoading={groupOperationLoading}
                   />
-                ) : (
+                ) : tabId !== newGroupTabName && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
                   {getDevicesForTab(tabId).map((device) => {
                     const deviceKey = `${device.ip} ${device.eoj}`;
@@ -404,7 +440,7 @@ function App() {
                   </div>
                 )}
                 
-                {!editingGroupMembers && getDevicesForTab(tabId).length === 0 && (
+                {!editingGroupMembers && tabId !== newGroupTabName && getDevicesForTab(tabId).length === 0 && (
                   <Card>
                     <CardContent className="pt-6">
                       <p className="text-center text-muted-foreground">

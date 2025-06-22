@@ -72,8 +72,8 @@ export function GroupNameEditor({
   };
 
   return (
-    <div className="space-y-2 w-full">
-      <div className="flex gap-2 w-full">
+    <div className="space-y-2 max-w-sm">
+      <div className="flex gap-2">
         <Input
           ref={inputRef}
           value={inputValue}
