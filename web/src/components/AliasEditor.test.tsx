@@ -34,7 +34,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias={undefined}
+          aliases={[]}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -50,7 +50,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias={undefined}
+          aliases={[]}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -71,7 +71,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias="living_ac"
+          aliases={['living_ac']}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -81,13 +81,14 @@ describe('AliasEditor', () => {
       expect(screen.getByText('living_ac')).toBeInTheDocument();
       expect(screen.getByTitle('エイリアスを編集')).toBeInTheDocument();
       expect(screen.getByTitle('エイリアスを削除')).toBeInTheDocument();
+      expect(screen.getByTitle('エイリアスを追加')).toBeInTheDocument();
     });
 
     it('should enter edit mode with current alias when edit button is clicked', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias="living_ac"
+          aliases={['living_ac']}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -105,7 +106,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias="living_ac"
+          aliases={['living_ac']}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -126,7 +127,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias={undefined}
+          aliases={[]}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -146,7 +147,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias={undefined}
+          aliases={[]}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -169,7 +170,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias={undefined}
+          aliases={[]}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -194,7 +195,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias={undefined}
+          aliases={[]}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -219,7 +220,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias="living_ac"
+          aliases={['living_ac']}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -245,7 +246,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias="living_ac"
+          aliases={['living_ac']}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
@@ -268,7 +269,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDevice}
-          currentAlias="living_ac"
+          aliases={['living_ac']}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           isLoading={true}
@@ -286,7 +287,7 @@ describe('AliasEditor', () => {
       render(
         <AliasEditor
           device={mockDeviceWithoutId}
-          currentAlias={undefined}
+          aliases={[]}
           onAddAlias={mockOnAddAlias}
           onDeleteAlias={mockOnDeleteAlias}
           deviceIdentifier="test_device_id"
@@ -305,6 +306,49 @@ describe('AliasEditor', () => {
       await waitFor(() => {
         expect(mockOnAddAlias).toHaveBeenCalledWith('test_alias', 'test_device_id');
       });
+    });
+  });
+
+  describe('multiple aliases', () => {
+    it('should display multiple aliases with individual edit/delete buttons', () => {
+      render(
+        <AliasEditor
+          device={mockDevice}
+          aliases={['living_ac', 'main_ac', 'primary_ac']}
+          onAddAlias={mockOnAddAlias}
+          onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
+        />
+      );
+
+      expect(screen.getByText('living_ac')).toBeInTheDocument();
+      expect(screen.getByText('main_ac')).toBeInTheDocument();
+      expect(screen.getByText('primary_ac')).toBeInTheDocument();
+      
+      // Should have 3 edit buttons and 3 delete buttons
+      expect(screen.getAllByTitle('エイリアスを編集')).toHaveLength(3);
+      expect(screen.getAllByTitle('エイリアスを削除')).toHaveLength(3);
+      
+      // Should always have add button at bottom
+      expect(screen.getByTitle('エイリアスを追加')).toBeInTheDocument();
+    });
+
+    it('should edit specific alias when edit button clicked', () => {
+      render(
+        <AliasEditor
+          device={mockDevice}
+          aliases={['living_ac', 'main_ac']}
+          onAddAlias={mockOnAddAlias}
+          onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
+        />
+      );
+
+      const editButtons = screen.getAllByTitle('エイリアスを編集');
+      fireEvent.click(editButtons[1]); // Click edit for second alias (main_ac)
+
+      const input = screen.getByDisplayValue('main_ac');
+      expect(input).toBeInTheDocument();
     });
   });
 });

@@ -7,7 +7,7 @@ import type { Device } from '@/hooks/types';
 
 interface AliasEditorProps {
   device: Device;
-  currentAlias?: string;
+  aliases: string[];
   onAddAlias: (alias: string, target: string) => Promise<void>;
   onDeleteAlias: (alias: string) => Promise<void>;
   isLoading?: boolean;
@@ -16,36 +16,42 @@ interface AliasEditorProps {
 
 export function AliasEditor({
   device: _device, // Not used but kept for future extensibility
-  currentAlias,
+  aliases,
   onAddAlias,
   onDeleteAlias,
   isLoading = false,
   deviceIdentifier
 }: AliasEditorProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [inputValue, setInputValue] = useState(currentAlias || '');
+  const [editingIndex, setEditingIndex] = useState<number | null>(null); // null means not editing, -1 means adding new alias, >=0 means editing existing
+  const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState<string | undefined>();
-  const [isSaving, setIsSaving] = useState(false);
+  const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when entering edit mode
   useEffect(() => {
-    if (isEditing && inputRef.current) {
+    if (editingIndex !== null && inputRef.current) {
       inputRef.current.focus();
       // Select all text for easy replacement
       inputRef.current.select();
     }
-  }, [isEditing]);
+  }, [editingIndex]);
 
-  const handleStartEdit = () => {
-    setIsEditing(true);
-    setInputValue(currentAlias || '');
+  const handleStartEdit = (index: number) => {
+    setEditingIndex(index);
+    setInputValue(index >= 0 ? aliases[index] : '');
+    setError(undefined);
+  };
+
+  const handleStartAdd = () => {
+    setEditingIndex(-1);
+    setInputValue('');
     setError(undefined);
   };
 
   const handleCancel = () => {
-    setIsEditing(false);
-    setInputValue(currentAlias || '');
+    setEditingIndex(null);
+    setInputValue('');
     setError(undefined);
   };
 
@@ -56,39 +62,39 @@ export function AliasEditor({
       return;
     }
 
-    setIsSaving(true);
+    setSavingIndex(editingIndex);
     try {
       // If updating existing alias, delete old one first
-      if (currentAlias && currentAlias !== inputValue) {
-        await onDeleteAlias(currentAlias);
+      if (editingIndex !== null && editingIndex >= 0 && aliases[editingIndex] !== inputValue) {
+        await onDeleteAlias(aliases[editingIndex]);
       }
       
       // Add the new alias using the correct device identifier
       await onAddAlias(inputValue, deviceIdentifier);
       
-      setIsEditing(false);
+      setEditingIndex(null);
+      setInputValue('');
       setError(undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'エイリアスの保存に失敗しました');
     } finally {
-      setIsSaving(false);
+      setSavingIndex(null);
     }
   };
 
-  const handleDelete = async () => {
-    if (!currentAlias) return;
-    
-    setIsSaving(true);
+  const handleDelete = async (aliasToDelete: string, index: number) => {
+    setSavingIndex(index);
     try {
-      await onDeleteAlias(currentAlias);
+      await onDeleteAlias(aliasToDelete);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'エイリアスの削除に失敗しました');
     } finally {
-      setIsSaving(false);
+      setSavingIndex(null);
     }
   };
 
-  if (isEditing) {
+  // Render editing form when editing
+  if (editingIndex !== null) {
     return (
       <div className="space-y-2 w-full">
         <div className="flex gap-2 w-full">
@@ -101,7 +107,7 @@ export function AliasEditor({
             }}
             placeholder="エイリアス名を入力"
             className="h-7 text-xs flex-1"
-            disabled={isSaving}
+            disabled={savingIndex !== null}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 handleSave();
@@ -115,7 +121,7 @@ export function AliasEditor({
               variant="ghost"
               size="sm"
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={savingIndex !== null}
               className="h-7 w-7 p-0"
               title="保存"
             >
@@ -125,7 +131,7 @@ export function AliasEditor({
               variant="ghost"
               size="sm"
               onClick={handleCancel}
-              disabled={isSaving}
+              disabled={savingIndex !== null}
               className="h-7 w-7 p-0"
               title="キャンセル"
             >
@@ -141,20 +147,21 @@ export function AliasEditor({
   }
 
   return (
-    <div className="w-full">
-      {currentAlias ? (
-        <div className="flex gap-2 w-full">
+    <div className="w-full space-y-2">
+      {/* Display existing aliases */}
+      {aliases.map((alias, index) => (
+        <div key={`${alias}-${index}`} className="flex gap-2 w-full">
           <div className="flex-1 min-w-0">
             <div className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded break-all leading-relaxed">
-              {currentAlias}
+              {alias}
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleStartEdit}
-              disabled={isLoading || isSaving}
+              onClick={() => handleStartEdit(index)}
+              disabled={isLoading || savingIndex !== null}
               className="h-6 w-6 p-0"
               title="エイリアスを編集"
             >
@@ -163,8 +170,8 @@ export function AliasEditor({
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleDelete}
-              disabled={isLoading || isSaving}
+              onClick={() => handleDelete(alias, index)}
+              disabled={isLoading || savingIndex !== null}
               className="h-6 w-6 p-0"
               title="エイリアスを削除"
             >
@@ -172,19 +179,25 @@ export function AliasEditor({
             </Button>
           </div>
         </div>
-      ) : (
-        <div className="flex justify-start w-full">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleStartEdit}
-            disabled={isLoading || isSaving}
-            className="h-6 w-6 p-0"
-            title="エイリアスを追加"
-          >
-            <Plus className="h-3 w-3" />
-          </Button>
-        </div>
+      ))}
+      
+      {/* Add new alias button - always shown at bottom */}
+      <div className="flex justify-start w-full">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleStartAdd}
+          disabled={isLoading || savingIndex !== null}
+          className="h-6 w-6 p-0"
+          title="エイリアスを追加"
+        >
+          <Plus className="h-3 w-3" />
+        </Button>
+      </div>
+      
+      {/* Error message (for delete operations) */}
+      {error && (
+        <p className="text-xs text-destructive">{error}</p>
       )}
     </div>
   );

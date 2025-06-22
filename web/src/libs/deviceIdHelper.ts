@@ -117,3 +117,22 @@ export function deviceHasAlias(
     deviceIdentifier
   };
 }
+
+/**
+ * Get all aliases for a device using correct device identifier
+ */
+export function getDeviceAliases(
+  device: Device,
+  allDevices: Record<string, Device>,
+  aliases: Record<string, string>
+): { aliases: string[]; deviceIdentifier: string | undefined } {
+  const deviceIdentifier = getDeviceIdentifierForAlias(device, allDevices);
+  const deviceAliases = Object.entries(aliases)
+    .filter(([, id]) => id === deviceIdentifier)
+    .map(([alias]) => alias);
+  
+  return {
+    aliases: deviceAliases,
+    deviceIdentifier
+  };
+}

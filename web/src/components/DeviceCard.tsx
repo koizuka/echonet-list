@@ -8,7 +8,7 @@ import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
 import { getPropertyName, formatPropertyValueWithTranslation, getPropertyDescriptor, isPropertySettable, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { translateLocationId } from '@/libs/locationHelper';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
-import { deviceHasAlias, getDeviceIdentifierForAlias } from '@/libs/deviceIdHelper';
+import { deviceHasAlias, getDeviceIdentifierForAlias, getDeviceAliases } from '@/libs/deviceIdHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
 
 interface DeviceCardProps {
@@ -43,6 +43,7 @@ export function DeviceCard({
   isAliasLoading = false
 }: DeviceCardProps) {
   const aliasInfo = deviceHasAlias(device, devices, aliases);
+  const deviceAliasesInfo = getDeviceAliases(device, devices, aliases);
   const classCode = getDeviceClassCode(device);
   const deviceIdentifier = getDeviceIdentifierForAlias(device, devices);
 
@@ -166,6 +167,12 @@ export function DeviceCard({
               <CardTitle className="text-sm font-semibold truncate" data-testid="device-title">
                 {aliasInfo.aliasName || device.name}
               </CardTitle>
+              {/* Multiple alias indicator in compact mode */}
+              {!isExpanded && deviceAliasesInfo.aliases.length > 1 && (
+                <div className="inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-primary-foreground bg-primary rounded-full" title={`${deviceAliasesInfo.aliases.length}個のエイリアス`}>
+                  {deviceAliasesInfo.aliases.length}
+                </div>
+              )}
               <DeviceStatusIndicators device={device} />
             </div>
             {aliasInfo.hasAlias && isExpanded && (
@@ -215,7 +222,7 @@ export function DeviceCard({
         <div className="px-3 pb-2">
           <AliasEditor
             device={device}
-            currentAlias={aliasInfo.aliasName}
+            aliases={deviceAliasesInfo.aliases}
             onAddAlias={onAddAlias}
             onDeleteAlias={onDeleteAlias}
             isLoading={isAliasLoading}
