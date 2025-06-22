@@ -55,6 +55,7 @@ export function AliasEditor({
       return;
     }
 
+    // device.id should be available since the component is only rendered when device.id exists
     if (!device.id) {
       setError('デバイスIDが取得できません');
       return;

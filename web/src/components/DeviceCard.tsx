@@ -178,7 +178,7 @@ export function DeviceCard({
                 <p className="text-xs text-muted-foreground">
                   {device.ip} - {device.eoj}
                 </p>
-                {onAddAlias && onDeleteAlias && (
+                {onAddAlias && onDeleteAlias && device.id && (
                   <div className="mt-2">
                     <AliasEditor
                       device={device}

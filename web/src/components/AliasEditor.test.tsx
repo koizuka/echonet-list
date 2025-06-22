@@ -12,6 +12,15 @@ const mockDevice: Device = {
   lastSeen: '2023-04-01T12:00:00Z'
 };
 
+const mockDeviceWithoutId: Device = {
+  ip: '192.168.1.10',
+  eoj: '0130:1',
+  name: 'HomeAirConditioner',
+  id: undefined,
+  properties: {},
+  lastSeen: '2023-04-01T12:00:00Z'
+};
+
 describe('AliasEditor', () => {
   const mockOnAddAlias = vi.fn();
   const mockOnDeleteAlias = vi.fn();
@@ -257,6 +266,31 @@ describe('AliasEditor', () => {
 
       expect(screen.getByTitle('エイリアスを編集')).toBeDisabled();
       expect(screen.getByTitle('エイリアスを削除')).toBeDisabled();
+    });
+  });
+
+  describe('device without ID', () => {
+    it('should show error when trying to save without device ID', async () => {
+      render(
+        <AliasEditor
+          device={mockDeviceWithoutId}
+          currentAlias={undefined}
+          onAddAlias={mockOnAddAlias}
+          onDeleteAlias={mockOnDeleteAlias}
+        />
+      );
+
+      const addButton = screen.getByTitle('エイリアスを追加');
+      fireEvent.click(addButton);
+
+      const input = screen.getByPlaceholderText('エイリアス名を入力');
+      fireEvent.change(input, { target: { value: 'test_alias' } });
+
+      const saveButton = screen.getByTitle('保存');
+      fireEvent.click(saveButton);
+
+      expect(screen.getByText('デバイスIDが取得できません')).toBeInTheDocument();
+      expect(mockOnAddAlias).not.toHaveBeenCalled();
     });
   });
 });
