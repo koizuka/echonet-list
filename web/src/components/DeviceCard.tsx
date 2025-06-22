@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, RefreshCw, Binary } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PropertyEditor } from '@/components/PropertyEditor';
 import { AliasEditor } from '@/components/AliasEditor';
@@ -181,11 +180,6 @@ export function DeviceCard({
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {aliasInfo.hasAlias && (
-              <Badge variant="secondary" className="text-xs px-1">
-                Alias
-              </Badge>
-            )}
             {onUpdateProperties && (
               <Button
                 variant="ghost"
