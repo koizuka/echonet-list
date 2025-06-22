@@ -26,6 +26,7 @@ export function AliasEditor({
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
+  const [isComposing, setIsComposing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when entering edit mode
@@ -55,6 +56,27 @@ export function AliasEditor({
     setError(undefined);
   };
 
+  // Check if save button should be disabled
+  const getIsSaveDisabled = () => {
+    // Disabled while saving
+    if (savingIndex !== null) return true;
+    
+    // Check validation
+    const validationError = validateDeviceAlias(inputValue);
+    if (validationError) return true;
+    
+    // Check if value has changed (for existing alias)
+    if (editingIndex !== null && editingIndex >= 0) {
+      const originalValue = aliases[editingIndex];
+      if (inputValue === originalValue) return true;
+    }
+    
+    // For new alias, just check that it's not empty and valid
+    if (editingIndex === -1 && inputValue.trim() === '') return true;
+    
+    return false;
+  };
+
   const handleSave = async () => {
     const validationError = validateDeviceAlias(inputValue);
     if (validationError) {
@@ -64,13 +86,13 @@ export function AliasEditor({
 
     setSavingIndex(editingIndex);
     try {
-      // If updating existing alias, delete old one first
+      // Add the new alias first
+      await onAddAlias(inputValue, deviceIdentifier);
+      
+      // If updating existing alias, delete old one after successful addition
       if (editingIndex !== null && editingIndex >= 0 && aliases[editingIndex] !== inputValue) {
         await onDeleteAlias(aliases[editingIndex]);
       }
-      
-      // Add the new alias using the correct device identifier
-      await onAddAlias(inputValue, deviceIdentifier);
       
       setEditingIndex(null);
       setInputValue('');
@@ -108,9 +130,13 @@ export function AliasEditor({
             placeholder="エイリアス名を入力"
             className="h-7 text-xs flex-1"
             disabled={savingIndex !== null}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={() => setIsComposing(false)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSave();
+              if (e.key === 'Enter' && !isComposing) {
+                if (!getIsSaveDisabled()) {
+                  handleSave();
+                }
               } else if (e.key === 'Escape') {
                 handleCancel();
               }
@@ -121,7 +147,7 @@ export function AliasEditor({
               variant="ghost"
               size="sm"
               onClick={handleSave}
-              disabled={savingIndex !== null}
+              disabled={getIsSaveDisabled()}
               className="h-7 w-7 p-0"
               title="保存"
             >
