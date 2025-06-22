@@ -175,23 +175,9 @@ export function DeviceCard({
               </p>
             )}
             {isExpanded && (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  {device.ip} - {device.eoj}
-                </p>
-                {onAddAlias && onDeleteAlias && deviceIdentifier && (
-                  <div className="mt-2">
-                    <AliasEditor
-                      device={device}
-                      currentAlias={aliasInfo.aliasName}
-                      onAddAlias={onAddAlias}
-                      onDeleteAlias={onDeleteAlias}
-                      isLoading={isAliasLoading}
-                      deviceIdentifier={deviceIdentifier}
-                    />
-                  </div>
-                )}
-              </>
+              <p className="text-xs text-muted-foreground">
+                {device.ip} - {device.eoj}
+              </p>
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -229,6 +215,20 @@ export function DeviceCard({
           </div>
         </div>
       </CardHeader>
+      
+      {/* Alias Editor - Full width below header */}
+      {isExpanded && onAddAlias && onDeleteAlias && deviceIdentifier && (
+        <div className="px-3 pb-2">
+          <AliasEditor
+            device={device}
+            currentAlias={aliasInfo.aliasName}
+            onAddAlias={onAddAlias}
+            onDeleteAlias={onDeleteAlias}
+            isLoading={isAliasLoading}
+            deviceIdentifier={deviceIdentifier}
+          />
+        </div>
+      )}
       
       <CardContent className="pt-0 px-3 pb-0 flex flex-col flex-1">
         {/* Main content area that grows to fill space */}

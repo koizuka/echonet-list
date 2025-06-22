@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Edit2, Trash2, Plus, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { validateDeviceAlias } from '@/libs/aliasHelper';
 import type { Device } from '@/hooks/types';
 
@@ -91,8 +90,8 @@ export function AliasEditor({
 
   if (isEditing) {
     return (
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
+      <div className="space-y-2 w-full">
+        <div className="flex gap-2 w-full">
           <Input
             ref={inputRef}
             value={inputValue}
@@ -111,26 +110,28 @@ export function AliasEditor({
               }
             }}
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="h-7 w-7 p-0"
-            title="保存"
-          >
-            <Check className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCancel}
-            disabled={isSaving}
-            className="h-7 w-7 p-0"
-            title="キャンセル"
-          >
-            <X className="h-3 w-3" />
-          </Button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="h-7 w-7 p-0"
+              title="保存"
+            >
+              <Check className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              disabled={isSaving}
+              className="h-7 w-7 p-0"
+              title="キャンセル"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
         {error && (
           <p className="text-xs text-destructive">{error}</p>
@@ -140,44 +141,50 @@ export function AliasEditor({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="w-full">
       {currentAlias ? (
-        <>
-          <Badge variant="secondary" className="text-xs px-2 py-0.5">
-            {currentAlias}
-          </Badge>
+        <div className="flex gap-2 w-full">
+          <div className="flex-1 min-w-0">
+            <div className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded break-all leading-relaxed">
+              {currentAlias}
+            </div>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStartEdit}
+              disabled={isLoading || isSaving}
+              className="h-6 w-6 p-0"
+              title="エイリアスを編集"
+            >
+              <Edit2 className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDelete}
+              disabled={isLoading || isSaving}
+              className="h-6 w-6 p-0"
+              title="エイリアスを削除"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-start w-full">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleStartEdit}
             disabled={isLoading || isSaving}
             className="h-6 w-6 p-0"
-            title="エイリアスを編集"
+            title="エイリアスを追加"
           >
-            <Edit2 className="h-3 w-3" />
+            <Plus className="h-3 w-3" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            disabled={isLoading || isSaving}
-            className="h-6 w-6 p-0"
-            title="エイリアスを削除"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </>
-      ) : (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleStartEdit}
-          disabled={isLoading || isSaving}
-          className="h-6 w-6 p-0"
-          title="エイリアスを追加"
-        >
-          <Plus className="h-3 w-3" />
-        </Button>
+        </div>
       )}
     </div>
   );
