@@ -73,12 +73,16 @@ describe('usePersistedTab', () => {
     act(() => {
       result.current.selectTab('Kitchen');
     });
-    
+     
     expect(result.current.selectedTab).toBe('Kitchen');
     expect(mockLocalStorage.setItem).toHaveBeenCalledWith('echonet-list-selected-tab', 'Kitchen');
   });
 
   it('should not select invalid tabs', () => {
+    // Suppress console warnings for this test
+    const originalWarn = console.warn;
+    console.warn = vi.fn();
+    
     const availableTabs = ['All', 'Living Room', 'Kitchen'];
     const { result } = renderHook(() => usePersistedTab(availableTabs));
     
@@ -91,6 +95,12 @@ describe('usePersistedTab', () => {
     // Should remain unchanged
     expect(result.current.selectedTab).toBe(initialTab);
     expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith('echonet-list-selected-tab', 'Invalid Tab');
+    
+    // Verify console.warn was called
+    expect(console.warn).toHaveBeenCalledWith('Attempted to select invalid tab: Invalid Tab');
+    
+    // Restore console.warn
+    console.warn = originalWarn;
   });
 
   it('should update selected tab when available tabs change and current tab becomes invalid', () => {
@@ -160,6 +170,10 @@ describe('usePersistedTab', () => {
   });
 
   it('should handle localStorage errors gracefully', () => {
+    // Suppress console warnings for this test
+    const originalWarn = console.warn;
+    console.warn = vi.fn();
+    
     // Mock localStorage to throw errors
     const mockGetItem = vi.fn(() => {
       throw new Error('localStorage not available');
@@ -190,11 +204,25 @@ describe('usePersistedTab', () => {
     
     // Should still update state even if localStorage fails
     expect(result.current.selectedTab).toBe('Kitchen');
+    
+    // Verify console.warn was called with localStorage errors
+    expect(console.warn).toHaveBeenCalledWith('Failed to read from localStorage:', expect.any(Error));
+    expect(console.warn).toHaveBeenCalledWith('Failed to save to localStorage:', expect.any(Error));
+    
+    // Restore console.warn
+    console.warn = originalWarn;
   });
 
   it('should handle empty available tabs array', () => {
+    // Suppress console warnings for this test if localStorage has been mocked to fail
+    const originalWarn = console.warn;
+    console.warn = vi.fn();
+    
     const { result } = renderHook(() => usePersistedTab([]));
     
     expect(result.current.selectedTab).toBe('All'); // Default fallback
+    
+    // Restore console.warn
+    console.warn = originalWarn;
   });
 });

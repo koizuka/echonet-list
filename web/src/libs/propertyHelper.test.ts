@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { isPropertySettable, isDeviceOperational, isDeviceFaulty } from './propertyHelper';
 import type { Device } from '@/hooks/types';
 
@@ -44,6 +44,10 @@ describe('propertyHelper', () => {
     });
 
     it('should handle invalid Set Property Map gracefully', () => {
+      // Suppress console warnings for this test
+      const originalWarn = console.warn;
+      console.warn = vi.fn();
+      
       const device: Device = {
         id: 'test',
         ip: '192.168.1.100',
@@ -56,6 +60,15 @@ describe('propertyHelper', () => {
       };
 
       expect(isPropertySettable('80', device)).toBe(false);
+      
+      // Verify console.warn was called with the error
+      expect(console.warn).toHaveBeenCalledWith(
+        'Failed to parse Set Property Map for device 192.168.1.100 0130:1:',
+        expect.any(Error)
+      );
+      
+      // Restore console.warn
+      console.warn = originalWarn;
     });
 
     it('should handle empty Set Property Map', () => {
