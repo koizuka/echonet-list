@@ -13,17 +13,7 @@ Integration tests verify that all components of the system work correctly togeth
 
 ## Running Integration Tests
 
-### Using Make (Recommended)
-
-```bash
-# Run integration tests only
-make integration-test
-
-# Run all tests (unit + integration)
-make test-all
-```
-
-### Using the Script
+### Using the Script (Recommended)
 
 ```bash
 ./script/integration-test.sh
