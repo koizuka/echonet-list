@@ -51,10 +51,11 @@ function App() {
   });
   const cardExpansion = useCardExpansion();
   
-  // Auto-reconnect when page/browser becomes active
+  // Auto-reconnect when page/browser becomes active and auto-disconnect when hidden
   useAutoReconnect({
     connectionState: echonet.connectionState,
     connect: echonet.connect,
+    disconnect: echonet.disconnect,
   });
   
   // Loading state for update operations
