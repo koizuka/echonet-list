@@ -4,17 +4,22 @@ import type { ConnectionState } from './types';
 export interface AutoReconnectOptions {
   connectionState: ConnectionState;
   connect: () => void;
+  disconnect: () => void;
   delayMs?: number;
+  autoDisconnect?: boolean;
 }
 
 /**
- * Hook that automatically attempts to reconnect when the page/browser becomes active
- * and the connection is in a disconnected state
+ * Hook that automatically manages WebSocket connections based on page visibility:
+ * - Disconnects when the page becomes hidden (if autoDisconnect is enabled)
+ * - Reconnects when the page becomes visible and the connection is disconnected
  */
 export function useAutoReconnect({ 
   connectionState, 
   connect, 
-  delayMs = 2000 
+  disconnect,
+  delayMs = 2000,
+  autoDisconnect = true
 }: AutoReconnectOptions) {
   const hasReconnectedRef = useRef(false);
   
@@ -31,7 +36,13 @@ export function useAutoReconnect({
     };
 
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (document.hidden) {
+        // Page became hidden - disconnect if auto-disconnect is enabled
+        if (autoDisconnect && connectionState === 'connected') {
+          disconnect();
+        }
+      } else {
+        // Page became visible - attempt reconnection
         attemptReconnection();
       }
     };
@@ -47,5 +58,5 @@ export function useAutoReconnect({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [connectionState, connect, delayMs]);
+  }, [connectionState, connect, disconnect, delayMs, autoDisconnect]);
 }
