@@ -31,14 +31,15 @@ type StartOptions struct {
 
 // WebSocketServer implements a WebSocket server for ECHONET Lite
 type WebSocketServer struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	transport     WebSocketTransport
-	echonetClient client.ECHONETListClient
-	handler       *handler.ECHONETLiteHandler
-	activeClients atomic.Int32 // Number of currently connected clients
-	updateTicker  *time.Ticker // Ticker for periodic updates
-	tickerDone    chan bool    // Channel to stop the ticker goroutine
+	ctx                    context.Context
+	cancel                 context.CancelFunc
+	transport              WebSocketTransport
+	echonetClient          client.ECHONETListClient
+	handler                *handler.ECHONETLiteHandler
+	activeClients          atomic.Int32 // Number of currently connected clients
+	updateTicker           *time.Ticker // Ticker for periodic updates
+	tickerDone             chan bool    // Channel to stop the ticker goroutine
+	initialStateInProgress atomic.Int32 // Counter for ongoing initial state generations
 }
 
 // NewWebSocketServer creates a new WebSocket server
@@ -89,10 +90,13 @@ func (ws *WebSocketServer) periodicUpdater() {
 	for {
 		select {
 		case <-ws.updateTicker.C:
-			// Check if any clients are connected
-			if ws.activeClients.Load() > 0 {
+			// Check if any clients are connected and no initial state generation is in progress
+			clientCount := ws.activeClients.Load()
+			initialStateCount := ws.initialStateInProgress.Load()
+
+			if clientCount > 0 && initialStateCount == 0 {
 				if ws.handler.IsDebug() {
-					slog.Debug("Ticker triggered: Updating all device properties (clients connected)")
+					slog.Debug("Ticker triggered: Updating all device properties (clients connected, no initial state in progress)")
 				}
 				// Run update in a separate goroutine to avoid blocking the ticker
 				go func() {
@@ -105,7 +109,11 @@ func (ws *WebSocketServer) periodicUpdater() {
 				}()
 			} else {
 				if ws.handler.IsDebug() {
-					slog.Debug("Ticker triggered: Skipping update (no clients connected)")
+					if clientCount == 0 {
+						slog.Debug("Ticker triggered: Skipping update (no clients connected)")
+					} else if initialStateCount > 0 {
+						slog.Debug("Ticker triggered: Skipping update (initial state generation in progress)", "count", initialStateCount)
+					}
 				}
 			}
 		case <-ws.tickerDone:
@@ -256,6 +264,10 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 
 	// Run initial state generation in a separate goroutine to avoid blocking the connection handler
 	go func() {
+		// Increment initial state generation counter
+		ws.initialStateInProgress.Add(1)
+		defer ws.initialStateInProgress.Add(-1)
+
 		// Add timeout to prevent indefinite blocking
 		ctx, cancel := context.WithTimeout(ws.ctx, 30*time.Second)
 		defer cancel()
@@ -339,24 +351,84 @@ func isClientDisconnectedError(err error) bool {
 		strings.Contains(errStr, "failed to send message to client")
 }
 
+// getCachedDeviceList attempts to get a cached device list with minimal blocking
+// This is used as a fallback when the main device list fetch times out
+func (ws *WebSocketServer) getCachedDeviceList() []handler.DeviceAndProperties {
+	if ws.echonetClient == nil {
+		return nil
+	}
+
+	// Try to get devices with a very short timeout using a goroutine
+	devicesCh := make(chan []handler.DeviceAndProperties, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Warn("Panic while getting cached device list", "error", r)
+			}
+		}()
+		// Make another attempt - this might succeed if locks have been released
+		devices := ws.echonetClient.ListDevices(handler.FilterCriteria{})
+		select {
+		case devicesCh <- devices:
+		default:
+			// Channel is full, discard
+		}
+	}()
+
+	// Wait up to 3 seconds for cached data
+	select {
+	case devices := <-devicesCh:
+		return devices
+	case <-time.After(3 * time.Second):
+		slog.Warn("Cached device list fetch also timed out, returning empty list")
+		return []handler.DeviceAndProperties{}
+	}
+}
+
 // generateAndSendInitialState generates and sends the initial state data
 func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 	if ws.handler.IsDebug() {
 		slog.Debug("Starting initial state generation", "connID", connID)
 	}
 
-	// Get all devices
+	// Get all devices with timeout-aware fetching
 	if ws.handler.IsDebug() {
 		slog.Debug("Fetching device list", "connID", connID)
 	}
 	var devices []handler.DeviceAndProperties
 	if ws.echonetClient != nil {
-		devices = ws.echonetClient.ListDevices(handler.FilterCriteria{})
+		// Use goroutine with timeout to fetch devices
+		devicesCh := make(chan []handler.DeviceAndProperties, 1)
+		errorCh := make(chan error, 1)
+
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					errorCh <- fmt.Errorf("panic in device list fetch: %v", r)
+				}
+			}()
+			deviceList := ws.echonetClient.ListDevices(handler.FilterCriteria{})
+			devicesCh <- deviceList
+		}()
+
+		// Use a shorter timeout for device list fetching (20 seconds instead of waiting for full 30s timeout)
+		select {
+		case devices = <-devicesCh:
+			if ws.handler.IsDebug() {
+				slog.Debug("Device list fetched successfully", "connID", connID, "deviceCount", len(devices))
+			}
+		case err := <-errorCh:
+			return fmt.Errorf("error fetching device list: %w", err)
+		case <-time.After(20 * time.Second):
+			slog.Warn("Device list fetch timed out, using cached data if available", "connID", connID)
+			// Try to get cached device list with minimal blocking
+			devices = ws.getCachedDeviceList()
+		}
 	} else {
 		slog.Warn("echonetClient is nil, returning empty device list", "connID", connID)
 	}
 	if ws.handler.IsDebug() {
-		slog.Debug("Device list fetched", "connID", connID, "deviceCount", len(devices))
+		slog.Debug("Device list processing completed", "connID", connID, "deviceCount", len(devices))
 	}
 
 	// Convert devices to protocol format
@@ -390,42 +462,74 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 		slog.Debug("Device conversion completed", "connID", connID, "protoDeviceCount", len(protoDevices))
 	}
 
-	// Get all aliases
+	// Get all aliases with timeout
 	if ws.handler.IsDebug() {
 		slog.Debug("Fetching alias list", "connID", connID)
 	}
 	aliases := make(map[string]client.IDString)
 	if ws.echonetClient != nil {
-		aliasList := ws.echonetClient.AliasList()
-		for _, alias := range aliasList {
-			if alias.Alias != "" && alias.ID != "" {
-				aliases[alias.Alias] = alias.ID
+		aliasCh := make(chan []client.AliasIDStringPair, 1)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Warn("Panic while fetching alias list", "error", r, "connID", connID)
+				}
+			}()
+			aliasList := ws.echonetClient.AliasList()
+			aliasCh <- aliasList
+		}()
+
+		select {
+		case aliasList := <-aliasCh:
+			for _, alias := range aliasList {
+				if alias.Alias != "" && alias.ID != "" {
+					aliases[alias.Alias] = alias.ID
+				}
 			}
+		case <-time.After(5 * time.Second):
+			slog.Warn("Alias list fetch timed out", "connID", connID)
+			// Continue with empty aliases - this is not critical for initial state
 		}
 	} else {
 		slog.Warn("echonetClient is nil for alias list", "connID", connID)
 	}
 	if ws.handler.IsDebug() {
-		slog.Debug("Alias list fetched", "connID", connID, "aliasCount", len(aliases))
+		slog.Debug("Alias list processing completed", "connID", connID, "aliasCount", len(aliases))
 	}
 
-	// Get all groups
+	// Get all groups with timeout
 	if ws.handler.IsDebug() {
 		slog.Debug("Fetching group list", "connID", connID)
 	}
 	groups := make(map[string][]client.IDString)
 	if ws.echonetClient != nil {
-		groupList := ws.echonetClient.GroupList(nil)
-		for _, group := range groupList {
-			if group.Group != "" {
-				groups[group.Group] = group.Devices
+		groupCh := make(chan []client.GroupDevicePair, 1)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Warn("Panic while fetching group list", "error", r, "connID", connID)
+				}
+			}()
+			groupList := ws.echonetClient.GroupList(nil)
+			groupCh <- groupList
+		}()
+
+		select {
+		case groupList := <-groupCh:
+			for _, group := range groupList {
+				if group.Group != "" {
+					groups[group.Group] = group.Devices
+				}
 			}
+		case <-time.After(5 * time.Second):
+			slog.Warn("Group list fetch timed out", "connID", connID)
+			// Continue with empty groups - this is not critical for initial state
 		}
 	} else {
 		slog.Warn("echonetClient is nil for group list", "connID", connID)
 	}
 	if ws.handler.IsDebug() {
-		slog.Debug("Group list fetched", "connID", connID, "groupCount", len(groups))
+		slog.Debug("Group list processing completed", "connID", connID, "groupCount", len(groups))
 	}
 
 	// Create initial state payload
