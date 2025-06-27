@@ -10,10 +10,10 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Edit3, Check, X, Binary } from 'lucide-react';
-import { isPropertySettable, formatPropertyValueWithTranslation, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
+import { Edit3, Check, X, Binary, ChevronDown, ChevronRight } from 'lucide-react';
+import { isPropertySettable, formatPropertyValueWithTranslation, shouldShowHexViewer, edtToHexString, getPropertyName, extractClassCodeFromEOJ, decodePropertyMap } from '@/libs/propertyHelper';
 import { translateLocationId } from '@/libs/locationHelper';
-import type { PropertyDescriptor, PropertyValue, Device } from '@/hooks/types';
+import type { PropertyDescriptor, PropertyValue, Device, PropertyDescriptionData } from '@/hooks/types';
 
 interface PropertyEditorProps {
   device: Device;
@@ -21,6 +21,7 @@ interface PropertyEditorProps {
   currentValue: PropertyValue;
   descriptor?: PropertyDescriptor;
   onPropertyChange: (target: string, epc: string, value: PropertyValue) => Promise<void>;
+  propertyDescriptions?: Record<string, PropertyDescriptionData>;
 }
 
 export function PropertyEditor({ 
@@ -28,13 +29,15 @@ export function PropertyEditor({
   epc, 
   currentValue, 
   descriptor, 
-  onPropertyChange 
+  onPropertyChange,
+  propertyDescriptions 
 }: PropertyEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [sliderValue, setSliderValue] = useState<number[]>([0]);
   const [isLoading, setIsLoading] = useState(false);
   const [showHexData, setShowHexData] = useState(false);
+  const [showPropertyMap, setShowPropertyMap] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const deviceId = `${device.ip} ${device.eoj}`;
@@ -65,6 +68,33 @@ export function PropertyEditor({
   const hasOnOffAliases = hasAliases && descriptor?.aliases && 
     Object.keys(descriptor.aliases).length === 2 &&
     'on' in descriptor.aliases && 'off' in descriptor.aliases;
+
+  // Check if this is a property map (EPC 9D, 9E, 9F)
+  const isPropertyMap = ['9D', '9E', '9F'].includes(epc);
+  
+  // Parse property map if this is a property map
+  const parsePropertyMap = () => {
+    if (!isPropertyMap || !currentValue.EDT || !propertyDescriptions) return null;
+    
+    const epcs = decodePropertyMap(currentValue.EDT);
+    if (!epcs) return null;
+    
+    const classCode = extractClassCodeFromEOJ(device.eoj);
+    const properties = epcs.map(epc => ({
+      epc,
+      description: getPropertyName(epc, propertyDescriptions, classCode)
+    }));
+    
+    // Get property count from the original EDT data
+    try {
+      const mapBytes = atob(currentValue.EDT);
+      const propertyCount = mapBytes.length > 0 ? mapBytes.charCodeAt(0) : 0;
+      return { propertyCount, properties };
+    } catch {
+      return { propertyCount: epcs.length, properties };
+    }
+  };
+
 
   // Handle alias selection
   const handleAliasSelect = async (aliasName: string) => {
@@ -141,8 +171,70 @@ export function PropertyEditor({
     setEditValue(numValue.toString());
   };
 
-  // For read-only properties, only show hex viewer if applicable
+  // For read-only properties, show hex viewer and/or property map viewer if applicable
   if (!isSettable) {
+    if (isPropertyMap && propertyDescriptions && currentValue.EDT) {
+      const mapData = parsePropertyMap();
+      if (mapData) {
+      return (
+        <div className="relative">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">
+              {formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateLocationId)} ({mapData.propertyCount})
+            </span>
+            <Button
+              variant={showPropertyMap ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowPropertyMap(!showPropertyMap)}
+              className="h-6 w-6 p-0"
+              title={showPropertyMap ? "Hide property details" : "Show property details"}
+            >
+              {showPropertyMap ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </Button>
+            {canShowHexViewer && (
+              <Button
+                variant={showHexData ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowHexData(!showHexData)}
+                className="h-6 w-6 p-0"
+                title={showHexData ? "Hide hex data" : "Show hex data"}
+              >
+                <Binary className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          {showPropertyMap && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded shadow-md z-20 min-w-max">
+              <div className="p-2 space-y-1">
+                {mapData.properties.map((property) => (
+                  <div
+                    key={property.epc}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">
+                      {property.epc}
+                    </span>
+                    <span>{property.description}</span>
+                  </div>
+                ))}
+                {mapData.properties.length === 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    No properties in this map
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {showHexData && canShowHexViewer && currentValue.EDT && (
+            <div className="absolute top-full left-0 right-0 mt-1 text-xs font-mono bg-muted p-2 rounded border break-all shadow-md z-10 min-w-max">
+              {edtToHexString(currentValue.EDT) || 'Invalid data'}
+            </div>
+          )}
+        </div>
+      );
+      }
+    }
+    
     if (canShowHexViewer) {
       return (
         <div className="relative">

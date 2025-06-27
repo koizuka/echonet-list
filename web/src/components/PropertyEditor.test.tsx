@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PropertyEditor } from './PropertyEditor';
-import type { Device, PropertyDescriptor } from '@/hooks/types';
+import type { Device, PropertyDescriptor, PropertyDescriptionData } from '@/hooks/types';
 
 // Mock ResizeObserver for tests
 global.ResizeObserver = vi.fn(() => ({
@@ -13,7 +13,7 @@ global.ResizeObserver = vi.fn(() => ({
 describe('PropertyEditor', () => {
   const mockDevice: Device = {
     ip: '192.168.1.100',
-    eoj: '0x0130',
+    eoj: '0130:1',
     name: 'Test Device',
     id: undefined,
     lastSeen: new Date().toISOString(),
@@ -21,6 +21,22 @@ describe('PropertyEditor', () => {
       '80': { string: 'on' },
       '9E': { EDT: btoa(String.fromCharCode(0x01, 0x80)) } // Set Property Map with 1 property: EPC 0x80
     }
+  };
+
+  const mockPropertyDescriptions: Record<string, PropertyDescriptionData> = {
+    '': {
+      classCode: '',
+      properties: {
+        '80': { description: 'Operation Status' },
+        '9E': { description: 'Set Property Map' },
+      },
+    },
+    '0130': {
+      classCode: '0130',
+      properties: {
+        'B0': { description: 'Illuminance Level' },
+      },
+    },
   };
 
   const mockOnPropertyChange = vi.fn();
@@ -46,6 +62,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'on' }}
           descriptor={operationStatusDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -63,6 +80,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'on' }}
           descriptor={operationStatusDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -71,7 +89,7 @@ describe('PropertyEditor', () => {
 
       await waitFor(() => {
         expect(mockOnPropertyChange).toHaveBeenCalledWith(
-          '192.168.1.100 0x0130',
+          '192.168.1.100 0130:1',
           '80',
           { string: 'off' }
         );
@@ -86,6 +104,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'off' }}
           descriptor={operationStatusDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -96,7 +115,7 @@ describe('PropertyEditor', () => {
 
       await waitFor(() => {
         expect(mockOnPropertyChange).toHaveBeenCalledWith(
-          '192.168.1.100 0x0130',
+          '192.168.1.100 0130:1',
           '80',
           { string: 'on' }
         );
@@ -111,6 +130,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'on' }}
           descriptor={operationStatusDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -144,6 +164,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'high' }}
           descriptor={otherDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -159,6 +180,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'on' }}
           descriptor={{ description: 'Operation status', stringDesc: { minEDTLen: 1, maxEDTLen: 10 } }}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -191,6 +213,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'off' }}
           descriptor={fanDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -215,6 +238,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'active' }}
           descriptor={customAliasDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -251,6 +275,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'living' }}
           descriptor={locationDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -288,6 +313,7 @@ describe('PropertyEditor', () => {
           currentValue={{ number: 22 }}
           descriptor={temperatureDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -315,6 +341,7 @@ describe('PropertyEditor', () => {
           currentValue={{ number: 22 }}
           descriptor={temperatureDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -364,6 +391,7 @@ describe('PropertyEditor', () => {
           currentValue={{ string: 'auto' }}
           descriptor={mixedDescriptor}
           onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
         />
       );
 
@@ -384,6 +412,277 @@ describe('PropertyEditor', () => {
       
       // Should show min value on slider (0%)
       expect(screen.getByText('0%')).toBeInTheDocument();
+    });
+  });
+
+  describe('Property Map Display', () => {
+    const deviceWithPropertyMap: Device = {
+      ...mockDevice,
+      properties: {
+        ...mockDevice.properties,
+        '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xB0)) } // Set Property Map with 2 properties: 80, B0
+      }
+    };
+
+    it('should render property map with expand button', () => {
+      render(
+        <PropertyEditor
+          device={deviceWithPropertyMap}
+          epc="9E"
+          currentValue={{ EDT: btoa(String.fromCharCode(0x02, 0x80, 0xB0)) }}
+          descriptor={{ description: 'Set Property Map' }}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+        />
+      );
+
+      // Should show property count
+      expect(screen.getByText(/Raw data.*\(2\)/)).toBeInTheDocument();
+      
+      // Should show expand button (chevron right)
+      const expandButton = screen.getByTitle('Show property details');
+      expect(expandButton).toBeInTheDocument();
+    });
+
+    it('should expand and show property details when clicked', () => {
+      render(
+        <PropertyEditor
+          device={deviceWithPropertyMap}
+          epc="9E"
+          currentValue={{ EDT: btoa(String.fromCharCode(0x02, 0x80, 0xB0)) }}
+          descriptor={{ description: 'Set Property Map' }}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+        />
+      );
+
+      // Initially collapsed
+      expect(screen.queryByText('80')).not.toBeInTheDocument();
+      expect(screen.queryByText('Operation Status')).not.toBeInTheDocument();
+
+      // Click to expand
+      const expandButton = screen.getByTitle('Show property details');
+      fireEvent.click(expandButton);
+
+      // Should show property details
+      expect(screen.getByText('80')).toBeInTheDocument();
+      expect(screen.getByText('Operation Status')).toBeInTheDocument();
+      expect(screen.getByText('B0')).toBeInTheDocument();
+      expect(screen.getByText('Illuminance Level')).toBeInTheDocument();
+    });
+
+    it('should handle empty property map gracefully', () => {
+      const deviceWithEmptyMap: Device = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          '9E': { EDT: btoa(String.fromCharCode(0x00)) } // Empty property map
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithEmptyMap}
+          epc="9E"
+          currentValue={{ EDT: btoa(String.fromCharCode(0x00)) }}
+          descriptor={{ description: 'Set Property Map' }}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+        />
+      );
+
+      expect(screen.getByText(/Raw data.*\(0\)/)).toBeInTheDocument();
+      
+      // Click to expand
+      const expandButton = screen.getByTitle('Show property details');
+      fireEvent.click(expandButton);
+
+      expect(screen.getByText('No properties in this map')).toBeInTheDocument();
+    });
+
+    it('should handle bitmap format for property maps with 16+ properties', () => {
+      // Create a bitmap with properties at specific positions
+      // Using Go formula: EPC = i + (j << 4) + 0x80
+      // For i=0, j=0: EPC = 0 + 0 + 0x80 = 0x80
+      // For i=1, j=1: EPC = 1 + 16 + 0x80 = 0x91
+      const bitmapData = new Array(17).fill(0);
+      bitmapData[0] = 16; // Property count >= 16 triggers bitmap format
+      bitmapData[1] = 0x01; // Bit 0 set: EPC 0x80
+      bitmapData[2] = 0x02; // Bit 1 set: EPC 0x91
+      
+      const deviceWithBitmapMap: Device = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          '9F': { EDT: btoa(String.fromCharCode(...bitmapData)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithBitmapMap}
+          epc="9F"
+          currentValue={{ EDT: btoa(String.fromCharCode(...bitmapData)) }}
+          descriptor={{ description: 'Get Property Map' }}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+        />
+      );
+
+      expect(screen.getByText(/Raw data.*\(16\)/)).toBeInTheDocument();
+      
+      // Click to expand
+      const expandButton = screen.getByTitle('Show property details');
+      fireEvent.click(expandButton);
+
+      // Should show the specific EPCs from bitmap
+      expect(screen.getByText('80')).toBeInTheDocument();
+      expect(screen.getByText('Operation Status')).toBeInTheDocument();
+      expect(screen.getByText('91')).toBeInTheDocument();
+      expect(screen.getByText('EPC 91')).toBeInTheDocument(); // Unknown EPC fallback
+    });
+
+    it('should handle realistic bitmap format for air conditioner with many properties', () => {
+      // Simulate a realistic air conditioner with 20+ properties that would require bitmap format
+      // Common ECHONET Lite properties for air conditioner (Home Air Conditioner: 0x0130)
+      const propertyEpcs = [
+        0x80, // Operation status
+        0x81, // Installation location  
+        0x88, // Fault occurrence status
+        0x8A, // Manufacturer code
+        0x8B, // Business facility code
+        0x8C, // Product code
+        0x8D, // Production number
+        0x8E, // Production date
+        0x8F, // Power saving operation setting
+        0x9D, // Status change announcement property map
+        0x9E, // Set property map
+        0x9F, // Get property map
+        0xA0, // Operation mode setting
+        0xA1, // Automatic temperature control setting
+        0xA3, // Automatic swing setting
+        0xA4, // Air flow rate setting
+        0xAA, // Relative humidity in dehumidification mode
+        0xB0, // Set temperature value
+        0xB1, // Relative humidity setting value
+        0xB3, // Indoor relative humidity
+        0xBA, // Indoor temperature
+        0xBB, // Outdoor temperature
+      ];
+
+      // Create bitmap data (17 bytes: 1 count + 16 bitmap bytes)
+      const bitmapData = new Array(17).fill(0);
+      bitmapData[0] = propertyEpcs.length; // Property count
+
+      // Set bits in bitmap according to Go formula: EPC = i + (j << 4) + 0x80
+      // To reverse: offset = EPC - 0x80
+      // From formula: offset = i + (j << 4), where i = offset & 0x0F, j = (offset & 0xF0) >> 4
+      propertyEpcs.forEach(epc => {
+        const offset = epc - 0x80;
+        const i = offset & 0x0F; // byte index (0-15) - lower 4 bits
+        const j = (offset & 0xF0) >> 4; // bit index (0-7) - upper 4 bits
+        if (i < 16 && j < 8) {
+          bitmapData[i + 1] |= (1 << j);
+        }
+      });
+
+      const deviceWithRealisticMap: Device = {
+        ...mockDevice,
+        eoj: '0130:1', // Home Air Conditioner
+        properties: {
+          ...mockDevice.properties,
+          '9F': { EDT: btoa(String.fromCharCode(...bitmapData)) }
+        }
+      };
+
+      // Add air conditioner specific property descriptions
+      const airConditionerPropertyDescriptions = {
+        ...mockPropertyDescriptions,
+        '0130': {
+          classCode: '0130',
+          properties: {
+            'A0': { description: 'Operation Mode Setting' },
+            'A1': { description: 'Automatic Temperature Control Setting' },
+            'A3': { description: 'Automatic Swing Setting' },
+            'A4': { description: 'Air Flow Rate Setting' },
+            'AA': { description: 'Relative Humidity in Dehumidification Mode' },
+            'B0': { description: 'Set Temperature Value' },
+            'B1': { description: 'Relative Humidity Setting Value' },
+            'B3': { description: 'Indoor Relative Humidity' },
+            'BA': { description: 'Indoor Temperature' },
+            'BB': { description: 'Outdoor Temperature' },
+          },
+        },
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithRealisticMap}
+          epc="9F"
+          currentValue={{ EDT: btoa(String.fromCharCode(...bitmapData)) }}
+          descriptor={{ description: 'Get Property Map' }}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={airConditionerPropertyDescriptions}
+        />
+      );
+
+      expect(screen.getByText(new RegExp(`Raw data.*\\(${propertyEpcs.length}\\)`))).toBeInTheDocument();
+      
+      // Click to expand
+      const expandButton = screen.getByTitle('Show property details');
+      fireEvent.click(expandButton);
+
+      // Verify some key properties are displayed (should be sorted)
+      expect(screen.getByText('80')).toBeInTheDocument();
+      expect(screen.getByText('Operation Status')).toBeInTheDocument();
+      expect(screen.getByText('A0')).toBeInTheDocument();
+      expect(screen.getByText('Operation Mode Setting')).toBeInTheDocument();
+      expect(screen.getByText('B0')).toBeInTheDocument();
+      expect(screen.getByText('Set Temperature Value')).toBeInTheDocument();
+      expect(screen.getByText('BA')).toBeInTheDocument();
+      expect(screen.getByText('Indoor Temperature')).toBeInTheDocument();
+    });
+
+    it('should correctly sort properties in ascending EPC order', () => {
+      // Create property map with EPCs in non-sorted order to verify sorting
+      // Use direct list format (< 16 properties) for simpler testing
+      const unsortedEpcs = [0xB0, 0x80, 0xA0, 0x81, 0x9F, 0x88]; // Mixed order
+      
+      // Use direct list format since we have < 16 properties
+      const directListData = [unsortedEpcs.length, ...unsortedEpcs];
+
+      const deviceWithUnsortedMap: Device = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          '9E': { EDT: btoa(String.fromCharCode(...directListData)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithUnsortedMap}
+          epc="9E"
+          currentValue={{ EDT: btoa(String.fromCharCode(...directListData)) }}
+          descriptor={{ description: 'Set Property Map' }}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+        />
+      );
+
+      // Click to expand
+      const expandButton = screen.getByTitle('Show property details');
+      fireEvent.click(expandButton);
+
+      // Get all EPC elements and verify they are in sorted order
+      const epcElements = screen.getAllByText(/^[0-9A-F]{2}$/);
+      const epcTexts = epcElements.map(el => el.textContent);
+      const sortedEpcs = [...epcTexts].sort();
+      
+      expect(epcTexts).toEqual(sortedEpcs);
+      
+      // Verify specific order: 80, 81, 88, 9F, A0, B0
+      expect(epcTexts).toEqual(['80', '81', '88', '9F', 'A0', 'B0']);
     });
   });
 });

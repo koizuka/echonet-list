@@ -121,39 +121,16 @@ export function DeviceCard({
             {propertyName}:
           </span>
           <div className="ml-auto">
-            {isSettable ? (
-              <PropertyEditor
-                device={device}
-                epc={epc}
-                currentValue={value}
-                descriptor={propertyDescriptor}
-                onPropertyChange={onPropertyChange}
-              />
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="text-sm font-medium">
-                  {formattedValue}
-                </div>
-                {canShowHexViewer && (
-                  <Button
-                    variant={showHexData ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowHexData(!showHexData)}
-                    className="h-6 w-6 p-0"
-                    title={showHexData ? "Hide hex data" : "Show hex data"}
-                  >
-                    <Binary className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            )}
+            <PropertyEditor
+              device={device}
+              epc={epc}
+              currentValue={value}
+              descriptor={propertyDescriptor}
+              onPropertyChange={onPropertyChange}
+              propertyDescriptions={propertyDescriptions}
+            />
           </div>
         </div>
-        {showHexData && canShowHexViewer && value.EDT && (
-          <div className="absolute top-full left-0 right-0 mt-1 text-xs font-mono bg-muted p-2 rounded border break-all shadow-md z-10">
-            {edtToHexString(value.EDT) || 'Invalid data'}
-          </div>
-        )}
       </div>
     );
   };
@@ -256,6 +233,7 @@ export function DeviceCard({
               </div>
             </div>
           )}
+
         </div>
 
         {/* Last seen timestamp - always at bottom */}
