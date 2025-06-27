@@ -71,7 +71,7 @@ func (m PropertyMap) Encode() []byte {
 	bytes := make([]byte, 17)
 	bytes[0] = byte(len(m))
 	for epc := range m {
-		bytes[epc&0x0f+1] |= 1 << (epc>>4 - 8)
+		bytes[(epc&0x0f)+1] |= 1 << ((epc >> 4) - 8)
 	}
 	return bytes
 }
@@ -97,7 +97,7 @@ func DecodePropertyMap(bytes []byte) PropertyMap {
 		for i, b := range bytes[1:] {
 			for j := 0; j < 8; j++ {
 				if b&(1<<j) != 0 {
-					m[EPCType(i+j<<4+0x80)] = struct{}{}
+					m[EPCType(i+(j<<4)+0x80)] = struct{}{}
 				}
 			}
 		}

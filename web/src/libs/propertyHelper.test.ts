@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { isPropertySettable, isDeviceOperational, isDeviceFaulty } from './propertyHelper';
+import { isPropertySettable, isDeviceOperational, isDeviceFaulty, decodePropertyMap } from './propertyHelper';
 import type { Device } from '@/hooks/types';
 
 describe('propertyHelper', () => {
@@ -269,5 +269,132 @@ describe('propertyHelper', () => {
 
       expect(isDeviceFaulty(device)).toBe(false);
     });
+  });
+});
+
+describe('decodePropertyMap', () => {
+  it('should decode direct list format (< 16 properties)', () => {
+    // Create a property map with 3 properties: 80, 81, B0
+    const epcs = [0x80, 0x81, 0xB0];
+    const data = [epcs.length, ...epcs];
+    const edt = btoa(String.fromCharCode(...data));
+    
+    const result = decodePropertyMap(edt);
+    
+    expect(result).toEqual(['80', '81', 'B0']);
+  });
+
+  it('should decode bitmap format (>= 16 properties)', () => {
+    // Create a bitmap with specific properties
+    const propertyEpcs = [
+      0x80, // Operation status
+      0x81, // Installation location
+      0x88, // Fault occurrence status
+      0x9E, // Set property map
+      0xA0, // Test property in range A0-AF
+      0xB0, // Test property in range B0-BF
+    ];
+
+    const bitmapData = new Array(17).fill(0);
+    bitmapData[0] = 16; // Property count >= 16 triggers bitmap format
+
+    // Set bits according to Go formula: EPC = i + (j << 4) + 0x80
+    propertyEpcs.forEach(epc => {
+      const offset = epc - 0x80;
+      const i = offset & 0x0F; // byte index (0-15)
+      const j = (offset & 0xF0) >> 4; // bit index (0-7)
+      if (i < 16 && j < 8) {
+        bitmapData[i + 1] |= (1 << j);
+      }
+    });
+
+    const edt = btoa(String.fromCharCode(...bitmapData));
+    const result = decodePropertyMap(edt);
+    
+    expect(result).toEqual(['80', '81', '88', '9E', 'A0', 'B0']);
+  });
+
+  it('should sort EPCs in ascending order', () => {
+    // Create property map with unsorted EPCs
+    const epcs = [0xB0, 0x80, 0x9F, 0x81]; // Unsorted
+    const data = [epcs.length, ...epcs];
+    const edt = btoa(String.fromCharCode(...data));
+    
+    const result = decodePropertyMap(edt);
+    
+    expect(result).toEqual(['80', '81', '9F', 'B0']); // Sorted
+  });
+
+  it('should handle empty property map', () => {
+    const data = [0]; // Count = 0
+    const edt = btoa(String.fromCharCode(...data));
+    
+    const result = decodePropertyMap(edt);
+    
+    expect(result).toEqual([]);
+  });
+
+  it('should handle invalid Base64 input', () => {
+    const result = decodePropertyMap('invalid-base64!');
+    
+    expect(result).toBeNull();
+  });
+
+  it('should handle empty EDT', () => {
+    const result = decodePropertyMap('');
+    
+    expect(result).toBeNull();
+  });
+
+  it('should handle insufficient bitmap data', () => {
+    // Property count >= 16 but insufficient bitmap data
+    const data = [16, 0x80]; // Count = 16 but only 2 bytes total
+    const edt = btoa(String.fromCharCode(...data));
+    
+    const result = decodePropertyMap(edt);
+    
+    expect(result).toBeNull();
+  });
+
+  it('should handle realistic air conditioner property map', () => {
+    // Test with realistic air conditioner properties (22 properties)
+    const propertyEpcs = [
+      0x80, 0x81, 0x88, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F,
+      0x9D, 0x9E, 0x9F, 0xA0, 0xA1, 0xA3, 0xA4, 0xAA,
+      0xB0, 0xB1, 0xB3, 0xBA, 0xBB
+    ];
+
+    const bitmapData = new Array(17).fill(0);
+    bitmapData[0] = propertyEpcs.length; // Property count
+
+    propertyEpcs.forEach(epc => {
+      const offset = epc - 0x80;
+      const i = offset & 0x0F;
+      const j = (offset & 0xF0) >> 4;
+      if (i < 16 && j < 8) {
+        bitmapData[i + 1] |= (1 << j);
+      }
+    });
+
+    const edt = btoa(String.fromCharCode(...bitmapData));
+    const result = decodePropertyMap(edt);
+    
+    // Should return all EPCs in sorted order
+    expect(result).toEqual([
+      '80', '81', '88', '8A', '8B', '8C', '8D', '8E', '8F',
+      '9D', '9E', '9F', 'A0', 'A1', 'A3', 'A4', 'AA',
+      'B0', 'B1', 'B3', 'BA', 'BB'
+    ]);
+  });
+
+  it('should handle EPC values with correct hex padding', () => {
+    // Test single-digit hex values get padded correctly
+    const epcs = [0x01, 0x0A, 0x80]; // Should become '01', '0A', '80'
+    const data = [epcs.length, ...epcs];
+    const edt = btoa(String.fromCharCode(...data));
+    
+    const result = decodePropertyMap(edt);
+    
+    expect(result).toEqual(['01', '0A', '80']);
   });
 });

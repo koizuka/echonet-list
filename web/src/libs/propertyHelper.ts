@@ -275,3 +275,57 @@ export function isDeviceFaulty(device: Device): boolean {
 export function isOperationStatusSettable(device: Device): boolean {
   return isPropertySettable('80', device);
 }
+
+/**
+ * Decodes ECHONET Lite property map from Base64 EDT data
+ * Supports both direct list format (< 16 properties) and bitmap format (>= 16 properties)
+ * 
+ * @param edt Base64 encoded EDT data
+ * @returns Array of EPC codes (hex strings) or null if parsing fails
+ */
+export function decodePropertyMap(edt: string): string[] | null {
+  if (!edt) return null;
+  
+  try {
+    const mapBytes = atob(edt);
+    if (mapBytes.length < 1) return null;
+    
+    const propertyCount = mapBytes.charCodeAt(0);
+    const epcs: string[] = [];
+    
+    if (propertyCount < 16) {
+      // Direct list format: properties listed directly after count byte
+      for (let i = 1; i <= propertyCount && i < mapBytes.length; i++) {
+        const epc = mapBytes.charCodeAt(i).toString(16).toUpperCase().padStart(2, '0');
+        epcs.push(epc);
+      }
+    } else {
+      // Bitmap format: 17 bytes of bitmap data
+      // Each bit in each byte represents a specific EPC according to Go formula: i + (j << 4) + 0x80
+      // where i = byte index (0-15), j = bit index (0-7)
+      if (mapBytes.length < 17) {
+        console.warn(`Property map has ${propertyCount} properties but insufficient bitmap data`);
+        return null;
+      }
+      
+      for (let i = 0; i < 16; i++) {
+        const bitmapByte = mapBytes.charCodeAt(i + 1);
+        
+        for (let j = 0; j < 8; j++) {
+          if (bitmapByte & (1 << j)) {
+            const epc = (i + (j << 4) + 0x80).toString(16).toUpperCase();
+            epcs.push(epc);
+          }
+        }
+      }
+    }
+    
+    // Sort EPCs in ascending order
+    epcs.sort((a, b) => a.localeCompare(b));
+    
+    return epcs;
+  } catch (error) {
+    console.warn('Failed to decode property map:', error);
+    return null;
+  }
+}
