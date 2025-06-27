@@ -23,11 +23,12 @@
 
 ## Web UI Build & Test Commands
 
-- Build: `cd web && npm run build`
-- Dev Server: `cd web && npm run dev`
-- Dev Server (with custom WebSocket URL): `cd web && VITE_WS_URL=wss://custom-host:8080/ws npm run dev`
-- Test: `cd web && npm run test`
-- Lint: `cd web && npm run lint`
+- Web UI は `web` デディレクトリ内で作業します:
+  - Build: `npm run build`
+  - Dev Server: `npm run dev`
+  - Dev Server (with custom WebSocket URL): `VITE_WS_URL=wss://custom-host:8080/ws npm run dev`
+  - Test: `npm run test`
+  - Lint: `npm run lint`
 
 Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがHTTPサーバーとして配信します。
 
@@ -67,6 +68,12 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
   - `src/App.tsx`: メインアプリケーション
   - `src/components/PropertyEditor.tsx`: プロパティ編集コンポーネント
   - `src/components/DeviceStatusIndicators.tsx`: デバイス状態インジケータ
+  - `src/hooks/useWebSocketConnection.ts`: WebSocket接続管理
+  - `src/hooks/useECHONET.ts`: ECHONETプロトコル状態管理
+  - `src/hooks/useAutoReconnect.ts`: 自動再接続機能
+  - `src/hooks/useLogNotifications.ts`: ログ通知機能
+  - `src/hooks/usePersistedTab.ts`: タブ状態永続化
+  - `src/hooks/useCardExpansion.ts`: デバイスカード展開状態管理
   - `src/libs/propertyHelper.ts`: プロパティ名・値変換
   - `src/libs/deviceTypeHelper.ts`: デバイス種別・プライマリプロパティ定義
   - `src/libs/locationHelper.ts`: ロケーション・グループ管理
