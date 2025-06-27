@@ -28,10 +28,13 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 # Clone and build
 git clone https://github.com/koizuka/echonet-list.git
 cd echonet-list
-go build
 
-# Build Web UI
-cd web && npm install && npm run build && cd ..
+# Build everything (server + web UI)
+./script/build.sh
+
+# Or build components separately:
+# ./script/build.sh server    # Server only
+# ./script/build.sh web       # Web UI only
 
 # Run with Web UI
 ./echonet-list -websocket -http-enabled

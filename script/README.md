@@ -6,17 +6,27 @@
 
 ### build.sh
 
-サーバーとWeb UIの両方をビルドします。
+サーバーとWeb UIのビルドを行います。引数により部分ビルドも可能です。
 
 **機能:**
 
 - サーバーバイナリのビルド
 - Web UI の依存関係インストールとビルド
+- 引数による部分ビルド対応
 
 **使用方法:**
 
 ```bash
+# 全てビルド（デフォルト）
 ./script/build.sh
+./script/build.sh all
+
+# サーバーのみビルド
+./script/build.sh server
+
+# Web UIのみビルド
+./script/build.sh web
+./script/build.sh web-ui
 ```
 
 **出力:**
@@ -44,8 +54,7 @@ sudo ./script/install-systemd.sh
 
 **前提条件:**
 
-- `go build` でバイナリがビルド済み
-- `cd web && npm run build` でWeb UIがビルド済み
+- `./script/build.sh` でバイナリとWeb UIがビルド済み
 
 ### uninstall-systemd.sh
 
@@ -84,7 +93,7 @@ sudo ./script/update.sh
 **前提条件:**
 
 - サービスが既にインストール済み
-- `go build` と `cd web && npm run build` でファイルがビルド済み
+- `./script/build.sh` でファイルがビルド済み
 
 ## インストール先パス
 
@@ -103,8 +112,7 @@ sudo ./script/update.sh
 
 ```bash
 # 1. プロジェクトのビルド
-go build
-cd web && npm run build && cd ..
+./script/build.sh
 
 # 2. systemdサービスのインストール
 sudo ./script/install-systemd.sh
@@ -117,8 +125,7 @@ sudo systemctl status echonet-list
 
 ```bash
 # 1. 新しいバージョンをビルド
-go build
-cd web && npm run build && cd ..
+./script/build.sh
 
 # 2. サービスを更新
 sudo ./script/update.sh
