@@ -258,7 +258,33 @@ export function PropertyEditor({
         </div>
       );
     }
-    return null;
+    
+    // For regular read-only properties, show the formatted value
+    return (
+      <div className="relative">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">
+            {formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateLocationId)}
+          </span>
+          {canShowHexViewer && (
+            <Button
+              variant={showHexData ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowHexData(!showHexData)}
+              className="h-6 w-6 p-0"
+              title={showHexData ? "Hide hex data" : "Show hex data"}
+            >
+              <Binary className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+        {showHexData && canShowHexViewer && currentValue.EDT && (
+          <div className="absolute top-full left-0 right-0 mt-1 text-xs font-mono bg-muted p-2 rounded border break-all shadow-md z-10 min-w-max">
+            {edtToHexString(currentValue.EDT) || 'Invalid data'}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
