@@ -29,6 +29,7 @@
   - Dev Server (with custom WebSocket URL): `VITE_WS_URL=wss://custom-host:8080/ws npm run dev`
   - Test: `npm run test`
   - Lint: `npm run lint`
+  - Type Check: `npm run typecheck`
 
 Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがHTTPサーバーとして配信します。
 

@@ -1,12 +1,9 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, RefreshCw, Binary } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PropertyEditor } from '@/components/PropertyEditor';
+import { PropertyRow } from '@/components/PropertyRow';
 import { AliasEditor } from '@/components/AliasEditor';
 import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
-import { getPropertyName, formatPropertyValueWithTranslation, getPropertyDescriptor, isPropertySettable, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
-import { translateLocationId } from '@/libs/locationHelper';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
 import { deviceHasAlias, getDeviceIdentifierForAlias, getDeviceAliases } from '@/libs/deviceIdHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
@@ -53,87 +50,6 @@ export function DeviceCard({
     !isPropertyPrimary(epc, classCode)
   );
 
-  const PropertyRow = ({ epc, value, isCompact = false }: { 
-    epc: string; 
-    value: PropertyValue; 
-    isCompact?: boolean;
-  }) => {
-    const [showHexData, setShowHexData] = useState(false);
-    const propertyName = getPropertyName(epc, propertyDescriptions, classCode);
-    const propertyDescriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
-    const formattedValue = formatPropertyValueWithTranslation(value, propertyDescriptor, epc, translateLocationId);
-
-    // Check if property is settable
-    const hasEditCapability = propertyDescriptor?.stringSettable || propertyDescriptor?.numberDesc || (propertyDescriptor?.aliases && Object.keys(propertyDescriptor.aliases).length > 0);
-    const isInSetPropertyMap = propertyDescriptor && isPropertySettable(epc, device);
-    const isSettable = hasEditCapability && isInSetPropertyMap;
-    const canShowHexViewer = shouldShowHexViewer(value, propertyDescriptor);
-
-    if (isCompact) {
-      return (
-        <div className="text-xs relative">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-medium text-muted-foreground">
-              {propertyName}:
-            </span>
-            <div className="ml-auto">
-              {isSettable ? (
-                <PropertyEditor
-                  device={device}
-                  epc={epc}
-                  currentValue={value}
-                  descriptor={propertyDescriptor}
-                  onPropertyChange={onPropertyChange}
-                />
-              ) : (
-                <div className="flex items-center gap-1">
-                  <span className="font-medium">
-                    {formattedValue}
-                  </span>
-                  {canShowHexViewer && (
-                    <Button
-                      variant={showHexData ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setShowHexData(!showHexData)}
-                      className="h-4 w-4 p-0"
-                      title={showHexData ? "Hide hex data" : "Show hex data"}
-                    >
-                      <Binary className="h-2 w-2" />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          {showHexData && canShowHexViewer && value.EDT && (
-            <div className="absolute top-full left-0 right-0 mt-1 text-xs font-mono bg-muted p-1 rounded border break-all shadow-md z-10">
-              {edtToHexString(value.EDT) || 'Invalid data'}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-1 relative">
-        <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
-          <span className="text-sm font-medium text-muted-foreground">
-            {propertyName}:
-          </span>
-          <div className="ml-auto">
-            <PropertyEditor
-              device={device}
-              epc={epc}
-              currentValue={value}
-              descriptor={propertyDescriptor}
-              onPropertyChange={onPropertyChange}
-              propertyDescriptions={propertyDescriptions}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <Card className="transition-all duration-200 w-full max-w-sm flex flex-col" data-testid={`device-card-${device.ip}-${device.eoj}`}>
@@ -215,7 +131,16 @@ export function DeviceCard({
           {primaryProps.length > 0 && (
             <div className={`${isExpanded ? 'space-y-3' : 'space-y-0.5'} ${!isExpanded ? 'mb-2' : 'mb-3'}`}>
               {primaryProps.map(([epc, value]) => (
-                <PropertyRow key={epc} epc={epc} value={value as PropertyValue} isCompact={!isExpanded} />
+                <PropertyRow 
+                  key={epc} 
+                  device={device}
+                  epc={epc} 
+                  value={value as PropertyValue} 
+                  isCompact={!isExpanded}
+                  onPropertyChange={onPropertyChange}
+                  propertyDescriptions={propertyDescriptions}
+                  classCode={classCode}
+                />
               ))}
             </div>
           )}
@@ -228,7 +153,16 @@ export function DeviceCard({
               </h4>
               <div className="space-y-3">
                 {secondaryProps.map(([epc, value]) => (
-                  <PropertyRow key={epc} epc={epc} value={value} />
+                  <PropertyRow 
+                    key={epc} 
+                    device={device}
+                    epc={epc} 
+                    value={value as PropertyValue}
+                    isCompact={false}
+                    onPropertyChange={onPropertyChange}
+                    propertyDescriptions={propertyDescriptions}
+                    classCode={classCode}
+                  />
                 ))}
               </div>
             </div>
