@@ -27,7 +27,8 @@ describe('NotificationBell', () => {
     logs: mockLogs,
     unreadCount: 1,
     onMarkAllAsRead: vi.fn(),
-    onClearAll: vi.fn()
+    onClearAll: vi.fn(),
+    connectedAt: new Date('2023-04-01T12:00:00Z')
   };
 
   it('renders bell icon with unread count badge', () => {

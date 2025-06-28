@@ -143,6 +143,7 @@ export type ECHONETHook = {
   connectionState: ConnectionState;
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   initialStateReceived: boolean;
+  connectedAt: Date | null;
   
   // Device operations
   getDeviceProperties: (targets: string[], epcs: string[]) => Promise<unknown>;
@@ -419,6 +420,7 @@ export function useECHONET(
     connectionState: state.connectionState,
     propertyDescriptions: state.propertyDescriptions,
     initialStateReceived: state.initialStateReceived,
+    connectedAt: connection.connectedAt,
     
     // Device operations
     getDeviceProperties,

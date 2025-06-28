@@ -10,13 +10,15 @@ interface NotificationBellProps {
   unreadCount: number;
   onMarkAllAsRead: () => void;
   onClearAll: () => void;
+  connectedAt: Date | null;
 }
 
 export function NotificationBell({ 
   logs, 
   unreadCount, 
   onMarkAllAsRead, 
-  onClearAll
+  onClearAll,
+  connectedAt
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -73,25 +75,32 @@ export function NotificationBell({
       {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50" data-testid="notification-dropdown">
           {/* Header */}
-          <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Server Logs</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn(
-                "text-xs h-7 px-2",
-                logs.length === 0 
-                  ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                  : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              )}
-              onClick={() => {
-                onClearAll();
-                setIsOpen(false);
-              }}
-              disabled={logs.length === 0}
-            >
-              Clear All
-            </Button>
+          <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Server Logs</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "text-xs h-7 px-2",
+                  logs.length === 0 
+                    ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                    : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                )}
+                onClick={() => {
+                  onClearAll();
+                  setIsOpen(false);
+                }}
+                disabled={logs.length === 0}
+              >
+                Clear All
+              </Button>
+            </div>
+            {connectedAt && (
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Connected at: {connectedAt.toLocaleString()}
+              </div>
+            )}
           </div>
 
           {/* Content */}

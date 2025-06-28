@@ -21,10 +21,12 @@ export type WebSocketConnection = {
   sendMessage: <T extends ClientMessage>(message: T) => Promise<unknown>;
   connect: () => void;
   disconnect: () => void;
+  connectedAt: Date | null;
 };
 
 export function useWebSocketConnection(options: WebSocketConnectionOptions): WebSocketConnection {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [connectedAt, setConnectedAt] = useState<Date | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -179,6 +181,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       ws.onopen = () => {
         console.log('WebSocket connected');
         reconnectAttemptsRef.current = 0;
+        setConnectedAt(new Date());
         updateConnectionState('connected');
         // Call the onWebSocketConnected callback to clear WebSocket error logs
         options.onWebSocketConnected?.();
@@ -200,6 +203,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
           reason: event.reason,
           wasClean: event.wasClean
         });
+        setConnectedAt(null);
         updateConnectionState('disconnected');
         
         // Log specific error conditions for debugging and user notification
@@ -289,6 +293,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
 
   const disconnect = useCallback(() => {
     cleanup();
+    setConnectedAt(null);
     updateConnectionState('disconnected');
   }, [cleanup, updateConnectionState]);
 
@@ -337,5 +342,6 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     sendMessage,
     connect,
     disconnect,
+    connectedAt,
   };
 }
