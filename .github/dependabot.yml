@@ -37,9 +37,21 @@ updates:
       - "npm"
       - "web-ui"
     groups:
-      typescript-eslint:
+      radix-ui:
         patterns:
-          - "@typescript-eslint/*"
+          - "@radix-ui/*"
+      testing-library:
+        patterns:
+          - "@testing-library/*"
+      tailwindcss:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+      eslint:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "typescript-eslint"
     commit-message:
       prefix: "npm"
       include: "scope"
