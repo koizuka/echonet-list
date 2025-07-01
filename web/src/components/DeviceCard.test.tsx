@@ -324,6 +324,7 @@ describe('DeviceCard', () => {
           getDeviceClassCode={mockGetDeviceClassCode}
           devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
           aliases={{}}
+          isConnected={true}
         />
       );
 
@@ -437,6 +438,67 @@ describe('DeviceCard', () => {
       );
 
       expect(screen.getByText(/Device:.*Single Function Lighting/)).toBeInTheDocument();
+    });
+  });
+
+  describe('WebSocket connection state', () => {
+    it('should disable update button when disconnected', () => {
+      render(
+        <DeviceCard
+          device={mockDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
+          aliases={{}}
+          isConnected={false}
+        />
+      );
+
+      const updateButton = screen.getByTestId('update-properties-button');
+      expect(updateButton).toBeDisabled();
+    });
+
+    it('should enable update button when connected', () => {
+      render(
+        <DeviceCard
+          device={mockDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
+          aliases={{}}
+          isConnected={true}
+        />
+      );
+
+      const updateButton = screen.getByTestId('update-properties-button');
+      expect(updateButton).not.toBeDisabled();
+    });
+
+    it('should default to enabled when isConnected is not specified', () => {
+      render(
+        <DeviceCard
+          device={mockDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
+          aliases={{}}
+        />
+      );
+
+      const updateButton = screen.getByTestId('update-properties-button');
+      expect(updateButton).not.toBeDisabled();
     });
   });
 });

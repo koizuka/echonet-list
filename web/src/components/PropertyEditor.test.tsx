@@ -138,6 +138,42 @@ describe('PropertyEditor', () => {
       expect(switchElement).not.toBeDisabled();
     });
 
+    it('should show as read-only when WebSocket is disconnected', () => {
+      render(
+        <PropertyEditor
+          device={mockDevice}
+          epc="80"
+          currentValue={{ string: 'on' }}
+          descriptor={operationStatusDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={false}
+        />
+      );
+
+      // Should not have switch control when disconnected
+      expect(screen.queryByTestId('operation-status-switch-80')).not.toBeInTheDocument();
+      // Should display the value as read-only
+      expect(screen.getByText('on')).toBeInTheDocument();
+    });
+
+    it('should enable switch when WebSocket is connected', () => {
+      render(
+        <PropertyEditor
+          device={mockDevice}
+          epc="80"
+          currentValue={{ string: 'on' }}
+          descriptor={operationStatusDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={true}
+        />
+      );
+
+      const switchElement = screen.getByTestId('operation-status-switch-80');
+      expect(switchElement).not.toBeDisabled();
+    });
+
     it('should not render switch for properties with more than two aliases', () => {
       const otherDescriptor: PropertyDescriptor = {
         description: 'Illuminance level',
@@ -282,6 +318,43 @@ describe('PropertyEditor', () => {
       expect(screen.queryByTestId('operation-status-switch-81')).not.toBeInTheDocument();
       expect(screen.getByTestId('alias-select-trigger-81')).toBeInTheDocument();
     });
+
+    it('should show as read-only when WebSocket is disconnected', () => {
+      const locationDescriptor: PropertyDescriptor = {
+        description: 'Installation location',
+        aliases: {
+          'living': '08',
+          'dining': '10',
+          'kitchen': '18'
+        }
+      };
+
+      const deviceWith81Settable = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          '81': { string: 'living' },
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0x81)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWith81Settable}
+          epc="81"
+          currentValue={{ string: 'living' }}
+          descriptor={locationDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={false}
+        />
+      );
+
+      // Should not have dropdown when disconnected
+      expect(screen.queryByTestId('alias-select-trigger-81')).not.toBeInTheDocument();
+      // Should display the translated location as read-only
+      expect(screen.getByText('Living Room')).toBeInTheDocument();
+    });
   });
 
   describe('Slider functionality for numeric properties', () => {
@@ -330,6 +403,25 @@ describe('PropertyEditor', () => {
       expect(screen.getByText('30')).toBeInTheDocument();
       
       // Check unit display
+      expect(screen.getByText('22°C')).toBeInTheDocument();
+    });
+
+    it('should show as read-only when WebSocket is disconnected', () => {
+      render(
+        <PropertyEditor
+          device={deviceWithTemperatureSettable}
+          epc="B3"
+          currentValue={{ number: 22 }}
+          descriptor={temperatureDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={false}
+        />
+      );
+
+      // Should not have edit button when disconnected
+      expect(screen.queryByTestId('edit-button-B3')).not.toBeInTheDocument();
+      // Should display value as read-only
       expect(screen.getByText('22°C')).toBeInTheDocument();
     });
 
@@ -412,6 +504,47 @@ describe('PropertyEditor', () => {
       
       // Should show min value on slider (0%)
       expect(screen.getByText('0%')).toBeInTheDocument();
+    });
+  });
+
+  describe('WebSocket connection state handling', () => {
+    it('should show as read-only when WebSocket is disconnected', () => {
+      const temperatureDescriptor: PropertyDescriptor = {
+        description: 'Temperature setting',
+        numberDesc: {
+          min: 16,
+          max: 30,
+          offset: 0,
+          unit: '°C',
+          edtLen: 1
+        }
+      };
+
+      const deviceWithTemperatureSettable = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          'B3': { number: 22 },
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xB3)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithTemperatureSettable}
+          epc="B3"
+          currentValue={{ number: 22 }}
+          descriptor={temperatureDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={false}
+        />
+      );
+
+      // Should not have edit button
+      expect(screen.queryByTestId('edit-button-B3')).not.toBeInTheDocument();
+      // Should show read-only value
+      expect(screen.getByText('22°C')).toBeInTheDocument();
     });
   });
 

@@ -458,4 +458,78 @@ describe('AliasEditor', () => {
       });
     });
   });
+
+  describe('WebSocket connection state', () => {
+    it('should disable all buttons when disconnected', () => {
+      render(
+        <AliasEditor
+          device={mockDevice}
+          aliases={['living_ac']}
+          onAddAlias={mockOnAddAlias}
+          onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
+          isConnected={false}
+        />
+      );
+
+      // Edit button should be disabled
+      const editButton = screen.getByTitle('エイリアスを編集');
+      expect(editButton).toBeDisabled();
+      
+      // Delete button should be disabled
+      const deleteButton = screen.getByTitle('エイリアスを削除');
+      expect(deleteButton).toBeDisabled();
+      
+      // Add button should be disabled
+      const addButton = screen.getByTitle('エイリアスを追加');
+      expect(addButton).toBeDisabled();
+    });
+
+    it('should enable all buttons when connected', () => {
+      render(
+        <AliasEditor
+          device={mockDevice}
+          aliases={['living_ac']}
+          onAddAlias={mockOnAddAlias}
+          onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
+          isConnected={true}
+        />
+      );
+
+      // Edit button should be enabled
+      const editButton = screen.getByTitle('エイリアスを編集');
+      expect(editButton).not.toBeDisabled();
+      
+      // Delete button should be enabled
+      const deleteButton = screen.getByTitle('エイリアスを削除');
+      expect(deleteButton).not.toBeDisabled();
+      
+      // Add button should be enabled
+      const addButton = screen.getByTitle('エイリアスを追加');
+      expect(addButton).not.toBeDisabled();
+    });
+
+    it('should default to connected when isConnected is not specified', () => {
+      render(
+        <AliasEditor
+          device={mockDevice}
+          aliases={['living_ac']}
+          onAddAlias={mockOnAddAlias}
+          onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
+        />
+      );
+
+      // All buttons should be enabled by default
+      const editButton = screen.getByTitle('エイリアスを編集');
+      expect(editButton).not.toBeDisabled();
+      
+      const deleteButton = screen.getByTitle('エイリアスを削除');
+      expect(deleteButton).not.toBeDisabled();
+      
+      const addButton = screen.getByTitle('エイリアスを追加');
+      expect(addButton).not.toBeDisabled();
+    });
+  });
 });
