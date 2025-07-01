@@ -30,7 +30,7 @@ updates:
   - package-ecosystem: "npm" # npm packages for web UI
     directory: "/web" # Location of package.json file
     schedule:
-      interval: "weekly" # Check for updates once a week
+      interval: "daily" # Check for updates once a day
     open-pull-requests-limit: 10 # Limit number of open PRs
     labels:
       - "dependencies"
