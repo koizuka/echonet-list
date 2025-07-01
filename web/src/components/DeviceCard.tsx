@@ -22,6 +22,7 @@ interface DeviceCardProps {
   onAddAlias?: (alias: string, target: string) => Promise<void>;
   onDeleteAlias?: (alias: string) => Promise<void>;
   isAliasLoading?: boolean;
+  isConnected?: boolean;
 }
 
 export function DeviceCard({
@@ -37,7 +38,8 @@ export function DeviceCard({
   aliases,
   onAddAlias,
   onDeleteAlias,
-  isAliasLoading = false
+  isAliasLoading = false,
+  isConnected
 }: DeviceCardProps) {
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const deviceAliasesInfo = getDeviceAliases(device, devices, aliases);
@@ -140,6 +142,7 @@ export function DeviceCard({
                   onPropertyChange={onPropertyChange}
                   propertyDescriptions={propertyDescriptions}
                   classCode={classCode}
+                  isConnected={isConnected}
                 />
               ))}
             </div>
@@ -162,6 +165,7 @@ export function DeviceCard({
                     onPropertyChange={onPropertyChange}
                     propertyDescriptions={propertyDescriptions}
                     classCode={classCode}
+                    isConnected={isConnected}
                   />
                 ))}
               </div>

@@ -11,6 +11,7 @@ interface PropertyRowProps {
   onPropertyChange: (target: string, epc: string, value: PropertyValue) => Promise<void>;
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   classCode: string;
+  isConnected?: boolean;
 }
 
 export function PropertyRow({
@@ -20,7 +21,8 @@ export function PropertyRow({
   isCompact,
   onPropertyChange,
   propertyDescriptions,
-  classCode
+  classCode,
+  isConnected
 }: PropertyRowProps) {
   const propertyName = getPropertyName(epc, propertyDescriptions, classCode);
   const propertyDescriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
@@ -48,6 +50,7 @@ export function PropertyRow({
                 descriptor={propertyDescriptor}
                 onPropertyChange={onPropertyChange}
                 propertyDescriptions={propertyDescriptions}
+                isConnected={isConnected}
               />
             ) : (
               <PropertyDisplay
@@ -78,6 +81,7 @@ export function PropertyRow({
             descriptor={propertyDescriptor}
             onPropertyChange={onPropertyChange}
             propertyDescriptions={propertyDescriptions}
+            isConnected={isConnected}
           />
         </div>
       </div>

@@ -15,6 +15,7 @@ interface PropertyEditorProps {
   descriptor?: PropertyDescriptor;
   onPropertyChange: (target: string, epc: string, value: PropertyValue) => Promise<void>;
   propertyDescriptions?: Record<string, PropertyDescriptionData>;
+  isConnected?: boolean;
 }
 
 export function PropertyEditor({ 
@@ -23,7 +24,8 @@ export function PropertyEditor({
   currentValue, 
   descriptor, 
   onPropertyChange,
-  propertyDescriptions 
+  propertyDescriptions,
+  isConnected 
 }: PropertyEditorProps) {
   const deviceId = `${device.ip} ${device.eoj}`;
 
@@ -35,9 +37,11 @@ export function PropertyEditor({
   // Check if property is settable based on:
   // 1. Property descriptor indicates it's settable (stringSettable, numberDesc, or aliases)
   // 2. Property is listed in Set Property Map (EPC 0x9E)
+  // 3. WebSocket connection is active (defaults to connected if not specified)
   const hasEditCapability = descriptor?.stringSettable || hasNumberDesc || hasAliases;
   const isInSetPropertyMap = isPropertySettable(epc, device);
-  const isSettable = hasEditCapability && isInSetPropertyMap;
+  const isConnectionActive = isConnected !== false; // Default to true if not specified
+  const isSettable = hasEditCapability && isInSetPropertyMap && isConnectionActive;
   
   // Check if this is Installation Location property (EPC 0x81)
   const isInstallationLocation = epc === '81';
@@ -88,7 +92,7 @@ export function PropertyEditor({
         <PropertySwitchControl
           value={currentValue.string || 'off'}
           onChange={handleAliasSelect}
-          disabled={isLoading}
+          disabled={isLoading || !isConnectionActive}
           testId={`operation-status-switch-${epc}`}
         />
       )}
@@ -99,7 +103,7 @@ export function PropertyEditor({
           value={currentValue.string || ''}
           aliases={descriptor.aliases!}
           onChange={handleAliasSelect}
-          disabled={isLoading}
+          disabled={isLoading || !isConnectionActive}
           isInstallationLocation={isInstallationLocation}
           testId={`alias-select-trigger-${epc}`}
         />
@@ -118,7 +122,7 @@ export function PropertyEditor({
               currentValue={currentValue}
               descriptor={descriptor}
               onSave={handleInputSave}
-              disabled={isLoading}
+              disabled={isLoading || !isConnectionActive}
               testId={epc}
               onEditModeChange={setIsInputEditing}
             />

@@ -51,6 +51,9 @@ function App() {
   });
   const cardExpansion = useCardExpansion();
   
+  // Compute isConnected from connectionState to avoid unnecessary re-renders
+  const isConnected = echonet.connectionState === 'connected';
+  
   // Auto-reconnect when page/browser becomes active and auto-disconnect when hidden
   useAutoReconnect({
     connectionState: echonet.connectionState,
@@ -465,6 +468,7 @@ function App() {
                         onAddAlias={handleAddAlias}
                         onDeleteAlias={handleDeleteAlias}
                         isAliasLoading={aliasLoading}
+                        isConnected={isConnected}
                       />
                     );
                   })}
