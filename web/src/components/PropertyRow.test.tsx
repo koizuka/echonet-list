@@ -23,6 +23,22 @@ vi.mock('@/libs/propertyHelper', () => ({
   isPropertySettable: (epc: string) => epc === '80', // Only EPC 80 is settable
 }));
 
+// Mock sensor property helper
+vi.mock('@/libs/sensorPropertyHelper', () => ({
+  isSensorProperty: (epc: string) => ['BB', 'BA', 'BE'].includes(epc),
+  getSensorIcon: (epc: string) => {
+    const iconMap: Record<string, any> = {
+      'BB': ({ className }: { className?: string }) => 
+        <svg data-testid="thermometer-icon" className={className}>Thermometer</svg>,
+      'BA': ({ className }: { className?: string }) => 
+        <svg data-testid="droplets-icon" className={className}>Droplets</svg>,
+      'BE': ({ className }: { className?: string }) => 
+        <svg data-testid="cloudsun-icon" className={className}>CloudSun</svg>
+    };
+    return iconMap[epc];
+  }
+}));
+
 describe('PropertyRow', () => {
   const mockDevice: Device = {
     ip: '192.168.1.100',
@@ -129,5 +145,79 @@ describe('PropertyRow', () => {
 
     const wrapper = container.firstChild;
     expect(wrapper).toHaveClass('space-y-1');
+  });
+
+  it('should render sensor properties with icon in compact mode', () => {
+    const { container } = render(
+      <PropertyRow
+        device={mockDevice}
+        epc="BB" // Temperature sensor
+        value={{ number: 25 }}
+        isCompact={true}
+        onPropertyChange={mockOnPropertyChange}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+      />
+    );
+
+    // Should use inline-flex layout for sensor properties
+    const wrapper = container.firstChild;
+    expect(wrapper).toHaveClass('inline-flex');
+    expect(wrapper).toHaveClass('items-center');
+    
+    // Should not show property name text for sensor properties
+    expect(screen.queryByText('Property BB:')).not.toBeInTheDocument();
+  });
+
+  it('should show property name as tooltip on sensor component hover', () => {
+    const { container } = render(
+      <PropertyRow
+        device={mockDevice}
+        epc="BB" // Temperature sensor
+        value={{ number: 25 }}
+        isCompact={true}
+        onPropertyChange={mockOnPropertyChange}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+      />
+    );
+
+    // Find the entire sensor component wrapper and check it has the title attribute
+    const sensorWrapper = container.firstChild;
+    expect(sensorWrapper).toHaveAttribute('title', 'Property BB');
+  });
+
+  it('should render non-sensor properties with traditional layout in compact mode', () => {
+    render(
+      <PropertyRow
+        device={mockDevice}
+        epc="80" // Operation status (non-sensor)
+        value={{ string: 'on' }}
+        isCompact={true}
+        onPropertyChange={mockOnPropertyChange}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+      />
+    );
+
+    // Should show property name for non-sensor properties
+    expect(screen.getByText('Property 80:')).toBeInTheDocument();
+  });
+
+  it('should render sensor properties normally in expanded mode', () => {
+    render(
+      <PropertyRow
+        device={mockDevice}
+        epc="BB" // Temperature sensor
+        value={{ number: 25 }}
+        isCompact={false}
+        onPropertyChange={mockOnPropertyChange}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+      />
+    );
+
+    // In expanded mode, sensor properties should show property name
+    expect(screen.getByText('Property BB:')).toBeInTheDocument();
   });
 });

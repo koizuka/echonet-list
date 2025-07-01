@@ -1,6 +1,7 @@
 import { PropertyEditor } from './PropertyEditor';
 import { PropertyDisplay } from './PropertyDisplay';
 import { getPropertyName, getPropertyDescriptor, isPropertySettable } from '@/libs/propertyHelper';
+import { isSensorProperty, getSensorIcon } from '@/libs/sensorPropertyHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
 
 interface PropertyRowProps {
@@ -34,7 +35,42 @@ export function PropertyRow({
   const isInSetPropertyMap = propertyDescriptor && isPropertySettable(epc, device);
   const isSettable = hasEditCapability && isInSetPropertyMap;
 
+  // Check if this is a sensor property for special compact display
+  const isSensor = isSensorProperty(epc);
+  const SensorIcon = getSensorIcon(epc);
+
+  if (isCompact && isSensor && SensorIcon) {
+    // Sensor properties in compact mode: icon + value only
+    return (
+      <div className="inline-flex items-center gap-1 text-xs mr-3 mb-1" title={propertyName}>
+        <SensorIcon className="h-3 w-3 text-muted-foreground" />
+        <div>
+          {isSettable ? (
+            <PropertyEditor
+              device={device}
+              epc={epc}
+              currentValue={value}
+              descriptor={propertyDescriptor}
+              onPropertyChange={onPropertyChange}
+              propertyDescriptions={propertyDescriptions}
+              isConnected={isConnected}
+            />
+          ) : (
+            <PropertyDisplay
+              currentValue={value}
+              descriptor={propertyDescriptor}
+              epc={epc}
+              propertyDescriptions={propertyDescriptions}
+              device={device}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (isCompact) {
+    // Non-sensor properties in compact mode: traditional label + value display
     return (
       <div className="text-xs relative">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

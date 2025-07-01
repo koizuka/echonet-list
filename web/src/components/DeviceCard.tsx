@@ -6,6 +6,7 @@ import { AliasEditor } from '@/components/AliasEditor';
 import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
 import { deviceHasAlias, getDeviceIdentifierForAlias, getDeviceAliases } from '@/libs/deviceIdHelper';
+import { isSensorProperty } from '@/libs/sensorPropertyHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
 
 interface DeviceCardProps {
@@ -51,6 +52,10 @@ export function DeviceCard({
   const secondaryProps = Object.entries(device.properties).filter(([epc]) => 
     !isPropertyPrimary(epc, classCode)
   );
+
+  // For compact view, separate sensor and non-sensor properties
+  const primarySensorProps = primaryProps.filter(([epc]) => isSensorProperty(epc));
+  const primaryNonSensorProps = primaryProps.filter(([epc]) => !isSensorProperty(epc));
 
 
   return (
@@ -130,22 +135,40 @@ export function DeviceCard({
       <CardContent className="pt-0 px-3 pb-0 flex flex-col flex-1">
         {/* Main content area that grows to fill space */}
         <div className="flex-1">
-          {/* Always show primary properties in compact form */}
+          {/* Show primary properties */}
           {primaryProps.length > 0 && (
             <div className={`${isExpanded ? 'space-y-3' : 'space-y-0.5'} ${!isExpanded ? 'mb-2' : 'mb-3'}`}>
-              {primaryProps.map(([epc, value]) => (
-                <PropertyRow 
-                  key={epc} 
-                  device={device}
-                  epc={epc} 
-                  value={value as PropertyValue} 
-                  isCompact={!isExpanded}
-                  onPropertyChange={onPropertyChange}
-                  propertyDescriptions={propertyDescriptions}
-                  classCode={classCode}
-                  isConnected={isConnected}
-                />
-              ))}
+              {isExpanded ? (
+                // Expanded mode: show all properties as separate rows
+                primaryProps.map(([epc, value]) => (
+                  <PropertyRow 
+                    key={epc} 
+                    device={device}
+                    epc={epc} 
+                    value={value as PropertyValue} 
+                    isCompact={false}
+                    onPropertyChange={onPropertyChange}
+                    propertyDescriptions={propertyDescriptions}
+                    classCode={classCode}
+                    isConnected={isConnected}
+                  />
+                ))
+              ) : (
+                // Compact mode: show only non-sensor properties here
+                primaryNonSensorProps.map(([epc, value]) => (
+                  <PropertyRow 
+                    key={epc} 
+                    device={device}
+                    epc={epc} 
+                    value={value as PropertyValue} 
+                    isCompact={true}
+                    onPropertyChange={onPropertyChange}
+                    propertyDescriptions={propertyDescriptions}
+                    classCode={classCode}
+                    isConnected={isConnected}
+                  />
+                ))
+              )}
             </div>
           )}
 
@@ -174,6 +197,27 @@ export function DeviceCard({
           )}
 
         </div>
+
+        {/* Sensor properties in compact mode - positioned above Last seen */}
+        {!isExpanded && primarySensorProps.length > 0 && (
+          <div className="border-t pt-2 mt-2">
+            <div className="flex flex-wrap items-center">
+              {primarySensorProps.map(([epc, value]) => (
+                <PropertyRow 
+                  key={epc} 
+                  device={device}
+                  epc={epc} 
+                  value={value as PropertyValue} 
+                  isCompact={true}
+                  onPropertyChange={onPropertyChange}
+                  propertyDescriptions={propertyDescriptions}
+                  classCode={classCode}
+                  isConnected={isConnected}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Last seen timestamp - always at bottom */}
         <div className="border-t pt-2 pb-3 mt-2">
