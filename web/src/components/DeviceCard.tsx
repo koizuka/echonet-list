@@ -39,7 +39,7 @@ export function DeviceCard({
   onAddAlias,
   onDeleteAlias,
   isAliasLoading = false,
-  isConnected
+  isConnected = true
 }: DeviceCardProps) {
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const deviceAliasesInfo = getDeviceAliases(device, devices, aliases);
@@ -89,7 +89,7 @@ export function DeviceCard({
                 onClick={() => onUpdateProperties(`${device.ip} ${device.eoj}`)}
                 className="h-6 w-6 p-0"
                 title={isUpdating ? "Updating..." : "Update device properties"}
-                disabled={isUpdating}
+                disabled={isUpdating || !isConnected}
                 data-testid="update-properties-button"
               >
                 <RefreshCw className={`h-3 w-3 ${isUpdating ? 'animate-spin' : ''}`} />
