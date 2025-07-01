@@ -10,6 +10,7 @@ interface GroupManagementPanelProps {
   onEditMembers: () => void;
   isEditingMembers?: boolean;
   onDoneEditingMembers?: () => void;
+  isConnected?: boolean;
 }
 
 export function GroupManagementPanel({
@@ -19,6 +20,7 @@ export function GroupManagementPanel({
   onEditMembers,
   isEditingMembers = false,
   onDoneEditingMembers,
+  isConnected = true,
 }: GroupManagementPanelProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -55,6 +57,7 @@ export function GroupManagementPanel({
                 variant="outline"
                 size="sm"
                 onClick={onRename}
+                disabled={!isConnected}
                 title="グループ名を変更"
               >
                 <Edit2 className="h-4 w-4 sm:mr-2" />
@@ -65,6 +68,7 @@ export function GroupManagementPanel({
                 variant="outline"
                 size="sm"
                 onClick={onEditMembers}
+                disabled={!isConnected}
                 title="メンバーを編集"
               >
                 <Users className="h-4 w-4 sm:mr-2" />
@@ -76,6 +80,7 @@ export function GroupManagementPanel({
                 size="sm"
                 className="destructive"
                 onClick={handleDeleteClick}
+                disabled={!isConnected}
                 title="グループを削除"
               >
                 <Trash2 className="h-4 w-4 sm:mr-2" />

@@ -122,6 +122,7 @@ export function DeviceCard({
             onDeleteAlias={onDeleteAlias}
             isLoading={isAliasLoading}
             deviceIdentifier={deviceIdentifier}
+            isConnected={isConnected}
           />
         </div>
       )}

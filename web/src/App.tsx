@@ -357,7 +357,7 @@ function App() {
                   setNewGroupTabName(tempTabName);
                   setIsCreatingGroup(true);
                 }}
-                disabled={isCreatingGroup}
+                disabled={isCreatingGroup || !isConnected}
                 className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
                 data-testid="add-group-button"
               >
@@ -384,6 +384,7 @@ function App() {
                           selectTab('All');
                         }}
                         isLoading={false}
+                        isConnected={isConnected}
                       />
                     </CardContent>
                   </Card>
@@ -404,6 +405,7 @@ function App() {
                         setPendingGroupName(null);
                       }
                     }}
+                    isConnected={isConnected}
                   />
                 )}
                 
@@ -417,6 +419,7 @@ function App() {
                         onSave={(newName) => handleRenameGroup(tabId, newName)}
                         onCancel={() => setEditingGroupName(null)}
                         isLoading={groupOperationLoading}
+                        isConnected={isConnected}
                       />
                     </CardContent>
                   </Card>
@@ -446,6 +449,7 @@ function App() {
                       setEditingGroupMembers(null);
                       setPendingGroupName(null);
                     } : undefined}
+                    isConnected={isConnected}
                   />
                 ) : tabId !== newGroupTabName && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
