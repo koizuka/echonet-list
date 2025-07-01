@@ -12,6 +12,7 @@ interface AliasEditorProps {
   onDeleteAlias: (alias: string) => Promise<void>;
   isLoading?: boolean;
   deviceIdentifier: string;
+  isConnected?: boolean;
 }
 
 export function AliasEditor({
@@ -20,7 +21,8 @@ export function AliasEditor({
   onAddAlias,
   onDeleteAlias,
   isLoading = false,
-  deviceIdentifier
+  deviceIdentifier,
+  isConnected = true
 }: AliasEditorProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null); // null means not editing, -1 means adding new alias, >=0 means editing existing
   const [inputValue, setInputValue] = useState('');
@@ -187,7 +189,7 @@ export function AliasEditor({
               variant="ghost"
               size="sm"
               onClick={() => handleStartEdit(index)}
-              disabled={isLoading || savingIndex !== null}
+              disabled={isLoading || savingIndex !== null || !isConnected}
               className="h-6 w-6 p-0"
               title="エイリアスを編集"
             >
@@ -197,7 +199,7 @@ export function AliasEditor({
               variant="ghost"
               size="sm"
               onClick={() => handleDelete(alias, index)}
-              disabled={isLoading || savingIndex !== null}
+              disabled={isLoading || savingIndex !== null || !isConnected}
               className="h-6 w-6 p-0"
               title="エイリアスを削除"
             >
@@ -213,7 +215,7 @@ export function AliasEditor({
           variant="ghost"
           size="sm"
           onClick={handleStartAdd}
-          disabled={isLoading || savingIndex !== null}
+          disabled={isLoading || savingIndex !== null || !isConnected}
           className="h-6 w-6 p-0"
           title="エイリアスを追加"
         >

@@ -10,6 +10,7 @@ interface GroupNameEditorProps {
   onSave: (groupName: string) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  isConnected?: boolean;
 }
 
 export function GroupNameEditor({
@@ -18,6 +19,7 @@ export function GroupNameEditor({
   onSave,
   onCancel,
   isLoading = false,
+  isConnected = true,
 }: GroupNameEditorProps) {
   // Remove '@' prefix from initial value if present
   const [inputValue, setInputValue] = useState(groupName.startsWith('@') ? groupName.slice(1) : groupName);
@@ -50,8 +52,8 @@ export function GroupNameEditor({
   };
 
   const getIsSaveDisabled = () => {
-    // Disabled while loading
-    if (isLoading) return true;
+    // Disabled while loading or disconnected
+    if (isLoading || !isConnected) return true;
     
     // Check validation with '@' prefix
     const fullGroupName = '@' + inputValue;
@@ -92,7 +94,7 @@ export function GroupNameEditor({
             onChange={handleInputChange}
             placeholder="グループ名を入力"
             className="h-7 text-xs flex-1"
-            disabled={isLoading}
+            disabled={isLoading || !isConnected}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
             onKeyDown={handleKeyDown}
@@ -113,7 +115,7 @@ export function GroupNameEditor({
             variant="ghost"
             size="sm"
             onClick={onCancel}
-            disabled={isLoading}
+            disabled={isLoading || !isConnected}
             className="h-7 w-7 p-0"
             title="キャンセル"
           >

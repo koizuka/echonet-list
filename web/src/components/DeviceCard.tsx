@@ -22,6 +22,7 @@ interface DeviceCardProps {
   onAddAlias?: (alias: string, target: string) => Promise<void>;
   onDeleteAlias?: (alias: string) => Promise<void>;
   isAliasLoading?: boolean;
+  isConnected?: boolean;
 }
 
 export function DeviceCard({
@@ -37,7 +38,8 @@ export function DeviceCard({
   aliases,
   onAddAlias,
   onDeleteAlias,
-  isAliasLoading = false
+  isAliasLoading = false,
+  isConnected = true
 }: DeviceCardProps) {
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const deviceAliasesInfo = getDeviceAliases(device, devices, aliases);
@@ -87,7 +89,7 @@ export function DeviceCard({
                 onClick={() => onUpdateProperties(`${device.ip} ${device.eoj}`)}
                 className="h-6 w-6 p-0"
                 title={isUpdating ? "Updating..." : "Update device properties"}
-                disabled={isUpdating}
+                disabled={isUpdating || !isConnected}
                 data-testid="update-properties-button"
               >
                 <RefreshCw className={`h-3 w-3 ${isUpdating ? 'animate-spin' : ''}`} />
@@ -120,6 +122,7 @@ export function DeviceCard({
             onDeleteAlias={onDeleteAlias}
             isLoading={isAliasLoading}
             deviceIdentifier={deviceIdentifier}
+            isConnected={isConnected}
           />
         </div>
       )}
@@ -140,6 +143,7 @@ export function DeviceCard({
                   onPropertyChange={onPropertyChange}
                   propertyDescriptions={propertyDescriptions}
                   classCode={classCode}
+                  isConnected={isConnected}
                 />
               ))}
             </div>
@@ -162,6 +166,7 @@ export function DeviceCard({
                     onPropertyChange={onPropertyChange}
                     propertyDescriptions={propertyDescriptions}
                     classCode={classCode}
+                    isConnected={isConnected}
                   />
                 ))}
               </div>

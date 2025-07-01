@@ -19,6 +19,7 @@ interface GroupMemberEditorProps {
   getDeviceClassCode: (device: Device) => string;
   isLoading?: boolean;
   onDone?: () => void;
+  isConnected?: boolean;
 }
 
 export function GroupMemberEditor({
@@ -32,6 +33,7 @@ export function GroupMemberEditor({
   getDeviceClassCode,
   isLoading = false,
   onDone,
+  isConnected = true,
 }: GroupMemberEditorProps) {
   const [dragOverSection, setDragOverSection] = useState<'members' | 'available' | null>(null);
   const [draggingDevice, setDraggingDevice] = useState<string | null>(null);
@@ -244,7 +246,7 @@ export function GroupMemberEditor({
                   variant="outline"
                   size="sm"
                   onClick={() => handleRemoveDevice(deviceKey)}
-                  disabled={isLoading}
+                  disabled={isLoading || !isConnected}
                   className="h-8 w-8 p-0"
                   title="グループから削除"
                   data-testid={`remove-device-${deviceKey.replace(/\s+/g, '-')}`}
@@ -256,7 +258,7 @@ export function GroupMemberEditor({
                   variant="outline"
                   size="sm"
                   onClick={() => handleAddDevice(deviceKey)}
-                  disabled={isLoading}
+                  disabled={isLoading || !isConnected}
                   className="h-8 w-8 p-0"
                   title="グループに追加"
                   data-testid={`add-device-${deviceKey.replace(/\s+/g, '-')}`}
@@ -281,7 +283,7 @@ export function GroupMemberEditor({
               variant="outline"
               size="sm"
               onClick={onDone}
-              disabled={isLoading}
+              disabled={isLoading || !isConnected}
               title="メンバー編集を終了"
               data-testid="done-editing-button"
             >
