@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { 
-  getDevicePrimaryProperties, 
-  isPropertyPrimary, 
+import {
+  getDevicePrimaryProperties,
+  isPropertyPrimary,
   getDeviceSecondaryProperties,
   getSortedPrimaryProperties,
   isNodeProfileDevice,
@@ -19,8 +19,6 @@ describe('deviceTypeHelper', () => {
     it('should return essential + device-specific properties for air conditioner', () => {
       const properties = getDevicePrimaryProperties('0130'); // Home Air Conditioner
       expect(properties).toContain('80'); // Operation Status (essential)
-      expect(properties).toContain('A0'); // Air flow rate (device-specific)
-      expect(properties).toContain('A3'); // Air flow direction (device-specific)
       expect(properties).toContain('B0'); // Operation mode (device-specific)
       expect(properties).toContain('B3'); // Temperature (device-specific)
     });
@@ -136,9 +134,9 @@ describe('deviceTypeHelper', () => {
 
       const sortedProps = getSortedPrimaryProperties(device);
       const epcs = sortedProps.map(([epc]) => epc);
-      
+
       // Should follow the order: ESSENTIAL_PROPERTIES first, then DEVICE_PRIMARY_PROPERTIES order
-      expect(epcs).toEqual(['80', 'BB', 'BA', 'BE', 'B0', 'B3', 'A0', 'A3']);
+      expect(epcs).toEqual(['80', 'BB', 'BA', 'BE', 'B0', 'B3']);
     });
 
     it('should handle missing properties gracefully', () => {
@@ -153,7 +151,7 @@ describe('deviceTypeHelper', () => {
 
       const sortedProps = getSortedPrimaryProperties(device);
       const epcs = sortedProps.map(([epc]) => epc);
-      
+
       // Should only include properties that exist, in defined order
       expect(epcs).toEqual(['BE', 'B0', 'B3']);
     });
@@ -171,7 +169,7 @@ describe('deviceTypeHelper', () => {
       };
 
       const sortedProps = getSortedPrimaryProperties(device);
-      
+
       // Should only contain primary properties
       const epcs = sortedProps.map(([epc]) => epc);
       expect(epcs).toContain('80');
@@ -209,7 +207,7 @@ describe('deviceTypeHelper', () => {
 
       const sortedProps = getSortedPrimaryProperties(device);
       const epcs = sortedProps.map(([epc]) => epc);
-      
+
       // Should follow definition order: essential first, then device-specific in order
       expect(epcs).toEqual(['80', 'BB', 'BA', 'BE', 'B0', 'B3']);
     });

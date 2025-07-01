@@ -14,21 +14,29 @@ export const ESSENTIAL_PROPERTIES = ['80'] as const; // Operation Status
  */
 export const DEVICE_PRIMARY_PROPERTIES: Record<string, string[]> = {
   // Home Air Conditioner (0130)
-  '0130': ['BB', 'BA', 'BE', 'B0', 'B3', 'B4', 'A0', 'A3'], // Target temp, Target humidity, Target flow, Operation mode, Temperature, Humidity, Air flow, etc.
-  
+  '0130': [
+    'BB', 'BA', // temperature, humidity
+    'BE', // outside temperature
+    'B0', // operation mode setting
+    'B3', // temperature setting
+    'B4', // relative humidity setting
+    // 'A0', // air volume setting
+    // 'A3', // air direction setting
+  ],
+
   // Floor Heating (027B)
   '027B': ['E2', 'F3', 'F4', 'E1'], // Various temperature sensors
-  
+
   // Add more device types as needed
   // Single Function Lighting (0291)
   '0291': ['B0'], // Illuminance level
-  
+
   // Lighting System (02A3)
   '02A3': ['C0'], // Scene control
-  
+
   // Electric Water Heater (026B)
   '026B': ['D1', 'D2'], // Hot water temperature, volume
-  
+
   // Bath Room Heating and Air Conditioning (0272)
   '0272': ['B0', 'B3'], // Operation mode, Temperature
 };
@@ -40,7 +48,7 @@ export const DEVICE_PRIMARY_PROPERTIES: Record<string, string[]> = {
 export function getDevicePrimaryProperties(classCode: string): string[] {
   const essentialProps = [...ESSENTIAL_PROPERTIES];
   const deviceSpecificProps = DEVICE_PRIMARY_PROPERTIES[classCode] || [];
-  
+
   // Combine essential and device-specific properties, removing duplicates
   return [...new Set([...essentialProps, ...deviceSpecificProps])];
 }
@@ -59,7 +67,7 @@ export function isPropertyPrimary(epc: string, classCode: string): boolean {
 export function getDeviceSecondaryProperties(device: { properties: Record<string, unknown>; eoj: string }): string[] {
   const classCode = device.eoj.split(':')[0];
   const primaryProperties = getDevicePrimaryProperties(classCode);
-  
+
   return Object.keys(device.properties).filter(epc => !primaryProperties.includes(epc));
 }
 
@@ -79,7 +87,7 @@ export function isNodeProfileDevice(device: { eoj: string }): boolean {
 export function getSortedPrimaryProperties(device: { properties: Record<string, unknown>; eoj: string }): [string, unknown][] {
   const classCode = device.eoj.split(':')[0];
   const primaryProperties = getDevicePrimaryProperties(classCode);
-  
+
   // Filter to only properties that exist on the device and maintain the order
   return primaryProperties
     .filter(epc => epc in device.properties)
