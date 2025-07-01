@@ -445,7 +445,7 @@ describe('PropertyEditor', () => {
       
       // Change input value
       fireEvent.change(input, { target: { value: '25' } });
-      expect(input).toHaveValue('25');
+      expect(input).toHaveValue(25);
       
       // Check that unit display updated
       expect(screen.getByText('25°C')).toBeInTheDocument();
@@ -500,7 +500,7 @@ describe('PropertyEditor', () => {
       
       // Input should be empty (no current number value)
       const input = screen.getByTestId('edit-input-CF');
-      expect(input).toHaveValue('');
+      expect(input).toHaveValue(null);
       
       // Should show min value on slider (0%)
       expect(screen.getByText('0%')).toBeInTheDocument();

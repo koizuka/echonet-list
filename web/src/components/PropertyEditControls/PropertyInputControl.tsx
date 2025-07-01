@@ -96,6 +96,7 @@ export function PropertyInputControl({
     setEditValue(numValue.toString());
   };
 
+
   if (!isEditing) {
     return (
       <Button 
@@ -113,9 +114,10 @@ export function PropertyInputControl({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-end gap-2">
         <Input
           ref={inputRef}
+          type={hasNumberDesc ? "number" : "text"}
           value={editValue}
           onChange={(e) => {
             setEditValue(e.target.value);
@@ -139,7 +141,10 @@ export function PropertyInputControl({
               ? `${descriptor?.numberDesc!.min}-${descriptor?.numberDesc!.max}${descriptor?.numberDesc!.unit}` 
               : 'Enter value'
           }
-          className="h-7 text-xs w-20"
+          min={hasNumberDesc ? descriptor?.numberDesc!.min : undefined}
+          max={hasNumberDesc ? descriptor?.numberDesc!.max : undefined}
+          step={1}
+          className="h-7 text-xs w-24 relative z-0"
           disabled={isLoading}
           data-testid={testId ? `edit-input-${testId}` : undefined}
         />
