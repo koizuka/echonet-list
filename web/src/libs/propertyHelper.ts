@@ -15,7 +15,7 @@ export function getPropertyName(
   lang?: string
 ): string {
   const currentLang = lang || getCurrentLocale();
-  
+
   // Try to find the property description for the specific class code with language
   if (classCode) {
     const langSpecificKey = `${classCode}:${currentLang}`;
@@ -25,7 +25,7 @@ export function getPropertyName(
         return property.description;
       }
     }
-    
+
     // Fallback to English if not found in requested language
     if (propertyDescriptions[classCode]) {
       const property = propertyDescriptions[classCode].properties[epc];
@@ -40,7 +40,7 @@ export function getPropertyName(
   if (propertyDescriptions[commonLangKey]?.properties[epc]?.description) {
     return propertyDescriptions[commonLangKey].properties[epc].description;
   }
-  
+
   // Fallback to English common properties
   const commonProperties = propertyDescriptions[""];
   if (commonProperties?.properties[epc]?.description) {
@@ -63,7 +63,7 @@ export function getPropertyDescriptor(
   lang?: string
 ): PropertyDescriptor | undefined {
   const currentLang = lang || getCurrentLocale();
-  
+
   // Try to find the property description for the specific class code with language
   if (classCode) {
     const langSpecificKey = `${classCode}:${currentLang}`;
@@ -73,7 +73,7 @@ export function getPropertyDescriptor(
         return property;
       }
     }
-    
+
     // Fallback to English if not found in requested language
     if (propertyDescriptions[classCode]) {
       const property = propertyDescriptions[classCode].properties[epc];
@@ -88,7 +88,7 @@ export function getPropertyDescriptor(
   if (propertyDescriptions[commonLangKey]?.properties[epc]) {
     return propertyDescriptions[commonLangKey].properties[epc];
   }
-  
+
   // Fallback to English common properties
   const commonProperties = propertyDescriptions[""];
   if (commonProperties?.properties[epc]) {
@@ -116,7 +116,7 @@ export function extractClassCodeFromEOJ(eoj: string): string {
 export function isPropertySettable(epc: string, device: Device): boolean {
   // EPC 0x9E contains the Set Property Map
   const setPropertyMap = device.properties['9E'];
-  
+
   if (!setPropertyMap?.EDT) {
     // If no Set Property Map is available, assume not settable
     return false;
@@ -125,14 +125,14 @@ export function isPropertySettable(epc: string, device: Device): boolean {
   try {
     // Decode the Base64 EDT to get the property map bytes
     const mapBytes = atob(setPropertyMap.EDT);
-    
+
     // First byte is the number of properties
     if (mapBytes.length < 1) {
       return false;
     }
-    
+
     const propertyCount = mapBytes.charCodeAt(0);
-    
+
     // Check if EPC is in the list
     const epcCode = parseInt(epc, 16);
     for (let i = 1; i <= propertyCount && i < mapBytes.length; i++) {
@@ -140,7 +140,7 @@ export function isPropertySettable(epc: string, device: Device): boolean {
         return true;
       }
     }
-    
+
     return false;
   } catch (error) {
     console.warn(`Failed to parse Set Property Map for device ${device.ip} ${device.eoj}:`, error);
@@ -158,12 +158,12 @@ export function formatPropertyValue(
   lang?: string
 ): string {
   const currentLang = lang || getCurrentLocale();
-  
+
   // If we have a string representation, use it
   if (value.string) {
     // Try to translate using aliasTranslations if available
     if (descriptor?.aliasTranslations && currentLang !== 'en') {
-      const translation = descriptor.aliasTranslations[currentLang]?.[value.string];
+      const translation = descriptor.aliasTranslations[value.string];
       if (translation) {
         return translation;
       }
@@ -186,7 +186,7 @@ export function formatPropertyValue(
         if (atob(aliasEDT) === edtBytes) {
           // Try to translate the alias name if translations are available
           if (descriptor.aliasTranslations && currentLang !== 'en') {
-            const translation = descriptor.aliasTranslations[currentLang]?.[aliasName];
+            const translation = descriptor.aliasTranslations[aliasName];
             if (translation) {
               return translation;
             }
@@ -214,7 +214,7 @@ export function formatPropertyValueWithTranslation(
   lang?: string
 ): string {
   const formattedValue = formatPropertyValue(value, descriptor, lang);
-  
+
   // Translate Installation Location (EPC 0x81)
   // Try to translate both the original string value and the decoded alias name
   if (epc === '81' && translateFunc) {
@@ -226,7 +226,7 @@ export function formatPropertyValueWithTranslation(
       return translateFunc(formattedValue);
     }
   }
-  
+
   return formattedValue;
 }
 
@@ -236,16 +236,16 @@ export function formatPropertyValueWithTranslation(
  */
 export function edtToHexString(edt: string): string | null {
   if (!edt) return null;
-  
+
   try {
     const bytes = atob(edt);
     const hexBytes = [];
-    
+
     for (let i = 0; i < bytes.length; i++) {
       const byte = bytes.charCodeAt(i);
       hexBytes.push(byte.toString(16).toUpperCase().padStart(2, '0'));
     }
-    
+
     return hexBytes.join(' ');
   } catch (error) {
     console.warn('Failed to convert EDT to hex string:', error);
@@ -264,7 +264,7 @@ export function shouldShowHexViewer(
 ): boolean {
   // Only show for values that have EDT but format as "Raw data"
   if (!value.EDT) return false;
-  
+
   const formattedValue = formatPropertyValue(value, descriptor, lang);
   return formattedValue === 'Raw data';
 }
@@ -348,14 +348,14 @@ export function isOperationStatusSettable(device: Device): boolean {
  */
 export function decodePropertyMap(edt: string): string[] | null {
   if (!edt) return null;
-  
+
   try {
     const mapBytes = atob(edt);
     if (mapBytes.length < 1) return null;
-    
+
     const propertyCount = mapBytes.charCodeAt(0);
     const epcs: string[] = [];
-    
+
     if (propertyCount < 16) {
       // Direct list format: properties listed directly after count byte
       for (let i = 1; i <= propertyCount && i < mapBytes.length; i++) {
@@ -370,10 +370,10 @@ export function decodePropertyMap(edt: string): string[] | null {
         console.warn(`Property map has ${propertyCount} properties but insufficient bitmap data`);
         return null;
       }
-      
+
       for (let i = 0; i < 16; i++) {
         const bitmapByte = mapBytes.charCodeAt(i + 1);
-        
+
         for (let j = 0; j < 8; j++) {
           if (bitmapByte & (1 << j)) {
             const epc = (i + (j << 4) + 0x80).toString(16).toUpperCase();
@@ -382,10 +382,10 @@ export function decodePropertyMap(edt: string): string[] | null {
         }
       }
     }
-    
+
     // Sort EPCs in ascending order
     epcs.sort((a, b) => a.localeCompare(b));
-    
+
     return epcs;
   } catch (error) {
     console.warn('Failed to decode property map:', error);

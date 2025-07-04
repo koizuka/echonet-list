@@ -188,10 +188,13 @@ export type StringDesc = {
   maxEDTLen: number;
 };
 
+// Type for alias translations - backend sends flat structure for requested language
+export type AliasTranslations = Record<string, string>; // Flat: { cooling: "冷房" }
+
 export type PropertyDescriptor = {
   description: string;
   aliases?: PropertyAlias;
-  aliasTranslations?: Record<string, Record<string, string>>; // language -> alias translation table
+  aliasTranslations?: AliasTranslations;
   numberDesc?: NumberDesc;
   stringDesc?: StringDesc;
   stringSettable?: boolean;

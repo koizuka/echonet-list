@@ -518,7 +518,7 @@ describe('Internationalization (i18n)', () => {
           '80': {
             description: '動作状態',
             aliases: { 'on': 'MA==', 'off': 'MQ==' },
-            aliasTranslations: { 'ja': { 'on': 'オン', 'off': 'オフ' } }
+            aliasTranslations: { 'on': 'オン', 'off': 'オフ' }
           }
         }
       }
@@ -532,7 +532,9 @@ describe('Internationalization (i18n)', () => {
     it('should return Japanese descriptor when lang is "ja"', () => {
       const result = getPropertyDescriptor('80', descriptionsWithDescriptor, '', 'ja');
       expect(result?.description).toBe('動作状態');
-      expect(result?.aliasTranslations?.ja?.on).toBe('オン');
+      // Check aliasTranslations
+      expect(result?.aliasTranslations?.on).toBe('オン');
+      expect(result?.aliasTranslations?.off).toBe('オフ');
     });
 
     it('should fallback to English descriptor when Japanese is not available', () => {
@@ -549,10 +551,8 @@ describe('Internationalization (i18n)', () => {
         'off': 'MQ=='
       },
       aliasTranslations: {
-        'ja': {
-          'on': '動作中',
-          'off': '停止中'
-        }
+        'on': '動作中',
+        'off': '停止中'
       }
     };
 
@@ -562,6 +562,17 @@ describe('Internationalization (i18n)', () => {
     });
 
     it('should return Japanese translated alias values when lang is "ja"', () => {
+      const descriptorWithTranslations: PropertyDescriptor = {
+        description: 'Operation Status',
+        aliases: {
+          'on': 'MA==',
+          'off': 'MQ=='
+        },
+        aliasTranslations: {
+          'on': '動作中',
+          'off': '停止中'
+        }
+      };
       expect(formatPropertyValue({ string: 'on' }, descriptorWithTranslations, 'ja')).toBe('動作中');
       expect(formatPropertyValue({ string: 'off' }, descriptorWithTranslations, 'ja')).toBe('停止中');
     });

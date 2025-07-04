@@ -12,7 +12,7 @@ import type {
   PropertyValue
 } from './types';
 
-type ECHONETAction = 
+type ECHONETAction =
   | { type: 'SET_INITIAL_STATE'; payload: { devices: Record<string, Device>; aliases: DeviceAlias; groups: DeviceGroup } }
   | { type: 'ADD_DEVICE'; payload: { device: Device } }
   | { type: 'REMOVE_DEVICE'; payload: { ip: string; eoj: string } }
@@ -32,7 +32,7 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         groups: action.payload.groups,
         initialStateReceived: true,
       };
-      
+
     case 'ADD_DEVICE': {
       const deviceKey = `${action.payload.device.ip} ${action.payload.device.eoj}`;
       return {
@@ -43,7 +43,7 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         },
       };
     }
-    
+
     case 'REMOVE_DEVICE': {
       const deviceKey = `${action.payload.ip} ${action.payload.eoj}`;
       const { [deviceKey]: _removed, ...remainingDevices } = state.devices;
@@ -53,12 +53,12 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         devices: remainingDevices,
       };
     }
-    
+
     case 'UPDATE_PROPERTY': {
       const deviceKey = `${action.payload.ip} ${action.payload.eoj}`;
       const device = state.devices[deviceKey];
       if (!device) return state;
-      
+
       return {
         ...state,
         devices: {
@@ -74,39 +74,39 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         },
       };
     }
-    
+
     case 'SET_ALIAS': {
       const { alias, target, changeType } = action.payload;
       const newAliases = { ...state.aliases };
-      
+
       if (changeType === 'deleted') {
         delete newAliases[alias];
       } else if (target) {
         newAliases[alias] = target;
       }
-      
+
       return {
         ...state,
         aliases: newAliases,
       };
     }
-    
+
     case 'SET_GROUP': {
       const { group, devices, changeType } = action.payload;
       const newGroups = { ...state.groups };
-      
+
       if (changeType === 'deleted') {
         delete newGroups[group];
       } else if (devices) {
         newGroups[group] = devices;
       }
-      
+
       return {
         ...state,
         groups: newGroups,
       };
     }
-    
+
     case 'SET_PROPERTY_DESCRIPTION':
       return {
         ...state,
@@ -115,13 +115,13 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
           [action.payload.classCode]: action.payload.data,
         },
       };
-      
+
     case 'SET_CONNECTION_STATE':
       return {
         ...state,
         connectionState: action.payload.state,
       };
-      
+
     default:
       return state;
   }
@@ -145,42 +145,42 @@ export type ECHONETHook = {
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   initialStateReceived: boolean;
   connectedAt: Date | null;
-  
+
   // Device operations
   getDeviceProperties: (targets: string[], epcs: string[]) => Promise<unknown>;
   setDeviceProperties: (target: string, properties: Record<string, PropertyValue>) => Promise<unknown>;
   updateDeviceProperties: (targets?: string[], force?: boolean) => Promise<unknown>;
   discoverDevices: () => Promise<unknown>;
-  
+
   // Alias operations
   addAlias: (alias: string, target: string) => Promise<unknown>;
   deleteAlias: (alias: string) => Promise<unknown>;
-  
+
   // Group operations
   addGroup: (group: string, devices: string[]) => Promise<unknown>;
   addToGroup: (group: string, devices: string[]) => Promise<unknown>;
   removeFromGroup: (group: string, devices: string[]) => Promise<unknown>;
   deleteGroup: (group: string) => Promise<unknown>;
   listGroups: (group: string) => Promise<unknown>;
-  
+
   // Property description operations
   getPropertyDescription: (classCode: string, lang?: string) => Promise<PropertyDescriptionData>;
-  
+
   // Connection operations
   connect: () => void;
   disconnect: () => void;
-  
+
   // Message handler for additional processing
   onMessage?: (message: ServerMessage) => void;
 };
 
 export function useECHONET(
-  url: string, 
+  url: string,
   onMessage?: (message: ServerMessage) => void,
   onWebSocketConnected?: () => void
 ): ECHONETHook {
   const [state, dispatch] = useReducer(echonetReducer, initialState);
-  
+
   const handleServerMessage = useCallback((message: ServerMessage) => {
     // Call external handler if provided
     onMessage?.(message);
@@ -201,21 +201,21 @@ export function useECHONET(
           },
         });
         break;
-        
+
       case 'device_added':
         dispatch({
           type: 'ADD_DEVICE',
           payload: { device: message.payload.device },
         });
         break;
-        
+
       case 'device_offline':
         dispatch({
           type: 'REMOVE_DEVICE',
           payload: { ip: message.payload.ip, eoj: message.payload.eoj },
         });
         break;
-        
+
       case 'property_changed':
         dispatch({
           type: 'UPDATE_PROPERTY',
@@ -227,7 +227,7 @@ export function useECHONET(
           },
         });
         break;
-        
+
       case 'alias_changed':
         dispatch({
           type: 'SET_ALIAS',
@@ -238,7 +238,7 @@ export function useECHONET(
           },
         });
         break;
-        
+
       case 'group_changed':
         dispatch({
           type: 'SET_GROUP',
@@ -249,7 +249,7 @@ export function useECHONET(
           },
         });
         break;
-        
+
       case 'error_notification': {
         // Convert server error notification to log notification for NotificationBell
         const errorLogMessage = {
@@ -269,12 +269,12 @@ export function useECHONET(
         onMessage?.(errorLogMessage);
         break;
       }
-        
+
       case 'timeout_notification':
         // Handle timeout notification if needed
         console.warn('Device timeout:', message.payload);
         break;
-        
+
       default:
         console.log('Unhandled server message:', message);
     }
@@ -313,7 +313,7 @@ export function useECHONET(
       payload: { target, properties },
       requestId: '',
     });
-    
+
     return response;
   }, [connection]);
 
@@ -395,7 +395,7 @@ export function useECHONET(
   const getPropertyDescription = useCallback(async (classCode: string, lang?: string): Promise<PropertyDescriptionData> => {
     const currentLang = lang || getCurrentLocale();
     const cacheKey = `${classCode}:${currentLang}`;
-    
+
     // Check cache first (with language-specific key)
     if (state.propertyDescriptions[cacheKey]) {
       return state.propertyDescriptions[cacheKey];
@@ -430,27 +430,27 @@ export function useECHONET(
     propertyDescriptions: state.propertyDescriptions,
     initialStateReceived: state.initialStateReceived,
     connectedAt: connection.connectedAt,
-    
+
     // Device operations
     getDeviceProperties,
     setDeviceProperties,
     updateDeviceProperties,
     discoverDevices,
-    
+
     // Alias operations
     addAlias,
     deleteAlias,
-    
+
     // Group operations
     addGroup,
     addToGroup,
     removeFromGroup,
     deleteGroup,
     listGroups,
-    
+
     // Property description operations
     getPropertyDescription,
-    
+
     // Connection operations
     connect: connection.connect,
     disconnect: connection.disconnect,

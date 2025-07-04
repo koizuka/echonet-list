@@ -7,11 +7,12 @@ import {
 } from '@/components/ui/select';
 import { translateLocationId } from '@/libs/locationHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
+import type { AliasTranslations } from '@/hooks/types';
 
 interface PropertySelectControlProps {
   value: string;
   aliases: Record<string, string>;
-  aliasTranslations?: Record<string, Record<string, string>>;
+  aliasTranslations?: AliasTranslations;
   onChange: (value: string) => void;
   disabled: boolean;
   isInstallationLocation?: boolean;
@@ -36,8 +37,11 @@ export function PropertySelectControl({
     }
     
     // Use translation if available and not English
-    if (aliasTranslations && currentLang !== 'en' && aliasTranslations[currentLang]?.[aliasName]) {
-      return aliasTranslations[currentLang][aliasName];
+    if (aliasTranslations && currentLang !== 'en') {
+      const translation = aliasTranslations[aliasName];
+      if (translation) {
+        return translation;
+      }
     }
     
     return aliasName;
