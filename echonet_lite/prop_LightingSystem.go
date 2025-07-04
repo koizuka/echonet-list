@@ -22,14 +22,66 @@ func (r PropertyRegistry) LightingSystem() PropertyTable {
 	return PropertyTable{
 		ClassCode:   LightingSystem_ClassCode,
 		Description: "Lighting System",
+		DescriptionMap: map[string]string{
+			"ja": "照明システム",
+		},
 		EPCDesc: map[EPCType]PropertyDesc{
-			EPC_LS_Illuminance:     {"Illuminance level", nil, NumberDesc{Min: 0, Max: 100, Unit: "%"}},
-			EPC_LS_SceneControl:    {"Scene control", nil, NumberDesc{EDTLen: 1, Min: 0, Max: 253}},     // 0:未設定, 1-253:シーン番号
-			EPC_LS_MaxSceneControl: {"Max scene control", nil, NumberDesc{EDTLen: 1, Min: 1, Max: 253}}, // 1-253:最大シーン番号
-			EPC_LS_PanasonicF1:     {"Panasonic F1", nil, LS_PanasonicFxDesc{}},
-			EPC_LS_PanasonicF2:     {"Panasonic F2", nil, LS_PanasonicFxDesc{}},
-			EPC_LS_PanasonicF3:     {"Panasonic F3", nil, LS_PanasonicFxDesc{}},
-			EPC_LS_PanasonicF4:     {"Panasonic F4", nil, LS_PanasonicFxDesc{}},
+			EPC_LS_Illuminance: {
+				Name: "Illuminance level",
+				NameMap: map[string]string{
+					"ja": "照度レベル",
+				},
+				Aliases: nil,
+				Decoder: NumberDesc{Min: 0, Max: 100, Unit: "%"},
+			},
+			EPC_LS_SceneControl: {
+				Name: "Scene control",
+				NameMap: map[string]string{
+					"ja": "シーン制御",
+				},
+				Aliases: nil,
+				Decoder: NumberDesc{EDTLen: 1, Min: 0, Max: 253}, // 0:未設定, 1-253:シーン番号
+			},
+			EPC_LS_MaxSceneControl: {
+				Name: "Max scene control",
+				NameMap: map[string]string{
+					"ja": "最大シーン制御",
+				},
+				Aliases: nil,
+				Decoder: NumberDesc{EDTLen: 1, Min: 1, Max: 253}, // 1-253:最大シーン番号
+			},
+			EPC_LS_PanasonicF1: {
+				Name: "Panasonic F1",
+				NameMap: map[string]string{
+					"ja": "パナソニックF1",
+				},
+				Aliases: nil,
+				Decoder: LS_PanasonicFxDesc{},
+			},
+			EPC_LS_PanasonicF2: {
+				Name: "Panasonic F2",
+				NameMap: map[string]string{
+					"ja": "パナソニックF2",
+				},
+				Aliases: nil,
+				Decoder: LS_PanasonicFxDesc{},
+			},
+			EPC_LS_PanasonicF3: {
+				Name: "Panasonic F3",
+				NameMap: map[string]string{
+					"ja": "パナソニックF3",
+				},
+				Aliases: nil,
+				Decoder: LS_PanasonicFxDesc{},
+			},
+			EPC_LS_PanasonicF4: {
+				Name: "Panasonic F4",
+				NameMap: map[string]string{
+					"ja": "パナソニックF4",
+				},
+				Aliases: nil,
+				Decoder: LS_PanasonicFxDesc{},
+			},
 		},
 		DefaultEPCs: []EPCType{
 			EPC_LS_Illuminance,

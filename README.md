@@ -18,6 +18,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 - **Visual Controls**: Property-specific UI controls (dropdowns, sliders, toggles)
 - **Status Indicators**: Visual feedback for device operation and fault states
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
+- **Internationalization**: Multi-language support (English, Japanese) for property descriptions and UI
 - WebSocket API for custom client development
 - TLS support for secure connections
 - Daemon mode for running as a system service
@@ -64,6 +65,7 @@ For a complete getting started guide, see [Quick Start Guide](docs/quick-start.m
 - [WebSocket Client Protocol](docs/websocket_client_protocol.md) - API protocol specification
 - [Client UI Development Guide](docs/client_ui_development_guide.md) - Building custom clients
 - [React Hooks Usage Guide](docs/react_hooks_usage_guide.md) - React integration guide
+- [Internationalization Guide](docs/internationalization.md) - Multi-language support implementation
 - [Error Handling Guide](docs/error_handling_guide.md) - Error handling patterns
 
 ### Reference

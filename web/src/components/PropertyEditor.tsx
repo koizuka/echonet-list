@@ -6,6 +6,7 @@ import { PropertyDisplay } from './PropertyDisplay';
 import { HexViewer } from './HexViewer';
 import { isPropertySettable, formatPropertyValueWithTranslation, shouldShowHexViewer } from '@/libs/propertyHelper';
 import { translateLocationId } from '@/libs/locationHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import type { PropertyDescriptor, PropertyValue, Device, PropertyDescriptionData } from '@/hooks/types';
 
 interface PropertyEditorProps {
@@ -32,7 +33,8 @@ export function PropertyEditor({
   const hasAliases = descriptor?.aliases && Object.keys(descriptor.aliases).length > 0;
   const hasNumberDesc = descriptor?.numberDesc;
   const hasStringDesc = descriptor?.stringDesc;
-  const canShowHexViewer = shouldShowHexViewer(currentValue, descriptor);
+  const currentLang = getCurrentLocale();
+  const canShowHexViewer = shouldShowHexViewer(currentValue, descriptor, currentLang);
   
   // Check if property is settable based on:
   // 1. Property descriptor indicates it's settable (stringSettable, numberDesc, or aliases)
@@ -102,6 +104,7 @@ export function PropertyEditor({
         <PropertySelectControl
           value={currentValue.string || ''}
           aliases={descriptor.aliases!}
+          aliasTranslations={descriptor.aliasTranslations}
           onChange={handleAliasSelect}
           disabled={isLoading || !isConnectionActive}
           isInstallationLocation={isInstallationLocation}
@@ -115,7 +118,7 @@ export function PropertyEditor({
           <div className="flex items-center gap-2">
             {!hasAliases && !isInputEditing && (
               <span className="text-sm font-medium">
-                {formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateLocationId)}
+                {formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateLocationId, currentLang)}
               </span>
             )}
             <PropertyInputControl

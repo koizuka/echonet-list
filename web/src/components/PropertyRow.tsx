@@ -2,6 +2,7 @@ import { PropertyEditor } from './PropertyEditor';
 import { PropertyDisplay } from './PropertyDisplay';
 import { getPropertyName, getPropertyDescriptor, isPropertySettable } from '@/libs/propertyHelper';
 import { isSensorProperty, getSensorIcon } from '@/libs/sensorPropertyHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
 
 interface PropertyRowProps {
@@ -25,8 +26,9 @@ export function PropertyRow({
   classCode,
   isConnected
 }: PropertyRowProps) {
-  const propertyName = getPropertyName(epc, propertyDescriptions, classCode);
-  const propertyDescriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
+  const currentLang = getCurrentLocale();
+  const propertyName = getPropertyName(epc, propertyDescriptions, classCode, currentLang);
+  const propertyDescriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode, currentLang);
   
   // Check if property is settable
   const hasEditCapability = propertyDescriptor?.stringSettable || 

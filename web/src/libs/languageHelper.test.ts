@@ -80,11 +80,41 @@ describe('languageHelper', () => {
       expect(getCurrentLocale()).toBe('ja');
     });
 
+    it('should return "ja" for various Japanese locales', () => {
+      mockNavigatorLanguage('ja');
+      expect(getCurrentLocale()).toBe('ja');
+
+      mockNavigatorLanguage('ja-JP');
+      expect(getCurrentLocale()).toBe('ja');
+
+      mockNavigatorLanguage('JA');
+      expect(getCurrentLocale()).toBe('ja');
+
+      mockNavigatorLanguage('JA-JP');
+      expect(getCurrentLocale()).toBe('ja');
+    });
+
     it('should return "en" for non-Japanese language', () => {
       mockNavigatorLanguage('en-US');
       expect(getCurrentLocale()).toBe('en');
 
       mockNavigatorLanguage('fr-FR');
+      expect(getCurrentLocale()).toBe('en');
+    });
+
+    it('should handle Japanese language in languages array', () => {
+      mockNavigatorLanguage('', ['ja-JP', 'en-US']);
+      expect(getCurrentLocale()).toBe('ja');
+
+      mockNavigatorLanguage('', ['ja', 'en']);
+      expect(getCurrentLocale()).toBe('ja');
+    });
+
+    it('should prioritize navigator.language over languages array', () => {
+      mockNavigatorLanguage('ja-JP', ['en-US', 'fr-FR']);
+      expect(getCurrentLocale()).toBe('ja');
+
+      mockNavigatorLanguage('en-US', ['ja-JP', 'fr-FR']);
       expect(getCurrentLocale()).toBe('en');
     });
   });

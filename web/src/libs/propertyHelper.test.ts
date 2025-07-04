@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
-import { isPropertySettable, isDeviceOperational, isDeviceFaulty, decodePropertyMap } from './propertyHelper';
-import type { Device } from '@/hooks/types';
+import { 
+  isPropertySettable, 
+  isDeviceOperational, 
+  isDeviceFaulty, 
+  decodePropertyMap,
+  getPropertyName,
+  getPropertyDescriptor,
+  formatPropertyValue 
+} from './propertyHelper';
+import type { Device, PropertyDescriptionData, PropertyDescriptor } from '@/hooks/types';
 
 describe('propertyHelper', () => {
   describe('isPropertySettable', () => {
@@ -335,9 +343,14 @@ describe('decodePropertyMap', () => {
   });
 
   it('should handle invalid Base64 input', () => {
+    // Mock console.warn to suppress expected error output
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
     const result = decodePropertyMap('invalid-base64!');
     
     expect(result).toBeNull();
+    
+    consoleSpy.mockRestore();
   });
 
   it('should handle empty EDT', () => {
@@ -396,5 +409,175 @@ describe('decodePropertyMap', () => {
     const result = decodePropertyMap(edt);
     
     expect(result).toEqual(['01', '0A', '80']);
+  });
+});
+
+describe('Internationalization (i18n)', () => {
+  // Mock getCurrentLocale function
+  vi.mock('./languageHelper', () => ({
+    getCurrentLocale: vi.fn(() => 'en')
+  }));
+
+  const mockPropertyDescriptions: Record<string, PropertyDescriptionData> = {
+    '': {
+      classCode: '',
+      properties: {
+        '80': { description: 'Operation Status' },
+        '81': { description: 'Installation Location' }
+      }
+    },
+    ':ja': {
+      classCode: '',
+      properties: {
+        '80': { description: '動作状態' },
+        '81': { description: '設置場所' }
+      }
+    },
+    '0130': {
+      classCode: '0130',
+      properties: {
+        'B0': { description: 'Set Temperature Value' }
+      }
+    },
+    '0130:ja': {
+      classCode: '0130',
+      properties: {
+        'B0': { description: '設定温度値' }
+      }
+    }
+  };
+
+  describe('getPropertyName', () => {
+    it('should return English property names when lang is "en"', () => {
+      expect(getPropertyName('80', mockPropertyDescriptions, '', 'en')).toBe('Operation Status');
+      expect(getPropertyName('81', mockPropertyDescriptions, '', 'en')).toBe('Installation Location');
+      expect(getPropertyName('B0', mockPropertyDescriptions, '0130', 'en')).toBe('Set Temperature Value');
+    });
+
+    it('should return Japanese property names when lang is "ja"', () => {
+      expect(getPropertyName('80', mockPropertyDescriptions, '', 'ja')).toBe('動作状態');
+      expect(getPropertyName('81', mockPropertyDescriptions, '', 'ja')).toBe('設置場所');
+      expect(getPropertyName('B0', mockPropertyDescriptions, '0130', 'ja')).toBe('設定温度値');
+    });
+
+    it('should fallback to English when Japanese translation is not available', () => {
+      // Test with a property that only has English description
+      const limitedDescriptions = {
+        '': {
+          classCode: '',
+          properties: {
+            '80': { description: 'Operation Status' }
+          }
+        }
+      };
+
+      expect(getPropertyName('80', limitedDescriptions, '', 'ja')).toBe('Operation Status');
+    });
+
+    it('should fallback to EPC format when no description is found', () => {
+      expect(getPropertyName('FF', mockPropertyDescriptions, '', 'en')).toBe('EPC FF');
+      expect(getPropertyName('FF', mockPropertyDescriptions, '', 'ja')).toBe('EPC FF');
+    });
+
+    it('should prioritize class-specific properties over common properties', () => {
+      const descriptionsWithConflict = {
+        '': {
+          classCode: '',
+          properties: {
+            'B0': { description: 'Common B0 Property' }
+          }
+        },
+        '0130': {
+          classCode: '0130',
+          properties: {
+            'B0': { description: 'Set Temperature Value' }
+          }
+        }
+      };
+
+      expect(getPropertyName('B0', descriptionsWithConflict, '0130', 'en')).toBe('Set Temperature Value');
+    });
+  });
+
+  describe('getPropertyDescriptor', () => {
+    const mockDescriptor: PropertyDescriptor = {
+      description: 'Operation Status',
+      aliases: { 'on': 'MA==', 'off': 'MQ==' }
+    };
+
+    const descriptionsWithDescriptor = {
+      '': {
+        classCode: '',
+        properties: {
+          '80': mockDescriptor
+        }
+      },
+      ':ja': {
+        classCode: '',
+        properties: {
+          '80': {
+            description: '動作状態',
+            aliases: { 'on': 'MA==', 'off': 'MQ==' },
+            aliasTranslations: { 'ja': { 'on': 'オン', 'off': 'オフ' } }
+          }
+        }
+      }
+    };
+
+    it('should return English descriptor when lang is "en"', () => {
+      const result = getPropertyDescriptor('80', descriptionsWithDescriptor, '', 'en');
+      expect(result?.description).toBe('Operation Status');
+    });
+
+    it('should return Japanese descriptor when lang is "ja"', () => {
+      const result = getPropertyDescriptor('80', descriptionsWithDescriptor, '', 'ja');
+      expect(result?.description).toBe('動作状態');
+      expect(result?.aliasTranslations?.ja?.on).toBe('オン');
+    });
+
+    it('should fallback to English descriptor when Japanese is not available', () => {
+      const result = getPropertyDescriptor('80', { '': descriptionsWithDescriptor[''] }, '', 'ja');
+      expect(result?.description).toBe('Operation Status');
+    });
+  });
+
+  describe('formatPropertyValue', () => {
+    const descriptorWithTranslations: PropertyDescriptor = {
+      description: 'Operation Status',
+      aliases: {
+        'on': 'MA==',
+        'off': 'MQ=='
+      },
+      aliasTranslations: {
+        'ja': {
+          'on': '動作中',
+          'off': '停止中'
+        }
+      }
+    };
+
+    it('should return English alias values when lang is "en"', () => {
+      expect(formatPropertyValue({ string: 'on' }, descriptorWithTranslations, 'en')).toBe('on');
+      expect(formatPropertyValue({ string: 'off' }, descriptorWithTranslations, 'en')).toBe('off');
+    });
+
+    it('should return Japanese translated alias values when lang is "ja"', () => {
+      expect(formatPropertyValue({ string: 'on' }, descriptorWithTranslations, 'ja')).toBe('動作中');
+      expect(formatPropertyValue({ string: 'off' }, descriptorWithTranslations, 'ja')).toBe('停止中');
+    });
+
+    it('should fallback to original string when translation is not available', () => {
+      expect(formatPropertyValue({ string: 'unknown' }, descriptorWithTranslations, 'ja')).toBe('unknown');
+    });
+
+    it('should handle numeric values with units', () => {
+      const numericDescriptor: PropertyDescriptor = {
+        description: 'Temperature',
+        numberDesc: { min: 0, max: 50, offset: 0, unit: '°C', edtLen: 1 }
+      };
+
+      expect(formatPropertyValue({ number: 25 }, numericDescriptor, 'en')).toBe('25°C');
+      expect(formatPropertyValue({ number: 25 }, numericDescriptor, 'ja')).toBe('25°C');
+    });
   });
 });

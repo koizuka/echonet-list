@@ -195,14 +195,14 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 }
 
 // populateEPCDescriptions converts echonet_lite property descriptions to protocol EPC descriptions
-func populateEPCDescriptions(propTable echonet_lite.PropertyTable, targetMap map[string]protocol.EPCDesc) {
+func populateEPCDescriptions(propTable echonet_lite.PropertyTable, targetMap map[string]protocol.EPCDesc, lang string) {
 	for epc, propDesc := range propTable.EPCDesc {
 		epcStr := epc.String()
 		epcDesc := protocol.EPCDesc{
-			Description: propDesc.Name,
+			Description: propDesc.GetName(lang),
 			Aliases:     make(map[string]string),
 		}
-		// Add aliases if they exist
+		// Add aliases if they exist (always use English aliases)
 		if propDesc.Aliases != nil {
 			for aliasName, edtBytes := range propDesc.Aliases {
 				epcDesc.Aliases[aliasName] = base64.StdEncoding.EncodeToString(edtBytes)
@@ -210,6 +210,10 @@ func populateEPCDescriptions(propTable echonet_lite.PropertyTable, targetMap map
 		}
 		if len(epcDesc.Aliases) == 0 {
 			epcDesc.Aliases = nil // Omit empty map in JSON
+		}
+		// Add alias translations if they exist for the requested language
+		if translations := propDesc.GetAliasTranslations(lang); translations != nil {
+			epcDesc.AliasTranslations = translations
 		}
 		// Check decoder type and populate protocol-specific descriptions
 		if propDesc.Decoder != nil {
@@ -275,14 +279,17 @@ func (ws *WebSocketServer) handleGetPropertyDescriptionFromClient(msg *protocol.
 	// Convert to protocol format
 	propertiesMap := make(map[string]protocol.EPCDesc)
 
+	// Get language from payload, default to empty string (which will use English)
+	lang := payload.Lang
+
 	// Populate common properties first
-	populateEPCDescriptions(echonet_lite.ProfileSuperClass_PropertyTable, propertiesMap)
+	populateEPCDescriptions(echonet_lite.ProfileSuperClass_PropertyTable, propertiesMap, lang)
 
 	// Populate specific class properties (overwriting common ones if necessary)
 	// Only process if classCode is specified (i.e., not empty request)
 	if payload.ClassCode != "" {
 		if classTable, ok := echonet_lite.PropertyTables[classCode]; ok {
-			populateEPCDescriptions(classTable, propertiesMap)
+			populateEPCDescriptions(classTable, propertiesMap, lang)
 		} else {
 			// Log if the specific class table wasn't found, but still return common properties
 			slog.Warn("Property table not found for specific class code", "classCode", payload.ClassCode)

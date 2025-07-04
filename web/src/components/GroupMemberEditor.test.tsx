@@ -3,6 +3,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { GroupMemberEditor } from './GroupMemberEditor';
 import type { Device } from '@/hooks/types';
 
+// Mock languageHelper to always return 'en' for consistent test behavior
+vi.mock('@/libs/languageHelper', () => ({
+  isJapanese: vi.fn(() => false),
+  getCurrentLocale: vi.fn(() => 'en')
+}));
+
 describe('GroupMemberEditor', () => {
   const mockDevices: Record<string, Device> = {
     'device1': {
@@ -11,7 +17,7 @@ describe('GroupMemberEditor', () => {
       name: '029101[Single Function Lighting]',
       id: undefined,
       properties: {
-        '81': { EDT: 'CA==' }, // Installation location: living (Base64 for [8])
+        '81': { EDT: 'CA==', string: 'living' }, // Installation location: living (Base64 for [8])
       },
       lastSeen: '2024-01-01T00:00:00Z',
     },
@@ -21,7 +27,7 @@ describe('GroupMemberEditor', () => {
       name: '013001[Air Conditioner]',
       id: undefined,
       properties: {
-        '81': { EDT: 'GA==' }, // Installation location: kitchen (Base64 for [24])
+        '81': { EDT: 'GA==', string: 'kitchen' }, // Installation location: kitchen (Base64 for [24])
       },
       lastSeen: '2024-01-01T00:00:00Z',
     },
@@ -31,7 +37,7 @@ describe('GroupMemberEditor', () => {
       name: '029101[Single Function Lighting]',
       id: undefined,
       properties: {
-        '81': { EDT: 'QA==' }, // Installation location: bedroom/room (Base64 for [64])
+        '81': { EDT: 'QA==', string: 'room' }, // Installation location: bedroom/room (Base64 for [64])
       },
       lastSeen: '2024-01-01T00:00:00Z',
     },
@@ -87,6 +93,7 @@ describe('GroupMemberEditor', () => {
     const membersSection = screen.getByTestId('group-members-section');
     expect(membersSection).toHaveTextContent('029101[Single Function Lighting]');
     expect(membersSection).toHaveTextContent('192.168.1.1 0x029101');
+    // Installation location should be translated properly now
     expect(membersSection).toHaveTextContent('設置場所: Living Room');
   });
 
@@ -97,10 +104,10 @@ describe('GroupMemberEditor', () => {
     const membersSection = screen.getByTestId('group-members-section');
     expect(membersSection).toHaveTextContent('設置場所: Living Room');
     
-    // Check if location is displayed for available devices
+    // Check if location is displayed for available devices  
     const availableSection = screen.getByTestId('available-devices-section');
     expect(availableSection).toHaveTextContent('設置場所: Kitchen');
-    expect(availableSection).toHaveTextContent('設置場所: Bedroom');
+    expect(availableSection).toHaveTextContent('設置場所: Room');
   });
 
   it('should display non-member devices in the bottom section', () => {
@@ -110,7 +117,7 @@ describe('GroupMemberEditor', () => {
     expect(availableSection).toHaveTextContent('013001[Air Conditioner]');
     expect(availableSection).toHaveTextContent('029101[Single Function Lighting]');
     expect(availableSection).toHaveTextContent('設置場所: Kitchen');
-    expect(availableSection).toHaveTextContent('設置場所: Bedroom');
+    expect(availableSection).toHaveTextContent('設置場所: Room');
   });
 
 
@@ -266,7 +273,7 @@ describe('GroupMemberEditor', () => {
       ...mockDevices.device1,
       id: undefined,
       properties: {
-        '81': { EDT: 'AA==' } // unspecified: Base64 for [0]
+        '81': { EDT: 'AA==', string: 'unspecified' } // unspecified: Base64 for [0]
       }
     };
 

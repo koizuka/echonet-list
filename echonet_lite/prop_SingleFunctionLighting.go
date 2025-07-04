@@ -16,15 +16,59 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyTable {
 	return PropertyTable{
 		ClassCode:   SingleFunctionLighting_ClassCode,
 		Description: "Single Function Lighting",
+		DescriptionMap: map[string]string{
+			"ja": "単機能照明",
+		},
 		EPCDesc: map[EPCType]PropertyDesc{
-			EPC_SF_Illuminance: {"Illuminance level", nil, IlluminanceDesc},
-			EPC_SF_Panasonic_OperationStatus: {"Panasonic Operation Status", map[string][]byte{
-				"on":  {0x30},
-				"off": {0x31},
-			}, nil},
-			EPC_SF_Panasonic_Illuminance:     {"Panasonic Illuminance", nil, IlluminanceDesc},
-			EPC_SF_Panasonic_UnknownStringFD: {"Panasonic Unknown String FD", nil, StringDesc{MaxEDTLen: 255 /* ? */}},
-			EPC_SF_Panasonic_UnknownStringFE: {"Panasonic Unknown String FE", nil, StringDesc{MaxEDTLen: 255 /* ? */}},
+			EPC_SF_Illuminance: {
+				Name: "Illuminance level",
+				NameMap: map[string]string{
+					"ja": "照度レベル",
+				},
+				Aliases: nil,
+				Decoder: IlluminanceDesc,
+			},
+			EPC_SF_Panasonic_OperationStatus: {
+				Name: "Panasonic Operation Status",
+				NameMap: map[string]string{
+					"ja": "パナソニック動作状態",
+				},
+				Aliases: map[string][]byte{
+					"on":  {0x30},
+					"off": {0x31},
+				},
+				AliasTranslations: map[string]map[string]string{
+					"ja": {
+						"on":  "オン",
+						"off": "オフ",
+					},
+				},
+				Decoder: nil,
+			},
+			EPC_SF_Panasonic_Illuminance: {
+				Name: "Panasonic Illuminance",
+				NameMap: map[string]string{
+					"ja": "パナソニック照度",
+				},
+				Aliases: nil,
+				Decoder: IlluminanceDesc,
+			},
+			EPC_SF_Panasonic_UnknownStringFD: {
+				Name: "Panasonic Unknown String FD",
+				NameMap: map[string]string{
+					"ja": "パナソニック不明文字列FD",
+				},
+				Aliases: nil,
+				Decoder: StringDesc{MaxEDTLen: 255 /* ? */},
+			},
+			EPC_SF_Panasonic_UnknownStringFE: {
+				Name: "Panasonic Unknown String FE",
+				NameMap: map[string]string{
+					"ja": "パナソニック不明文字列FE",
+				},
+				Aliases: nil,
+				Decoder: StringDesc{MaxEDTLen: 255 /* ? */},
+			},
 		},
 		DefaultEPCs: []EPCType{
 			EPC_SF_Illuminance,

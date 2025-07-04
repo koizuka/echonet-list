@@ -28,42 +28,174 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 		"on":  {0x41},
 		"off": {0x42},
 	}
+	var FH_OnOffAliasTranslations = map[string]map[string]string{
+		"ja": {
+			"on":  "入",
+			"off": "切",
+		},
+	}
 	MeasuredTemperatureDesc := NumberDesc{Min: -127, Max: 125, Unit: "℃"}
 	ExtraValueAlias := map[string][]byte{
 		"N/A":       {0x7e},
 		"overflow":  {0x7f},
 		"underflow": {0x80},
 	}
+	ExtraValueAliasTranslations := map[string]map[string]string{
+		"ja": {
+			"N/A":       "N/A",
+			"overflow":  "オーバーフロー",
+			"underflow": "アンダーフロー",
+		},
+	}
 
 	return PropertyTable{
 		ClassCode:   FloorHeating_ClassCode,
 		Description: "Floor Heating",
+		DescriptionMap: map[string]string{
+			"ja": "床暖房",
+		},
 		EPCDesc: map[EPCType]PropertyDesc{
-			EPC_FH_TemperatureLevel: {"Temperature setting(level)", map[string][]byte{
-				"auto": {0x41},
-			}, NumberDesc{Min: 1, Max: 15, Offset: 0x30}},
-			EPC_FH_RoomTemperature:  {"Room temperature", ExtraValueAlias, MeasuredTemperatureDesc},
-			EPC_FH_FloorTemperature: {"Floor temperature", ExtraValueAlias, MeasuredTemperatureDesc},
-			EPC_FH_SpecialMode: {"Special mode", map[string][]byte{
-				"normal": {0x41}, // 通常運転
-				"low":    {0x42}, // ひかえめ運転
-				"high":   {0x43}, // ハイパワー運転
-			}, nil},
-			EPC_FH_DailyTimerEnabled: {"Daily timer enabled", map[string][]byte{
-				"off":         {0x40},
-				"dailyTimer1": {0x41},
-				"dailyTimer2": {0x42},
-			}, nil},
-			EPC_FH_DailyTimer1: {"Daily timer1", nil, FH_DailyTimerDesc{}},
-			EPC_FH_DailyTimer2: {"Daily timer2", nil, FH_DailyTimerDesc{}},
+			EPC_FH_TemperatureLevel: {
+				Name: "Temperature setting(level)",
+				NameMap: map[string]string{
+					"ja": "温度設定値",
+				},
+				Aliases: map[string][]byte{
+					"auto": {0x41},
+				},
+				AliasTranslations: map[string]map[string]string{
+					"ja": {
+						"auto": "自動",
+					},
+				},
+				Decoder: NumberDesc{Min: 1, Max: 15, Offset: 0x30},
+			},
+			EPC_FH_RoomTemperature: {
+				Name: "Room temperature",
+				NameMap: map[string]string{
+					"ja": "室内温度計測値",
+				},
+				Aliases:           ExtraValueAlias,
+				AliasTranslations: ExtraValueAliasTranslations,
+				Decoder:           MeasuredTemperatureDesc,
+			},
+			EPC_FH_FloorTemperature: {
+				Name: "Floor temperature",
+				NameMap: map[string]string{
+					"ja": "床温度計測値",
+				},
+				Aliases:           ExtraValueAlias,
+				AliasTranslations: ExtraValueAliasTranslations,
+				Decoder:           MeasuredTemperatureDesc,
+			},
+			EPC_FH_SpecialMode: {
+				Name: "Special mode",
+				NameMap: map[string]string{
+					"ja": "特別運転設定",
+				},
+				Aliases: map[string][]byte{
+					"normal": {0x41}, // 通常運転
+					"low":    {0x42}, // ひかえめ運転
+					"high":   {0x43}, // ハイパワー運転
+				},
+				AliasTranslations: map[string]map[string]string{
+					"ja": {
+						"normal": "通常運転",
+						"low":    "ひかえめ運転",
+						"high":   "ハイパワー運転",
+					},
+				},
+				Decoder: nil,
+			},
+			EPC_FH_DailyTimerEnabled: {
+				Name: "Daily timer enabled",
+				NameMap: map[string]string{
+					"ja": "デイリータイマー設定",
+				},
+				Aliases: map[string][]byte{
+					"off":         {0x40},
+					"dailyTimer1": {0x41},
+					"dailyTimer2": {0x42},
+				},
+				AliasTranslations: map[string]map[string]string{
+					"ja": {
+						"off":         "オフ",
+						"dailyTimer1": "デイリータイマー1",
+						"dailyTimer2": "デイリータイマー2",
+					},
+				},
+				Decoder: nil,
+			},
+			EPC_FH_DailyTimer1: {
+				Name: "Daily timer1",
+				NameMap: map[string]string{
+					"ja": "デイリータイマー1設定値",
+				},
+				Aliases: nil,
+				Decoder: FH_DailyTimerDesc{},
+			},
+			EPC_FH_DailyTimer2: {
+				Name: "Daily timer2",
+				NameMap: map[string]string{
+					"ja": "デイリータイマー2設定値",
+				},
+				Aliases: nil,
+				Decoder: FH_DailyTimerDesc{},
+			},
 
-			EPC_FH_OnTimerEnabled:  {"ON timer enabled", FH_OnOffAlias, nil},
-			EPC_FH_OnTimerHHMM:     {"ON timer setting", nil, FH_HHMMDesc{}},
-			EPC_FH_OffTimerEnabled: {"OFF timer enabled", FH_OnOffAlias, nil},
-			EPC_FH_OffTimerHHMM:    {"OFF timer setting", nil, FH_HHMMDesc{}},
+			EPC_FH_OnTimerEnabled: {
+				Name: "ON timer enabled",
+				NameMap: map[string]string{
+					"ja": "ONタイマ予約設定",
+				},
+				Aliases:           FH_OnOffAlias,
+				AliasTranslations: FH_OnOffAliasTranslations,
+				Decoder:           nil,
+			},
+			EPC_FH_OnTimerHHMM: {
+				Name: "ON timer setting",
+				NameMap: map[string]string{
+					"ja": "ONタイマ設定値",
+				},
+				Aliases: nil,
+				Decoder: FH_HHMMDesc{},
+			},
+			EPC_FH_OffTimerEnabled: {
+				Name: "OFF timer enabled",
+				NameMap: map[string]string{
+					"ja": "OFFタイマ予約設定",
+				},
+				Aliases:           FH_OnOffAlias,
+				AliasTranslations: FH_OnOffAliasTranslations,
+				Decoder:           nil,
+			},
+			EPC_FH_OffTimerHHMM: {
+				Name: "OFF timer setting",
+				NameMap: map[string]string{
+					"ja": "OFFタイマ設定値",
+				},
+				Aliases: nil,
+				Decoder: FH_HHMMDesc{},
+			},
 
-			EPC_FH_Temperature1: {"Temperature sensor 1", ExtraValueAlias, MeasuredTemperatureDesc},
-			EPC_FH_Temperature2: {"Temperature sensor 2", ExtraValueAlias, MeasuredTemperatureDesc},
+			EPC_FH_Temperature1: {
+				Name: "Temperature sensor 1",
+				NameMap: map[string]string{
+					"ja": "温度センサ1",
+				},
+				Aliases:           ExtraValueAlias,
+				AliasTranslations: ExtraValueAliasTranslations,
+				Decoder:           MeasuredTemperatureDesc,
+			},
+			EPC_FH_Temperature2: {
+				Name: "Temperature sensor 2",
+				NameMap: map[string]string{
+					"ja": "温度センサ2",
+				},
+				Aliases:           ExtraValueAlias,
+				AliasTranslations: ExtraValueAliasTranslations,
+				Decoder:           MeasuredTemperatureDesc,
+			},
 		},
 		DefaultEPCs: []EPCType{
 			EPC_FH_TemperatureLevel,

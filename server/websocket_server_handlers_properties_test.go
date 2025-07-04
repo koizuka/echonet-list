@@ -194,7 +194,7 @@ func TestPopulateEPCDescriptions(t *testing.T) {
 	targetMap := make(map[string]protocol.EPCDesc)
 
 	// 3. Call the function under test
-	populateEPCDescriptions(mockTable, targetMap)
+	populateEPCDescriptions(mockTable, targetMap, "en")
 
 	// 4. Assert the results for each EPC
 	// Check EncoderImplemented (0x80)

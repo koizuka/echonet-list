@@ -1,6 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PropertyMapViewer } from './PropertyMapViewer';
 import type { Device } from '@/hooks/types';
+import { describe, it, expect, vi } from 'vitest';
+
+// Mock languageHelper to always return 'en' for consistent test behavior
+vi.mock('@/libs/languageHelper', () => ({
+  isJapanese: vi.fn(() => false),
+  getCurrentLocale: vi.fn(() => 'en')
+}));
 
 const mockPropertyDescriptions = {
   '': {
@@ -119,6 +126,9 @@ describe('PropertyMapViewer', () => {
   });
 
   it('handles Base64 decode errors gracefully', () => {
+    // Mock console.warn to suppress expected error output
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
     const device: Device = {
       ip: '192.168.1.100',
       eoj: '0130:1',
@@ -139,6 +149,8 @@ describe('PropertyMapViewer', () => {
 
     // Should handle error gracefully and not render the property map
     expect(screen.queryByText(/Set Property Map/)).not.toBeInTheDocument();
+    
+    consoleSpy.mockRestore();
   });
 
   it('does not render property maps that are not present', () => {
@@ -154,7 +166,7 @@ describe('PropertyMapViewer', () => {
     );
 
     expect(screen.getByText('Set Property Map (1)')).toBeInTheDocument();
-    expect(screen.queryByText(/Status Change Announcement Property Map/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/EPC 9D/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Get Property Map/)).not.toBeInTheDocument();
   });
 
