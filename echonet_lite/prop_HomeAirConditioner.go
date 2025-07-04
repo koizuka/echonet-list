@@ -21,38 +21,145 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 		"underflow": {0xFE},
 		"overflow":  {0xFF},
 	}
+	ExtraValueAliasTranslations := map[string]map[string]string{
+		"ja": {
+			"unknown":   "不明",
+			"underflow": "アンダーフロー",
+			"overflow":  "オーバーフロー",
+		},
+	}
 	HumidityDesc := NumberDesc{Min: 0, Max: 100, Unit: "%"}
 
 	return PropertyTable{
 		ClassCode:   HomeAirConditioner_ClassCode,
 		Description: "Home Air Conditioner",
+		DescriptionMap: map[string]string{
+			"ja": "家庭用エアコン",
+		},
 		EPCDesc: map[EPCType]PropertyDesc{
-			EPC_HAC_AirVolumeSetting: {"Air volume setting", map[string][]byte{
-				"auto": {0x41},
-			}, NumberDesc{Min: 1, Max: 8, Offset: 0x30}},
-			EPC_HAC_AirDirectionSwingSetting: {"Air direction swing setting", map[string][]byte{
-				"off":        {0x31},
-				"vertical":   {0x41},
-				"horizontal": {0x42},
-				"both":       {0x43},
-			}, nil},
-			EPC_HAC_OperationModeSetting: {"Operation mode setting", map[string][]byte{
-				"auto":    {0x41},
-				"cooling": {0x42},
-				"heating": {0x43},
-				"dry":     {0x44},
-				"fan":     {0x45},
-				"other":   {0x40},
-			}, nil},
-			EPC_HAC_TemperatureSetting:        {"Temperature setting", ExtraValueAlias, TemperatureSettingDesc},
-			EPC_HAC_RelativeHumiditySetting:   {"Relative humidity setting", ExtraValueAlias, HumidityDesc},
-			EPC_HAC_CurrentRoomHumidity:       {"Current room humidity", ExtraValueAlias, HumidityDesc},
-			EPC_HAC_CurrentRoomTemperature:    {"Current room temperature", ExtraValueAlias, MeasuredTemperatureDesc},
-			EPC_HAC_CurrentOutsideTemperature: {"Current outside temperature", ExtraValueAlias, MeasuredTemperatureDesc},
-			EPC_HAC_HumidificationModeSetting: {"Humidification mode setting", map[string][]byte{
-				"on":  {0x41},
-				"off": {0x42},
-			}, nil},
+			EPC_HAC_AirVolumeSetting: {
+				Name: "Air volume setting",
+				NameMap: map[string]string{
+					"ja": "風量設定",
+				},
+				Aliases: map[string][]byte{
+					"auto": {0x41},
+				},
+				AliasTranslations: map[string]map[string]string{
+					"ja": {
+						"auto": "自動",
+					},
+				},
+				Decoder: NumberDesc{Min: 1, Max: 8, Offset: 0x30},
+			},
+			EPC_HAC_AirDirectionSwingSetting: {
+				Name: "Air direction swing setting",
+				NameMap: map[string]string{
+					"ja": "風向スイング設定",
+				},
+				Aliases: map[string][]byte{
+					"off":        {0x31},
+					"vertical":   {0x41},
+					"horizontal": {0x42},
+					"both":       {0x43},
+				},
+				AliasTranslations: map[string]map[string]string{
+					"ja": {
+						"off":        "停止",
+						"vertical":   "上下",
+						"horizontal": "左右",
+						"both":       "上下左右",
+					},
+				},
+				Decoder: nil,
+			},
+			EPC_HAC_OperationModeSetting: {
+				Name: "Operation mode setting",
+				NameMap: map[string]string{
+					"ja": "運転モード設定",
+				},
+				Aliases: map[string][]byte{
+					"auto":    {0x41},
+					"cooling": {0x42},
+					"heating": {0x43},
+					"dry":     {0x44},
+					"fan":     {0x45},
+					"other":   {0x40},
+				},
+				AliasTranslations: map[string]map[string]string{
+					"ja": {
+						"auto":    "自動",
+						"cooling": "冷房",
+						"heating": "暖房",
+						"dry":     "除湿",
+						"fan":     "送風",
+						"other":   "その他",
+					},
+				},
+				Decoder: nil,
+			},
+			EPC_HAC_TemperatureSetting: {
+				Name: "Temperature setting",
+				NameMap: map[string]string{
+					"ja": "温度設定値",
+				},
+				Aliases:           ExtraValueAlias,
+				AliasTranslations: ExtraValueAliasTranslations,
+				Decoder:           TemperatureSettingDesc,
+			},
+			EPC_HAC_RelativeHumiditySetting: {
+				Name: "Relative humidity setting",
+				NameMap: map[string]string{
+					"ja": "除湿モード時相対湿度設定値",
+				},
+				Aliases:           ExtraValueAlias,
+				AliasTranslations: ExtraValueAliasTranslations,
+				Decoder:           HumidityDesc,
+			},
+			EPC_HAC_CurrentRoomHumidity: {
+				Name: "Current room humidity",
+				NameMap: map[string]string{
+					"ja": "室内相対湿度計測値",
+				},
+				Aliases:           ExtraValueAlias,
+				AliasTranslations: ExtraValueAliasTranslations,
+				Decoder:           HumidityDesc,
+			},
+			EPC_HAC_CurrentRoomTemperature: {
+				Name: "Current room temperature",
+				NameMap: map[string]string{
+					"ja": "室内温度計測値",
+				},
+				Aliases:           ExtraValueAlias,
+				AliasTranslations: ExtraValueAliasTranslations,
+				Decoder:           MeasuredTemperatureDesc,
+			},
+			EPC_HAC_CurrentOutsideTemperature: {
+				Name: "Current outside temperature",
+				NameMap: map[string]string{
+					"ja": "屋外温度計測値",
+				},
+				Aliases:           ExtraValueAlias,
+				AliasTranslations: ExtraValueAliasTranslations,
+				Decoder:           MeasuredTemperatureDesc,
+			},
+			EPC_HAC_HumidificationModeSetting: {
+				Name: "Humidification mode setting",
+				NameMap: map[string]string{
+					"ja": "加湿モード設定",
+				},
+				Aliases: map[string][]byte{
+					"on":  {0x41},
+					"off": {0x42},
+				},
+				AliasTranslations: map[string]map[string]string{
+					"ja": {
+						"on":  "入",
+						"off": "切",
+					},
+				},
+				Decoder: nil,
+			},
 		},
 		DefaultEPCs: []EPCType{
 			EPC_HAC_OperationModeSetting,

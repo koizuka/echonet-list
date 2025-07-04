@@ -1,5 +1,6 @@
 import { useCallback, useReducer } from 'react';
 import { useWebSocketConnection } from './useWebSocketConnection';
+import { getCurrentLocale } from '../libs/languageHelper';
 import type {
   ECHONETState,
   Device,
@@ -163,7 +164,7 @@ export type ECHONETHook = {
   listGroups: (group: string) => Promise<unknown>;
   
   // Property description operations
-  getPropertyDescription: (classCode: string) => Promise<PropertyDescriptionData>;
+  getPropertyDescription: (classCode: string, lang?: string) => Promise<PropertyDescriptionData>;
   
   // Connection operations
   connect: () => void;
@@ -391,22 +392,30 @@ export function useECHONET(
   }, [connection]);
 
   // Property description operations
-  const getPropertyDescription = useCallback(async (classCode: string): Promise<PropertyDescriptionData> => {
-    // Check cache first
-    if (state.propertyDescriptions[classCode]) {
-      return state.propertyDescriptions[classCode];
+  const getPropertyDescription = useCallback(async (classCode: string, lang?: string): Promise<PropertyDescriptionData> => {
+    const currentLang = lang || getCurrentLocale();
+    const cacheKey = `${classCode}:${currentLang}`;
+    
+    // Check cache first (with language-specific key)
+    if (state.propertyDescriptions[cacheKey]) {
+      return state.propertyDescriptions[cacheKey];
+    }
+
+    const payload: { classCode: string; lang?: string } = { classCode };
+    if (currentLang !== 'en') {
+      payload.lang = currentLang;
     }
 
     const data = await connection.sendMessage({
       type: 'get_property_description',
-      payload: { classCode },
+      payload,
       requestId: '',
     }) as PropertyDescriptionData;
 
-    // Cache the result
+    // Cache the result with language-specific key
     dispatch({
       type: 'SET_PROPERTY_DESCRIPTION',
-      payload: { classCode, data },
+      payload: { classCode: cacheKey, data },
     });
 
     return data;

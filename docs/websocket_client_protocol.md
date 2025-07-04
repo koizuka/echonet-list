@@ -467,19 +467,27 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 ECHONET Lite のプロパティ値 (EDT) はバイト列であり直接扱うのが難しいため、この API はクライアントがプロパティ値を解釈し、適切な UI (選択肢、スライダー、テキスト入力など) を提供するのを助けます。
 
-応答は `command_result` メッセージで返されます。取得した情報の詳細な意味と、それを利用した UI 実装のガイドラインについては、**[クライアント UI 開発ガイド](./client_ui_development_guide.md)** を参照してください。
+#### 国際化対応
+
+このAPIは多言語対応を提供しており、`lang` パラメータで言語を指定できます：
 
 ```json
 {
   "type": "get_property_description",
   "payload": {
-    "classCode": "0130" // 例: Home Air Conditioner
+    "classCode": "0130", // 例: Home Air Conditioner
+    "lang": "ja"         // 言語コード (オプション)
   },
   "requestId": "req-128"
 }
 ```
 
 - `classCode`: 4桁の16進数クラスコード（例: "0130" = エアコン）。**空文字列 (`""`) を指定した場合、共通プロパティ（ProfileSuperClass）の情報のみを返します。**
+- `lang`: 言語コード（オプション）。指定可能な値：
+  - `"ja"`: 日本語
+  - `"en"` または省略: 英語（デフォルト）
+
+応答は `command_result` メッセージで返されます。取得した情報の詳細な意味と、それを利用した UI 実装のガイドラインについては、**[クライアント UI 開発ガイド](./client_ui_development_guide.md)** を参照してください。
 
 ## 6. サーバー -> クライアント メッセージ（応答）
 
@@ -507,7 +515,7 @@ ECHONET Lite のプロパティ値 (EDT) はバイト列であり直接扱うの
 応答ペイロードの `data` フィールドには `PropertyDescriptionData` オブジェクトが含まれます。このオブジェクトの詳細な構造と各フィールドの意味、および UI での活用方法については、**[クライアント UI 開発ガイド](./client_ui_development_guide.md)** を参照してください。
 
 ```json
-// 応答例 (構造の概要)
+// 応答例 (英語版、lang="en" または省略時)
 {
   "type": "command_result",
   "payload": {
@@ -538,6 +546,45 @@ ECHONET Lite のプロパティ値 (EDT) はバイト列であり直接扱うの
   "requestId": "req-128" // 対応するリクエストID
 }
 ```
+
+```json
+// 応答例 (日本語版、lang="ja"時)
+{
+  "type": "command_result",
+  "payload": {
+    "success": true,
+    "data": {
+      "classCode": "0130",
+      "properties": {
+        "80": {
+          "description": "動作状態",
+          "aliases": { "on": "MzA=", "off": "MzE=" },
+          "aliasTranslations": { "on": "オン", "off": "オフ" }
+        },
+        "B3": {
+          "description": "温度設定値",
+          "numberDesc": { "min": 0, "max": 50, "unit": "C", ... }
+        },
+        "8C": {
+           "description": "商品コード",
+           "stringDesc": { "maxEDTLen": 12, ... },
+           "stringSettable": true
+        }
+        // ... 他のプロパティ定義
+      }
+    }
+  },
+  "requestId": "req-128"
+}
+```
+
+#### 国際化応答フィールド
+
+- `description`: プロパティの説明文（指定した言語）
+- `aliases`: プロパティのエイリアス値（常に英語キー）
+- `aliasTranslations`: エイリアスの翻訳テーブル（指定した言語での表示名）
+
+**重要**: プロパティ設定時は `aliases` の英語キーを使用してください。`aliasTranslations` は表示目的のみです。
 
 **失敗時の例（共通）：**
 
@@ -812,11 +859,14 @@ async function setDeviceProperties(targetDevice: string, properties: Record<stri
 }
 
 // プロパティ詳細情報取得
-async function getPropertyDescription(classCode: string) {
+async function getPropertyDescription(classCode: string, lang?: string) {
   try {
     const payload = { classCode: classCode };
+    if (lang) {
+      payload.lang = lang;
+    }
     const resultData = await sendRequest("get_property_description", payload);
-    console.log(`Property description for class ${classCode}:`, resultData);
+    console.log(`Property description for class ${classCode} (${lang || 'en'}):`, resultData);
     // resultData は PropertyDescriptionData オブジェクト
     return resultData;
   } catch (error) {
@@ -892,7 +942,8 @@ async function listGroups(groupName?: string) {
 
 // 使用例:
 // 接続確立後（onopen内）で実行するか、initial_state受信後に実行
-// getPropertyDescription("0130"); // エアコンのプロパティ詳細を取得
+// getPropertyDescription("0130"); // エアコンのプロパティ詳細を取得（英語）
+// getPropertyDescription("0130", "ja"); // エアコンのプロパティ詳細を取得（日本語）
 // getDeviceProperties("192.168.1.10 0130:1", ["80", "B0"]);
 // addGroup("@living_room", ["013001:00000B:ABCDEF0123456789ABCDEF012345", "029001:000005:FEDCBA9876543210FEDCBA987654"]); // 例
 ```

@@ -42,42 +42,218 @@ var ManufacturerCodeEDTs = map[string][]byte{
 
 var ProfileSuperClass_PropertyTable = PropertyTable{
 	Description: "Profile Super Class",
+	DescriptionMap: map[string]string{
+		"ja": "プロファイルスーパークラス",
+	},
 	EPCDesc: map[EPCType]PropertyDesc{
-		EPCOperationStatus: {"Operation status", map[string][]byte{
-			"on":  {0x30},
-			"off": {0x31},
-		}, nil},
-		EPCInstallationLocation:                  {"Installation location", InstallationLocationAliases(), nil},
-		EPCStandardVersion:                       {"Standard version", nil, StandardVersionDesc{}},
-		EPCIdentificationNumber:                  {"Identification number", nil, IdentificationNumberDesc{}},
-		EPCMeasuredInstantaneousPowerConsumption: {"Measured instantaneous power consumption", nil, NumberDesc{EDTLen: 2, Max: 65533, Unit: "W"}},
-		EPCMeasuredCumulativePowerConsumption:    {"Measured cumulative power consumption", nil, CumulativePowerConsumptionDesc{}},
-		EPCManufacturerFaultCode:                 {"Manufacturer fault code", nil, nil},
-		EPCCurrentLimitSetting:                   {"Current limit setting", nil, nil},
-		EPCFaultStatus: {"Fault occurrence status", map[string][]byte{
-			"fault":    {0x41},
-			"no_fault": {0x42},
-		}, nil},
-		EPCFaultDescription:     {"Fault description", nil, nil},
-		EPCManufacturerCode:     {"Manufacturer code", ManufacturerCodeEDTs, nil},
-		EPCBusinessFacilityCode: {"Business facility code", nil, nil},
-		EPCProductCode:          {"Product code", nil, StringDesc{MinEDTLen: 12, MaxEDTLen: 12}},
-		EPCProductionNumber:     {"Production number", nil, StringDesc{MinEDTLen: 12, MaxEDTLen: 12}},
-		EPCProductionDate:       {"Production date", nil, DateDesc{}},
-		EPCPowerSavingOperationSetting: {"Power saving operation setting", map[string][]byte{
-			"power_saving": {0x41},
-			"normal":       {0x42},
-		}, nil},
-		EPCRemoteControlSetting: {"Remote control setting", map[string][]byte{
-			"not_public_line":       {0x41}, // 公衆回線を経由しない制御
-			"public_line":           {0x42}, // 公衆回線経由の制御
-			"not_pubic_line_normal": {0x61}, // 通信回線正常（公衆回線経由の操作不可）
-			"public_line_normal":    {0x62}, // 通信回線正常（公衆回線経由の操作可能）
-		}, nil},
-		EPCCurrentDate:                   {"Current date", nil, DateDesc{}},
-		EPCStatusAnnouncementPropertyMap: {"Status announcement property map", nil, PropertyMapDesc{}},
-		EPCSetPropertyMap:                {"Set property map", nil, PropertyMapDesc{}},
-		EPCGetPropertyMap:                {"Get property map", nil, PropertyMapDesc{}},
+		EPCOperationStatus: {
+			Name: "Operation status",
+			NameMap: map[string]string{
+				"ja": "動作状態",
+			},
+			Aliases: map[string][]byte{
+				"on":  {0x30},
+				"off": {0x31},
+			},
+			AliasTranslations: map[string]map[string]string{
+				"ja": {
+					"on":  "動作中",
+					"off": "停止中",
+				},
+			},
+			Decoder: nil,
+		},
+		EPCInstallationLocation: {
+			Name: "Installation location",
+			NameMap: map[string]string{
+				"ja": "設置場所",
+			},
+			Aliases: InstallationLocationAliases(),
+			Decoder: nil,
+		},
+		EPCStandardVersion: {
+			Name: "Standard version",
+			NameMap: map[string]string{
+				"ja": "規格Version情報",
+			},
+			Aliases: nil,
+			Decoder: StandardVersionDesc{},
+		},
+		EPCIdentificationNumber: {
+			Name: "Identification number",
+			NameMap: map[string]string{
+				"ja": "識別番号",
+			},
+			Aliases: nil,
+			Decoder: IdentificationNumberDesc{},
+		},
+		EPCMeasuredInstantaneousPowerConsumption: {
+			Name: "Measured instantaneous power consumption",
+			NameMap: map[string]string{
+				"ja": "瞬時電力計測値",
+			},
+			Aliases: nil,
+			Decoder: NumberDesc{EDTLen: 2, Max: 65533, Unit: "W"},
+		},
+		EPCMeasuredCumulativePowerConsumption: {
+			Name: "Measured cumulative power consumption",
+			NameMap: map[string]string{
+				"ja": "積算電力量計測値",
+			},
+			Aliases: nil,
+			Decoder: CumulativePowerConsumptionDesc{},
+		},
+		EPCManufacturerFaultCode: {
+			Name: "Manufacturer fault code",
+			NameMap: map[string]string{
+				"ja": "メーカ異常コード",
+			},
+			Aliases: nil,
+			Decoder: nil,
+		},
+		EPCCurrentLimitSetting: {
+			Name: "Current limit setting",
+			NameMap: map[string]string{
+				"ja": "電流制限設定",
+			},
+			Aliases: nil,
+			Decoder: nil,
+		},
+		EPCFaultStatus: {
+			Name: "Fault occurrence status",
+			NameMap: map[string]string{
+				"ja": "異常発生状況",
+			},
+			Aliases: map[string][]byte{
+				"fault":    {0x41},
+				"no_fault": {0x42},
+			},
+			AliasTranslations: map[string]map[string]string{
+				"ja": {
+					"fault":    "異常あり",
+					"no_fault": "異常なし",
+				},
+			},
+			Decoder: nil,
+		},
+		EPCFaultDescription: {
+			Name: "Fault description",
+			NameMap: map[string]string{
+				"ja": "異常内容",
+			},
+			Aliases: nil,
+			Decoder: nil,
+		},
+		EPCManufacturerCode: {
+			Name: "Manufacturer code",
+			NameMap: map[string]string{
+				"ja": "メーカコード",
+			},
+			Aliases: ManufacturerCodeEDTs,
+			Decoder: nil,
+		},
+		EPCBusinessFacilityCode: {
+			Name: "Business facility code",
+			NameMap: map[string]string{
+				"ja": "事業場コード",
+			},
+			Aliases: nil,
+			Decoder: nil,
+		},
+		EPCProductCode: {
+			Name: "Product code",
+			NameMap: map[string]string{
+				"ja": "商品コード",
+			},
+			Aliases: nil,
+			Decoder: StringDesc{MinEDTLen: 12, MaxEDTLen: 12},
+		},
+		EPCProductionNumber: {
+			Name: "Production number",
+			NameMap: map[string]string{
+				"ja": "製造番号",
+			},
+			Aliases: nil,
+			Decoder: StringDesc{MinEDTLen: 12, MaxEDTLen: 12},
+		},
+		EPCProductionDate: {
+			Name: "Production date",
+			NameMap: map[string]string{
+				"ja": "製造年月日",
+			},
+			Aliases: nil,
+			Decoder: DateDesc{},
+		},
+		EPCPowerSavingOperationSetting: {
+			Name: "Power saving operation setting",
+			NameMap: map[string]string{
+				"ja": "節電動作設定",
+			},
+			Aliases: map[string][]byte{
+				"power_saving": {0x41},
+				"normal":       {0x42},
+			},
+			AliasTranslations: map[string]map[string]string{
+				"ja": {
+					"power_saving": "節電中",
+					"normal":       "通常",
+				},
+			},
+			Decoder: nil,
+		},
+		EPCRemoteControlSetting: {
+			Name: "Remote control setting",
+			NameMap: map[string]string{
+				"ja": "遠隔操作設定",
+			},
+			Aliases: map[string][]byte{
+				"not_public_line":       {0x41}, // 公衆回線を経由しない制御
+				"public_line":           {0x42}, // 公衆回線経由の制御
+				"not_pubic_line_normal": {0x61}, // 通信回線正常（公衆回線経由の操作不可）
+				"public_line_normal":    {0x62}, // 通信回線正常（公衆回線経由の操作可能）
+			},
+			AliasTranslations: map[string]map[string]string{
+				"ja": {
+					"not_public_line":       "公衆回線経由不可",
+					"public_line":           "公衆回線経由可",
+					"not_pubic_line_normal": "回線正常（遠隔不可）",
+					"public_line_normal":    "回線正常（遠隔可）",
+				},
+			},
+			Decoder: nil,
+		},
+		EPCCurrentDate: {
+			Name: "Current date",
+			NameMap: map[string]string{
+				"ja": "現在年月日",
+			},
+			Aliases: nil,
+			Decoder: DateDesc{},
+		},
+		EPCStatusAnnouncementPropertyMap: {
+			Name: "Status announcement property map",
+			NameMap: map[string]string{
+				"ja": "状変アナウンスプロパティマップ",
+			},
+			Aliases: nil,
+			Decoder: PropertyMapDesc{},
+		},
+		EPCSetPropertyMap: {
+			Name: "Set property map",
+			NameMap: map[string]string{
+				"ja": "Setプロパティマップ",
+			},
+			Aliases: nil,
+			Decoder: PropertyMapDesc{},
+		},
+		EPCGetPropertyMap: {
+			Name: "Get property map",
+			NameMap: map[string]string{
+				"ja": "Getプロパティマップ",
+			},
+			Aliases: nil,
+			Decoder: PropertyMapDesc{},
+		},
 	},
 	DefaultEPCs: []EPCType{
 		EPCOperationStatus,

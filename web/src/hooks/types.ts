@@ -191,6 +191,7 @@ export type StringDesc = {
 export type PropertyDescriptor = {
   description: string;
   aliases?: PropertyAlias;
+  aliasTranslations?: Record<string, Record<string, string>>; // language -> alias translation table
   numberDesc?: NumberDesc;
   stringDesc?: StringDesc;
   stringSettable?: boolean;

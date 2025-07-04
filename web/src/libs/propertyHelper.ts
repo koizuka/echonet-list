@@ -1,25 +1,47 @@
 // Utility functions for working with ECHONET property descriptions
 
 import type { PropertyDescriptionData, PropertyDescriptor, Device } from '@/hooks/types';
+import { getCurrentLocale } from './languageHelper';
 
 /**
  * Gets the human-readable property name for an EPC
  * Falls back to "EPC {epc}" if no description is found
+ * Supports language-aware lookups using cached property descriptions
  */
 export function getPropertyName(
   epc: string,
   propertyDescriptions: Record<string, PropertyDescriptionData>,
-  classCode?: string
+  classCode?: string,
+  lang?: string
 ): string {
-  // Try to find the property description for the specific class code
-  if (classCode && propertyDescriptions[classCode]) {
-    const property = propertyDescriptions[classCode].properties[epc];
-    if (property?.description) {
-      return property.description;
+  const currentLang = lang || getCurrentLocale();
+  
+  // Try to find the property description for the specific class code with language
+  if (classCode) {
+    const langSpecificKey = `${classCode}:${currentLang}`;
+    if (propertyDescriptions[langSpecificKey]) {
+      const property = propertyDescriptions[langSpecificKey].properties[epc];
+      if (property?.description) {
+        return property.description;
+      }
+    }
+    
+    // Fallback to English if not found in requested language
+    if (propertyDescriptions[classCode]) {
+      const property = propertyDescriptions[classCode].properties[epc];
+      if (property?.description) {
+        return property.description;
+      }
     }
   }
 
-  // Try to find in common properties (classCode "")
+  // Try to find in common properties (classCode "") with language
+  const commonLangKey = `:${currentLang}`;
+  if (propertyDescriptions[commonLangKey]?.properties[epc]?.description) {
+    return propertyDescriptions[commonLangKey].properties[epc].description;
+  }
+  
+  // Fallback to English common properties
   const commonProperties = propertyDescriptions[""];
   if (commonProperties?.properties[epc]?.description) {
     return commonProperties.properties[epc].description;
@@ -32,21 +54,42 @@ export function getPropertyName(
 /**
  * Gets the property descriptor for an EPC
  * Returns undefined if not found
+ * Supports language-aware lookups using cached property descriptions
  */
 export function getPropertyDescriptor(
   epc: string,
   propertyDescriptions: Record<string, PropertyDescriptionData>,
-  classCode?: string
+  classCode?: string,
+  lang?: string
 ): PropertyDescriptor | undefined {
-  // Try to find the property description for the specific class code
-  if (classCode && propertyDescriptions[classCode]) {
-    const property = propertyDescriptions[classCode].properties[epc];
-    if (property) {
-      return property;
+  const currentLang = lang || getCurrentLocale();
+  
+  // Try to find the property description for the specific class code with language
+  if (classCode) {
+    const langSpecificKey = `${classCode}:${currentLang}`;
+    if (propertyDescriptions[langSpecificKey]) {
+      const property = propertyDescriptions[langSpecificKey].properties[epc];
+      if (property) {
+        return property;
+      }
+    }
+    
+    // Fallback to English if not found in requested language
+    if (propertyDescriptions[classCode]) {
+      const property = propertyDescriptions[classCode].properties[epc];
+      if (property) {
+        return property;
+      }
     }
   }
 
-  // Try to find in common properties (classCode "")
+  // Try to find in common properties (classCode "") with language
+  const commonLangKey = `:${currentLang}`;
+  if (propertyDescriptions[commonLangKey]?.properties[epc]) {
+    return propertyDescriptions[commonLangKey].properties[epc];
+  }
+  
+  // Fallback to English common properties
   const commonProperties = propertyDescriptions[""];
   if (commonProperties?.properties[epc]) {
     return commonProperties.properties[epc];
@@ -107,13 +150,24 @@ export function isPropertySettable(epc: string, device: Device): boolean {
 
 /**
  * Formats a property value using aliases if available
+ * Supports localized alias translations
  */
 export function formatPropertyValue(
   value: { EDT?: string; string?: string; number?: number },
-  descriptor?: PropertyDescriptor
+  descriptor?: PropertyDescriptor,
+  lang?: string
 ): string {
+  const currentLang = lang || getCurrentLocale();
+  
   // If we have a string representation, use it
   if (value.string) {
+    // Try to translate using aliasTranslations if available
+    if (descriptor?.aliasTranslations && currentLang !== 'en') {
+      const translation = descriptor.aliasTranslations[currentLang]?.[value.string];
+      if (translation) {
+        return translation;
+      }
+    }
     return value.string;
   }
 
@@ -130,6 +184,13 @@ export function formatPropertyValue(
       // Find matching alias
       for (const [aliasName, aliasEDT] of Object.entries(descriptor.aliases)) {
         if (atob(aliasEDT) === edtBytes) {
+          // Try to translate the alias name if translations are available
+          if (descriptor.aliasTranslations && currentLang !== 'en') {
+            const translation = descriptor.aliasTranslations[currentLang]?.[aliasName];
+            if (translation) {
+              return translation;
+            }
+          }
           return aliasName;
         }
       }
@@ -149,9 +210,10 @@ export function formatPropertyValueWithTranslation(
   value: { EDT?: string; string?: string; number?: number },
   descriptor?: PropertyDescriptor,
   epc?: string,
-  translateFunc?: (value: string) => string
+  translateFunc?: (value: string) => string,
+  lang?: string
 ): string {
-  const formattedValue = formatPropertyValue(value, descriptor);
+  const formattedValue = formatPropertyValue(value, descriptor, lang);
   
   // Translate Installation Location (EPC 0x81)
   // Try to translate both the original string value and the decoded alias name
@@ -197,12 +259,13 @@ export function edtToHexString(edt: string): string | null {
  */
 export function shouldShowHexViewer(
   value: { EDT?: string; string?: string; number?: number },
-  descriptor?: PropertyDescriptor
+  descriptor?: PropertyDescriptor,
+  lang?: string
 ): boolean {
   // Only show for values that have EDT but format as "Raw data"
   if (!value.EDT) return false;
   
-  const formattedValue = formatPropertyValue(value, descriptor);
+  const formattedValue = formatPropertyValue(value, descriptor, lang);
   return formattedValue === 'Raw data';
 }
 

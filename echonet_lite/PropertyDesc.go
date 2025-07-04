@@ -10,9 +10,33 @@ import (
 
 // PropertyDesc はプロパティの情報を表します。
 type PropertyDesc struct {
-	Name    string            // 説明
-	Aliases map[string][]byte // Alias names for EDT values (e.g., "on" -> []byte{0x30})
-	Decoder PropertyDecoder   // デコーダ。PropertyEncoderも実装すると、文字列から変換できる。
+	Name              string                       // 説明（英語のデフォルト値）
+	NameMap           map[string]string            // 言語別の説明 (e.g., "ja" -> "照度レベル")
+	Aliases           map[string][]byte            // Alias names for EDT values (e.g., "on" -> []byte{0x30})
+	AliasTranslations map[string]map[string]string // Alias翻訳テーブル (e.g., "ja" -> {"on" -> "オン"})
+	Decoder           PropertyDecoder              // デコーダ。PropertyEncoderも実装すると、文字列から変換できる。
+}
+
+// GetName returns the property name for the specified language.
+// If the language is not found in NameMap, it returns the default Name.
+func (p PropertyDesc) GetName(lang string) string {
+	if p.NameMap != nil && lang != "" && lang != "en" {
+		if name, ok := p.NameMap[lang]; ok {
+			return name
+		}
+	}
+	return p.Name
+}
+
+// GetAliasTranslations returns the alias translations for the specified language.
+// If the language is not found in AliasTranslations, it returns nil.
+func (p PropertyDesc) GetAliasTranslations(lang string) map[string]string {
+	if p.AliasTranslations != nil && lang != "" && lang != "en" {
+		if translations, ok := p.AliasTranslations[lang]; ok {
+			return translations
+		}
+	}
+	return nil
 }
 
 func (p PropertyDesc) ToEDT(value string) ([]byte, bool) {
@@ -36,7 +60,7 @@ func (p PropertyDesc) ToEDT(value string) ([]byte, bool) {
 func (p PropertyDesc) EDTToString(EDT []byte) string {
 	if p.Aliases != nil {
 		for alias, value := range p.Aliases {
-			if string(EDT) == string(value) {
+			if bytes.Equal(EDT, value) {
 				return alias
 			}
 		}

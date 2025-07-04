@@ -46,6 +46,7 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
 - **デバイスエイリアス表示**: エイリアス名での分かりやすいデバイス識別
 - **レスポンシブデザイン**: モバイル・デスクトップ対応
 - **リアルタイム更新**: WebSocketによるプロパティ変更のリアルタイム反映
+- **国際化対応**: 日本語・英語対応のプロパティ表示（`get_property_description` API の `lang` パラメータ）
 
 ### プロパティ表示の仕組み
 
@@ -156,6 +157,42 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
 1. ブラウザの開発者ツールでWebSocketメッセージを確認
 2. `formatPropertyValue` 関数の戻り値を確認
 3. デバイスの `properties` オブジェクトに該当EPCが含まれているか確認
+
+## 国際化対応の実装
+
+### 概要
+
+- PropertyTable と PropertyDesc に多言語対応機能を実装済み
+- WebSocket API (`get_property_description`) で `lang` パラメータをサポート
+- 現在サポート言語: 英語（デフォルト）、日本語
+
+### 主要実装ファイル
+
+- `echonet_lite/PropertyDesc.go`: PropertyDesc 構造体の言語対応フィールド
+- `echonet_lite/Property.go`: PropertyTable 構造体の言語対応フィールド  
+- `protocol/protocol.go`: WebSocket プロトコルの言語パラメータ
+- `server/websocket_server_handlers_properties.go`: 言語対応レスポンス処理
+- `docs/internationalization.md`: 国際化対応の詳細ガイド
+
+### 設計原則
+
+1. **通信では英語キーを使用**: `set_properties` などの操作では `aliases` の英語キーを使用
+2. **表示は翻訳を使用**: UI表示では `aliasTranslations` の値を使用  
+3. **後方互換性**: 既存コードは変更なしで動作
+
+### 使用例
+
+```json
+{
+  "type": "get_property_description", 
+  "payload": {
+    "classCode": "0291",
+    "lang": "ja"
+  }
+}
+```
+
+詳細な実装方法とガイドラインは `docs/internationalization.md` を参照してください。
 
 ## デーモンモードの実装
 

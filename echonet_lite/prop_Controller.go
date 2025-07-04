@@ -21,19 +21,83 @@ func (r PropertyRegistry) Controller() PropertyTable {
 		ClassCode:   Controller_ClassCode,
 		Description: "Controller",
 		EPCDesc: map[EPCType]PropertyDesc{
-			EPC_C_ControllerID:    {"コントローラID", nil, nil},
-			EPC_C_NumberOfDevices: {"管理台数", nil, NumberDesc{EDTLen: 2, Max: 65533}},
-			EPC_C_Index:           {"インデックス", nil, NumberDesc{EDTLen: 2, Max: 65533}},
-			EPC_C_DeviceID:        {"機器ID", nil, nil},
-			EPC_C_ClassCode:       {"機種", nil, C_ClassCodeDesc{}},
-			EPC_C_Name:            {"名称", nil, StringDesc{MaxEDTLen: 64}},
-			EPC_C_ConnectionStatus: {"接続状態", map[string][]byte{
-				"connected":    {0x41}, // 接続中
-				"disconnected": {0x42}, // 離脱中
-				"unregistered": {0x43}, // 未登録
-				"deleted":      {0x44}, // 削除
-			}, nil},
-			EPC_C_InstallAddress: {"設置住所", nil, StringDesc{MaxEDTLen: 255}},
+			EPC_C_ControllerID: {
+				Name: "Controller ID",
+				NameMap: map[string]string{
+					"ja": "コントローラID",
+				},
+				Aliases: nil,
+				Decoder: nil,
+			},
+			EPC_C_NumberOfDevices: {
+				Name: "Number of devices",
+				NameMap: map[string]string{
+					"ja": "管理台数",
+				},
+				Aliases: nil,
+				Decoder: NumberDesc{EDTLen: 2, Max: 65533},
+			},
+			EPC_C_Index: {
+				Name: "Index",
+				NameMap: map[string]string{
+					"ja": "インデックス",
+				},
+				Aliases: nil,
+				Decoder: NumberDesc{EDTLen: 2, Max: 65533},
+			},
+			EPC_C_DeviceID: {
+				Name: "Device ID",
+				NameMap: map[string]string{
+					"ja": "機器ID",
+				},
+				Aliases: nil,
+				Decoder: nil,
+			},
+			EPC_C_ClassCode: {
+				Name: "Class code",
+				NameMap: map[string]string{
+					"ja": "機種",
+				},
+				Aliases: nil,
+				Decoder: C_ClassCodeDesc{},
+			},
+			EPC_C_Name: {
+				Name: "Name",
+				NameMap: map[string]string{
+					"ja": "名称",
+				},
+				Aliases: nil,
+				Decoder: StringDesc{MaxEDTLen: 64},
+			},
+			EPC_C_ConnectionStatus: {
+				Name: "Connection status",
+				NameMap: map[string]string{
+					"ja": "接続状態",
+				},
+				Aliases: map[string][]byte{
+					"connected":    {0x41}, // 接続中
+					"disconnected": {0x42}, // 離脱中
+					"unregistered": {0x43}, // 未登録
+					"deleted":      {0x44}, // 削除
+				},
+				AliasTranslations: map[string]map[string]string{
+					"ja": {
+						"connected":    "接続中",
+						"disconnected": "離脱中",
+						"unregistered": "未登録",
+						"deleted":      "削除",
+					},
+				},
+				Decoder: nil,
+			},
+			EPC_C_InstallAddress: {
+				Name: "Install address",
+				NameMap: map[string]string{
+					"ja": "設置住所",
+				},
+				Aliases: nil,
+				Decoder: StringDesc{MaxEDTLen: 255},
+			},
 		},
 		DefaultEPCs: []EPCType{},
 	}

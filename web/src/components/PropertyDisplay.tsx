@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { HexViewer } from './HexViewer';
 import { formatPropertyValueWithTranslation, shouldShowHexViewer, decodePropertyMap, getPropertyName, extractClassCodeFromEOJ } from '@/libs/propertyHelper';
 import { translateLocationId } from '@/libs/locationHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device } from '@/hooks/types';
 
 interface PropertyDisplayProps {
@@ -22,7 +23,8 @@ export function PropertyDisplay({
   device
 }: PropertyDisplayProps) {
   const [showPropertyMap, setShowPropertyMap] = useState(false);
-  const canShowHexViewer = shouldShowHexViewer(currentValue, descriptor);
+  const currentLang = getCurrentLocale();
+  const canShowHexViewer = shouldShowHexViewer(currentValue, descriptor, currentLang);
   const isPropertyMap = ['9D', '9E', '9F'].includes(epc);
   
   // Parse property map if applicable
@@ -35,7 +37,7 @@ export function PropertyDisplay({
     const classCode = extractClassCodeFromEOJ(device.eoj);
     const properties = epcs.map(epc => ({
       epc,
-      description: getPropertyName(epc, propertyDescriptions, classCode)
+      description: getPropertyName(epc, propertyDescriptions, classCode, currentLang)
     }));
     
     // Get property count from the original EDT data
@@ -48,7 +50,7 @@ export function PropertyDisplay({
     }
   };
   
-  const formattedValue = formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateLocationId);
+  const formattedValue = formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateLocationId, currentLang);
   
   if (isPropertyMap && propertyDescriptions && currentValue.EDT) {
     const mapData = parsePropertyMap();

@@ -80,6 +80,9 @@ describe('HexViewer', () => {
   });
 
   it('should handle invalid EDT data gracefully', () => {
+    // Mock console.warn to suppress expected error output
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
     render(
       <HexViewer
         canShowHexViewer={true}
@@ -91,5 +94,7 @@ describe('HexViewer', () => {
     fireEvent.click(button);
 
     expect(screen.getByText('Invalid data')).toBeInTheDocument();
+    
+    consoleSpy.mockRestore();
   });
 });

@@ -223,6 +223,7 @@ type DiscoverDevicesPayload struct {
 // GetPropertyDescriptionPayload is the payload for the get_property_description message
 type GetPropertyDescriptionPayload struct {
 	ClassCode string `json:"classCode"`
+	Lang      string `json:"lang,omitempty"` // Language code (e.g., "ja", "en"). Defaults to "en" if not specified
 }
 
 // PropertyDescriptionData is the data for the command_result message when success is true
@@ -249,11 +250,12 @@ type ProtocolStringDesc struct {
 
 // EPCDesc contains information about an EPC, including its description, aliases, and potentially numeric/string details.
 type EPCDesc struct {
-	Description    string              `json:"description"`              // EPC description (e.g. "Operation status")
-	Aliases        map[string]string   `json:"aliases,omitempty"`        // Alias name -> EDT in base64 format (optional)
-	NumberDesc     *ProtocolNumberDesc `json:"numberDesc,omitempty"`     // Details if the property is numeric (optional)
-	StringDesc     *ProtocolStringDesc `json:"stringDesc,omitempty"`     // Details if the property is a string (optional)
-	StringSettable bool                `json:"stringSettable,omitempty"` // Indicates if the property is settable as a string (optional)
+	Description       string              `json:"description"`                 // EPC description (e.g. "Operation status")
+	Aliases           map[string]string   `json:"aliases,omitempty"`           // Alias name -> EDT in base64 format (optional)
+	AliasTranslations map[string]string   `json:"aliasTranslations,omitempty"` // Alias translation table for current language (e.g., "on" -> "オン") (optional)
+	NumberDesc        *ProtocolNumberDesc `json:"numberDesc,omitempty"`        // Details if the property is numeric (optional)
+	StringDesc        *ProtocolStringDesc `json:"stringDesc,omitempty"`        // Details if the property is a string (optional)
+	StringSettable    bool                `json:"stringSettable,omitempty"`    // Indicates if the property is settable as a string (optional)
 }
 
 // Helper functions for converting between ECHONET Lite types and protocol types
