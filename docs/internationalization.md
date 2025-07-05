@@ -29,6 +29,7 @@ ECHONET Lite WebSocket サーバーは、多言語対応機能を提供してい
 #### 応答例
 
 **英語版 (lang="en" または省略時):**
+
 ```json
 {
   "type": "command_result",
@@ -53,6 +54,7 @@ ECHONET Lite WebSocket サーバーは、多言語対応機能を提供してい
 ```
 
 **日本語版 (lang="ja"):**
+
 ```json
 {
   "type": "command_result",
