@@ -128,18 +128,25 @@ function formatPropertyValue(
   value: string, 
   lang: string = "en"
 ): string {
-  // 翻訳が利用可能な場合は使用
-  if (epcData.aliasTranslations && epcData.aliasTranslations[value]) {
-    return epcData.aliasTranslations[value];
-  }
-  
-  // 英語エイリアスにフォールバック
+  // aliases から該当する英語キーを見つける
+  let englishKey: string | null = null;
   if (epcData.aliases) {
     for (const [alias, encodedValue] of Object.entries(epcData.aliases)) {
-      if (alias === value) {
-        return alias;
+      if (encodedValue === value) {
+        englishKey = alias;
+        break;
       }
     }
+  }
+  
+  // 翻訳が利用可能な場合は使用
+  if (englishKey && epcData.aliasTranslations && epcData.aliasTranslations[englishKey]) {
+    return epcData.aliasTranslations[englishKey];
+  }
+  
+  // 英語キーが見つかった場合はそれを返す
+  if (englishKey) {
+    return englishKey;
   }
   
   return value;
@@ -202,7 +209,9 @@ const PropertyControl: React.FC<PropertyControlProps> = ({
     }
   };
 
-  const displayValue = formatPropertyValue(propertyDesc, currentValue, lang);
+  // 現在の値（Base64エンコードされたEDT）から表示値を取得
+  const currentEncodedValue = propertyDesc.aliases?.[currentValue] || currentValue;
+  const displayValue = formatPropertyValue(propertyDesc, currentEncodedValue, lang);
 
   return (
     <div>
@@ -213,9 +222,9 @@ const PropertyControl: React.FC<PropertyControlProps> = ({
           onChange={e => handleChange(e.target.value)}
         >
           {Object.entries(propertyDesc.aliasTranslations || propertyDesc.aliases)
-            .map(([key, value]) => (
-              <option key={key} value={value}>
-                {value}
+            .map(([key, translatedValue]) => (
+              <option key={key} value={translatedValue}>
+                {translatedValue}
               </option>
             ))}
         </select>
