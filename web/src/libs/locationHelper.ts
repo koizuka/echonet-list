@@ -1,64 +1,14 @@
 // Utility functions for managing device locations
 
-import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
+import type { Device, DeviceAlias, DeviceGroup, PropertyDescriptionData } from '@/hooks/types';
 import { getDeviceIdentifierForAlias } from './deviceIdHelper';
 import { sortDevicesByEOJAndLocation } from './deviceSortHelper';
-import { isDeviceOperational, isOperationStatusSettable, isDeviceFaulty } from './propertyHelper';
+import { isDeviceOperational, isOperationStatusSettable, isDeviceFaulty, getPropertyDescriptor, formatPropertyValue } from './propertyHelper';
 import { isNodeProfileDevice } from './deviceTypeHelper';
-import { getCurrentLocale } from './languageHelper';
 
 // ECHONET Installation Location EPC
 const EPC_INSTALLATION_LOCATION = '81';
 
-// ECHONET Installation Location mapping - English (based on ECHONET Lite spec)
-const INSTALLATION_LOCATION_NAMES_EN: Record<string, string> = {
-  'living': 'Living Room',
-  'dining': 'Dining Room', 
-  'kitchen': 'Kitchen',
-  'bathroom': 'Bathroom',
-  'lavatory': 'Lavatory',
-  'washroom': 'Washroom',
-  'passageway': 'Passageway',
-  'room': 'Room',
-  'staircase': 'Staircase',
-  'entrance': 'Entrance',
-  'storage': 'Storage',
-  'garden': 'Garden',
-  'garage': 'Garage',
-  'balcony': 'Balcony',
-  'others': 'Others',
-  'unspecified': 'Unspecified',
-  'undetermined': 'Undetermined'
-};
-
-// ECHONET Installation Location mapping - Japanese
-const INSTALLATION_LOCATION_NAMES_JA: Record<string, string> = {
-  'living': 'リビング',
-  'dining': 'ダイニング', 
-  'kitchen': 'キッチン',
-  'bathroom': '浴室',
-  'lavatory': 'トイレ',
-  'washroom': '洗面所',
-  'passageway': '廊下',
-  'room': '部屋',
-  'staircase': '階段室',
-  'entrance': '玄関',
-  'storage': '納戸',
-  'garden': '庭',
-  'garage': 'ガレージ',
-  'balcony': 'バルコニー',
-  'others': 'その他',
-  'unspecified': '未指定',
-  'undetermined': '未定'
-};
-
-/**
- * Get installation location names based on current locale
- */
-export function getInstallationLocationNames(): Record<string, string> {
-  const locale = getCurrentLocale();
-  return locale === 'ja' ? INSTALLATION_LOCATION_NAMES_JA : INSTALLATION_LOCATION_NAMES_EN;
-}
 
 
 /**
@@ -73,27 +23,7 @@ export function extractLocationFromDevice(
   // First priority: Check Installation Location property (EPC 0x81)
   const installationLocationProperty = device.properties[EPC_INSTALLATION_LOCATION];
   if (installationLocationProperty?.string) {
-    const locationString = installationLocationProperty.string.toLowerCase();
-    const installationLocationNames = getInstallationLocationNames();
-    
-    // Extract base location key and any trailing number
-    const match = locationString.match(/^([a-z]+)(\d*)$/);
-    if (match) {
-      const [, baseKey, number] = match;
-      const locationName = installationLocationNames[baseKey];
-      if (locationName) {
-        // If there's a number, append it to the location name
-        return number ? `${locationName} ${number}` : locationName;
-      }
-    }
-    
-    // Try exact match if pattern doesn't match
-    const locationName = installationLocationNames[locationString];
-    if (locationName) {
-      return locationName;
-    }
-    
-    // If it's a valid string but not in our mapping, use it as-is (capitalized)
+    // Return the raw string value - translation will be handled by formatPropertyValue
     return installationLocationProperty.string.charAt(0).toUpperCase() + 
            installationLocationProperty.string.slice(1);
   }
@@ -218,31 +148,66 @@ export function getAllLocations(
 
 /**
  * Translate location ID to display name
+ * @deprecated Use getLocationDisplayName instead which uses server-side translations
  */
 export function translateLocationId(locationId: string): string {
   if (locationId === 'All') {
     return locationId;
   }
   
-  const locationNames = getInstallationLocationNames();
-  const lowerLocationId = locationId.toLowerCase();
-  
-  // Try direct match
-  if (locationNames[lowerLocationId]) {
-    return locationNames[lowerLocationId];
+  // Return capitalized ID - translation is handled by server
+  return locationId.charAt(0).toUpperCase() + locationId.slice(1);
+}
+
+/**
+ * Get display name for a location tab using server-side translations
+ * Looks for a device with the given location ID and uses its translated value
+ */
+export function getLocationDisplayName(
+  locationId: string,
+  devices: Record<string, Device>,
+  propertyDescriptions: Record<string, PropertyDescriptionData>,
+  lang?: string
+): string {
+  if (locationId === 'All') {
+    return locationId;
   }
   
-  // Try to extract base location and number (e.g., "living2" -> "Living Room 2")
-  const match = lowerLocationId.match(/^([a-z]+)(\d*)$/);
-  if (match) {
-    const [, baseKey, number] = match;
-    const locationName = locationNames[baseKey];
-    if (locationName) {
-      return number ? `${locationName} ${number}` : locationName;
+  // Find a device with this location ID to get the translated value
+  const devicesInLocation = Object.values(devices).filter(device => {
+    const rawLocation = extractRawLocationFromDevice(device);
+    return rawLocation === locationId;
+  });
+  
+  if (devicesInLocation.length > 0) {
+    // Get the first device and use its translated location value
+    const device = devicesInLocation[0];
+    const installationLocationProperty = device.properties[EPC_INSTALLATION_LOCATION];
+    
+    if (installationLocationProperty?.string) {
+      // Get property descriptor for Installation Location
+      const classCode = device.eoj.split(':')[0];
+      const descriptor = getPropertyDescriptor(
+        EPC_INSTALLATION_LOCATION,
+        propertyDescriptions,
+        classCode,
+        lang
+      );
+      
+      // Format the value with translations
+      const translatedValue = formatPropertyValue(
+        installationLocationProperty,
+        descriptor,
+        lang
+      );
+      
+      if (translatedValue && translatedValue !== 'Raw data') {
+        return translatedValue;
+      }
     }
   }
   
-  // Return capitalized ID if no translation found
+  // Fallback to capitalized ID
   return locationId.charAt(0).toUpperCase() + locationId.slice(1);
 }
 

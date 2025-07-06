@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { HexViewer } from './HexViewer';
 import { formatPropertyValueWithTranslation, shouldShowHexViewer, decodePropertyMap, getPropertyName, extractClassCodeFromEOJ } from '@/libs/propertyHelper';
-import { translateLocationId } from '@/libs/locationHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device } from '@/hooks/types';
 
@@ -50,7 +49,7 @@ export function PropertyDisplay({
     }
   };
   
-  const formattedValue = formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateLocationId, currentLang);
+  const formattedValue = formatPropertyValueWithTranslation(currentValue, descriptor, epc, undefined, currentLang);
   
   if (isPropertyMap && propertyDescriptions && currentValue.EDT) {
     const mapData = parsePropertyMap();

@@ -44,6 +44,10 @@ describe('PropertyDisplay', () => {
       aliases: {
         'living': '08',
         'dining': '10'
+      },
+      aliasTranslations: {
+        'living': 'リビング',
+        'dining': 'ダイニング'
       }
     };
 
@@ -55,7 +59,7 @@ describe('PropertyDisplay', () => {
       />
     );
 
-    expect(screen.getByText('リビング')).toBeInTheDocument();
+    expect(screen.getByText('living')).toBeInTheDocument();
   });
 
   it('should display raw data when no descriptor', () => {

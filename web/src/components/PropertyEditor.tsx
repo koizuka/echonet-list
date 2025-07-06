@@ -5,7 +5,6 @@ import { PropertyInputControl } from './PropertyEditControls/PropertyInputContro
 import { PropertyDisplay } from './PropertyDisplay';
 import { HexViewer } from './HexViewer';
 import { isPropertySettable, formatPropertyValueWithTranslation, shouldShowHexViewer } from '@/libs/propertyHelper';
-import { translateLocationId } from '@/libs/locationHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import type { PropertyDescriptor, PropertyValue, Device, PropertyDescriptionData } from '@/hooks/types';
 
@@ -45,8 +44,6 @@ export function PropertyEditor({
   const isConnectionActive = isConnected !== false; // Default to true if not specified
   const isSettable = hasEditCapability && isInSetPropertyMap && isConnectionActive;
   
-  // Check if this is Installation Location property (EPC 0x81)
-  const isInstallationLocation = epc === '81';
   
   // Check if this property has exactly 'on' and 'off' aliases (for switch UI)
   const hasOnOffAliases = hasAliases && descriptor?.aliases && 
@@ -107,7 +104,6 @@ export function PropertyEditor({
           aliasTranslations={descriptor.aliasTranslations}
           onChange={handleAliasSelect}
           disabled={isLoading || !isConnectionActive}
-          isInstallationLocation={isInstallationLocation}
           testId={`alias-select-trigger-${epc}`}
         />
       )}
@@ -118,7 +114,7 @@ export function PropertyEditor({
           <div className="flex items-center gap-2">
             {!hasAliases && !isInputEditing && (
               <span className="text-sm font-medium">
-                {formatPropertyValueWithTranslation(currentValue, descriptor, epc, translateLocationId, currentLang)}
+                {formatPropertyValueWithTranslation(currentValue, descriptor, epc, undefined, currentLang)}
               </span>
             )}
             <PropertyInputControl

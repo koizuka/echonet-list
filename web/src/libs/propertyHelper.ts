@@ -209,25 +209,12 @@ export function formatPropertyValue(
 export function formatPropertyValueWithTranslation(
   value: { EDT?: string; string?: string; number?: number },
   descriptor?: PropertyDescriptor,
-  epc?: string,
-  translateFunc?: (value: string) => string,
+  _epc?: string,
+  _translateFunc?: (value: string) => string,
   lang?: string
 ): string {
-  const formattedValue = formatPropertyValue(value, descriptor, lang);
-
-  // Translate Installation Location (EPC 0x81)
-  // Try to translate both the original string value and the decoded alias name
-  if (epc === '81' && translateFunc) {
-    if (value.string) {
-      return translateFunc(value.string);
-    }
-    // Also try to translate the formatted value (decoded alias name)
-    if (formattedValue && formattedValue !== 'Raw data') {
-      return translateFunc(formattedValue);
-    }
-  }
-
-  return formattedValue;
+  // Translation is now handled by formatPropertyValue using server-side aliasTranslations
+  return formatPropertyValue(value, descriptor, lang);
 }
 
 /**
