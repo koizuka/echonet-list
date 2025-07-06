@@ -39,6 +39,9 @@ export const DEVICE_PRIMARY_PROPERTIES: Record<string, string[]> = {
 
   // Bath Room Heating and Air Conditioning (0272)
   '0272': ['B0', 'B3'], // Operation mode, Temperature
+
+  // Refrigerator (03b7)
+  '03B7': ['89', 'B0', 'B1', 'B2', 'B3'], // Fault description, Door open status, Door open alert status, Refrigerator door open status, Freezer door open status
 };
 
 /**
