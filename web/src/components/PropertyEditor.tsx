@@ -4,7 +4,7 @@ import { PropertySelectControl } from './PropertyEditControls/PropertySelectCont
 import { PropertyInputControl } from './PropertyEditControls/PropertyInputControl';
 import { PropertyDisplay } from './PropertyDisplay';
 import { HexViewer } from './HexViewer';
-import { isPropertySettable, formatPropertyValueWithTranslation, shouldShowHexViewer } from '@/libs/propertyHelper';
+import { isPropertySettable, formatPropertyValue, shouldShowHexViewer } from '@/libs/propertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import type { PropertyDescriptor, PropertyValue, Device, PropertyDescriptionData } from '@/hooks/types';
 
@@ -114,7 +114,7 @@ export function PropertyEditor({
           <div className="flex items-center gap-2">
             {!hasAliases && !isInputEditing && (
               <span className="text-sm font-medium">
-                {formatPropertyValueWithTranslation(currentValue, descriptor, epc, currentLang)}
+                {formatPropertyValue(currentValue, descriptor, currentLang)}
               </span>
             )}
             <PropertyInputControl

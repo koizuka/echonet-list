@@ -203,20 +203,6 @@ export function formatPropertyValue(
 }
 
 /**
- * Format property value with localization support
- * This is a wrapper around formatPropertyValue that handles translation for specific EPCs
- */
-export function formatPropertyValueWithTranslation(
-  value: { EDT?: string; string?: string; number?: number },
-  descriptor?: PropertyDescriptor,
-  _epc?: string,
-  lang?: string
-): string {
-  // Translation is now handled by formatPropertyValue using server-side aliasTranslations
-  return formatPropertyValue(value, descriptor, lang);
-}
-
-/**
  * Converts Base64 EDT to hex string representation
  * Returns formatted hex string like "01 23 45" or null if conversion fails
  */

@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { GripVertical, Plus, Minus, Users } from 'lucide-react';
 import { getDeviceAliases } from '@/libs/deviceIdHelper';
-import { formatPropertyValueWithTranslation, getPropertyDescriptor } from '@/libs/propertyHelper';
+import { formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import type { Device, DeviceAlias, PropertyDescriptionData } from '@/hooks/types';
 
 interface GroupMemberEditorProps {
@@ -186,7 +186,7 @@ export function GroupMemberEditor({
     
     // Format installation location using the same method as DeviceCard
     const locationDisplay = locationProperty 
-      ? formatPropertyValueWithTranslation(locationProperty, propertyDescriptor, '81')
+      ? formatPropertyValue(locationProperty, propertyDescriptor)
       : '';
     
     
