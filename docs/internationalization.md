@@ -272,6 +272,50 @@ EPC_SF_Panasonic_OperationStatus: {
 }
 ```
 
+### 設置場所（Installation Location）の例
+
+設置場所は動的に生成される翻訳マップを使用します：
+
+```go
+EPCInstallationLocation: {
+    Name: "Installation location",
+    NameMap: map[string]string{
+        "ja": "設置場所",
+    },
+    Aliases:           InstallationLocationAliases(),           // 動的生成
+    AliasTranslations: InstallationLocationAliasTranslations(), // 動的生成
+    Decoder:           nil,
+}
+
+// InstallationLocationAliasTranslations は、設置場所のエイリアス翻訳マップを生成します。
+func InstallationLocationAliasTranslations() map[string]map[string]string {
+    translations := make(map[string]map[string]string)
+    
+    // 日本語翻訳（基本ロケーション）
+    jaTranslations := map[string]string{
+        "living": "リビング", "dining": "ダイニング", "kitchen": "キッチン",
+        "bathroom": "浴室", "lavatory": "トイレ", "washroom": "洗面所",
+        "passageway": "廊下", "room": "部屋", "staircase": "階段室",
+        "entrance": "玄関", "storage": "納戸", "garden": "庭",
+        "garage": "ガレージ", "balcony": "バルコニー", "others": "その他",
+        "unspecified": "未指定", "undetermined": "未定",
+    }
+    
+    // 番号付きの場所も自動生成（例: living1 → "リビング 1", living2 → "リビング 2"）
+    for i := 1; i <= 7; i++ {
+        for enKey, jaValue := range jaTranslations {
+            if enKey != "unspecified" && enKey != "undetermined" {
+                keyWithNum := fmt.Sprintf("%s%d", enKey, i)
+                jaTranslations[keyWithNum] = fmt.Sprintf("%s %d", jaValue, i)
+            }
+        }
+    }
+    
+    translations["ja"] = jaTranslations
+    return translations
+}
+```
+
 ## ベストプラクティス
 
 1. **デフォルト言語の提供**: 常に英語のフォールバックを提供
