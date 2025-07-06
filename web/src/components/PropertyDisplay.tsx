@@ -49,7 +49,7 @@ export function PropertyDisplay({
     }
   };
   
-  const formattedValue = formatPropertyValueWithTranslation(currentValue, descriptor, epc, undefined, currentLang);
+  const formattedValue = formatPropertyValueWithTranslation(currentValue, descriptor, epc, currentLang);
   
   if (isPropertyMap && propertyDescriptions && currentValue.EDT) {
     const mapData = parsePropertyMap();

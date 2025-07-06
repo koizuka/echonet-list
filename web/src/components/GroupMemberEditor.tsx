@@ -186,7 +186,7 @@ export function GroupMemberEditor({
     
     // Format installation location using the same method as DeviceCard
     const locationDisplay = locationProperty 
-      ? formatPropertyValueWithTranslation(locationProperty, propertyDescriptor, '81', undefined)
+      ? formatPropertyValueWithTranslation(locationProperty, propertyDescriptor, '81')
       : '';
     
     

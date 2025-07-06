@@ -114,7 +114,7 @@ export function PropertyEditor({
           <div className="flex items-center gap-2">
             {!hasAliases && !isInputEditing && (
               <span className="text-sm font-medium">
-                {formatPropertyValueWithTranslation(currentValue, descriptor, epc, undefined, currentLang)}
+                {formatPropertyValueWithTranslation(currentValue, descriptor, epc, currentLang)}
               </span>
             )}
             <PropertyInputControl

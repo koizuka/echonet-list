@@ -210,7 +210,6 @@ export function formatPropertyValueWithTranslation(
   value: { EDT?: string; string?: string; number?: number },
   descriptor?: PropertyDescriptor,
   _epc?: string,
-  _translateFunc?: (value: string) => string,
   lang?: string
 ): string {
   // Translation is now handled by formatPropertyValue using server-side aliasTranslations
