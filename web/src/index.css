@@ -67,5 +67,22 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Optimize touch interactions on mobile */
+  html {
+    touch-action: manipulation;
+  }
+  
+  /* Apply to all interactive elements */
+  button, 
+  a, 
+  input, 
+  select, 
+  textarea,
+  [role="button"],
+  [role="tab"],
+  [role="tablist"] {
+    touch-action: manipulation;
+  }
 }
 
