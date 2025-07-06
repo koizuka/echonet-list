@@ -1,5 +1,5 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
-import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId } from '@/libs/locationHelper';
+import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getLocationDisplayName } from '@/libs/locationHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
@@ -315,7 +315,9 @@ function App() {
                 const tabDevices = getDevicesForTab(tabId);
                 const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
                 const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
-                const displayName = translateLocationId(tabId);
+                const displayName = tabId.startsWith('@') 
+                  ? tabId // Group tabs keep their name as-is
+                  : getLocationDisplayName(tabId, echonet.devices, echonet.propertyDescriptions);
                 return (
                   <TabsTrigger 
                     key={tabId} 

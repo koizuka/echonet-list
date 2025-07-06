@@ -5,7 +5,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { translateLocationId } from '@/libs/locationHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import type { AliasTranslations } from '@/hooks/types';
 
@@ -15,7 +14,6 @@ interface PropertySelectControlProps {
   aliasTranslations?: AliasTranslations;
   onChange: (value: string) => void;
   disabled: boolean;
-  isInstallationLocation?: boolean;
   testId?: string;
 }
 
@@ -25,17 +23,12 @@ export function PropertySelectControl({
   aliasTranslations,
   onChange, 
   disabled, 
-  isInstallationLocation = false,
   testId 
 }: PropertySelectControlProps) {
   const currentLang = getCurrentLocale();
   
   // Function to get display text for an alias
   const getDisplayText = (aliasName: string) => {
-    if (isInstallationLocation) {
-      return translateLocationId(aliasName);
-    }
-    
     // Use translation if available and not English
     if (aliasTranslations && currentLang !== 'en') {
       const translation = aliasTranslations[aliasName];

@@ -1,6 +1,5 @@
-import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getDevicesForTab, getInstallationLocationNames, translateLocationId } from './locationHelper';
+import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getDevicesForTab, translateLocationId } from './locationHelper';
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
-import { beforeEach, afterEach } from 'vitest';
 
 describe('locationHelper', () => {
   const createDevice = (ip: string, eoj: string, operationStatus?: 'on' | 'off', faultStatus?: 'fault' | 'no_fault'): Device => {
@@ -199,92 +198,21 @@ describe('locationHelper', () => {
     });
   });
 
-  describe('getInstallationLocationNames', () => {
-    let originalNavigatorLanguage: any;
-
-    beforeEach(() => {
-      originalNavigatorLanguage = Object.getOwnPropertyDescriptor(window.navigator, 'language');
-    });
-
-    afterEach(() => {
-      if (originalNavigatorLanguage) {
-        Object.defineProperty(window.navigator, 'language', originalNavigatorLanguage);
-      }
-    });
-
-    const mockNavigatorLanguage = (language: string) => {
-      Object.defineProperty(window.navigator, 'language', {
-        value: language,
-        writable: true,
-        configurable: true
-      });
-    };
-
-    it('should return English names when browser language is English', () => {
-      mockNavigatorLanguage('en-US');
-      const names = getInstallationLocationNames();
-      expect(names.living).toBe('Living Room');
-      expect(names.kitchen).toBe('Kitchen');
-      expect(names.bathroom).toBe('Bathroom');
-    });
-
-    it('should return Japanese names when browser language is Japanese', () => {
-      mockNavigatorLanguage('ja-JP');
-      const names = getInstallationLocationNames();
-      expect(names.living).toBe('リビング');
-      expect(names.kitchen).toBe('キッチン');
-      expect(names.bathroom).toBe('浴室');
-    });
-  });
 
   describe('translateLocationId', () => {
-    let originalNavigatorLanguage: any;
-
-    beforeEach(() => {
-      originalNavigatorLanguage = Object.getOwnPropertyDescriptor(window.navigator, 'language');
+    it('should capitalize location names', () => {
+      expect(translateLocationId('living')).toBe('Living');
+      expect(translateLocationId('kitchen')).toBe('Kitchen');
+      expect(translateLocationId('bathroom')).toBe('Bathroom');
     });
 
-    afterEach(() => {
-      if (originalNavigatorLanguage) {
-        Object.defineProperty(window.navigator, 'language', originalNavigatorLanguage);
-      }
+    it('should handle "All" tab name unchanged', () => {
+      expect(translateLocationId('All')).toBe('All');
     });
 
-    const mockNavigatorLanguage = (language: string) => {
-      Object.defineProperty(window.navigator, 'language', {
-        value: language,
-        writable: true,
-        configurable: true
-      });
-    };
-
-    it('should translate location names to English', () => {
-      mockNavigatorLanguage('en-US');
-      expect(translateLocationId('living')).toBe('Living Room');
-      expect(translateLocationId('Living')).toBe('Living Room');
-      expect(translateLocationId('LIVING')).toBe('Living Room');
-    });
-
-    it('should translate location names to Japanese', () => {
-      mockNavigatorLanguage('ja-JP');
-      expect(translateLocationId('living')).toBe('リビング');
-      expect(translateLocationId('kitchen')).toBe('キッチン');
-    });
-
-    it('should handle location names with numbers', () => {
-      mockNavigatorLanguage('en-US');
-      expect(translateLocationId('living2')).toBe('Living Room 2');
-      expect(translateLocationId('room123')).toBe('Room 123');
-
-      mockNavigatorLanguage('ja-JP');
-      expect(translateLocationId('living2')).toBe('リビング 2');
-      expect(translateLocationId('room123')).toBe('部屋 123');
-    });
-
-    it('should return original name if no translation found', () => {
-      mockNavigatorLanguage('en-US');
+    it('should return capitalized ID if no translation found', () => {
       expect(translateLocationId('unknown')).toBe('Unknown');
-      expect(translateLocationId('custom location')).toBe('Custom location');
+      expect(translateLocationId('custom')).toBe('Custom');
     });
   });
 });

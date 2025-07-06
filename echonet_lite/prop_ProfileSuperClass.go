@@ -68,8 +68,9 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			NameMap: map[string]string{
 				"ja": "設置場所",
 			},
-			Aliases: InstallationLocationAliases(),
-			Decoder: nil,
+			Aliases:           InstallationLocationAliases(),
+			AliasTranslations: InstallationLocationAliasTranslations(),
+			Decoder:           nil,
 		},
 		EPCStandardVersion: {
 			Name: "Standard version",
@@ -305,6 +306,34 @@ func InstallationLocationAliases() map[string][]byte {
 		}
 	}
 	return aliases
+}
+
+// InstallationLocationAliasTranslations は、設置場所のエイリアス翻訳マップを生成します。
+func InstallationLocationAliasTranslations() map[string]map[string]string {
+	translations := make(map[string]map[string]string)
+
+	// 日本語翻訳
+	jaTranslations := map[string]string{
+		"living": "リビング", "dining": "ダイニング", "kitchen": "キッチン",
+		"bathroom": "浴室", "lavatory": "トイレ", "washroom": "洗面所",
+		"passageway": "廊下", "room": "部屋", "staircase": "階段室",
+		"entrance": "玄関", "storage": "納戸", "garden": "庭",
+		"garage": "ガレージ", "balcony": "バルコニー", "others": "その他",
+		"unspecified": "未指定", "undetermined": "未定",
+	}
+
+	// 番号付きの場所も生成（例: living1, living2...）
+	for i := 1; i <= 7; i++ {
+		for enKey, jaValue := range jaTranslations {
+			if enKey != "unspecified" && enKey != "undetermined" {
+				keyWithNum := fmt.Sprintf("%s%d", enKey, i)
+				jaTranslations[keyWithNum] = fmt.Sprintf("%s %d", jaValue, i)
+			}
+		}
+	}
+
+	translations["ja"] = jaTranslations
+	return translations
 }
 
 // FaultDescriptionAliases は、異常内容コードに対応するエイリアス文字列とEDTのマップを生成します。

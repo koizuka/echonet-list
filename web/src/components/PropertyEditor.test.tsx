@@ -332,6 +332,11 @@ describe('PropertyEditor', () => {
           'living': '08',
           'dining': '10',
           'kitchen': '18'
+        },
+        aliasTranslations: {
+          'living': 'リビング',
+          'dining': 'ダイニング',
+          'kitchen': 'キッチン'
         }
       };
 
@@ -358,8 +363,8 @@ describe('PropertyEditor', () => {
 
       // Should not have dropdown when disconnected
       expect(screen.queryByTestId('alias-select-trigger-81')).not.toBeInTheDocument();
-      // Should display the translated location as read-only
-      expect(screen.getByText('Living Room')).toBeInTheDocument();
+      // Should display the alias value as read-only
+      expect(screen.getByText('living')).toBeInTheDocument();
     });
   });
 

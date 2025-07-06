@@ -43,14 +43,52 @@ web/
 
 デバイスを「設置場所」と「デバイスグループ」でタブ分けして表示する機能を実装しています。
 
-#### 設置場所の抽出
+#### 設置場所の抽出と表示
 
-`locationHelper.ts` の `extractLocationFromDevice()` 関数で以下の優先順位でロケーションを決定：
+`locationHelper.ts` では設置場所の抽出と表示名の翻訳を以下のように処理：
 
-1. **EPC 0x81 (Installation Location)** プロパティから抽出
+##### 抽出ロジック（`extractLocationFromDevice()`）
+
+以下の優先順位でロケーションを決定：
+
+1. **EPC 0x81 (Installation Location)** プロパティから抽出（生の値）
 2. **デバイスエイリアス**から抽出（`"リビング - エアコン"` → `"リビング"`）
 3. **デバイス名**から抽出
 4. フォールバック: `"Unknown"`
+
+##### 表示名の翻訳（`getLocationDisplayName()`）
+
+タブ表示などで使用される表示名は、サーバー側の翻訳を利用：
+
+```typescript
+export function getLocationDisplayName(
+  locationId: string,
+  devices: Record<string, Device>,
+  propertyDescriptions: Record<string, PropertyDescriptionData>,
+  lang?: string
+): string {
+  // そのロケーションIDを持つデバイスを検索
+  const devicesInLocation = Object.values(devices).filter(device => {
+    const rawLocation = extractRawLocationFromDevice(device);
+    return rawLocation === locationId;
+  });
+  
+  if (devicesInLocation.length > 0) {
+    const device = devicesInLocation[0];
+    const classCode = device.eoj.split(':')[0];
+    
+    // サーバー側のプロパティ記述子から翻訳を取得
+    const descriptor = getPropertyDescriptor('81', propertyDescriptions, classCode, lang);
+    const translatedValue = formatPropertyValue(installationLocationProperty, descriptor, lang);
+    
+    return translatedValue; // 例: "living" → "リビング"
+  }
+  
+  return locationId.charAt(0).toUpperCase() + locationId.slice(1);
+}
+```
+
+これにより、タブ名やプロパティ表示で一貫して日本語翻訳が使用されます。
 
 #### グループ管理
 
@@ -94,41 +132,79 @@ export function getPropertyName(
 
 #### プロパティ値のフォーマット
 
-エイリアス、数値、文字列を適切に表示：
+エイリアス、数値、文字列を適切に表示し、多言語対応を提供：
 
 ```typescript
 export function formatPropertyValue(
-  value: PropertyValue,
-  descriptor?: PropertyDescription
+  value: { EDT?: string; string?: string; number?: number },
+  descriptor?: PropertyDescriptor,
+  lang?: string
 ): string {
-  // エイリアスチェック
-  if (descriptor?.aliases && value.string) {
-    const aliasKey = Object.keys(descriptor.aliases)
-      .find(key => descriptor.aliases![key] === value.EDT);
-    if (aliasKey) return aliasKey;
+  const currentLang = lang || getCurrentLocale();
+
+  // 文字列値がある場合は、翻訳を試行
+  if (value.string) {
+    // aliasTranslationsが利用可能で、英語以外の場合
+    if (descriptor?.aliasTranslations && currentLang !== 'en') {
+      const translation = descriptor.aliasTranslations[value.string];
+      if (translation) {
+        return translation; // 例: "living" → "リビング"
+      }
+    }
+    return value.string; // 翻訳がない場合は元の値
   }
-  
+
   // 数値 + 単位
-  if (value.number !== undefined && descriptor?.numberDesc?.unit) {
-    return `${value.number}${descriptor.numberDesc.unit}`;
+  if (value.number !== undefined) {
+    const unit = descriptor?.numberDesc?.unit || '';
+    return `${value.number}${unit}`;
   }
-  
-  return value.string || value.number?.toString() || value.EDT || 'Unknown';
+
+  // EDTから逆引きでエイリアス名を取得
+  if (value.EDT && descriptor?.aliases) {
+    try {
+      const edtBytes = atob(value.EDT);
+      for (const [aliasName, aliasEDT] of Object.entries(descriptor.aliases)) {
+        if (atob(aliasEDT) === edtBytes) {
+          // 翻訳があれば使用
+          if (descriptor.aliasTranslations && currentLang !== 'en') {
+            const translation = descriptor.aliasTranslations[aliasName];
+            if (translation) return translation;
+          }
+          return aliasName;
+        }
+      }
+    } catch {
+      // デコードエラーは無視
+    }
+  }
+
+  return 'Raw data';
 }
 ```
+
+この関数により、設置場所やその他のプロパティで一貫してサーバー側の翻訳が使用されます。
 
 ### 3. インタラクティブなプロパティエディタ
 
 #### PropertyEditor コンポーネント
 
-プロパティの種類に応じて適切な UI コントロールを動的に生成：
+プロパティの種類に応じて適切な UI コントロールを動的に生成し、多言語表示に対応：
 
 ```typescript
 // PropertyEditor.tsx の主要ロジック
 const renderEditor = () => {
-  // エイリアスがある場合: ドロップダウンメニュー
+  // エイリアスがある場合: ドロップダウンメニュー（翻訳対応）
   if (descriptor?.aliases && Object.keys(descriptor.aliases).length > 0) {
-    return <DropdownMenuEditor />;
+    return (
+      <PropertySelectControl
+        value={currentValue.string || ''}
+        aliases={descriptor.aliases}
+        aliasTranslations={descriptor.aliasTranslations} // 翻訳データを渡す
+        onChange={handleAliasSelect}
+        disabled={isLoading || !isConnectionActive}
+      />
+    );
   }
   
   // 数値プロパティの場合: 入力フィールド
@@ -145,6 +221,23 @@ const renderEditor = () => {
 };
 ```
 
+`PropertySelectControl` では、`aliasTranslations` を使用してドロップダウンのオプションを翻訳表示：
+
+```typescript
+// PropertySelectControl.tsx
+const getDisplayText = (aliasName: string) => {
+  // 翻訳が利用可能で英語以外の場合
+  if (aliasTranslations && currentLang !== 'en') {
+    const translation = aliasTranslations[aliasName];
+    if (translation) {
+      return translation; // 例: "living" → "リビング"
+    }
+  }
+  
+  return aliasName; // 翻訳がない場合は英語キー
+};
+```
+
 #### サポートされる編集タイプ
 
 1. **エイリアス選択**: ドロップダウンメニュー（例: ON/OFF, 運転モード）
@@ -157,7 +250,8 @@ const renderEditor = () => {
 
 Go バックエンドとの識別子形式の違いを解決：
 
-**問題**: 
+**問題**:
+
 - Go側: `027B04:000005:00112233445566778899AABBCCDD`
 - TypeScript側: `027B04:FE000500112233445566778899AABBCCDD`
 

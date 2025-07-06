@@ -3,7 +3,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { GripVertical, Plus, Minus, Users } from 'lucide-react';
-import { translateLocationId } from '@/libs/locationHelper';
 import { getDeviceAliases } from '@/libs/deviceIdHelper';
 import { formatPropertyValueWithTranslation, getPropertyDescriptor } from '@/libs/propertyHelper';
 import type { Device, DeviceAlias, PropertyDescriptionData } from '@/hooks/types';
@@ -187,7 +186,7 @@ export function GroupMemberEditor({
     
     // Format installation location using the same method as DeviceCard
     const locationDisplay = locationProperty 
-      ? formatPropertyValueWithTranslation(locationProperty, propertyDescriptor, '81', translateLocationId)
+      ? formatPropertyValueWithTranslation(locationProperty, propertyDescriptor, '81', undefined)
       : '';
     
     

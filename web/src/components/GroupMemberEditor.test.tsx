@@ -55,6 +55,14 @@ describe('GroupMemberEditor', () => {
             'kitchen': 'GA==',      // Base64 for [24]
             'bedroom': 'QA==',      // Base64 for [64] (room)
             'undetermined': '/w==', // Base64 for [255]
+          },
+          aliasTranslations: {
+            'unspecified': '未指定',
+            'living': 'リビング',
+            'kitchen': 'キッチン',
+            'bedroom': '寝室',
+            'room': '部屋',
+            'undetermined': '未定'
           }
         }
       }
@@ -93,8 +101,8 @@ describe('GroupMemberEditor', () => {
     const membersSection = screen.getByTestId('group-members-section');
     expect(membersSection).toHaveTextContent('029101[Single Function Lighting]');
     expect(membersSection).toHaveTextContent('192.168.1.1 0x029101');
-    // Installation location should be translated properly now
-    expect(membersSection).toHaveTextContent('設置場所: Living Room');
+    // Installation location should be displayed
+    expect(membersSection).toHaveTextContent('設置場所: living');
   });
 
   it('should display installation location for each device', () => {
@@ -102,12 +110,12 @@ describe('GroupMemberEditor', () => {
     
     // Check if location is displayed for member device
     const membersSection = screen.getByTestId('group-members-section');
-    expect(membersSection).toHaveTextContent('設置場所: Living Room');
+    expect(membersSection).toHaveTextContent('設置場所: living');
     
     // Check if location is displayed for available devices  
     const availableSection = screen.getByTestId('available-devices-section');
-    expect(availableSection).toHaveTextContent('設置場所: Kitchen');
-    expect(availableSection).toHaveTextContent('設置場所: Room');
+    expect(availableSection).toHaveTextContent('設置場所: kitchen');
+    expect(availableSection).toHaveTextContent('設置場所: room');
   });
 
   it('should display non-member devices in the bottom section', () => {
@@ -116,8 +124,8 @@ describe('GroupMemberEditor', () => {
     const availableSection = screen.getByTestId('available-devices-section');
     expect(availableSection).toHaveTextContent('013001[Air Conditioner]');
     expect(availableSection).toHaveTextContent('029101[Single Function Lighting]');
-    expect(availableSection).toHaveTextContent('設置場所: Kitchen');
-    expect(availableSection).toHaveTextContent('設置場所: Room');
+    expect(availableSection).toHaveTextContent('設置場所: kitchen');
+    expect(availableSection).toHaveTextContent('設置場所: room');
   });
 
 
@@ -288,6 +296,6 @@ describe('GroupMemberEditor', () => {
     render(<GroupMemberEditor {...propsWithUnspecified} />);
     
     const membersSection = screen.getByTestId('group-members-section');
-    expect(membersSection).toHaveTextContent('設置場所: Unspecified');
+    expect(membersSection).toHaveTextContent('設置場所: unspecified');
   });
 });
