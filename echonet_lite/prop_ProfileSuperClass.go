@@ -141,7 +141,25 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			NameMap: map[string]string{
 				"ja": "異常内容",
 			},
-			Aliases: nil,
+			Aliases: FaultDescriptionAliases(),
+			AliasTranslations: map[string]map[string]string{
+				"ja": {
+					"no_fault":                         "異常なし",
+					"recoverable_power_cycle":          "復帰可能: 電源入れ直し",
+					"recoverable_reset_button":         "復帰可能: リセットボタン",
+					"recoverable_improper_setting":     "復帰可能: セット不良",
+					"recoverable_supply":               "復帰可能: 補給",
+					"recoverable_cleaning":             "復帰可能: 掃除",
+					"recoverable_battery_change":       "復帰可能: 電池交換",
+					"recoverable_no_action":            "復帰可能: 復帰操作不要",
+					"repair_safety_device":             "要修理: 安全装置作動",
+					"repair_switch_malfunction":        "要修理: スイッチ異常",
+					"repair_sensor_malfunction":        "要修理: センサー異常",
+					"repair_component_malfunction":     "要修理: 機能部品異常",
+					"repair_control_board_malfunction": "要修理: 制御基板異常",
+					"fault_unknown":                    "異常内容不明",
+				},
+			},
 			Decoder: nil,
 		},
 		EPCManufacturerCode: {
@@ -304,6 +322,44 @@ func InstallationLocationAliases() map[string][]byte {
 			aliases[place] = []byte{locationByte}
 		}
 	}
+	return aliases
+}
+
+// FaultDescriptionAliases は、異常内容コードに対応するエイリアス文字列とEDTのマップを生成します。
+func FaultDescriptionAliases() map[string][]byte {
+	aliases := make(map[string][]byte)
+
+	// 0x0000: 異常なし
+	aliases["no_fault"] = []byte{0x00, 0x00}
+
+	// 0x0001〜0x0009: 復帰可能な異常
+	aliases["recoverable_power_cycle"] = []byte{0x00, 0x01}      // 電源入れ直し
+	aliases["recoverable_reset_button"] = []byte{0x00, 0x02}     // リセットボタン
+	aliases["recoverable_improper_setting"] = []byte{0x00, 0x03} // セット不良
+	aliases["recoverable_supply"] = []byte{0x00, 0x04}           // 補給
+	aliases["recoverable_cleaning"] = []byte{0x00, 0x05}         // 掃除
+	aliases["recoverable_battery_change"] = []byte{0x00, 0x06}   // 電池交換
+	aliases["recoverable_no_action"] = []byte{0x00, 0x07}        // 復帰操作不要
+
+	// 0x000a〜0x00e9: 要修理
+	// 0x000a〜0x0013: 安全装置作動
+	aliases["repair_safety_device"] = []byte{0x00, 0x0a} // 安全装置作動（代表値）
+
+	// 0x0014〜0x001d: スイッチ異常
+	aliases["repair_switch_malfunction"] = []byte{0x00, 0x14} // スイッチ異常（代表値）
+
+	// 0x001e〜0x003b: センサー異常
+	aliases["repair_sensor_malfunction"] = []byte{0x00, 0x1e} // センサー異常（代表値）
+
+	// 0x003c〜0x0059: 機能部品異常
+	aliases["repair_component_malfunction"] = []byte{0x00, 0x3c} // 機能部品異常（代表値）
+
+	// 0x005a〜0x006e: 制御基板異常
+	aliases["repair_control_board_malfunction"] = []byte{0x00, 0x5a} // 制御基板異常（代表値）
+
+	// 0x03ff: 異常内容不明
+	aliases["fault_unknown"] = []byte{0x03, 0xff}
+
 	return aliases
 }
 
