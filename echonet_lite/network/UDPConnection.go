@@ -115,7 +115,7 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP n
 
 	// ネットワーク監視機能を初期化
 	if networkMonitorConfig != nil && networkMonitorConfig.Enabled {
-		err := udpConn.initNetworkMonitor(ctx, *networkMonitorConfig)
+		err := udpConn.initNetworkMonitor(ctx)
 		if err != nil {
 			slog.Warn("ネットワーク監視の初期化に失敗", "err", err)
 		}
@@ -222,7 +222,7 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 }
 
 // initNetworkMonitor はネットワーク監視機能を初期化します
-func (c *UDPConnection) initNetworkMonitor(ctx context.Context, config NetworkMonitorConfig) error {
+func (c *UDPConnection) initNetworkMonitor(ctx context.Context) error {
 	monitorCtx, cancel := context.WithCancel(ctx)
 
 	c.networkMonitor = &NetworkMonitor{
