@@ -14,22 +14,25 @@
 
 ## Server Build & Test Commands
 
+- サーバーはプロジェクトルートディレクトリで作業します`cd {フルパス}` してから実実してください
 - Build: `go build`
 - Run: `./echonet-list [-debug]`
 - Run as daemon: `./echonet-list -daemon -websocket`
 - Test: `go test ./...`
 - Format: `gofmt -w .`
 - Check: `go vet ./...`
+- コミット前には、format, test, buildしてエラーがないことを確認してください。
 
 ## Web UI Build & Test Commands
 
-- Web UI は `web` デディレクトリ内で作業します:
+- Web UI は `web` デディレクトリ内で作業します`cd {フルパス}` してから実実してください:
   - Build: `npm run build`
   - Dev Server: `npm run dev`
   - Dev Server (with custom WebSocket URL): `VITE_WS_URL=wss://custom-host:8080/ws npm run dev`
   - Test: `npm run test`
   - Lint: `npm run lint`
   - Type Check: `npm run typecheck`
+  - コミット前には、lint, typecheck, test, buildでエラーがないことを確認してください。
 
 Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがHTTPサーバーとして配信します。
 
@@ -196,7 +199,7 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
 
 ## デーモンモードの実装
 
-### 概要
+### デーモンモードの概要
 
 - バックグラウンドサービスとして動作するためのデーモンモードを実装済み
 - Linux/macOSでsystemdサービスとして運用可能
