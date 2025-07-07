@@ -1,4 +1,4 @@
-# Multicast Keep-Alive Implementation
+# Network Monitoring Implementation
 
 ## Overview
 
@@ -19,10 +19,10 @@ This document describes the multicast keep-alive functionality implemented in EC
 - **IP Address Updates**: Updates local IP address cache when network interfaces change
 - **IGMP-based Keep-Alive**: Uses standard IGMP protocol instead of custom heartbeat packets
 
-### 3. Configurable Keep-Alive Settings
+### 3. Simplified Configuration
 
-- **Group Refresh Interval**: Configurable interval for group membership validation (default: 5m)
-- **Network Monitor**: Enable/disable network interface monitoring (default: enabled)
+- **Single Setting**: Only `keep_alive_enabled` is needed
+- **Automatic Features**: Network monitoring is automatically enabled with keep-alive
 
 ## Configuration
 
@@ -31,38 +31,17 @@ This document describes the multicast keep-alive functionality implemented in EC
 ```toml
 [multicast]
 # Enable multicast keep-alive functionality
+# When enabled, network interface monitoring is automatically activated
 keep_alive_enabled = true
-
-# Interval for refreshing multicast group membership
-# Recommended: 5m-10m for most environments
-group_refresh_interval = "5m"
-
-# Enable network interface monitoring for automatic reconnection
-# Monitors network changes and automatically refreshes connections
-network_monitor_enabled = true
 ```
 
 ### Recommended Settings
 
-#### Home Networks (Stable)
+#### All Network Types
 
 ```toml
-group_refresh_interval = "10m"
-network_monitor_enabled = true
-```
-
-#### Corporate Networks (Moderate)
-
-```toml
-group_refresh_interval = "5m"
-network_monitor_enabled = true
-```
-
-#### Unstable Networks (Mobile/WiFi)
-
-```toml
-group_refresh_interval = "2m"
-network_monitor_enabled = true
+[multicast]
+keep_alive_enabled = true
 ```
 
 ## Implementation Details
@@ -73,18 +52,15 @@ network_monitor_enabled = true
 
 #### Key Components
 
-- `MulticastKeepAlive` struct: Manages keep-alive state and timers
-- `KeepAliveConfig` struct: Configuration parameters
-- `keepAliveLoop()`: Main keep-alive event loop
-- ~~`sendHeartbeat()`~~: Removed - now relies on OS kernel's IGMP implementation
-- `monitorNetworkChanges()`: Monitors network interface changes
+- `MulticastKeepAlive` struct: Manages keep-alive state and network monitoring
+- `KeepAliveConfig` struct: Simple configuration (enabled flag only)
+- `keepAliveLoop()`: Main event loop for network monitoring
+- `monitorNetworkChanges()`: Detects and handles network interface changes
 
 #### Key Methods
 
 - `CreateUDPConnectionWithKeepAlive()`: Creates UDP connection with keep-alive
-- ~~`TriggerHeartbeat()`~~: Removed - heartbeat functionality replaced by IGMP
-- `TriggerGroupRefresh()`: Manually triggers group refresh
-- `GetKeepAliveStatus()`: Returns current keep-alive status
+- `IsNetworkMonitorEnabled()`: Returns current network monitoring status
 
 ### Session Layer Integration
 
@@ -137,7 +113,7 @@ network_monitor_enabled = true
 #### Info Level
 
 ```
-INFO マルチキャストキープアライブが開始されました groupRefreshInterval=5m networkMonitorEnabled=true
+INFO マルチキャストキープアライブが開始されました
 INFO ネットワークインターフェースの変更を検出しました
 INFO マルチキャストキープアライブが停止されました
 ```
@@ -145,7 +121,6 @@ INFO マルチキャストキープアライブが停止されました
 #### Debug Level
 
 ```
-DEBUG マルチキャストグループのメンバーシップを確認しました multicastIP=224.0.23.0
 DEBUG ローカルIPアドレスを更新しました count=2
 DEBUG キープアライブループを終了します
 ```
@@ -163,9 +138,9 @@ WARN マルチキャストグループの再参加に失敗しました err="net
 Use the `GetKeepAliveStatus()` method to check current status:
 
 ```go
-enabled, lastGroupRefresh := connection.GetKeepAliveStatus()
+enabled := connection.GetKeepAliveStatus()
 if enabled {
-    fmt.Printf("Last group refresh: %v\n", lastGroupRefresh)
+    fmt.Println("Keep-alive is enabled")
 }
 ```
 
@@ -182,8 +157,8 @@ if enabled {
 #### 2. Network Change Detection Not Working
 
 - **Symptom**: Network changes not detected
-- **Cause**: `network_monitor_enabled = false` or insufficient permissions
-- **Solution**: Enable monitoring and check network interface permissions
+- **Cause**: Insufficient permissions to query network interfaces
+- **Solution**: Check application permissions for network interface queries
 
 #### 3. IGMP Timeout Issues
 
@@ -263,11 +238,11 @@ If you have an existing configuration file with `heartbeat_interval`, you must r
 [multicast]
 keep_alive_enabled = true
 -heartbeat_interval = "30s"  # REMOVE THIS LINE
-group_refresh_interval = "5m"
-network_monitor_enabled = true
+-group_refresh_interval = "5m"  # REMOVE THIS LINE
+-network_monitor_enabled = true  # REMOVE THIS LINE (now automatic)
 ```
 
-The heartbeat functionality has been completely removed in favor of IGMP-compliant implementation.
+The heartbeat functionality has been completely removed in favor of IGMP-compliant implementation. Additionally, `group_refresh_interval` and `network_monitor_enabled` settings have been removed for simplification.
 
 ## Performance Impact
 
@@ -275,13 +250,12 @@ The heartbeat functionality has been completely removed in favor of IGMP-complia
 
 - **Additional Memory**: <1KB per connection for keep-alive state
 - **Goroutines**: 1 additional goroutine per connection
-- **Timers**: 1-2 timers per connection (group refresh, network monitor)
+- **Timers**: 1 timer per connection (network monitor, 10-second interval)
 
 ### CPU Usage
 
-- **Background Processing**: Minimal CPU usage for timers
+- **Background Processing**: Minimal CPU usage for single timer
 - **Network Monitoring**: Low-frequency interface checks (every 10 seconds)
-- **No Heartbeat Overhead**: No CPU usage for packet creation/transmission
 
 ### Network Impact
 
@@ -293,8 +267,8 @@ The heartbeat functionality has been completely removed in favor of IGMP-complia
 
 ### Potential Improvements
 
-1. **Connection Quality Metrics**: Track multicast group membership status
-2. **Advanced Network Detection**: Support for more network change scenarios
-3. **Keep-Alive Statistics**: Detailed monitoring and reporting
-4. **IGMP Version Detection**: Automatic detection of IGMPv2/v3 support
-5. **Router Configuration Helper**: Diagnostic tools for IGMP router settings
+1. **Network Quality Metrics**: Track interface stability and changes
+2. **Advanced Change Detection**: Support for more network scenarios
+3. **Monitoring Statistics**: Detailed network change reporting
+4. **Configuration Validation**: Automatic network setup verification
+5. **Diagnostic Tools**: Network troubleshooting utilities

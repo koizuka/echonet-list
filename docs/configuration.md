@@ -53,6 +53,10 @@ host = "localhost"
 port = 8080
 web_root = "web/bundle"
 
+# ネットワーク監視設定
+[network]
+monitor_enabled = true  # ネットワークインターフェース変更の監視
+
 # デーモンモード設定
 [daemon]
 enabled = false
@@ -91,6 +95,10 @@ pid_file = ""  # 省略時はプラットフォーム別のデフォルトパス
 - `host`: Server hostname (default: "localhost")
 - `port`: Server port (default: 8080)
 - `web_root`: Web root directory for static files (default: "web/bundle")
+
+#### Network Monitoring (`[network]`)
+
+- `monitor_enabled`: Enable network interface monitoring for reliable multicast communication (default: true)
 
 #### Daemon Mode (`[daemon]`)
 

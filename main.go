@@ -117,12 +117,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		// キープアライブ設定の表示
-		if cfg.Multicast.KeepAliveEnabled {
-			fmt.Printf("マルチキャストキープアライブ: 有効 (グループ更新: %s, ネットワーク監視: %v)\n",
-				cfg.Multicast.GroupRefreshInterval, cfg.Multicast.NetworkMonitorEnabled)
+		// ネットワーク監視設定の表示
+		if cfg.Network.MonitorEnabled {
+			fmt.Println("ネットワーク監視: 有効")
 		} else {
-			fmt.Println("マルチキャストキープアライブ: 無効")
+			fmt.Println("ネットワーク監視: 無効")
 		}
 		defer func() {
 			if err := s.Close(); err != nil {
@@ -261,12 +260,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		// キープアライブ設定の表示
-		if cfg.Multicast.KeepAliveEnabled {
-			fmt.Printf("マルチキャストキープアライブ: 有効 (グループ更新: %s, ネットワーク監視: %v)\n",
-				cfg.Multicast.GroupRefreshInterval, cfg.Multicast.NetworkMonitorEnabled)
+		// ネットワーク監視設定の表示
+		if cfg.Network.MonitorEnabled {
+			fmt.Println("ネットワーク監視: 有効")
 		} else {
-			fmt.Println("マルチキャストキープアライブ: 無効")
+			fmt.Println("ネットワーク監視: 無効")
 		}
 		defer func() {
 			if err := s.Close(); err != nil {

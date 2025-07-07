@@ -11,42 +11,34 @@ import (
 
 // UDPConnection は UDP ソケットを管理します
 type UDPConnection struct {
-	UdpConn     *net.UDPConn
-	LocalAddr   *net.UDPAddr
-	localIPs    []net.IP // ローカルインターフェースのIPリスト
-	Port        int
-	multicastIP net.IP // マルチキャストIPアドレス
-	mu          sync.RWMutex
-	keepAlive   *MulticastKeepAlive
+	UdpConn        *net.UDPConn
+	LocalAddr      *net.UDPAddr
+	localIPs       []net.IP // ローカルインターフェースのIPリスト
+	Port           int
+	multicastIP    net.IP // マルチキャストIPアドレス
+	mu             sync.RWMutex
+	networkMonitor *NetworkMonitor
 }
 
-// MulticastKeepAlive はマルチキャストのキープアライブ管理を行います
-type MulticastKeepAlive struct {
-	enabled               bool
-	groupRefreshInterval  time.Duration
-	networkMonitorEnabled bool
-	ctx                   context.Context
-	cancel                context.CancelFunc
-	interfaces            []net.Interface
-	interfacesMu          sync.RWMutex
-	lastGroupRefresh      time.Time
-	lastMu                sync.RWMutex
-	groupRefreshCh        chan bool
-	done                  chan struct{} // goroutine終了通知用
+// NetworkMonitor はネットワークインターフェースの監視を行います
+type NetworkMonitor struct {
+	ctx          context.Context
+	cancel       context.CancelFunc
+	interfaces   []net.Interface
+	interfacesMu sync.RWMutex
+	done         chan struct{} // goroutine終了通知用
 }
 
-// KeepAliveConfig はキープアライブの設定を表します
-type KeepAliveConfig struct {
-	Enabled               bool
-	GroupRefreshInterval  time.Duration
-	NetworkMonitorEnabled bool
+// NetworkMonitorConfig はネットワーク監視の設定を表します
+type NetworkMonitorConfig struct {
+	Enabled bool
 }
 
 // CreateUDPConnection は IPv4 の unicast と multicast (マルチキャスト) を受信対応します。
 // ip が nil の場合はワイルドカード listen、multicastIP がブロードキャストかつIPv4の場合は broadcast として受信。
 // multicastIP が真のマルチキャストかつIPv4の場合はグループ参加。
 // ip または multicastIP がIPv6の場合はエラーになります。
-func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP net.IP, keepAliveConfig *KeepAliveConfig) (*UDPConnection, error) {
+func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP net.IP, networkMonitorConfig *NetworkMonitorConfig) (*UDPConnection, error) {
 	// IPv6 非対応チェック
 	if ip != nil && ip.To4() == nil {
 		return nil, fmt.Errorf("IPv6 not supported for unicast ip")
@@ -121,11 +113,11 @@ func CreateUDPConnection(ctx context.Context, ip net.IP, port int, multicastIP n
 		multicastIP: multicastIP,
 	}
 
-	// キープアライブ機能を初期化
-	if keepAliveConfig != nil && keepAliveConfig.Enabled && multicastIP != nil {
-		err := udpConn.initKeepAlive(ctx, *keepAliveConfig)
+	// ネットワーク監視機能を初期化
+	if networkMonitorConfig != nil && networkMonitorConfig.Enabled {
+		err := udpConn.initNetworkMonitor(ctx, *networkMonitorConfig)
 		if err != nil {
-			slog.Warn("キープアライブの初期化に失敗", "err", err)
+			slog.Warn("ネットワーク監視の初期化に失敗", "err", err)
 		}
 	}
 
@@ -168,9 +160,9 @@ func (c *UDPConnection) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// キープアライブを停止
-	if c.keepAlive != nil {
-		c.stopKeepAlive()
+	// ネットワーク監視を停止
+	if c.networkMonitor != nil {
+		c.stopNetworkMonitor()
 	}
 
 	return c.UdpConn.Close()
@@ -229,123 +221,77 @@ func (c *UDPConnection) Receive(ctx context.Context) ([]byte, *net.UDPAddr, erro
 	}
 }
 
-// initKeepAlive はキープアライブ機能を初期化します
-func (c *UDPConnection) initKeepAlive(ctx context.Context, config KeepAliveConfig) error {
-	keepAliveCtx, cancel := context.WithCancel(ctx)
+// initNetworkMonitor はネットワーク監視機能を初期化します
+func (c *UDPConnection) initNetworkMonitor(ctx context.Context, config NetworkMonitorConfig) error {
+	monitorCtx, cancel := context.WithCancel(ctx)
 
-	c.keepAlive = &MulticastKeepAlive{
-		enabled:               config.Enabled,
-		groupRefreshInterval:  config.GroupRefreshInterval,
-		networkMonitorEnabled: config.NetworkMonitorEnabled,
-		ctx:                   keepAliveCtx,
-		cancel:                cancel,
-		interfaces:            []net.Interface{},
-		groupRefreshCh:        make(chan bool, 1),
-		done:                  make(chan struct{}),
+	c.networkMonitor = &NetworkMonitor{
+		ctx:        monitorCtx,
+		cancel:     cancel,
+		interfaces: []net.Interface{},
+		done:       make(chan struct{}),
 	}
 
 	// 初期のネットワークインターフェース情報を取得
-	if err := c.keepAlive.updateNetworkInterfaces(); err != nil {
+	if err := c.networkMonitor.updateNetworkInterfaces(); err != nil {
 		slog.Warn("ネットワークインターフェース情報の取得に失敗", "err", err)
 		// エラーでも継続（空の interface リストで開始）
 	}
 
-	// キープアライブループを開始
-	go c.keepAliveLoop()
+	// ネットワーク監視ループを開始
+	go c.networkMonitorLoop()
 
-	slog.Info("マルチキャストキープアライブが開始されました",
-		"groupRefreshInterval", config.GroupRefreshInterval,
-		"networkMonitorEnabled", config.NetworkMonitorEnabled)
+	slog.Info("ネットワーク監視が開始されました")
 
 	return nil
 }
 
-// stopKeepAlive はキープアライブ機能を停止します
-func (c *UDPConnection) stopKeepAlive() {
-	if c.keepAlive != nil && c.keepAlive.cancel != nil {
-		c.keepAlive.cancel()
+// stopNetworkMonitor はネットワーク監視機能を停止します
+func (c *UDPConnection) stopNetworkMonitor() {
+	if c.networkMonitor != nil && c.networkMonitor.cancel != nil {
+		c.networkMonitor.cancel()
 		// goroutineの終了を待機
-		<-c.keepAlive.done
-		c.keepAlive = nil
-		slog.Info("マルチキャストキープアライブが停止されました")
+		<-c.networkMonitor.done
+		c.networkMonitor = nil
+		slog.Info("ネットワーク監視が停止されました")
 	}
 }
 
-// keepAliveLoop はキープアライブのメインループです
-func (c *UDPConnection) keepAliveLoop() {
+// networkMonitorLoop はネットワーク監視のメインループです
+func (c *UDPConnection) networkMonitorLoop() {
 	c.mu.RLock()
-	keepAlive := c.keepAlive
+	networkMonitor := c.networkMonitor
 	c.mu.RUnlock()
 
-	if keepAlive == nil {
+	if networkMonitor == nil {
 		return
 	}
 
 	// 終了時にdoneチャンネルを必ずcloseする
-	defer close(keepAlive.done)
+	defer close(networkMonitor.done)
 
-	groupRefreshTicker := time.NewTicker(keepAlive.groupRefreshInterval)
-	defer groupRefreshTicker.Stop()
-
-	var networkMonitorTicker *time.Ticker
-	if keepAlive.networkMonitorEnabled {
-		networkMonitorTicker = time.NewTicker(10 * time.Second) // ネットワーク監視は10秒間隔
-		defer networkMonitorTicker.Stop()
-	}
+	networkMonitorTicker := time.NewTicker(10 * time.Second) // ネットワーク監視は10秒間隔
+	defer networkMonitorTicker.Stop()
 
 	for {
 		select {
-		case <-keepAlive.ctx.Done():
-			slog.Debug("キープアライブループを終了します")
+		case <-networkMonitor.ctx.Done():
+			slog.Debug("ネットワーク監視ループを終了します")
 			return
 
-		case <-groupRefreshTicker.C:
-			c.refreshMulticastGroup()
-
-		case <-keepAlive.groupRefreshCh:
-			c.refreshMulticastGroup()
-
-		case <-func() <-chan time.Time {
-			if networkMonitorTicker != nil {
-				return networkMonitorTicker.C
-			}
-			return make(chan time.Time) // 無効なチャンネル
-		}():
+		case <-networkMonitorTicker.C:
 			c.monitorNetworkChanges()
 		}
 	}
 }
 
-// refreshMulticastGroup はマルチキャストグループのメンバーシップを更新します
-func (c *UDPConnection) refreshMulticastGroup() {
-	c.mu.RLock()
-	keepAlive := c.keepAlive
-	multicastIP := c.multicastIP
-	c.mu.RUnlock()
-
-	if keepAlive == nil || multicastIP == nil {
-		return
-	}
-
-	// IGMP準拠のグループメンバーシップ維持
-	// net.ListenMulticastUDP で自動的にグループに参加するため、
-	// ソケットが有効である限りIGMPメンバーシップは維持される
-	//
-	// このリフレッシュは主にネットワーク変更後の状態確認を目的とする
-
-	keepAlive.lastMu.Lock()
-	keepAlive.lastGroupRefresh = time.Now()
-	keepAlive.lastMu.Unlock()
-	slog.Debug("マルチキャストグループのメンバーシップを確認しました", "multicastIP", multicastIP)
-}
-
 // monitorNetworkChanges はネットワークインターフェースの変更を監視します
 func (c *UDPConnection) monitorNetworkChanges() {
 	c.mu.RLock()
-	keepAlive := c.keepAlive
+	networkMonitor := c.networkMonitor
 	c.mu.RUnlock()
 
-	if keepAlive == nil || !keepAlive.networkMonitorEnabled {
+	if networkMonitor == nil {
 		return
 	}
 
@@ -357,18 +303,18 @@ func (c *UDPConnection) monitorNetworkChanges() {
 		return
 	}
 
-	keepAlive.interfacesMu.Lock()
-	previousInterfaces := keepAlive.interfaces
-	keepAlive.interfacesMu.Unlock()
+	networkMonitor.interfacesMu.Lock()
+	previousInterfaces := networkMonitor.interfaces
+	networkMonitor.interfacesMu.Unlock()
 
 	// インターフェースの変更をチェック
 	if c.hasNetworkChanged(previousInterfaces, currentInterfaces) {
 		slog.Info("ネットワークインターフェースの変更を検出しました")
 
 		// ネットワークインターフェース情報を更新
-		keepAlive.interfacesMu.Lock()
-		keepAlive.interfaces = currentInterfaces
-		keepAlive.interfacesMu.Unlock()
+		networkMonitor.interfacesMu.Lock()
+		networkMonitor.interfaces = currentInterfaces
+		networkMonitor.interfacesMu.Unlock()
 
 		// ローカルIPアドレスを再取得
 		newLocalIPs, err := GetLocalIPv4s()
@@ -380,13 +326,6 @@ func (c *UDPConnection) monitorNetworkChanges() {
 			c.localIPs = newLocalIPs
 			c.mu.Unlock()
 			slog.Debug("ローカルIPアドレスを更新しました", "count", len(newLocalIPs))
-		}
-
-		// グループメンバーシップを強制更新
-		select {
-		case keepAlive.groupRefreshCh <- true:
-		default:
-			// チャンネルがブロックされている場合は無視
 		}
 	}
 }
@@ -413,42 +352,22 @@ func (c *UDPConnection) hasNetworkChanged(previous, current []net.Interface) boo
 }
 
 // updateNetworkInterfaces はネットワークインターフェース情報を更新します
-func (ka *MulticastKeepAlive) updateNetworkInterfaces() error {
+func (nm *NetworkMonitor) updateNetworkInterfaces() error {
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		return err
 	}
 
-	ka.interfacesMu.Lock()
-	ka.interfaces = interfaces
-	ka.interfacesMu.Unlock()
+	nm.interfacesMu.Lock()
+	nm.interfaces = interfaces
+	nm.interfacesMu.Unlock()
 
 	return nil
 }
 
-// TriggerGroupRefresh は手動でグループ更新をトリガーします
-func (c *UDPConnection) TriggerGroupRefresh() {
+// IsNetworkMonitorEnabled はネットワーク監視が有効かどうかを返します
+func (c *UDPConnection) IsNetworkMonitorEnabled() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.keepAlive != nil {
-		select {
-		case c.keepAlive.groupRefreshCh <- true:
-		default:
-			// チャンネルがブロックされている場合は無視
-		}
-	}
-}
-
-// GetKeepAliveStatus はキープアライブの状態を返します
-func (c *UDPConnection) GetKeepAliveStatus() (enabled bool, lastGroupRefresh time.Time) {
-	c.mu.RLock()
-	keepAlive := c.keepAlive
-	c.mu.RUnlock()
-
-	if keepAlive != nil {
-		keepAlive.lastMu.RLock()
-		defer keepAlive.lastMu.RUnlock()
-		return keepAlive.enabled, keepAlive.lastGroupRefresh
-	}
-	return false, time.Time{}
+	return c.networkMonitor != nil
 }

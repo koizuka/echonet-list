@@ -19,6 +19,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 - **Status Indicators**: Visual feedback for device operation and fault states
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 - **Internationalization**: Multi-language support (English, Japanese) for property descriptions and UI
+- **Network Monitoring**: Automatic detection of network interface changes for reliable multicast communication
 - WebSocket API for custom client development
 - TLS support for secure connections
 - Daemon mode for running as a system service
@@ -71,6 +72,7 @@ For a complete getting started guide, see [Quick Start Guide](docs/quick-start.m
 ### Reference
 
 - [Device Types and Examples](docs/device_types.md) - Supported devices and usage
+- [Network Monitoring Guide](docs/network-monitoring.md) - Network interface monitoring and multicast management
 - [mkcert Setup Guide](docs/mkcert_setup_guide.md) - TLS certificate setup
 - [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and solutions
 
