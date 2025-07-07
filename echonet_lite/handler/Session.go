@@ -431,7 +431,7 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echon
 				if retryCount >= s.MaxRetries {
 					// 最大再送回数に達した場合
 
-					slog.Warn("最大再送回数に達しました", "desc", desc, "maxRetries", s.MaxRetries)
+					slog.Warn("デバイスがオフラインです", "desc", desc, "maxRetries", s.MaxRetries)
 					_ = s.notifyDeviceTimeout(device)
 					return
 				}
@@ -558,7 +558,7 @@ func (s *Session) sendRequestWithContext(
 
 			if retryCount >= s.MaxRetries {
 				// 最大再送回数に達した場合
-				slog.Warn("最大再送回数に達しました", "device", device, "maxRetries", s.MaxRetries)
+				slog.Warn("デバイスがオフラインです", "device", device, "maxRetries", s.MaxRetries)
 				return nil, s.notifyDeviceTimeout(device)
 			}
 
