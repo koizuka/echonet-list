@@ -2,37 +2,35 @@
 
 ## Overview
 
-This document describes the multicast keep-alive functionality implemented in ECHONET List to maintain reliable UDP multicast group membership and detect network connectivity issues.
+This document describes the network monitoring functionality implemented in ECHONET List to detect network interface changes and maintain accurate local IP address caches for proper self-packet filtering in UDP multicast communication.
 
 ## Features
 
-### 1. Multicast Group Membership Maintenance
+### 1. Network Interface Monitoring
+
+- **Interface Detection**: Monitors network interface state changes (up/down, IP changes)  
+- **Local IP Cache**: Maintains up-to-date cache of local IP addresses
+- **Self-Packet Filtering**: Enables accurate detection of packets sent by the local node
+
+### 2. Multicast Group Management
 
 - **Automatic Group Join**: Uses `net.ListenMulticastUDP()` for automatic multicast group joining
 - **IGMP Compliance**: Relies on OS kernel's IGMP implementation for group membership
-- **Group Refresh**: Periodically validates and refreshes multicast group membership
-
-### 2. Network Monitoring
-
-- **Interface Monitoring**: Detects network interface changes (up/down, IP changes)
-- **Automatic Recovery**: Automatically refreshes connections when network changes are detected
-- **IP Address Updates**: Updates local IP address cache when network interfaces change
-- **IGMP-based Keep-Alive**: Uses standard IGMP protocol instead of custom heartbeat packets
+- **No Manual Refresh**: Multicast group membership is entirely handled by the OS kernel
 
 ### 3. Simplified Configuration
 
-- **Single Setting**: Only `keep_alive_enabled` is needed
-- **Automatic Features**: Network monitoring is automatically enabled with keep-alive
+- **Single Setting**: Only `monitor_enabled` is needed
+- **Automatic Features**: Network monitoring runs independently when enabled
 
 ## Configuration
 
 ### TOML Configuration File
 
 ```toml
-[multicast]
-# Enable multicast keep-alive functionality
-# When enabled, network interface monitoring is automatically activated
-keep_alive_enabled = true
+[network]
+# Enable network interface monitoring
+monitor_enabled = true
 ```
 
 ### Recommended Settings
@@ -40,8 +38,8 @@ keep_alive_enabled = true
 #### All Network Types
 
 ```toml
-[multicast]
-keep_alive_enabled = true
+[network]
+monitor_enabled = true
 ```
 
 ## Implementation Details
@@ -52,59 +50,58 @@ keep_alive_enabled = true
 
 #### Key Components
 
-- `MulticastKeepAlive` struct: Manages keep-alive state and network monitoring
-- `KeepAliveConfig` struct: Simple configuration (enabled flag only)
-- `keepAliveLoop()`: Main event loop for network monitoring
+- `NetworkMonitor` struct: Manages network interface monitoring state
+- `NetworkMonitorConfig` struct: Simple configuration (enabled flag only)
+- `networkMonitorLoop()`: Main event loop for network interface monitoring
 - `monitorNetworkChanges()`: Detects and handles network interface changes
 
 #### Key Methods
 
-- `CreateUDPConnectionWithKeepAlive()`: Creates UDP connection with keep-alive
+- `CreateUDPConnection()`: Creates UDP connection with optional network monitoring
 - `IsNetworkMonitorEnabled()`: Returns current network monitoring status
 
 ### Session Layer Integration
 
 **File**: `echonet_lite/handler/Session.go`
 
-- `CreateSessionWithKeepAlive()`: Creates session with keep-alive configuration
-- Maintains backward compatibility with existing `CreateSession()`
+- `CreateSession()`: Creates session with network monitoring configuration
+- Network monitoring is configured through handler options
 
 ### Handler Integration
 
 **File**: `echonet_lite/handler/ECHONETLiteHandler.go`
 
-- Extended `ECHONETLieHandlerOptions` to include `KeepAliveConfig`
+- Extended `ECHONETLieHandlerOptions` to include `NetworkMonitorConfig`
 - Passes configuration through to session layer
 
 ### Application Integration
 
 **Files**: `server/server.go`, `main.go`
 
-- `NewServerWithConfig()`: Creates server with multicast configuration
+- `NewServer()`: Creates server with network monitoring configuration
 - Parses configuration from TOML file
-- Applies keep-alive settings to handler
+- Applies network monitoring settings to handler
 
 ## Protocol Considerations
 
-### IGMP Compliance (Updated in PR #33)
+### Network Interface Monitoring
 
-- **RFC 2236**: Full compliance with IGMPv2 specification
-- **Query/Report**: OS kernel handles IGMP Query messages from routers and sends Reports
-- **Timeout**: Default 260-second timeout managed by router (configurable)
-- **No Custom Packets**: Removed application-level heartbeat packets that violated IGMP spec
+- **OS Integration**: Uses standard Go `net` package interfaces
+- **No Network Traffic**: Monitoring operates entirely through OS APIs
+- **Interface Queries**: Polls network interface state periodically
+- **Local Operation**: No network packets are sent for monitoring
 
-### IGMP-based Keep-Alive
+### Multicast Group Management
 
-- **Protocol**: Uses standard IGMP (Internet Group Management Protocol)
-- **OS Integration**: Relies on OS kernel's IGMP implementation
-- **No Custom Packets**: No application-level heartbeat packets
-- **Standards Compliant**: Follows RFC 2236 (IGMPv2) specifications
+- **IGMP Compliance**: Relies on OS kernel's IGMP implementation for multicast group membership
+- **Automatic**: Multicast group joining/leaving handled by `net.ListenMulticastUDP()`
+- **No Manual Intervention**: Application does not send IGMP packets directly
 
 ### Network Traffic Impact
 
-- **Zero Application Overhead**: No custom keep-alive packets
-- **IGMP Only**: Standard IGMP Query/Report messages handled by OS
+- **Zero Network Overhead**: Network monitoring generates no network traffic
 - **No Protocol Interference**: Doesn't affect ECHONET Lite communication
+- **Local Only**: All monitoring operations are local system calls
 
 ## Monitoring and Diagnostics
 
@@ -113,16 +110,16 @@ keep_alive_enabled = true
 #### Info Level
 
 ```
-INFO マルチキャストキープアライブが開始されました
+INFO ネットワーク監視が開始されました
 INFO ネットワークインターフェースの変更を検出しました
-INFO マルチキャストキープアライブが停止されました
+INFO ネットワーク監視が停止されました
 ```
 
 #### Debug Level
 
 ```
 DEBUG ローカルIPアドレスを更新しました count=2
-DEBUG キープアライブループを終了します
+DEBUG ネットワーク監視ループを終了します
 ```
 
 #### Warning Level
@@ -130,17 +127,16 @@ DEBUG キープアライブループを終了します
 ```
 WARN ネットワークインターフェース情報の取得に失敗 err="operation not permitted"
 WARN ローカルIPアドレスの再取得に失敗 err="no route to host"
-WARN マルチキャストグループの再参加に失敗しました err="network is unreachable"
 ```
 
 ### Status Monitoring
 
-Use the `GetKeepAliveStatus()` method to check current status:
+Use the `IsNetworkMonitorEnabled()` method to check current status:
 
 ```go
-enabled := connection.GetKeepAliveStatus()
+enabled := connection.IsNetworkMonitorEnabled()
 if enabled {
-    fmt.Println("Keep-alive is enabled")
+    fmt.Println("Network monitoring is enabled")
 }
 ```
 
@@ -148,11 +144,11 @@ if enabled {
 
 ### Common Issues
 
-#### 1. Keep-Alive Not Starting
+#### 1. Network Monitoring Not Starting
 
-- **Symptom**: No keep-alive log messages
-- **Cause**: `keep_alive_enabled = false` or missing multicast IP
-- **Solution**: Enable in configuration and verify multicast setup
+- **Symptom**: No network monitoring log messages
+- **Cause**: `monitor_enabled = false` in configuration
+- **Solution**: Enable network monitoring in configuration file
 
 #### 2. Network Change Detection Not Working
 
@@ -160,23 +156,17 @@ if enabled {
 - **Cause**: Insufficient permissions to query network interfaces
 - **Solution**: Check application permissions for network interface queries
 
-#### 3. IGMP Timeout Issues
+#### 3. Interface Query Failures
 
-- **Symptom**: Multicast group membership timeout
-- **Cause**: Network router IGMP configuration or firewall blocking IGMP
-- **Solution**: Check router IGMP settings and firewall rules for IGMP traffic
+- **Symptom**: Warning messages about interface information retrieval
+- **Cause**: OS permissions or network driver issues
+- **Solution**: Run with appropriate permissions or check network drivers
 
-#### 4. Multicast Group Leave Issues
+#### 4. Monitoring Loop Issues
 
-- **Symptom**: Application doesn't properly leave multicast group
-- **Cause**: Improper shutdown or context cancellation
-- **Solution**: Ensure proper Close() call and context management
-
-#### 5. Synchronization Issues (Fixed in PR #33)
-
-- **Symptom**: Race conditions or goroutine leaks
-- **Cause**: Improper synchronization in keep-alive shutdown
-- **Solution**: Updated to use `done` channel for proper goroutine termination
+- **Symptom**: Network monitoring stops unexpectedly
+- **Cause**: Context cancellation or system resource limits
+- **Solution**: Ensure proper context management and system resources
 
 ### Network Requirements
 
@@ -196,10 +186,10 @@ if enabled {
 
 ### Unit Tests
 
-Run keep-alive specific tests:
+Run network monitoring specific tests:
 
 ```bash
-go test ./echonet_lite/network -v -run TestKeepAlive
+go test ./echonet_lite/network -v -run TestNetworkMonitor
 ```
 
 ### Integration Testing
@@ -207,7 +197,7 @@ go test ./echonet_lite/network -v -run TestKeepAlive
 Test with configuration file:
 
 ```bash
-./echonet-list -config config.multicast.toml -debug
+./echonet-list -config config.toml -debug
 ```
 
 ### Network Simulation
@@ -224,43 +214,43 @@ sudo ifconfig en0 up
 ## Backward Compatibility
 
 - All existing APIs remain unchanged
-- Default behavior: keep-alive disabled
-- New functionality accessed through `*WithKeepAlive` functions
+- Default behavior: network monitoring disabled
 - Configuration is optional and backward compatible
+- Network monitoring operates independently when enabled
 
-## Breaking Changes (PR #33)
+## Breaking Changes (Recent Updates)
 
 ⚠️ **Configuration Changes Required**
 
-If you have an existing configuration file with `heartbeat_interval`, you must remove this setting:
+If you have an existing configuration file with multicast settings, you must update to the new network section:
 
 ```diff
-[multicast]
-keep_alive_enabled = true
--heartbeat_interval = "30s"  # REMOVE THIS LINE
--group_refresh_interval = "5m"  # REMOVE THIS LINE
--network_monitor_enabled = true  # REMOVE THIS LINE (now automatic)
+-[multicast]
+-keep_alive_enabled = true
++[network]
++monitor_enabled = true
 ```
 
-The heartbeat functionality has been completely removed in favor of IGMP-compliant implementation. Additionally, `group_refresh_interval` and `network_monitor_enabled` settings have been removed for simplification.
+The multicast-specific configuration has been replaced with general network monitoring configuration to better reflect the actual functionality.
 
 ## Performance Impact
 
 ### Memory Usage
 
-- **Additional Memory**: <1KB per connection for keep-alive state
-- **Goroutines**: 1 additional goroutine per connection
-- **Timers**: 1 timer per connection (network monitor, 10-second interval)
+- **Additional Memory**: <1KB per connection for network monitoring state
+- **Goroutines**: 1 additional goroutine per connection when enabled
+- **Timers**: 1 timer per connection (network interface check, 10-second interval)
 
 ### CPU Usage
 
 - **Background Processing**: Minimal CPU usage for single timer
 - **Network Monitoring**: Low-frequency interface checks (every 10 seconds)
+- **Interface Queries**: Minimal overhead for system calls
 
 ### Network Impact
 
-- **Bandwidth**: Zero additional application-level traffic
-- **Packet Rate**: Only standard IGMP messages (handled by OS)
+- **Bandwidth**: Zero network traffic generated by monitoring
+- **No Network Packets**: All monitoring is local system operations
 - **No Effect**: On existing ECHONET Lite protocol communications
 
 ## Future Enhancements

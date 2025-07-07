@@ -33,6 +33,7 @@
     "nologin",
     "noout",
     "pidfile",
+    "Println",
     "projectbrief",
     "scriptability",
     "SEOJ",
