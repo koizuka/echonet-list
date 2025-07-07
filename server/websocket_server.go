@@ -294,14 +294,14 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 		select {
 		case err := <-done:
 			if err != nil {
-				slog.Error("Failed to send initial state", "error", err, "connID", connID)
-
 				// Check if the error is due to client disconnect
 				if isClientDisconnectedError(err) {
 					slog.Debug("Client disconnected during initial state generation", "connID", connID)
 					// Don't try to send error notification to disconnected client
 					return
 				}
+
+				slog.Error("Failed to send initial state", "error", err, "connID", connID)
 
 				// Send error notification to client only if still connected
 				errorPayload := protocol.ErrorNotificationPayload{
