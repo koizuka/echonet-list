@@ -94,14 +94,15 @@ type PropertyDescription = echonet_lite.PropertyDescription
 
 func (m *mockECHONETListClient) AvailablePropertyAliases(classCode echonet_lite.EOJClassCode) map[string]echonet_lite.PropertyDescription {
 	// テスト用のエイリアスマップを返す
-	if classCode == 0 { // 共通プロパティを要求された場合
+	switch classCode {
+	case 0: // 共通プロパティを要求された場合
 		return map[string]PropertyDescription{
 			"on":  {EPC: 0x80, Name: "Operation status", EDT: []byte{0x30}},
 			"off": {EPC: 0x80, Name: "Operation status", EDT: []byte{0x31}},
 			// 必要に応じて他の共通プロパティエイリアスを追加
 			"living": {EPC: 0x81, Name: "Installation location", EDT: []byte{0x01}},
 		}
-	} else if classCode == echonet_lite.HomeAirConditioner_ClassCode { // デバイス固有プロパティ
+	case echonet_lite.HomeAirConditioner_ClassCode: // デバイス固有プロパティ
 		return map[string]PropertyDescription{
 			"auto":    {EPC: 0xB0, Name: "Operation mode setting", EDT: []byte{0x41}},
 			"cooling": {EPC: 0xB0, Name: "Operation mode setting", EDT: []byte{0x42}},

@@ -15,8 +15,13 @@ type Server struct {
 }
 
 func NewServer(ctx context.Context, cfg *config.Config) (*Server, error) {
+	debug := false
+	if cfg != nil {
+		debug = cfg.Debug
+	}
+
 	// ハンドラーオプションを作成
-	options := handler.ECHONETLieHandlerOptions{Debug: cfg.Debug}
+	options := handler.ECHONETLieHandlerOptions{Debug: debug}
 
 	// データファイルパス設定を追加
 	if cfg != nil {
