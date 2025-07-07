@@ -86,12 +86,10 @@ type Config struct {
 		WebRoot string `toml:"web_root"`
 	} `toml:"http_server"`
 
-	// Multicast keep-alive settings
-	Multicast struct {
-		KeepAliveEnabled      bool   `toml:"keep_alive_enabled"`
-		GroupRefreshInterval  string `toml:"group_refresh_interval"` // e.g., "5m", "10m"
-		NetworkMonitorEnabled bool   `toml:"network_monitor_enabled"`
-	} `toml:"multicast"`
+	// Network monitoring settings
+	Network struct {
+		MonitorEnabled bool `toml:"monitor_enabled"`
+	} `toml:"network"`
 
 	// Data file paths
 	DataFiles struct {
@@ -118,10 +116,8 @@ func NewConfig() *Config {
 	cfg.HTTPServer.Port = 8080
 	cfg.HTTPServer.WebRoot = "web/bundle"
 
-	// Default multicast keep-alive settings
-	cfg.Multicast.KeepAliveEnabled = true
-	cfg.Multicast.GroupRefreshInterval = "5m"
-	cfg.Multicast.NetworkMonitorEnabled = true
+	// Default network monitoring settings
+	cfg.Network.MonitorEnabled = true
 
 	// Default data file paths (empty means use default locations)
 	cfg.DataFiles.DevicesFile = ""

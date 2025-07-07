@@ -31,6 +31,12 @@ host = "localhost"
 port = 8080
 web_root = "web/bundle"
 
+# ネットワーク監視設定
+[network]
+# ネットワークインターフェース変更の監視を有効にする
+# マルチキャスト通信の信頼性向上のため、通常は有効のままにしてください
+monitor_enabled = true
+
 # デーモンモード設定
 [daemon]
 # デーモンモードを有効にする

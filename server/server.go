@@ -6,7 +6,6 @@ import (
 	"echonet-list/echonet_lite/handler"
 	"echonet-list/echonet_lite/network"
 	"fmt"
-	"time"
 )
 
 type Server struct {
@@ -30,17 +29,10 @@ func NewServer(ctx context.Context, cfg *config.Config) (*Server, error) {
 		options.GroupsFile = cfg.DataFiles.GroupsFile
 	}
 
-	// キープアライブ設定を追加
-	if cfg != nil && cfg.Multicast.KeepAliveEnabled {
-		groupRefreshInterval, err := time.ParseDuration(cfg.Multicast.GroupRefreshInterval)
-		if err != nil {
-			groupRefreshInterval = 5 * time.Minute // デフォルト値
-		}
-
-		options.KeepAliveConfig = &network.KeepAliveConfig{
-			Enabled:               cfg.Multicast.KeepAliveEnabled,
-			GroupRefreshInterval:  groupRefreshInterval,
-			NetworkMonitorEnabled: cfg.Multicast.NetworkMonitorEnabled,
+	// ネットワーク監視設定を追加
+	if cfg != nil && cfg.Network.MonitorEnabled {
+		options.NetworkMonitorConfig = &network.NetworkMonitorConfig{
+			Enabled: cfg.Network.MonitorEnabled,
 		}
 	}
 

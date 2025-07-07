@@ -7,12 +7,10 @@ import (
 	"time"
 )
 
-func TestKeepAliveConfig(t *testing.T) {
-	// テスト用のキープアライブ設定
-	config := &KeepAliveConfig{
-		Enabled:               true,
-		GroupRefreshInterval:  2 * time.Second,
-		NetworkMonitorEnabled: true,
+func TestNetworkMonitorConfig(t *testing.T) {
+	// テスト用のネットワーク監視設定
+	config := &NetworkMonitorConfig{
+		Enabled: true,
 	}
 
 	// テスト用のコンテキスト
@@ -29,29 +27,16 @@ func TestKeepAliveConfig(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// キープアライブ状態をチェック
-	enabled, lastGroupRefresh := conn.GetKeepAliveStatus()
+	// ネットワーク監視状態をチェック
+	enabled := conn.IsNetworkMonitorEnabled()
 	if !enabled {
-		t.Error("キープアライブが有効になっていません")
-	}
-
-	// 少し待機してからグループ更新をテスト
-	time.Sleep(100 * time.Millisecond)
-
-	// 手動でグループ更新をトリガー
-	conn.TriggerGroupRefresh()
-	time.Sleep(100 * time.Millisecond)
-
-	// 状態が更新されているかチェック
-	_, newLastGroupRefresh := conn.GetKeepAliveStatus()
-	if !newLastGroupRefresh.After(lastGroupRefresh) {
-		t.Error("グループ更新が実行されていません")
+		t.Error("ネットワーク監視が有効になっていません")
 	}
 }
 
-func TestKeepAliveDisabled(t *testing.T) {
-	// キープアライブを無効にした設定
-	config := &KeepAliveConfig{
+func TestNetworkMonitorDisabled(t *testing.T) {
+	// ネットワーク監視を無効にした設定
+	config := &NetworkMonitorConfig{
 		Enabled: false,
 	}
 
@@ -69,14 +54,14 @@ func TestKeepAliveDisabled(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// キープアライブ状態をチェック
-	enabled, _ := conn.GetKeepAliveStatus()
+	// ネットワーク監視状態をチェック
+	enabled := conn.IsNetworkMonitorEnabled()
 	if enabled {
-		t.Error("キープアライブが無効になっていません")
+		t.Error("ネットワーク監視が無効になっていません")
 	}
 }
 
-func TestKeepAliveNilConfig(t *testing.T) {
+func TestNetworkMonitorNilConfig(t *testing.T) {
 	// テスト用のコンテキスト
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -91,10 +76,10 @@ func TestKeepAliveNilConfig(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// キープアライブ状態をチェック
-	enabled, _ := conn.GetKeepAliveStatus()
+	// ネットワーク監視状態をチェック
+	enabled := conn.IsNetworkMonitorEnabled()
 	if enabled {
-		t.Error("キープアライブが無効になっていません")
+		t.Error("ネットワーク監視が無効になっていません")
 	}
 }
 
@@ -112,9 +97,9 @@ func TestCreateUDPConnectionBackwardCompatibility(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// キープアライブが無効であることを確認
-	enabled, _ := conn.GetKeepAliveStatus()
+	// ネットワーク監視が無効であることを確認
+	enabled := conn.IsNetworkMonitorEnabled()
 	if enabled {
-		t.Error("デフォルトでキープアライブが有効になっています")
+		t.Error("デフォルトでネットワーク監視が有効になっています")
 	}
 }
