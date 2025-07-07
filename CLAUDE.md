@@ -8,24 +8,20 @@
   - Web UI 本体は TypeScript で実装済みで、WebSocket によるリアルタイム通信が動作しています。
     - WebSocket のプロトコルや Web UI 開発ガイドは @docs/ に記述しています。
 
-## 開発メモ
-
-- go のコードをコミットする前には`gofmt -w`をしてください
-
 ## Server Build & Test Commands
 
-- サーバーはプロジェクトルートディレクトリで作業します`cd {フルパス}` してから実実してください
-- Build: `go build`
-- Run: `./echonet-list [-debug]`
-- Run as daemon: `./echonet-list -daemon -websocket`
-- Test: `go test ./...`
-- Format: `gofmt -w .`
-- Check: `go vet ./...`
-- コミット前には、format, test, buildしてエラーがないことを確認してください。
+- サーバーはプロジェクトルートディレクトリで作業します。 `cd {フルパス}` してから実行してください:
+  - Build: `go build`
+  - Run: `./echonet-list [-debug]`
+  - Run as daemon: `./echonet-list -daemon -websocket`
+  - Test: `go test ./...`
+  - Format: `gofmt -w .`
+  - Check: `go vet ./...`
+  - コミット前には、format, test, buildしてエラーがないことを確認してください。
 
 ## Web UI Build & Test Commands
 
-- Web UI は `web` デディレクトリ内で作業します`cd {フルパス}` してから実実してください:
+- Web UI は `web` ディレクトリ内で作業します。 `cd {フルパス}` してから実行してください:
   - Build: `npm run build`
   - Dev Server: `npm run dev`
   - Dev Server (with custom WebSocket URL): `VITE_WS_URL=wss://custom-host:8080/ws npm run dev`
