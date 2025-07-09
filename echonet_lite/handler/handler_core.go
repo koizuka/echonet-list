@@ -18,8 +18,8 @@ type HandlerCore struct {
 // NewHandlerCore は、HandlerCoreの新しいインスタンスを作成する
 func NewHandlerCore(ctx context.Context, cancel context.CancelFunc, debug bool) *HandlerCore {
 	// 通知チャンネルを作成
-	notificationCh := make(chan DeviceNotification, 100)           // バッファサイズは100に設定
-	propertyChangeCh := make(chan PropertyChangeNotification, 400) // バッファサイズは400に設定
+	notificationCh := make(chan DeviceNotification, 100)            // バッファサイズは100に設定
+	propertyChangeCh := make(chan PropertyChangeNotification, 2000) // バッファサイズは2000に設定
 
 	return &HandlerCore{
 		ctx:              ctx,

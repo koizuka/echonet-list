@@ -671,8 +671,12 @@ func (ws *WebSocketServer) listenForNotifications() {
 				Value: protocol.MakePropertyData(propertyChange.Device.EOJ.ClassCode(), propertyChange.Property),
 			}
 
-			// メッセージをブロードキャスト
-			_ = ws.broadcastMessageToClients(protocol.MessageTypePropertyChanged, payload)
+			// メッセージを非同期でブロードキャスト
+			go func() {
+				if err := ws.broadcastMessageToClients(protocol.MessageTypePropertyChanged, payload); err != nil {
+					slog.Error("Failed to broadcast property change", "error", err, "device", propertyChange.Device.Specifier())
+				}
+			}()
 		}
 	}
 }
