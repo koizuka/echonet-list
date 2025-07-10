@@ -370,6 +370,7 @@ func (d DeviceSpecifier) String() string {
 type FilterCriteria struct {
 	Device         DeviceSpecifier // Filters devices by IP address, ClassCode, and InstanceCode
 	PropertyValues []Property      // Filters devices by property values (EPC and EDT)
+	ExcludeOffline bool            // Excludes offline devices from the result
 }
 
 func (c FilterCriteria) String() string {
@@ -387,9 +388,9 @@ func (c FilterCriteria) String() string {
 // 2. All properties of matched devices are included in the result
 func (d Devices) Filter(criteria FilterCriteria) Devices {
 	filtered := NewDevices()
-	// ショートカット：フィルタ条件が無い場合は自身を返す
+	// ショートカット：フィルタ条件が無い場合は自身を返す（ExcludeOfflineがfalseの場合）
 	if (criteria.Device.IP == nil && criteria.Device.ClassCode == nil && criteria.Device.InstanceCode == nil) &&
-		len(criteria.PropertyValues) == 0 {
+		len(criteria.PropertyValues) == 0 && !criteria.ExcludeOffline {
 		return d
 	}
 	deviceSpec := criteria.Device
@@ -412,6 +413,17 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 			// インスタンスコードフィルタがある場合、マッチしないものはスキップ
 			if deviceSpec.InstanceCode != nil && eoj.InstanceCode() != *deviceSpec.InstanceCode {
 				continue
+			}
+
+			// オフラインデバイスを除外する場合
+			if criteria.ExcludeOffline {
+				ipAddr := net.ParseIP(ip)
+				if ipAddr != nil {
+					device := IPAndEOJ{IP: ipAddr, EOJ: eoj}
+					if d.IsOffline(device) {
+						continue
+					}
+				}
 			}
 
 			// PropertyValueフィルタがある場合
