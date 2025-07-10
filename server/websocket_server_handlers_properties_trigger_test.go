@@ -117,7 +117,6 @@ func verifyFilterCriteria(t *testing.T, mockClient *MockECHONETClientWithUpdateT
 }
 
 func TestSetPropertiesWithTriggerUpdate(t *testing.T) {
-	t.Parallel()
 	ws, mockClient, updateDelay := createTestSetup(t, context.Background())
 	msg := createOperationModeMessage()
 
@@ -134,7 +133,6 @@ func TestSetPropertiesWithTriggerUpdate(t *testing.T) {
 }
 
 func TestSetPropertiesWithoutTriggerUpdate(t *testing.T) {
-	t.Parallel()
 	ws, mockClient, _ := createTestSetup(t, context.Background())
 	msg := createTemperatureMessage()
 
@@ -149,7 +147,6 @@ func TestSetPropertiesWithoutTriggerUpdate(t *testing.T) {
 }
 
 func TestSetPropertiesWithTriggerUpdateTiming(t *testing.T) {
-	t.Parallel()
 	ws, mockClient, updateDelay := createTestSetup(t, context.Background())
 	msg := createOperationModeMessage()
 
@@ -187,7 +184,6 @@ func TestSetPropertiesWithTriggerUpdateTiming(t *testing.T) {
 }
 
 func TestSetPropertiesWithTriggerUpdateCancelled(t *testing.T) {
-	t.Parallel()
 	// Create a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
