@@ -367,7 +367,7 @@ func (ws *WebSocketServer) getCachedDeviceList() []handler.DeviceAndProperties {
 			}
 		}()
 		// Make another attempt - this might succeed if locks have been released
-		devices := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: true})
+		devices := ws.echonetClient.ListDevices(handler.FilterCriteria{})
 		select {
 		case devicesCh <- devices:
 		default:
@@ -407,7 +407,7 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 					errorCh <- fmt.Errorf("panic in device list fetch: %v", r)
 				}
 			}()
-			deviceList := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: true})
+			deviceList := ws.echonetClient.ListDevices(handler.FilterCriteria{})
 			devicesCh <- deviceList
 		}()
 
