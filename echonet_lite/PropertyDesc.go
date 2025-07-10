@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // PropertyDesc はプロパティの情報を表します。
@@ -15,6 +16,11 @@ type PropertyDesc struct {
 	Aliases           map[string][]byte            // Alias names for EDT values (e.g., "on" -> []byte{0x30})
 	AliasTranslations map[string]map[string]string // Alias翻訳テーブル (e.g., "ja" -> {"on" -> "オン"})
 	Decoder           PropertyDecoder              // デコーダ。PropertyEncoderも実装すると、文字列から変換できる。
+
+	// Update trigger fields
+	TriggerUpdate bool          // このプロパティが変更されたときに自動的にUpdatePropertiesを実行するか
+	UpdateDelay   time.Duration // UpdatePropertiesを実行するまでの遅延時間
+	UpdateTargets []EPCType     // 更新対象のプロパティリスト（空の場合は全プロパティ）
 }
 
 // GetName returns the property name for the specified language.

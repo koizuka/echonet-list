@@ -1,5 +1,7 @@
 package echonet_lite
 
+import "time"
+
 const (
 	// EPC
 	EPC_HAC_AirVolumeSetting          EPCType = 0xA0 // 風量設定
@@ -97,6 +99,13 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 					},
 				},
 				Decoder: nil,
+				// 運転モードが変更されたら、温度設定値などを再取得する
+				TriggerUpdate: true,
+				UpdateDelay:   2 * time.Second,
+				UpdateTargets: []EPCType{
+					EPC_HAC_TemperatureSetting,
+					EPC_HAC_RelativeHumiditySetting,
+				},
 			},
 			EPC_HAC_TemperatureSetting: {
 				Name: "Temperature setting",

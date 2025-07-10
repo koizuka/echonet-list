@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 )
 
 // handleGetPropertiesFromClient handles a get_properties message from a client
@@ -172,6 +173,54 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 	deviceAndProps, err := ws.echonetClient.SetProperties(ipAndEOJ, properties)
 	if err != nil {
 		return ErrorResponse(protocol.ErrorCodeEchonetCommunicationError, "Error setting properties: %v", err)
+	}
+
+	// Check if any of the set properties have TriggerUpdate flag
+	for _, prop := range properties {
+		desc, ok := echonet_lite.GetPropertyDesc(ipAndEOJ.EOJ.ClassCode(), prop.EPC)
+		if ok && desc.TriggerUpdate {
+			// Launch a goroutine to update properties after the specified delay
+			go func(device handler.IPAndEOJ, delay time.Duration, targets []echonet_lite.EPCType) {
+				// Wait for the delay or until context is cancelled
+				select {
+				case <-time.After(delay):
+					// Continue with the update
+				case <-ws.ctx.Done():
+					// Context was cancelled, abort the update
+					if ws.handler.IsDebug() {
+						slog.Debug("Property update cancelled due to context cancellation",
+							"device", device.Specifier())
+					}
+					return
+				}
+
+				// Create filter criteria for this specific device
+				classCode := device.EOJ.ClassCode()
+				instanceCode := device.EOJ.InstanceCode()
+				criteria := handler.FilterCriteria{
+					Device: handler.DeviceSpecifier{
+						IP:           &device.IP,
+						ClassCode:    &classCode,
+						InstanceCode: &instanceCode,
+					},
+				}
+
+				// Log the update trigger
+				if ws.handler.IsDebug() {
+					slog.Debug("Triggering property update due to TriggerUpdate flag",
+						"device", device.Specifier(),
+						"delay", delay,
+						"targetCount", len(targets))
+				}
+
+				// Force update to bypass the update interval threshold
+				if err := ws.echonetClient.UpdateProperties(criteria, true); err != nil {
+					slog.Info("Failed to update properties after trigger",
+						"device", device.Specifier(),
+						"error", err)
+				}
+			}(ipAndEOJ, desc.UpdateDelay, desc.UpdateTargets)
+		}
 	}
 
 	// デバイスの最終更新タイムスタンプを取得
