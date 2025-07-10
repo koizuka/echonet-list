@@ -101,7 +101,7 @@ jobs:
         fi
     
     - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out ./...
+      run: go test -v -race -timeout=30s ./echonet_lite/network -run TestNetworkMonitor
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5

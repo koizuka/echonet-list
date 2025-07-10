@@ -420,8 +420,7 @@ func (d Devices) Filter(criteria FilterCriteria) Devices {
 				ipAddr := net.ParseIP(ip)
 				if ipAddr != nil {
 					device := IPAndEOJ{IP: ipAddr, EOJ: eoj}
-					// 既にRLockを取得しているので、直接offlineDevicesマップをチェック
-					if _, isOffline := d.offlineDevices[device.Key()]; isOffline {
+					if d.IsOffline(device) {
 						continue
 					}
 				}
