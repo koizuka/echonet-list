@@ -254,8 +254,9 @@ func (d Devices) SetOffline(device IPAndEOJ, offline bool) {
 	key := device.Key()
 	if offline {
 		d.offlineDevices[key] = struct{}{}
+		slog.Info("デバイスをオフライン状態に設定", "device", device.Specifier())
 
-		// ベントをチャンネルに送信
+		// イベントをチャンネルに送信
 		if d.EventCh != nil {
 			select {
 			case d.EventCh <- DeviceEvent{
@@ -263,9 +264,13 @@ func (d Devices) SetOffline(device IPAndEOJ, offline bool) {
 				Type:   DeviceEventOffline,
 			}:
 				// 送信成功
+				slog.Info("デバイスオフラインイベントを送信", "device", device.Specifier())
 			default:
 				// チャンネルがブロックされている場合は無視
+				slog.Warn("デバイスオフラインイベントチャンネルがブロックされています", "device", device.Specifier())
 			}
+		} else {
+			slog.Warn("デバイスオフラインイベントチャンネルが設定されていません", "device", device.Specifier())
 		}
 	} else {
 		delete(d.offlineDevices, key)

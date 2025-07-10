@@ -505,4 +505,64 @@ describe('DeviceCard', () => {
       expect(updateButton).not.toBeDisabled();
     });
   });
+
+  describe('Last seen timestamp', () => {
+    it('should not show last seen in compact mode', () => {
+      render(
+        <DeviceCard
+          device={mockDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
+          aliases={{}}
+        />
+      );
+
+      // Should not show last seen text in compact mode
+      expect(screen.queryByText(/Last seen:/)).not.toBeInTheDocument();
+    });
+
+    it('should show last seen in expanded mode', () => {
+      render(
+        <DeviceCard
+          device={mockDevice}
+          isExpanded={true}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
+          aliases={{}}
+        />
+      );
+
+      // Should show last seen text in expanded mode
+      expect(screen.getByText(/Last seen:/)).toBeInTheDocument();
+    });
+
+    it('should show last seen with normal color in expanded mode', () => {
+      render(
+        <DeviceCard
+          device={mockDevice}
+          isExpanded={true}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
+          aliases={{}}
+        />
+      );
+
+      const lastSeenText = screen.getByText(/Last seen:/);
+      // Check for normal muted color class
+      expect(lastSeenText).toHaveClass('text-muted-foreground');
+    });
+  });
 });
