@@ -1035,3 +1035,122 @@ func TestDeviceProperties_IsAnnouncementTarget_NoMap(t *testing.T) {
 		t.Errorf("IsAnnouncementTarget with no Status Announcement Property Map should return false, got %v", result)
 	}
 }
+
+// TestDevices_Filter_OfflineDevices はオフラインデバイスのフィルタリングをテストします
+func TestDevices_Filter_OfflineDevices(t *testing.T) {
+	devices := NewDevices()
+
+	// テスト用のデバイスを作成
+	ip1 := net.ParseIP("192.168.1.1")
+	ip2 := net.ParseIP("192.168.1.2")
+	eoj := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+
+	device1 := IPAndEOJ{IP: ip1, EOJ: eoj}
+	device2 := IPAndEOJ{IP: ip2, EOJ: eoj}
+
+	// プロパティを登録
+	property := Property{
+		EPC: echonet_lite.EPCOperationStatus,
+		EDT: []byte{0x30},
+	}
+	devices.RegisterProperty(device1, property, time.Now())
+	devices.RegisterProperty(device2, property, time.Now())
+
+	// device1をオフラインに設定
+	devices.SetOffline(device1, true)
+
+	tests := []struct {
+		name             string
+		criteria         FilterCriteria
+		expectedCount    int
+		shouldContain    []IPAndEOJ
+		shouldNotContain []IPAndEOJ
+	}{
+		{
+			name:             "空のFilterCriteria（デフォルト）- オフラインデバイスを含む",
+			criteria:         FilterCriteria{},
+			expectedCount:    2,
+			shouldContain:    []IPAndEOJ{device1, device2},
+			shouldNotContain: []IPAndEOJ{},
+		},
+		{
+			name:             "ExcludeOffline=true - オフラインデバイスを除外",
+			criteria:         FilterCriteria{ExcludeOffline: true},
+			expectedCount:    1,
+			shouldContain:    []IPAndEOJ{device2},
+			shouldNotContain: []IPAndEOJ{device1},
+		},
+		{
+			name:             "ExcludeOffline=false - オフラインデバイスを含む",
+			criteria:         FilterCriteria{ExcludeOffline: false},
+			expectedCount:    2,
+			shouldContain:    []IPAndEOJ{device1, device2},
+			shouldNotContain: []IPAndEOJ{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filtered := devices.Filter(tt.criteria)
+
+			// 期待される数をチェック
+			if filtered.Len() != tt.expectedCount {
+				t.Errorf("Expected %d devices, got %d", tt.expectedCount, filtered.Len())
+			}
+
+			// 含まれるべきデバイスをチェック
+			for _, device := range tt.shouldContain {
+				if !filtered.IsKnownDevice(device) {
+					t.Errorf("Expected device %s to be included", device.String())
+				}
+			}
+
+			// 含まれないべきデバイスをチェック
+			for _, device := range tt.shouldNotContain {
+				if filtered.IsKnownDevice(device) {
+					t.Errorf("Expected device %s to be excluded", device.String())
+				}
+			}
+		})
+	}
+}
+
+// TestDevices_Filter_OfflineDevices_WithInitialState はinitial_state用のフィルタリングをテストします
+func TestDevices_Filter_OfflineDevices_WithInitialState(t *testing.T) {
+	devices := NewDevices()
+
+	// テスト用のデバイスを作成
+	ip1 := net.ParseIP("192.168.1.1")
+	ip2 := net.ParseIP("192.168.1.2")
+	eoj := echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1)
+
+	device1 := IPAndEOJ{IP: ip1, EOJ: eoj}
+	device2 := IPAndEOJ{IP: ip2, EOJ: eoj}
+
+	// プロパティを登録
+	property := Property{
+		EPC: echonet_lite.EPCOperationStatus,
+		EDT: []byte{0x30},
+	}
+	devices.RegisterProperty(device1, property, time.Now())
+	devices.RegisterProperty(device2, property, time.Now())
+
+	// device1をオフラインに設定
+	devices.SetOffline(device1, true)
+
+	// initial_state用のフィルタリング（空のFilterCriteriaでExcludeOfflineを自動設定）
+	filtered := devices.Filter(FilterCriteria{ExcludeOffline: true})
+
+	// オフラインデバイスが除外されることを確認
+	if filtered.Len() != 1 {
+		t.Errorf("Expected 1 device for initial state, got %d", filtered.Len())
+	}
+
+	if filtered.IsKnownDevice(device1) {
+		t.Error("Offline device should not be included in initial state")
+	}
+
+	if !filtered.IsKnownDevice(device2) {
+		t.Error("Online device should be included in initial state")
+	}
+}
