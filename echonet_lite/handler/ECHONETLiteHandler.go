@@ -213,6 +213,7 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 		for ev := range core.NotificationCh {
 			if ev.Type == DeviceTimeout {
 				// デバイスをオフラインに設定
+				slog.Info("デバイスタイムアウト検出、オフライン状態に設定", "device", ev.Device.Specifier())
 				data.SetOffline(ev.Device, true)
 			}
 			wrappedCh <- ev

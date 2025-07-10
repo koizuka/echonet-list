@@ -466,9 +466,13 @@ func (s *Session) notifyDeviceTimeout(device echonet_lite.IPAndEOJ) error {
 			Error:  maxRetriesErr,
 		}:
 			// 送信成功
+			slog.Info("デバイスタイムアウト通知を送信", "device", device.Specifier())
 		default:
 			// チャンネルがブロックされている場合は無視
+			slog.Warn("タイムアウト通知チャンネルがブロックされています", "device", device.Specifier())
 		}
+	} else {
+		slog.Warn("タイムアウト通知チャンネルが設定されていません", "device", device.Specifier())
 	}
 	return maxRetriesErr
 }

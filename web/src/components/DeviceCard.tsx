@@ -219,12 +219,14 @@ export function DeviceCard({
           </div>
         )}
 
-        {/* Last seen timestamp - always at bottom */}
-        <div className="border-t pt-2 pb-3 mt-2">
-          <p className="text-xs text-muted-foreground">
-            Last seen: {new Date(device.lastSeen).toLocaleString()}
-          </p>
-        </div>
+        {/* Last seen timestamp - only show in expanded mode */}
+        {isExpanded && (
+          <div className="border-t pt-2 pb-3 mt-2">
+            <p className="text-xs text-muted-foreground">
+              Last seen: {new Date(device.lastSeen).toLocaleString()}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

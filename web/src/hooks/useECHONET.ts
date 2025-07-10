@@ -210,6 +210,9 @@ export function useECHONET(
         break;
 
       case 'device_offline':
+        if (import.meta.env.DEV) {
+          console.log('📤 Device going offline:', `${message.payload.ip} ${message.payload.eoj}`);
+        }
         dispatch({
           type: 'REMOVE_DEVICE',
           payload: { ip: message.payload.ip, eoj: message.payload.eoj },

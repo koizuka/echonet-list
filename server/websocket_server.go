@@ -643,9 +643,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 				_ = ws.broadcastMessageToClients(protocol.MessageTypeTimeoutNotification, payload)
 
 			case handler.DeviceOffline:
-				if ws.handler.IsDebug() {
-					slog.Debug("Device offline", "device", notification.Device.Specifier())
-				}
+				slog.Info("Device offline notification received", "device", notification.Device.Specifier())
 
 				// Create device offline payload
 				device := notification.Device
@@ -655,7 +653,11 @@ func (ws *WebSocketServer) listenForNotifications() {
 				}
 
 				// Broadcast the message
-				_ = ws.broadcastMessageToClients(protocol.MessageTypeDeviceOffline, payload)
+				if err := ws.broadcastMessageToClients(protocol.MessageTypeDeviceOffline, payload); err != nil {
+					slog.Error("Failed to broadcast device offline message", "error", err, "device", notification.Device.Specifier())
+				} else {
+					slog.Info("Device offline message broadcasted", "device", notification.Device.Specifier())
+				}
 			}
 		case propertyChange := <-ws.handler.PropertyChangeCh:
 			// プロパティ変化通知を処理
