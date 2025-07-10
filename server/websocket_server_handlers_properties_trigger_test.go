@@ -6,6 +6,7 @@ import (
 	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 	"encoding/json"
+	"sync"
 	"testing"
 	"time"
 )
@@ -13,10 +14,13 @@ import (
 // MockECHONETClientWithUpdateTracking extends mockECHONETListClient to track UpdateProperties calls
 type MockECHONETClientWithUpdateTracking struct {
 	*mockECHONETListClient
+	mu                    sync.Mutex
 	UpdatePropertiesCalls []handler.FilterCriteria
 }
 
 func (m *MockECHONETClientWithUpdateTracking) UpdateProperties(criteria handler.FilterCriteria, force bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.UpdatePropertiesCalls = append(m.UpdatePropertiesCalls, criteria)
 	return nil
 }
@@ -93,6 +97,8 @@ func executeAndVerifyResponse(t *testing.T, ws *WebSocketServer, msg *protocol.M
 
 // verifyUpdatePropertiesCalls verifies the number of UpdateProperties calls
 func verifyUpdatePropertiesCalls(t *testing.T, mockClient *MockECHONETClientWithUpdateTracking, expectedCount int) {
+	mockClient.mu.Lock()
+	defer mockClient.mu.Unlock()
 	if len(mockClient.UpdatePropertiesCalls) != expectedCount {
 		t.Errorf("Expected %d UpdateProperties calls, got %d", expectedCount, len(mockClient.UpdatePropertiesCalls))
 	}
@@ -100,6 +106,8 @@ func verifyUpdatePropertiesCalls(t *testing.T, mockClient *MockECHONETClientWith
 
 // verifyFilterCriteria verifies the filter criteria for UpdateProperties calls
 func verifyFilterCriteria(t *testing.T, mockClient *MockECHONETClientWithUpdateTracking) {
+	mockClient.mu.Lock()
+	defer mockClient.mu.Unlock()
 	if len(mockClient.UpdatePropertiesCalls) == 0 {
 		return
 	}
