@@ -1,33 +1,29 @@
 ---
-description: "Clean up after PR merge - switch to default branch and update"
-allowed-tools: ["Bash"]
+description: "Clean up after PR merge - switch to main branch and update"
+allowed-tools: ["Bash(git checkout:*)", "Bash(git pull:*)", "Bash(git remote prune:*)"]
 ---
 
 # PR Merge Cleanup
 
 Clean up after a PR has been merged. This command will:
 
-1. Detect the default branch dynamically (main/master)
-2. Switch to the default branch
-3. Pull latest changes from origin
-4. Delete the merged branch locally (with confirmation)
-5. Prune remote tracking branches
+1. Switch to main branch
+2. Pull latest changes from origin
+3. Delete the merged branch locally
+4. Prune remote tracking branches
 
 ## Context
 
 - Current branch: !`git branch --show-current`
-- Repository status: !`git status --porcelain`
-- Available branches: !`git branch`
 
 ## Your task
 
 Perform post-merge cleanup for the branch: ${ARGUMENTS:-$(git branch --show-current)}
 
-Please:
-1. Validate the branch name for security (only alphanumeric, hyphens, underscores, slashes)
-2. Dynamically detect the default branch (main/master)
-3. Ensure we're not trying to delete the default branch
-4. Confirm the branch exists locally
-5. Ask for user confirmation before proceeding
-6. Execute the cleanup steps with proper error handling
-7. Handle the case where branch deletion fails (offer force delete option)
+Please execute the following steps immediately without confirmation:
+1. Save the current branch name
+2. Switch to main branch
+3. Pull latest changes from origin/main
+4. Delete the merged branch locally (use -D if -d fails)
+5. Prune remote tracking branches
+6. Show a summary of what was cleaned up
