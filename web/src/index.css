@@ -33,7 +33,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     /* Dark theme colors */
-    --color-border: hsl(240 3.7% 15.9%);
+    --color-border: hsl(240 3.7% 25%);
     --color-input: hsl(240 3.7% 15.9%);
     --color-ring: hsl(240 4.9% 83.9%);
     --color-background: hsl(240 10% 3.9%);
