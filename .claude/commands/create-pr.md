@@ -13,8 +13,8 @@ Description: create a pull request
 ## Your Task
 
 1. コミット前のチェックを実行してください：
-   - Go: `go fmt ./...`, `go vet ./...`, `go test ./...`, `go build`
-   - Web UI: `cd web && npm run lint && npm run typecheck && npm run test && npm run build`
+   - Go (プロジェクトルートで実行): `go fmt ./...`, `go vet ./...`, `go test ./...`, `go build`
+   - Web UI (webディレクトリで実行): `cd $(git rev-parse --show-toplevel)/web && npm run lint && npm run typecheck && npm run test && npm run build`
 
 2. 新しいブランチを作成し、現在の変更をコミットします。コミットメッセージは変更内容と目的を簡潔に説明してください。
 
