@@ -80,7 +80,7 @@ export function DeviceCard({
                 Device: {device.name}
               </p>
             )}
-            {isExpanded && (
+            {(isExpanded || !aliasInfo.hasAlias) && (
               <p className="text-xs text-muted-foreground">
                 {device.ip} - {device.eoj}
               </p>
