@@ -141,7 +141,7 @@ describe('DeviceCard', () => {
       expect(screen.queryByPlaceholderText(/alias/i)).not.toBeInTheDocument();
     });
 
-    it('should not show device IP and EOJ in compact mode', () => {
+    it('should show device IP and EOJ in compact mode when no alias exists', () => {
       render(
         <DeviceCard
           device={mockDevice}
@@ -156,9 +156,30 @@ describe('DeviceCard', () => {
         />
       );
 
-      // IP and EOJ should not be visible
-      expect(screen.queryByText(/192\.168\.1\.100/)).not.toBeInTheDocument();
-      expect(screen.queryByText(/0291:1/)).not.toBeInTheDocument();
+      // IP and EOJ should be visible when no alias exists
+      expect(screen.getByText(/192\.168\.1\.100.*0291:1/)).toBeInTheDocument();
+    });
+
+    it('should not show device IP and EOJ in compact mode when alias exists', () => {
+      // Mock to return that device has alias
+      vi.mocked(deviceIdHelper.deviceHasAlias).mockReturnValue({ hasAlias: true, aliasName: 'Living Light', deviceIdentifier: '192.168.1.100 0291:1' });
+      
+      render(
+        <DeviceCard
+          device={mockDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
+          aliases={{ 'Living Light': `${mockDevice.ip} ${mockDevice.eoj}` }}
+        />
+      );
+
+      // IP and EOJ should not be visible when alias exists
+      expect(screen.queryByText(/192\.168\.1\.100.*0291:1/)).not.toBeInTheDocument();
     });
   });
 
