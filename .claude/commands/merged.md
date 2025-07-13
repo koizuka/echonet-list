@@ -1,6 +1,6 @@
 ---
-description: "Clean up after PR merge - switch to main branch and update"
-allowed-tools: ["Bash(git checkout:*)", "Bash(git pull:*)", "Bash(git remote prune:*)"]
+allowed-tools: Bash(git checkout:*), Bash(git pull:*), Bash(git remote prune:*)
+description: Clean up after PR merge - switch to main branch and update
 ---
 
 # PR Merge Cleanup
