@@ -25,18 +25,18 @@ func (p Property) Encode() []byte {
 }
 
 type PropertyTable struct {
-	ClassCode      EOJClassCode
-	Description    string            // 英語のデフォルト説明
-	DescriptionMap map[string]string // 言語別の説明 (e.g., "ja" -> "単機能照明")
-	EPCDesc        map[EPCType]PropertyDesc
-	DefaultEPCs    []EPCType
+	ClassCode               EOJClassCode
+	Description             string            // 英語のデフォルト説明
+	DescriptionTranslations map[string]string // 言語別の説明 (e.g., "ja" -> "単機能照明")
+	EPCDesc                 map[EPCType]PropertyDesc
+	DefaultEPCs             []EPCType
 }
 
 // GetDescription returns the description for the specified language.
 // If the language is not found in DescriptionMap, it returns the default Description.
 func (pt PropertyTable) GetDescription(lang string) string {
-	if pt.DescriptionMap != nil && lang != "" && lang != "en" {
-		if desc, ok := pt.DescriptionMap[lang]; ok {
+	if pt.DescriptionTranslations != nil && lang != "" && lang != "en" {
+		if desc, ok := pt.DescriptionTranslations[lang]; ok {
 			return desc
 		}
 	}

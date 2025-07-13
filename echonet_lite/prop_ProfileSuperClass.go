@@ -42,13 +42,13 @@ var ManufacturerCodeEDTs = map[string][]byte{
 
 var ProfileSuperClass_PropertyTable = PropertyTable{
 	Description: "Profile Super Class",
-	DescriptionMap: map[string]string{
+	DescriptionTranslations: map[string]string{
 		"ja": "プロファイルスーパークラス",
 	},
 	EPCDesc: map[EPCType]PropertyDesc{
 		EPCOperationStatus: {
 			Name: "Operation status",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "動作状態",
 			},
 			Aliases: map[string][]byte{
@@ -65,7 +65,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCInstallationLocation: {
 			Name: "Installation location",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "設置場所",
 			},
 			Aliases:           InstallationLocationAliases(),
@@ -74,7 +74,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCStandardVersion: {
 			Name: "Standard version",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "規格Version情報",
 			},
 			Aliases: nil,
@@ -82,7 +82,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCIdentificationNumber: {
 			Name: "Identification number",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "識別番号",
 			},
 			Aliases: nil,
@@ -90,7 +90,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCMeasuredInstantaneousPowerConsumption: {
 			Name: "Measured instantaneous power consumption",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "瞬時電力計測値",
 			},
 			Aliases: nil,
@@ -98,7 +98,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCMeasuredCumulativePowerConsumption: {
 			Name: "Measured cumulative power consumption",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "積算電力量計測値",
 			},
 			Aliases: nil,
@@ -106,7 +106,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCManufacturerFaultCode: {
 			Name: "Manufacturer fault code",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "メーカ異常コード",
 			},
 			Aliases: nil,
@@ -114,7 +114,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCCurrentLimitSetting: {
 			Name: "Current limit setting",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "電流制限設定",
 			},
 			Aliases: nil,
@@ -122,7 +122,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCFaultStatus: {
 			Name: "Fault occurrence status",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "異常発生状況",
 			},
 			Aliases: map[string][]byte{
@@ -139,7 +139,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCFaultDescription: {
 			Name: "Fault description",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "異常内容",
 			},
 			Aliases: FaultDescriptionAliases(),
@@ -165,7 +165,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCManufacturerCode: {
 			Name: "Manufacturer code",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "メーカコード",
 			},
 			Aliases: ManufacturerCodeEDTs,
@@ -173,7 +173,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCBusinessFacilityCode: {
 			Name: "Business facility code",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "事業場コード",
 			},
 			Aliases: nil,
@@ -181,7 +181,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCProductCode: {
 			Name: "Product code",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "商品コード",
 			},
 			Aliases: nil,
@@ -189,7 +189,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCProductionNumber: {
 			Name: "Production number",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "製造番号",
 			},
 			Aliases: nil,
@@ -197,7 +197,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCProductionDate: {
 			Name: "Production date",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "製造年月日",
 			},
 			Aliases: nil,
@@ -205,7 +205,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCPowerSavingOperationSetting: {
 			Name: "Power saving operation setting",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "節電動作設定",
 			},
 			Aliases: map[string][]byte{
@@ -222,7 +222,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCRemoteControlSetting: {
 			Name: "Remote control setting",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "遠隔操作設定",
 			},
 			Aliases: map[string][]byte{
@@ -243,7 +243,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCCurrentDate: {
 			Name: "Current date",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "現在年月日",
 			},
 			Aliases: nil,
@@ -251,7 +251,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCStatusAnnouncementPropertyMap: {
 			Name: "Status announcement property map",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "状変アナウンスプロパティマップ",
 			},
 			Aliases: nil,
@@ -259,7 +259,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCSetPropertyMap: {
 			Name: "Set property map",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "Setプロパティマップ",
 			},
 			Aliases: nil,
@@ -267,7 +267,7 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 		},
 		EPCGetPropertyMap: {
 			Name: "Get property map",
-			NameMap: map[string]string{
+			NameTranslations: map[string]string{
 				"ja": "Getプロパティマップ",
 			},
 			Aliases: nil,

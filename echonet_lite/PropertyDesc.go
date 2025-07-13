@@ -12,7 +12,7 @@ import (
 // PropertyDesc はプロパティの情報を表します。
 type PropertyDesc struct {
 	Name              string                       // 説明（英語のデフォルト値）
-	NameMap           map[string]string            // 言語別の説明 (e.g., "ja" -> "照度レベル")
+	NameTranslations  map[string]string            // 言語別の説明 (e.g., "ja" -> "照度レベル")
 	Aliases           map[string][]byte            // Alias names for EDT values (e.g., "on" -> []byte{0x30})
 	AliasTranslations map[string]map[string]string // Alias翻訳テーブル (e.g., "ja" -> {"on" -> "オン"})
 	Decoder           PropertyDecoder              // デコーダ。PropertyEncoderも実装すると、文字列から変換できる。
@@ -26,8 +26,8 @@ type PropertyDesc struct {
 // GetName returns the property name for the specified language.
 // If the language is not found in NameMap, it returns the default Name.
 func (p PropertyDesc) GetName(lang string) string {
-	if p.NameMap != nil && lang != "" && lang != "en" {
-		if name, ok := p.NameMap[lang]; ok {
+	if p.NameTranslations != nil && lang != "" && lang != "en" {
+		if name, ok := p.NameTranslations[lang]; ok {
 			return name
 		}
 	}

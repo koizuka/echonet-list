@@ -51,13 +51,13 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 	return PropertyTable{
 		ClassCode:   FloorHeating_ClassCode,
 		Description: "Floor Heating",
-		DescriptionMap: map[string]string{
+		DescriptionTranslations: map[string]string{
 			"ja": "床暖房",
 		},
 		EPCDesc: map[EPCType]PropertyDesc{
 			EPC_FH_TemperatureLevel: {
 				Name: "Temperature setting(level)",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "温度設定値",
 				},
 				Aliases: map[string][]byte{
@@ -72,7 +72,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_RoomTemperature: {
 				Name: "Room temperature",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "室内温度計測値",
 				},
 				Aliases:           ExtraValueAlias,
@@ -81,7 +81,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_FloorTemperature: {
 				Name: "Floor temperature",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "床温度計測値",
 				},
 				Aliases:           ExtraValueAlias,
@@ -90,7 +90,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_SpecialMode: {
 				Name: "Special mode",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "特別運転設定",
 				},
 				Aliases: map[string][]byte{
@@ -109,7 +109,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_DailyTimerEnabled: {
 				Name: "Daily timer enabled",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "デイリータイマー設定",
 				},
 				Aliases: map[string][]byte{
@@ -128,7 +128,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_DailyTimer1: {
 				Name: "Daily timer1",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "デイリータイマー1設定値",
 				},
 				Aliases: nil,
@@ -136,7 +136,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_DailyTimer2: {
 				Name: "Daily timer2",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "デイリータイマー2設定値",
 				},
 				Aliases: nil,
@@ -145,7 +145,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 
 			EPC_FH_OnTimerEnabled: {
 				Name: "ON timer enabled",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "ONタイマ予約設定",
 				},
 				Aliases:           FH_OnOffAlias,
@@ -154,7 +154,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_OnTimerHHMM: {
 				Name: "ON timer setting",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "ONタイマ設定値",
 				},
 				Aliases: nil,
@@ -162,7 +162,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_OffTimerEnabled: {
 				Name: "OFF timer enabled",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "OFFタイマ予約設定",
 				},
 				Aliases:           FH_OnOffAlias,
@@ -171,7 +171,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_OffTimerHHMM: {
 				Name: "OFF timer setting",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "OFFタイマ設定値",
 				},
 				Aliases: nil,
@@ -180,7 +180,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 
 			EPC_FH_Temperature1: {
 				Name: "Temperature sensor 1",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "温度センサ1",
 				},
 				Aliases:           ExtraValueAlias,
@@ -189,7 +189,7 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 			},
 			EPC_FH_Temperature2: {
 				Name: "Temperature sensor 2",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "温度センサ2",
 				},
 				Aliases:           ExtraValueAlias,

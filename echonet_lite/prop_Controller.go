@@ -23,7 +23,7 @@ func (r PropertyRegistry) Controller() PropertyTable {
 		EPCDesc: map[EPCType]PropertyDesc{
 			EPC_C_ControllerID: {
 				Name: "Controller ID",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "コントローラID",
 				},
 				Aliases: nil,
@@ -31,7 +31,7 @@ func (r PropertyRegistry) Controller() PropertyTable {
 			},
 			EPC_C_NumberOfDevices: {
 				Name: "Number of devices",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "管理台数",
 				},
 				Aliases: nil,
@@ -39,7 +39,7 @@ func (r PropertyRegistry) Controller() PropertyTable {
 			},
 			EPC_C_Index: {
 				Name: "Index",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "インデックス",
 				},
 				Aliases: nil,
@@ -47,7 +47,7 @@ func (r PropertyRegistry) Controller() PropertyTable {
 			},
 			EPC_C_DeviceID: {
 				Name: "Device ID",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "機器ID",
 				},
 				Aliases: nil,
@@ -55,7 +55,7 @@ func (r PropertyRegistry) Controller() PropertyTable {
 			},
 			EPC_C_ClassCode: {
 				Name: "Class code",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "機種",
 				},
 				Aliases: nil,
@@ -63,7 +63,7 @@ func (r PropertyRegistry) Controller() PropertyTable {
 			},
 			EPC_C_Name: {
 				Name: "Name",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "名称",
 				},
 				Aliases: nil,
@@ -71,7 +71,7 @@ func (r PropertyRegistry) Controller() PropertyTable {
 			},
 			EPC_C_ConnectionStatus: {
 				Name: "Connection status",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "接続状態",
 				},
 				Aliases: map[string][]byte{
@@ -92,7 +92,7 @@ func (r PropertyRegistry) Controller() PropertyTable {
 			},
 			EPC_C_InstallAddress: {
 				Name: "Install address",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "設置住所",
 				},
 				Aliases: nil,

@@ -4,13 +4,13 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 	return PropertyTable{
 		ClassCode:   NodeProfile_ClassCode,
 		Description: "Node Profile",
-		DescriptionMap: map[string]string{
+		DescriptionTranslations: map[string]string{
 			"ja": "ノードプロファイル",
 		},
 		EPCDesc: map[EPCType]PropertyDesc{
 			EPC_NPO_OperationStatus: {
 				Name: "Operation status",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "動作状態",
 				},
 				Aliases: map[string][]byte{"on": {0x30}, "off": {0x31}},
@@ -24,7 +24,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPC_NPO_VersionInfo: {
 				Name: "Version information",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "バージョン情報",
 				},
 				Aliases: nil,
@@ -32,7 +32,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPC_NPO_IDNumber: {
 				Name: "Identification number",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "識別番号",
 				},
 				Aliases: nil,
@@ -40,7 +40,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPCFaultStatus: {
 				Name: "Fault occurrence status",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "異常発生状態",
 				},
 				Aliases: map[string][]byte{
@@ -57,7 +57,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPC_NPO_FaultStatus: {
 				Name: "Fault status",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "異常状態",
 				},
 				Aliases: nil,
@@ -65,7 +65,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPCManufacturerCode: {
 				Name: "Manufacturer code",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "メーカコード",
 				},
 				Aliases: ManufacturerCodeEDTs,
@@ -73,7 +73,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPCBusinessFacilityCode: {
 				Name: "Business facility code",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "事業場コード",
 				},
 				Aliases: nil,
@@ -81,7 +81,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPCProductCode: {
 				Name: "Product code",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "商品コード",
 				},
 				Aliases: nil,
@@ -89,7 +89,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPCStatusAnnouncementPropertyMap: {
 				Name: "Status announcement property map",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "状変アナウンスプロパティマップ",
 				},
 				Aliases: nil,
@@ -97,7 +97,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPCSetPropertyMap: {
 				Name: "Set property map",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "Setプロパティマップ",
 				},
 				Aliases: nil,
@@ -105,7 +105,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPCGetPropertyMap: {
 				Name: "Get property map",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "Getプロパティマップ",
 				},
 				Aliases: nil,
@@ -113,7 +113,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPC_NPO_IndividualID: {
 				Name: "Individual identification information",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "個体識別情報",
 				},
 				Aliases: nil,
@@ -121,7 +121,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPC_NPO_SelfNodeInstances: {
 				Name: "Self-node instances number",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "自ノードインスタンス数",
 				},
 				Aliases: nil,
@@ -129,7 +129,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPC_NPO_SelfNodeClasses: {
 				Name: "Self-node classes number",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "自ノードクラス数",
 				},
 				Aliases: nil,
@@ -137,7 +137,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPC_NPO_InstanceListNotification: {
 				Name: "instance list notification",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "インスタンスリスト通知",
 				},
 				Aliases: nil,
@@ -145,7 +145,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPC_NPO_SelfNodeInstanceListS: {
 				Name: "Self-node instance list S",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "自ノードインスタンスリストS",
 				},
 				Aliases: nil,
@@ -153,7 +153,7 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 			},
 			EPC_NPO_SelfNodeClassListS: {
 				Name: "Self-node class list S",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "自ノードクラスリストS",
 				},
 				Aliases: nil,

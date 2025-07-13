@@ -22,13 +22,13 @@ func (r PropertyRegistry) LightingSystem() PropertyTable {
 	return PropertyTable{
 		ClassCode:   LightingSystem_ClassCode,
 		Description: "Lighting System",
-		DescriptionMap: map[string]string{
+		DescriptionTranslations: map[string]string{
 			"ja": "照明システム",
 		},
 		EPCDesc: map[EPCType]PropertyDesc{
 			EPC_LS_Illuminance: {
 				Name: "Illuminance level",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "照度レベル",
 				},
 				Aliases: nil,
@@ -36,7 +36,7 @@ func (r PropertyRegistry) LightingSystem() PropertyTable {
 			},
 			EPC_LS_SceneControl: {
 				Name: "Scene control",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "シーン制御",
 				},
 				Aliases: nil,
@@ -44,7 +44,7 @@ func (r PropertyRegistry) LightingSystem() PropertyTable {
 			},
 			EPC_LS_MaxSceneControl: {
 				Name: "Max scene control",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "最大シーン制御",
 				},
 				Aliases: nil,
@@ -52,7 +52,7 @@ func (r PropertyRegistry) LightingSystem() PropertyTable {
 			},
 			EPC_LS_PanasonicF1: {
 				Name: "Panasonic F1",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "パナソニックF1",
 				},
 				Aliases: nil,
@@ -60,7 +60,7 @@ func (r PropertyRegistry) LightingSystem() PropertyTable {
 			},
 			EPC_LS_PanasonicF2: {
 				Name: "Panasonic F2",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "パナソニックF2",
 				},
 				Aliases: nil,
@@ -68,7 +68,7 @@ func (r PropertyRegistry) LightingSystem() PropertyTable {
 			},
 			EPC_LS_PanasonicF3: {
 				Name: "Panasonic F3",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "パナソニックF3",
 				},
 				Aliases: nil,
@@ -76,7 +76,7 @@ func (r PropertyRegistry) LightingSystem() PropertyTable {
 			},
 			EPC_LS_PanasonicF4: {
 				Name: "Panasonic F4",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "パナソニックF4",
 				},
 				Aliases: nil,

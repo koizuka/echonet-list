@@ -23,13 +23,13 @@ func (r PropertyRegistry) Refrigerator() PropertyTable {
 	return PropertyTable{
 		ClassCode:   Refrigerator_ClassCode,
 		Description: "Refrigerator",
-		DescriptionMap: map[string]string{
+		DescriptionTranslations: map[string]string{
 			"ja": "冷蔵庫",
 		},
 		EPCDesc: map[EPCType]PropertyDesc{
 			EPC_RF_DoorOpenStatus: {
 				Name: "Door open status",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "ドア開閉状態",
 				},
 				Aliases:           doorStatusAliases,
@@ -38,7 +38,7 @@ func (r PropertyRegistry) Refrigerator() PropertyTable {
 			},
 			EPC_RF_DoorOpenAlertStatus: {
 				Name: "Door open alert status",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "ドア開閉警告状態",
 				},
 				Aliases: map[string][]byte{
@@ -55,7 +55,7 @@ func (r PropertyRegistry) Refrigerator() PropertyTable {
 			},
 			EPC_RF_RefrigeratorDoorOpenStatus: {
 				Name: "Refrigerator door open status",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "冷蔵室ドア開閉状態",
 				},
 				Aliases:           doorStatusAliases,
@@ -64,7 +64,7 @@ func (r PropertyRegistry) Refrigerator() PropertyTable {
 			},
 			EPC_RF_FreezerDoorOpenStatus: {
 				Name: "Freezer door open status",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "冷凍室ドア開閉状態",
 				},
 				Aliases:           doorStatusAliases,

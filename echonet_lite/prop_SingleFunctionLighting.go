@@ -16,13 +16,13 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyTable {
 	return PropertyTable{
 		ClassCode:   SingleFunctionLighting_ClassCode,
 		Description: "Single Function Lighting",
-		DescriptionMap: map[string]string{
+		DescriptionTranslations: map[string]string{
 			"ja": "単機能照明",
 		},
 		EPCDesc: map[EPCType]PropertyDesc{
 			EPC_SF_Illuminance: {
 				Name: "Illuminance level",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "照度レベル",
 				},
 				Aliases: nil,
@@ -30,7 +30,7 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyTable {
 			},
 			EPC_SF_Panasonic_OperationStatus: {
 				Name: "Panasonic Operation Status",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "パナソニック動作状態",
 				},
 				Aliases: map[string][]byte{
@@ -47,7 +47,7 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyTable {
 			},
 			EPC_SF_Panasonic_Illuminance: {
 				Name: "Panasonic Illuminance",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "パナソニック照度",
 				},
 				Aliases: nil,
@@ -55,7 +55,7 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyTable {
 			},
 			EPC_SF_Panasonic_UnknownStringFD: {
 				Name: "Panasonic Unknown String FD",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "パナソニック不明文字列FD",
 				},
 				Aliases: nil,
@@ -63,7 +63,7 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyTable {
 			},
 			EPC_SF_Panasonic_UnknownStringFE: {
 				Name: "Panasonic Unknown String FE",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "パナソニック不明文字列FE",
 				},
 				Aliases: nil,

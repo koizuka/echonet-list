@@ -35,13 +35,13 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 	return PropertyTable{
 		ClassCode:   HomeAirConditioner_ClassCode,
 		Description: "Home Air Conditioner",
-		DescriptionMap: map[string]string{
+		DescriptionTranslations: map[string]string{
 			"ja": "家庭用エアコン",
 		},
 		EPCDesc: map[EPCType]PropertyDesc{
 			EPC_HAC_AirVolumeSetting: {
 				Name: "Air volume setting",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "風量設定",
 				},
 				Aliases: map[string][]byte{
@@ -56,7 +56,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 			},
 			EPC_HAC_AirDirectionSwingSetting: {
 				Name: "Air direction swing setting",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "風向スイング設定",
 				},
 				Aliases: map[string][]byte{
@@ -77,7 +77,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 			},
 			EPC_HAC_OperationModeSetting: {
 				Name: "Operation mode setting",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "運転モード設定",
 				},
 				Aliases: map[string][]byte{
@@ -109,7 +109,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 			},
 			EPC_HAC_TemperatureSetting: {
 				Name: "Temperature setting",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "温度設定値",
 				},
 				Aliases:           ExtraValueAlias,
@@ -118,7 +118,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 			},
 			EPC_HAC_RelativeHumiditySetting: {
 				Name: "Relative humidity setting",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "除湿モード時相対湿度設定値",
 				},
 				Aliases:           ExtraValueAlias,
@@ -127,7 +127,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 			},
 			EPC_HAC_CurrentRoomHumidity: {
 				Name: "Current room humidity",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "室内相対湿度計測値",
 				},
 				Aliases:           ExtraValueAlias,
@@ -136,7 +136,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 			},
 			EPC_HAC_CurrentRoomTemperature: {
 				Name: "Current room temperature",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "室内温度計測値",
 				},
 				Aliases:           ExtraValueAlias,
@@ -145,7 +145,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 			},
 			EPC_HAC_CurrentOutsideTemperature: {
 				Name: "Current outside temperature",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "屋外温度計測値",
 				},
 				Aliases:           ExtraValueAlias,
@@ -154,7 +154,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 			},
 			EPC_HAC_HumidificationModeSetting: {
 				Name: "Humidification mode setting",
-				NameMap: map[string]string{
+				NameTranslations: map[string]string{
 					"ja": "加湿モード設定",
 				},
 				Aliases: map[string][]byte{
