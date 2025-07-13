@@ -54,8 +54,8 @@ export function DeviceCard({
   );
 
   // For compact view, separate sensor and non-sensor properties
-  const primarySensorProps = primaryProps.filter(([epc]) => isSensorProperty(epc));
-  const primaryNonSensorProps = primaryProps.filter(([epc]) => !isSensorProperty(epc));
+  const primarySensorProps = primaryProps.filter(([epc]) => isSensorProperty(classCode, epc));
+  const primaryNonSensorProps = primaryProps.filter(([epc]) => !isSensorProperty(classCode, epc));
 
 
   return (
@@ -198,7 +198,7 @@ export function DeviceCard({
 
         </div>
 
-        {/* Sensor properties in compact mode - positioned above Last seen */}
+        {/* Sensor properties in compact mode - positioned at the bottom */}
         {!isExpanded && primarySensorProps.length > 0 && (
           <div className="border-t pt-2 mt-2">
             <div className="flex flex-wrap items-center">
