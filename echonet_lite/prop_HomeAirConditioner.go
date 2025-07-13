@@ -101,7 +101,7 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				Decoder: nil,
 				// 運転モードが変更されたら、温度設定値などを再取得する
 				TriggerUpdate: true,
-				UpdateDelay:   2 * time.Second,
+				UpdateDelay:   4 * time.Second,
 				UpdateTargets: []EPCType{
 					EPC_HAC_TemperatureSetting,
 					EPC_HAC_RelativeHumiditySetting,
