@@ -104,7 +104,7 @@ func (ws *WebSocketServer) periodicUpdater() {
 					err := ws.handler.UpdateProperties(handler.FilterCriteria{}, false)
 					if err != nil {
 						// Log the error but don't stop the ticker
-						slog.Error("Error during periodic property update", "err", err)
+						slog.Info("Error during periodic property update", "err", err)
 					}
 				}()
 			} else {
