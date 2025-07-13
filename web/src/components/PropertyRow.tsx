@@ -1,7 +1,7 @@
 import { PropertyEditor } from './PropertyEditor';
 import { PropertyDisplay } from './PropertyDisplay';
 import { getPropertyName, getPropertyDescriptor, isPropertySettable } from '@/libs/propertyHelper';
-import { isSensorProperty, getSensorIcon } from '@/libs/sensorPropertyHelper';
+import { isSensorProperty, getSensorIcon, getSensorIconColor } from '@/libs/sensorPropertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
 
@@ -38,14 +38,15 @@ export function PropertyRow({
   const isSettable = hasEditCapability && isInSetPropertyMap;
 
   // Check if this is a sensor property for special compact display
-  const isSensor = isSensorProperty(epc);
-  const SensorIcon = getSensorIcon(epc);
+  const isSensor = isSensorProperty(classCode, epc);
+  const SensorIcon = getSensorIcon(classCode, epc);
+  const sensorIconColor = getSensorIconColor(classCode, epc, value);
 
   if (isCompact && isSensor && SensorIcon) {
     // Sensor properties in compact mode: icon + value only
     return (
       <div className="inline-flex items-center gap-1 text-xs mr-3 mb-1" title={propertyName}>
-        <SensorIcon className="h-3 w-3 text-muted-foreground" />
+        <SensorIcon className={`h-3 w-3 ${sensorIconColor}`} />
         <div>
           {isSettable ? (
             <PropertyEditor

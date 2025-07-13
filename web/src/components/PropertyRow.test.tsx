@@ -25,8 +25,8 @@ vi.mock('@/libs/propertyHelper', () => ({
 
 // Mock sensor property helper
 vi.mock('@/libs/sensorPropertyHelper', () => ({
-  isSensorProperty: (epc: string) => ['BB', 'BA', 'BE'].includes(epc),
-  getSensorIcon: (epc: string) => {
+  isSensorProperty: (_classCode: string, epc: string) => ['BB', 'BA', 'BE'].includes(epc),
+  getSensorIcon: (_classCode: string, epc: string) => {
     const iconMap: Record<string, any> = {
       'BB': ({ className }: { className?: string }) => 
         <svg data-testid="thermometer-icon" className={className}>Thermometer</svg>,
@@ -36,7 +36,8 @@ vi.mock('@/libs/sensorPropertyHelper', () => ({
         <svg data-testid="cloudsun-icon" className={className}>CloudSun</svg>
     };
     return iconMap[epc];
-  }
+  },
+  getSensorIconColor: (_classCode: string, _epc: string, _value: any) => 'text-muted-foreground'
 }));
 
 describe('PropertyRow', () => {
