@@ -9,12 +9,14 @@ interface PropertySwitchControlProps {
 
 export function PropertySwitchControl({ value, onChange, disabled, testId }: PropertySwitchControlProps) {
   return (
-    <Switch
-      checked={value === 'on'}
-      onCheckedChange={(checked) => onChange(checked ? 'on' : 'off')}
-      disabled={disabled}
-      data-testid={testId}
-      className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-400"
-    />
+    <div className="inline-flex items-center py-2 px-1">
+      <Switch
+        checked={value === 'on'}
+        onCheckedChange={(checked) => onChange(checked ? 'on' : 'off')}
+        disabled={disabled}
+        data-testid={testId}
+        className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-400 touch-none"
+      />
+    </div>
   );
 }
