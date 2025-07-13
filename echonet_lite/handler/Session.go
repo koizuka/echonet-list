@@ -88,6 +88,7 @@ type Session struct {
 	RetryInterval   time.Duration                     // 再送間隔
 	TimeoutCh       chan SessionTimeoutEvent          // タイムアウト通知用チャンネル
 	failedEPCs      map[string][]echonet_lite.EPCType // 失敗したEPCsを保持するマップ
+	IsOfflineFunc   func(echonet_lite.IPAndEOJ) bool  // デバイスがオフラインかどうかを判定する関数（オプショナル）
 }
 
 // IsLocalIP は指定されたIPアドレスが自身のローカルIPのいずれかと一致するかを確認します
@@ -102,7 +103,7 @@ func (s *Session) SetTimeoutChannel(ch chan SessionTimeoutEvent) {
 	s.TimeoutCh = ch
 }
 
-func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug bool, networkMonitorConfig *network.NetworkMonitorConfig) (*Session, error) {
+func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug bool, networkMonitorConfig *network.NetworkMonitorConfig, isOfflineFunc func(echonet_lite.IPAndEOJ) bool) (*Session, error) {
 	// タイムアウトなしのコンテキストを作成（キャンセルのみ可能）
 	sessionCtx, cancel := context.WithCancel(ctx)
 
@@ -125,6 +126,7 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug b
 		MaxRetries:    3,               // デフォルトの最大再送回数
 		RetryInterval: 3 * time.Second, // デフォルトの再送間隔
 		failedEPCs:    make(map[string][]echonet_lite.EPCType),
+		IsOfflineFunc: isOfflineFunc,
 	}, nil
 }
 
@@ -430,8 +432,10 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echon
 
 				if retryCount >= s.MaxRetries {
 					// 最大再送回数に達した場合
-
-					slog.Warn("デバイスがオフラインです", "desc", desc, "maxRetries", s.MaxRetries)
+					// オフラインでない場合のみログ出力
+					if s.IsOfflineFunc == nil || !s.IsOfflineFunc(device) {
+						slog.Warn("デバイスがオフラインになりました", "desc", desc, "maxRetries", s.MaxRetries)
+					}
 					_ = s.notifyDeviceTimeout(device)
 					return
 				}
@@ -562,7 +566,10 @@ func (s *Session) sendRequestWithContext(
 
 			if retryCount >= s.MaxRetries {
 				// 最大再送回数に達した場合
-				slog.Warn("デバイスがオフラインです", "device", device, "maxRetries", s.MaxRetries)
+				// オフラインでない場合のみログ出力
+				if s.IsOfflineFunc == nil || !s.IsOfflineFunc(device) {
+					slog.Warn("デバイスがオフラインになりました", "device", device, "maxRetries", s.MaxRetries)
+				}
 				return nil, s.notifyDeviceTimeout(device)
 			}
 

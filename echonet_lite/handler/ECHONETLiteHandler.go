@@ -48,13 +48,6 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	// Controller Object
 	seoj := echonet_lite.MakeEOJ(echonet_lite.Controller_ClassCode, 1)
 
-	// 自ノードのセッションを作成
-	session, err := CreateSession(handlerCtx, options.IP, seoj, options.Debug, options.NetworkMonitorConfig)
-	if err != nil {
-		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("接続に失敗: %w", err)
-	}
-
 	// デバイス情報を管理するオブジェクトを作成
 	devices := NewDevices()
 
@@ -66,7 +59,7 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	// デバイス情報を読み込む
 	devicesFile := getFileOrDefault(options.DevicesFile, DeviceFileName)
 	slog.Info("デバイスファイルを使用", "file", devicesFile)
-	err = devices.LoadFromFile(devicesFile)
+	err := devices.LoadFromFile(devicesFile)
 	if err != nil {
 		cancel() // エラーの場合はコンテキストをキャンセル
 		slog.Error("デバイス情報の読み込みに失敗", "file", devicesFile, "error", err)
@@ -87,7 +80,6 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	}
 	slog.Info("エイリアス情報の読み込み完了", "file", aliasesFile, "aliasCount", aliases.Count())
 
-	// デバイスグループを管理するオブジェクトを作成
 	groups := NewDeviceGroups()
 
 	// グループ情報を読み込む
@@ -100,6 +92,13 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 		return nil, fmt.Errorf("グループ情報の読み込みに失敗 (file: %s): %w", groupsFile, err)
 	}
 	slog.Info("グループ情報の読み込み完了", "file", groupsFile, "groupCount", groups.Count())
+
+	// 自ノードのセッションを作成（IsOffline関数を渡す）
+	session, err := CreateSession(handlerCtx, options.IP, seoj, options.Debug, options.NetworkMonitorConfig, devices.IsOffline)
+	if err != nil {
+		cancel() // エラーの場合はコンテキストをキャンセル
+		return nil, fmt.Errorf("接続に失敗: %w", err)
+	}
 
 	localDevices := make(DeviceProperties)
 	operationStatusOn, ok := echonet_lite.ProfileSuperClass_PropertyTable.FindAlias("on")
