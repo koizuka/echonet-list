@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*), Bash(git checkout:*), Bash(git push:*), Bash(gh pr create:*), Bash(go fmt:*), Bash(go vet:*), Bash(go test:*), Bash(go build:*), Bash(npm run:*)
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*), Bash(git checkout:*), Bash(git push:*), Bash(gh pr create:*), Bash(go fmt:*), Bash(go vet:*), Bash(go test:*), Bash(go build:*), Bash(npm run:*), Bash(git rev-parse:*)
 Description: create a pull request
 ---
 
@@ -9,17 +9,31 @@ Description: create a pull request
 - Current git diff (staged and unstaged changes): !`git diff HEAD`
 - Current branch: !`git branch --show-current`
 - Recent commits: !`git log --oneline -10`
+- Web Directory へ移動: !`cd $(git rev-parse --show-toplevel)/web`
 
 ## Your Task
 
-1. コミット前のチェックを実行してください：
-   - Go (プロジェクトルートで実行): `go fmt ./...`, `go vet ./...`, `go test ./...`, `go build`
-   - Web UI (webディレクトリで実行): `cd $(git rev-parse --show-toplevel)/web && npm run lint && npm run typecheck && npm run test && npm run build`
+以下の作業を自動で実行してください（ユーザーの確認なしで進めてください）：
 
-2. 新しいブランチを作成し、現在の変更をコミットします。コミットメッセージは変更内容と目的を簡潔に説明してください。
+1. **プリチェック（現在のブランチで実行）**：
+   - Go: プロジェクトルートで `go fmt ./...` `go vet ./...` `go test ./...` `go build` を並列実行
+   - Web UI: webディレクトリに移動してから `npm run lint` `npm run typecheck` `npm run test` `npm run build` を並列実行
+   
+   ※エラーがあった場合のみ、ユーザーに報告して中断してください。
 
-3. ブランチをリモートにpushし、mainブランチに対するpull requestを作成してください。PR説明には：
-   - 変更の概要
-   - テスト方法
-   - 関連するissue番号（もしあれば）
+2. **ブランチ作成とコミット**：
+   - 変更内容に基づいて適切なブランチ名を自動生成
+   - すべての変更をステージング（`git add .`）
+   - 変更内容と目的を分析して適切なコミットメッセージを自動生成
+   - コミット実行
+
+3. **PR作成**：
+   - ブランチをリモートにpush
+   - 変更内容を分析してPR説明を自動生成：
+     - 変更の概要（コミット内容から分析）
+     - テスト実行結果の確認
+   - mainブランチに対するPR作成
+   - PR URLを報告
+
+**重要**: 各ステップでエラーが発生した場合のみユーザーに報告し、成功時は次のステップに自動進行してください。
 
