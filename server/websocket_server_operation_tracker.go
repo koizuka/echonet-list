@@ -2,6 +2,7 @@ package server
 
 import (
 	"echonet-list/echonet_lite/handler"
+	"time"
 )
 
 // getOperationTracker は、WebSocketServerからOperationTrackerを取得する
@@ -64,7 +65,7 @@ func (ws *WebSocketServer) GetRunningOperationsInfo() []map[string]interface{} {
 			"type":        op.Type.String(),
 			"description": op.Description,
 			"start_time":  op.StartTime,
-			"duration":    op.StartTime.Sub(op.StartTime),
+			"duration":    time.Since(op.StartTime),
 			"context":     op.Context,
 		}
 		result = append(result, opInfo)

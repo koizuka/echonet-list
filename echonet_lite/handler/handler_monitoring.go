@@ -95,17 +95,29 @@ func (m *MonitoringManager) collectMetrics() {
 
 // ChannelMonitor は、チャンネルのバッファ使用率を監視する
 type ChannelMonitor struct {
-	name     string
-	capacity int
-	lenFunc  func() int
+	name      string
+	capacity  int
+	lenFunc   func() int
+	threshold float64
 }
 
 // NewChannelMonitor は、新しいチャンネル監視を作成する
 func NewChannelMonitor(name string, capacity int, lenFunc func() int) *ChannelMonitor {
 	return &ChannelMonitor{
-		name:     name,
-		capacity: capacity,
-		lenFunc:  lenFunc,
+		name:      name,
+		capacity:  capacity,
+		lenFunc:   lenFunc,
+		threshold: 80.0, // デフォルト閾値
+	}
+}
+
+// NewChannelMonitorWithThreshold は、閾値指定でチャンネル監視を作成する
+func NewChannelMonitorWithThreshold(name string, capacity int, lenFunc func() int, threshold float64) *ChannelMonitor {
+	return &ChannelMonitor{
+		name:      name,
+		capacity:  capacity,
+		lenFunc:   lenFunc,
+		threshold: threshold,
 	}
 }
 
@@ -126,12 +138,13 @@ func (cm *ChannelMonitor) CheckUsage() {
 	)
 
 	// 高い使用率を警告
-	if usagePercent > 80.0 {
+	if usagePercent > cm.threshold {
 		slog.Warn("High channel buffer usage",
 			"name", cm.name,
 			"current", currentLen,
 			"capacity", cm.capacity,
 			"usage_percent", usagePercent,
+			"threshold", cm.threshold,
 		)
 	}
 }
