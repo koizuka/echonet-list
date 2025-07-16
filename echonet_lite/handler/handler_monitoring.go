@@ -12,6 +12,7 @@ type MonitoringManager struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	interval time.Duration
+	config   MonitoringConfig
 }
 
 // NewMonitoringManager は、新しい監視マネージャーを作成する
@@ -21,6 +22,18 @@ func NewMonitoringManager(ctx context.Context, interval time.Duration) *Monitori
 		ctx:      monitorCtx,
 		cancel:   cancel,
 		interval: interval,
+		config:   DefaultMonitoringConfig(),
+	}
+}
+
+// NewMonitoringManagerWithConfig は、設定付きの監視マネージャーを作成する
+func NewMonitoringManagerWithConfig(ctx context.Context, interval time.Duration, config MonitoringConfig) *MonitoringManager {
+	monitorCtx, cancel := context.WithCancel(ctx)
+	return &MonitoringManager{
+		ctx:      monitorCtx,
+		cancel:   cancel,
+		interval: interval,
+		config:   config,
 	}
 }
 
@@ -71,12 +84,12 @@ func (m *MonitoringManager) collectMetrics() {
 	)
 
 	// 異常な値の検出
-	if goroutineCount > 1000 {
-		slog.Warn("High goroutine count detected", "count", goroutineCount)
+	if goroutineCount > m.config.GoroutineThreshold {
+		slog.Warn("High goroutine count detected", "count", goroutineCount, "threshold", m.config.GoroutineThreshold)
 	}
 
-	if allocMB > 1000 {
-		slog.Warn("High memory allocation detected", "alloc_mb", allocMB)
+	if allocMB > m.config.MemoryThresholdMB {
+		slog.Warn("High memory allocation detected", "alloc_mb", allocMB, "threshold_mb", m.config.MemoryThresholdMB)
 	}
 }
 
@@ -113,7 +126,7 @@ func (cm *ChannelMonitor) CheckUsage() {
 	)
 
 	// 高い使用率を警告
-	if usagePercent > 80 {
+	if usagePercent > 80.0 {
 		slog.Warn("High channel buffer usage",
 			"name", cm.name,
 			"current", currentLen,
