@@ -403,7 +403,19 @@ func (h *CommunicationHandler) GetGetPropertyMap(device IPAndEOJ) error {
 
 // Discover は、ECHONET Liteデバイスを検出する
 func (h *CommunicationHandler) Discover() error {
-	return h.GetSelfNodeInstanceListS(BroadcastIP, true)
+	slog.Info("Starting device discovery")
+	start := time.Now()
+	
+	err := h.GetSelfNodeInstanceListS(BroadcastIP, true)
+	
+	duration := time.Since(start)
+	if err != nil {
+		slog.Error("Device discovery failed", "duration", duration, "error", err)
+		return err
+	}
+	
+	slog.Info("Device discovery completed", "duration", duration)
+	return nil
 }
 
 // GetProperties は、プロパティ値を取得する
@@ -516,13 +528,19 @@ func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Propert
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
 // force が true の場合、最終更新時刻に関わらず強制的に更新する
 func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
+	slog.Info("Starting UpdateProperties", "criteria", criteria, "force", force)
+	start := time.Now()
+	
 	// フィルタリングを実行
 	filtered := h.dataAccessor.Filter(criteria)
 
 	// フィルタリング結果が空の場合
 	if filtered.Len() == 0 {
+		slog.Warn("No devices matched criteria", "criteria", criteria)
 		return fmt.Errorf("条件に一致するデバイスが見つかりません")
 	}
+	
+	slog.Info("Filtered devices for update", "device_count", filtered.Len(), "criteria", criteria)
 
 	// 全てのデバイスの更新完了を待つためのWaitGroup
 	var wg sync.WaitGroup
@@ -623,13 +641,17 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 	}
 
 	// 全てのデバイスの更新が完了するまで待つ
+	slog.Debug("Waiting for all device updates to complete")
 	wg.Wait()
-
+	
+	duration := time.Since(start)
 	// エラーがあれば返す
 	if firstErr != nil {
+		slog.Error("UpdateProperties completed with errors", "duration", duration, "first_error", firstErr)
 		return firstErr
 	}
 
+	slog.Info("UpdateProperties completed successfully", "duration", duration)
 	return nil
 }
 

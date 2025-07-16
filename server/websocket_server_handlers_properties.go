@@ -395,17 +395,34 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(msg *protocol.Messag
 
 	// 各フィルター基準に基づいてプロパティを更新
 	var firstError error
-	for _, criteria := range filterCriteriaList {
+	slog.Info("Starting property update", "criteria_count", len(filterCriteriaList), "force", payload.Force)
+	start := time.Now()
+	
+	for i, criteria := range filterCriteriaList {
 		// Update properties based on the criteria
+		criteriaStart := time.Now()
+		slog.Debug("Updating properties for criteria", "index", i, "criteria", criteria)
+		
 		if err := ws.echonetClient.UpdateProperties(criteria, payload.Force); err != nil {
+			criteriaDuration := time.Since(criteriaStart)
+			slog.Error("Property update failed for criteria", "index", i, "criteria", criteria, "duration", criteriaDuration, "error", err)
+			
 			// エラーが発生しても処理を継続し、最初のエラーを記録
 			if firstError == nil {
 				// エラーメッセージにcriteriaを含める (%v を使用)
 				firstError = fmt.Errorf("error updating properties for criteria '%v': %w", criteria, err)
 			}
-			// TODO: Consider logging the error here using log package if needed
-			// log.Printf("Error updating properties for criteria %v: %v", criteria, err)
+		} else {
+			criteriaDuration := time.Since(criteriaStart)
+			slog.Debug("Property update completed for criteria", "index", i, "criteria", criteria, "duration", criteriaDuration)
 		}
+	}
+	
+	duration := time.Since(start)
+	if firstError != nil {
+		slog.Error("Property update completed with errors", "duration", duration, "first_error", firstError)
+	} else {
+		slog.Info("Property update completed successfully", "duration", duration)
 	}
 
 	// 処理中にエラーが発生した場合はエラー応答を返す

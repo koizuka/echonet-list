@@ -56,14 +56,22 @@ func (lm *LogManager) AutoRotate() {
 	rotateSignalCh := make(chan os.Signal, 1)
 	signal.Notify(rotateSignalCh, syscall.SIGHUP)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "ログローテーションgoroutineでpanicが発生しました: %v\n", r)
+			}
+		}()
+		
 		for {
-			<-rotateSignalCh
-			fmt.Fprintln(os.Stderr, "SIGHUPを受信しました。ログファイルをローテーションします...")
-			err := lm.openAndSetLogger()
-			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "ログローテーションエラー: %v\n", err)
-			} else {
-				slog.Info("SIGHUPを受信しました。ログファイルをローテーションしました")
+			select {
+			case <-rotateSignalCh:
+				fmt.Fprintln(os.Stderr, "SIGHUPを受信しました。ログファイルをローテーションします...")
+				err := lm.openAndSetLogger()
+				if err != nil {
+					_, _ = fmt.Fprintf(os.Stderr, "ログローテーションエラー: %v\n", err)
+				} else {
+					slog.Info("SIGHUPを受信しました。ログファイルをローテーションしました")
+				}
 			}
 		}
 	}()
