@@ -4,6 +4,19 @@
 
 ECHONETリストサーバーがブロックし、Web UIからの discover と update コマンドが応答しなくなる問題を調査・対処しました。
 
+## 改善済み: スマートな操作追跡システム
+
+**従来の問題**: 毎回のupdate操作で大量のログが出力され、長期運用時にログが膨大になる
+
+**新しい解決策**: 監視goroutineによる操作追跡システムを実装
+
+### 新システムの特徴
+
+1. **静かな正常動作**: 正常に完了した操作は最小限のログのみ
+2. **異常時の詳細記録**: タイムアウトやエラー時のみ詳細なログを出力
+3. **メモリ効率**: 完了した操作の情報は自動的に削除
+4. **リアルタイム監視**: 5秒間隔でのタイムアウト検出
+
 ## 発見された問題点
 
 ### 1. ログローテーションの無限ループ
@@ -36,23 +49,28 @@ go func() {
 
 ## 実装した対策
 
-### 1. デバッグログの追加
+### 1. スマート操作追跡システム ⭐ **新機能**
 
-WebSocketハンドラーと通信ハンドラーに詳細なログを追加：
+`echonet_lite/handler/handler_operation_tracker.go`:
+- 操作の開始・完了を監視goroutineで追跡
+- 正常完了時: デバッグログのみ（通常は非表示）
+- 異常時のみ: 詳細なエラーログとタイムアウト情報
+- メモリ効率: 完了した操作情報は自動削除
 
-- 操作開始・完了時刻の記録
-- 処理時間の測定
-- エラー発生時の詳細情報
-
-### 2. タイムアウト管理システム
-
-`echonet_lite/handler/handler_timeout.go`:
+**タイムアウト設定**:
 - デバイス検出: 30秒
 - プロパティ更新: 60秒
 - プロパティ取得: 10秒
 - プロパティ設定: 10秒
 
-### 3. システム監視
+### 2. WebSocketハンドラー改善
+
+従来の詳細ログを操作追跡システムに置き換え：
+- 正常時: ログ出力を大幅削減
+- 異常時: 詳細な診断情報を記録
+- フォールバック: 追跡システム無効時は従来方式で動作
+
+### 3. システム監視（既存）
 
 `echonet_lite/handler/handler_monitoring.go`:
 - Goroutine数の監視
@@ -60,7 +78,7 @@ WebSocketハンドラーと通信ハンドラーに詳細なログを追加：
 - チャンネルバッファ使用率の監視
 - 異常値の検出とアラート
 
-### 4. エラーハンドリング改善
+### 4. エラーハンドリング改善（既存）
 
 - ログローテーション処理にpanicリカバリ追加
 - selectステートメントによる適切なシグナル処理
@@ -90,6 +108,20 @@ tail -f /var/log/echonet-list.log
 - `High goroutine count detected`: 異常なGoroutine数
 - `High channel buffer usage`: チャンネルバッファの高使用率
 
+### 4. 操作追跡システム ⭐ **新機能**
+
+**正常時のログ（デバッグレベル）**:
+```
+Operation started id=discover_20240101_120000.000 type=discover
+Operation completed successfully id=discover_20240101_120000.000 duration=2.5s
+```
+
+**異常時のログ（警告・エラーレベル）**:
+```
+Operation timeout detected id=update_properties_20240101_120000.000 type=update_properties duration=65s timeout=60s
+Operation failed id=discover_20240101_120000.000 type=discover duration=15s error=network timeout
+```
+
 ## 今後の改善案
 
 1. **プロメテウスメトリクス**: より詳細な監視のためのメトリクス出力
@@ -99,9 +131,17 @@ tail -f /var/log/echonet-list.log
 
 ## 関連ファイル
 
-- `server/websocket_server_handlers_discovery.go`: デバッグログ追加
-- `server/websocket_server_handlers_properties.go`: デバッグログ追加
-- `echonet_lite/handler/handler_communication.go`: デバッグログ追加
-- `echonet_lite/handler/handler_timeout.go`: タイムアウト管理（新規）
-- `echonet_lite/handler/handler_monitoring.go`: システム監視（新規）
+### 新規作成
+- `echonet_lite/handler/handler_operation_tracker.go`: 操作追跡システム ⭐
+- `echonet_lite/handler/handler_operation_tracker_test.go`: 操作追跡システムテスト
+- `server/websocket_server_operation_tracker.go`: WebSocket操作追跡インターフェース
+- `echonet_lite/handler/handler_timeout.go`: タイムアウト管理
+- `echonet_lite/handler/handler_monitoring.go`: システム監視
+
+### 更新
+- `server/websocket_server_handlers_discovery.go`: 操作追跡システム統合
+- `server/websocket_server_handlers_properties.go`: 操作追跡システム統合
+- `echonet_lite/handler/handler_communication.go`: 操作追跡システム統合
+- `echonet_lite/handler/handler_core.go`: 操作追跡システム統合
+- `echonet_lite/handler/ECHONETLiteHandler.go`: GetCore()メソッド追加
 - `server/LogManager.go`: ログローテーション改善

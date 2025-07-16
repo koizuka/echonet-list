@@ -405,15 +405,15 @@ func (h *CommunicationHandler) GetGetPropertyMap(device IPAndEOJ) error {
 func (h *CommunicationHandler) Discover() error {
 	slog.Info("Starting device discovery")
 	start := time.Now()
-	
+
 	err := h.GetSelfNodeInstanceListS(BroadcastIP, true)
-	
+
 	duration := time.Since(start)
 	if err != nil {
 		slog.Error("Device discovery failed", "duration", duration, "error", err)
 		return err
 	}
-	
+
 	slog.Info("Device discovery completed", "duration", duration)
 	return nil
 }
@@ -530,7 +530,7 @@ func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Propert
 func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
 	slog.Info("Starting UpdateProperties", "criteria", criteria, "force", force)
 	start := time.Now()
-	
+
 	// フィルタリングを実行
 	filtered := h.dataAccessor.Filter(criteria)
 
@@ -539,7 +539,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		slog.Warn("No devices matched criteria", "criteria", criteria)
 		return fmt.Errorf("条件に一致するデバイスが見つかりません")
 	}
-	
+
 	slog.Info("Filtered devices for update", "device_count", filtered.Len(), "criteria", criteria)
 
 	// 全てのデバイスの更新完了を待つためのWaitGroup
@@ -643,7 +643,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 	// 全てのデバイスの更新が完了するまで待つ
 	slog.Debug("Waiting for all device updates to complete")
 	wg.Wait()
-	
+
 	duration := time.Since(start)
 	// エラーがあれば返す
 	if firstErr != nil {

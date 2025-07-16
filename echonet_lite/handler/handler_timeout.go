@@ -10,37 +10,37 @@ import (
 // TimeoutManager は、操作のタイムアウト管理を行う
 type TimeoutManager struct {
 	// 各操作のタイムアウト時間
-	DiscoveryTimeout        time.Duration
-	PropertyUpdateTimeout   time.Duration
-	PropertyGetTimeout      time.Duration
-	PropertySetTimeout      time.Duration
+	DiscoveryTimeout      time.Duration
+	PropertyUpdateTimeout time.Duration
+	PropertyGetTimeout    time.Duration
+	PropertySetTimeout    time.Duration
 }
 
 // DefaultTimeoutManager はデフォルトのタイムアウト設定を返す
 func DefaultTimeoutManager() *TimeoutManager {
 	return &TimeoutManager{
-		DiscoveryTimeout:        30 * time.Second,
-		PropertyUpdateTimeout:   60 * time.Second,
-		PropertyGetTimeout:      10 * time.Second,
-		PropertySetTimeout:      10 * time.Second,
+		DiscoveryTimeout:      30 * time.Second,
+		PropertyUpdateTimeout: 60 * time.Second,
+		PropertyGetTimeout:    10 * time.Second,
+		PropertySetTimeout:    10 * time.Second,
 	}
 }
 
 // WithTimeout は、指定された操作にタイムアウト制御を追加する
 func (tm *TimeoutManager) WithTimeout(ctx context.Context, operation string, timeout time.Duration, fn func() error) error {
 	slog.Debug("Starting operation with timeout", "operation", operation, "timeout", timeout)
-	
+
 	// タイムアウト付きコンテキストを作成
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	// 操作を実行するgoroutineを起動
 	errCh := make(chan error, 1)
 	go func() {
 		defer close(errCh)
 		errCh <- fn()
 	}()
-	
+
 	// 操作完了またはタイムアウトを待つ
 	select {
 	case err := <-errCh:

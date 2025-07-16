@@ -61,7 +61,7 @@ func (lm *LogManager) AutoRotate() {
 				_, _ = fmt.Fprintf(os.Stderr, "ログローテーションgoroutineでpanicが発生しました: %v\n", r)
 			}
 		}()
-		
+
 		for {
 			select {
 			case <-rotateSignalCh:

@@ -27,11 +27,11 @@ func NewMonitoringManager(ctx context.Context, interval time.Duration) *Monitori
 // Start は、監視を開始する
 func (m *MonitoringManager) Start() {
 	slog.Info("Starting monitoring", "interval", m.interval)
-	
+
 	go func() {
 		ticker := time.NewTicker(m.interval)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ticker.C:
@@ -55,26 +55,26 @@ func (m *MonitoringManager) Stop() {
 func (m *MonitoringManager) collectMetrics() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	
+
 	// Goroutine数をチェック
 	goroutineCount := runtime.NumGoroutine()
-	
+
 	// メモリ使用量（MB単位）
 	allocMB := float64(memStats.Alloc) / 1024 / 1024
 	sysMB := float64(memStats.Sys) / 1024 / 1024
-	
+
 	slog.Info("System metrics",
 		"goroutines", goroutineCount,
 		"memory_alloc_mb", allocMB,
 		"memory_sys_mb", sysMB,
 		"gc_cycles", memStats.NumGC,
 	)
-	
+
 	// 異常な値の検出
 	if goroutineCount > 1000 {
 		slog.Warn("High goroutine count detected", "count", goroutineCount)
 	}
-	
+
 	if allocMB > 1000 {
 		slog.Warn("High memory allocation detected", "alloc_mb", allocMB)
 	}
@@ -101,17 +101,17 @@ func (cm *ChannelMonitor) CheckUsage() {
 	if cm.lenFunc == nil {
 		return
 	}
-	
+
 	currentLen := cm.lenFunc()
 	usagePercent := float64(currentLen) / float64(cm.capacity) * 100
-	
+
 	slog.Debug("Channel usage",
 		"name", cm.name,
 		"current", currentLen,
 		"capacity", cm.capacity,
 		"usage_percent", usagePercent,
 	)
-	
+
 	// 高い使用率を警告
 	if usagePercent > 80 {
 		slog.Warn("High channel buffer usage",
