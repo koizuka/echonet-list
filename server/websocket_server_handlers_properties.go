@@ -14,6 +14,9 @@ import (
 
 // handleGetPropertiesFromClient handles a get_properties message from a client
 func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) protocol.CommandResultPayload {
+	// 操作追跡を開始
+	operationID := "get_properties_" + time.Now().Format("20060102_150405.000")
+
 	// Parse the payload
 	var payload protocol.GetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
@@ -23,6 +26,21 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) 
 	// Validate the payload
 	if len(payload.Targets) == 0 {
 		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "No targets specified")
+	}
+
+	// ECHONETクライアントからOperationTrackerを取得
+	if tracker := ws.getOperationTracker(); tracker != nil {
+		tracker.StartOperation(operationID, handler.OperationTypeGetProperties,
+			fmt.Sprintf("Get properties for %d targets", len(payload.Targets)),
+			map[string]interface{}{
+				"source":       "websocket",
+				"target_count": len(payload.Targets),
+				"epc_count":    len(payload.EPCs),
+			})
+
+		defer func() {
+			tracker.CompleteOperation(operationID, true, nil)
+		}()
 	}
 
 	// Process each target
@@ -85,6 +103,9 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) 
 
 // handleSetPropertiesFromClient handles a set_properties message from a client
 func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) protocol.CommandResultPayload {
+	// 操作追跡を開始
+	operationID := "set_properties_" + time.Now().Format("20060102_150405.000")
+
 	// Parse the payload
 	var payload protocol.SetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
@@ -97,6 +118,21 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 	}
 	if len(payload.Properties) == 0 {
 		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "No properties specified")
+	}
+
+	// ECHONETクライアントからOperationTrackerを取得
+	if tracker := ws.getOperationTracker(); tracker != nil {
+		tracker.StartOperation(operationID, handler.OperationTypeSetProperties,
+			fmt.Sprintf("Set properties for target %s", payload.Target),
+			map[string]interface{}{
+				"source":         "websocket",
+				"target":         payload.Target,
+				"property_count": len(payload.Properties),
+			})
+
+		defer func() {
+			tracker.CompleteOperation(operationID, true, nil)
+		}()
 	}
 
 	// Parse the target
