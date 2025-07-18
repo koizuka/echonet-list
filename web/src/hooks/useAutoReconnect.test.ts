@@ -280,14 +280,15 @@ describe('useAutoReconnect', () => {
     });
 
     it('should use updated connection state from ref', () => {
+      let currentConnectionState: 'connected' | 'disconnected' = 'connected';
+      
       const { rerender } = renderHook(
-        ({ connectionState }) =>
+        () =>
           useAutoReconnect({
-            connectionState,
+            connectionState: currentConnectionState,
             connect: mockConnect,
             disconnect: mockDisconnect,
-          }),
-        { initialProps: { connectionState: 'connected' as const } }
+          })
       );
 
       // Get the visibilitychange handler
@@ -306,7 +307,8 @@ describe('useAutoReconnect', () => {
       expect(mockConnect).not.toHaveBeenCalled();
 
       // Update connection state to disconnected
-      rerender({ connectionState: 'disconnected' });
+      currentConnectionState = 'disconnected';
+      rerender();
 
       // Now attempt reconnection (should work with updated state)
       act(() => {
@@ -318,14 +320,15 @@ describe('useAutoReconnect', () => {
 
     it('should use updated connect function from ref', () => {
       const newMockConnect = vi.fn();
+      let currentConnect = mockConnect;
+      
       const { rerender } = renderHook(
-        ({ connect }) =>
+        () =>
           useAutoReconnect({
             connectionState: 'disconnected',
-            connect,
+            connect: currentConnect,
             disconnect: mockDisconnect,
-          }),
-        { initialProps: { connect: mockConnect } }
+          })
       );
 
       // Get the visibilitychange handler
@@ -336,7 +339,8 @@ describe('useAutoReconnect', () => {
       expect(visibilityChangeHandler).toBeDefined();
 
       // Update connect function
-      rerender({ connect: newMockConnect });
+      currentConnect = newMockConnect;
+      rerender();
 
       // Trigger reconnection (should use new connect function)
       Object.defineProperty(document, 'hidden', { value: false, writable: true });
@@ -350,15 +354,17 @@ describe('useAutoReconnect', () => {
 
     it('should use updated disconnect and autoDisconnect from ref', () => {
       const newMockDisconnect = vi.fn();
+      let currentDisconnect = mockDisconnect;
+      let currentAutoDisconnect = true;
+      
       const { rerender } = renderHook(
-        ({ disconnect, autoDisconnect }) =>
+        () =>
           useAutoReconnect({
             connectionState: 'connected',
             connect: mockConnect,
-            disconnect,
-            autoDisconnect,
-          }),
-        { initialProps: { disconnect: mockDisconnect, autoDisconnect: true } }
+            disconnect: currentDisconnect,
+            autoDisconnect: currentAutoDisconnect,
+          })
       );
 
       // Get the visibilitychange handler
@@ -369,7 +375,9 @@ describe('useAutoReconnect', () => {
       expect(visibilityChangeHandler).toBeDefined();
 
       // Update disconnect function and autoDisconnect
-      rerender({ disconnect: newMockDisconnect, autoDisconnect: false });
+      currentDisconnect = newMockDisconnect;
+      currentAutoDisconnect = false;
+      rerender();
 
       // Trigger disconnect (should not disconnect because autoDisconnect is false)
       Object.defineProperty(document, 'hidden', { value: true, writable: true });
@@ -381,7 +389,8 @@ describe('useAutoReconnect', () => {
       expect(newMockDisconnect).not.toHaveBeenCalled();
 
       // Enable autoDisconnect
-      rerender({ disconnect: newMockDisconnect, autoDisconnect: true });
+      currentAutoDisconnect = true;
+      rerender();
 
       // Trigger disconnect (should use new disconnect function)
       act(() => {
