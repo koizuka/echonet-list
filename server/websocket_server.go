@@ -654,7 +654,9 @@ func (ws *WebSocketServer) listenForNotifications() {
 
 				// Broadcast the message
 				if err := ws.broadcastMessageToClients(protocol.MessageTypeDeviceOffline, payload); err != nil {
-					slog.Error("Failed to broadcast device offline message", "error", err, "device", notification.Device.Specifier())
+					if !isClientDisconnectedError(err) {
+						slog.Error("Failed to broadcast device offline message", "error", err, "device", notification.Device.Specifier())
+					}
 				} else {
 					slog.Info("Device offline message broadcasted", "device", notification.Device.Specifier())
 				}
@@ -676,7 +678,9 @@ func (ws *WebSocketServer) listenForNotifications() {
 			// メッセージを非同期でブロードキャスト
 			go func() {
 				if err := ws.broadcastMessageToClients(protocol.MessageTypePropertyChanged, payload); err != nil {
-					slog.Error("Failed to broadcast property change", "error", err, "device", propertyChange.Device.Specifier())
+					if !isClientDisconnectedError(err) {
+						slog.Error("Failed to broadcast property change", "error", err, "device", propertyChange.Device.Specifier())
+					}
 				}
 			}()
 		}
