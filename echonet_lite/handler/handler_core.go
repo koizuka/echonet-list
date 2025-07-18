@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 )
 
 // HandlerCore は、ECHONETLiteHandlerのコア機能を担当する構造体
@@ -13,6 +14,7 @@ type HandlerCore struct {
 	NotificationCh   chan DeviceNotification         // デバイス通知用チャネル
 	PropertyChangeCh chan PropertyChangeNotification // プロパティ変化通知用チャネル
 	Debug            bool                            // デバッグモード
+	OperationTracker *OperationTracker               // 操作追跡システム
 }
 
 // NewHandlerCore は、HandlerCoreの新しいインスタンスを作成する
@@ -21,17 +23,27 @@ func NewHandlerCore(ctx context.Context, cancel context.CancelFunc, debug bool) 
 	notificationCh := make(chan DeviceNotification, 100)            // バッファサイズは100に設定
 	propertyChangeCh := make(chan PropertyChangeNotification, 2000) // バッファサイズは2000に設定
 
+	// 操作追跡システムを作成
+	operationTracker := NewOperationTracker(ctx, 5*time.Second)
+	operationTracker.Start()
+
 	return &HandlerCore{
 		ctx:              ctx,
 		cancel:           cancel,
 		NotificationCh:   notificationCh,
 		PropertyChangeCh: propertyChangeCh,
 		Debug:            debug,
+		OperationTracker: operationTracker,
 	}
 }
 
 // Close は、HandlerCoreのリソースを解放する
 func (c *HandlerCore) Close() error {
+	// 操作追跡システムを停止
+	if c.OperationTracker != nil {
+		c.OperationTracker.Stop()
+	}
+
 	// コンテキストをキャンセル
 	if c.cancel != nil {
 		c.cancel()

@@ -9,8 +9,8 @@
     sharedscripts
     postrotate
         # SIGHUPを送信してログファイルを再オープン
-        if [ -f /var/run/echonet-list.pid ]; then
-            kill -HUP $(cat /var/run/echonet-list.pid) 2>/dev/null || true
+        if [ -f /var/run/echonet-list/echonet-list.pid ]; then
+            kill -HUP $(cat /var/run/echonet-list/echonet-list.pid) 2>/dev/null || true
         fi
     endscript
 }

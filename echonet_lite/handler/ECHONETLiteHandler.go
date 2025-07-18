@@ -237,6 +237,11 @@ func (h *ECHONETLiteHandler) Close() error {
 	return h.core.Close()
 }
 
+// GetCore は、HandlerCoreを取得する
+func (h *ECHONETLiteHandler) GetCore() *HandlerCore {
+	return h.core
+}
+
 // StartMainLoop は、メインループを開始する
 func (h *ECHONETLiteHandler) StartMainLoop() {
 	go h.comm.session.MainLoop()
