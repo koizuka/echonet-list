@@ -23,11 +23,35 @@ export function useAutoReconnect({
 }: AutoReconnectOptions) {
   const hasReconnectedRef = useRef(false);
   
+  // Store current values in refs to avoid stale closures
+  const connectionStateRef = useRef(connectionState);
+  const connectRef = useRef(connect);
+  const disconnectRef = useRef(disconnect);
+  const autoDisconnectRef = useRef(autoDisconnect);
+  
+  // Update refs when values change
+  useEffect(() => {
+    connectionStateRef.current = connectionState;
+  }, [connectionState]);
+  
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+  
+  useEffect(() => {
+    disconnectRef.current = disconnect;
+  }, [disconnect]);
+  
+  useEffect(() => {
+    autoDisconnectRef.current = autoDisconnect;
+  }, [autoDisconnect]);
+  
+  // Main effect - only runs once on mount
   useEffect(() => {
     const attemptReconnection = () => {
-      if (connectionState === 'disconnected' && !hasReconnectedRef.current) {
+      if (connectionStateRef.current === 'disconnected' && !hasReconnectedRef.current) {
         hasReconnectedRef.current = true;
-        connect();
+        connectRef.current();
         // Reset flag after a delay to allow for future reconnection attempts
         setTimeout(() => {
           hasReconnectedRef.current = false;
@@ -38,8 +62,8 @@ export function useAutoReconnect({
     const handleVisibilityChange = () => {
       if (document.hidden) {
         // Page became hidden - disconnect if auto-disconnect is enabled
-        if (autoDisconnect && connectionState === 'connected') {
-          disconnect();
+        if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
+          disconnectRef.current();
         }
       } else {
         // Page became visible - attempt reconnection
@@ -58,5 +82,5 @@ export function useAutoReconnect({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [connectionState, connect, disconnect, delayMs, autoDisconnect]);
+  }, [delayMs]); // Only depend on delayMs, not connection state or functions
 }
