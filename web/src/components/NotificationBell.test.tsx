@@ -126,4 +126,93 @@ describe('NotificationBell', () => {
     expect(screen.getByText('2 logs total')).toBeInTheDocument();
   });
 
+  // Discover Devices Tests
+  it('shows discover button when onDiscoverDevices is provided', () => {
+    const onDiscoverDevices = vi.fn();
+    render(<NotificationBell {...defaultProps} onDiscoverDevices={onDiscoverDevices} />);
+    
+    fireEvent.click(screen.getByRole('button'));
+    
+    expect(screen.getByText('Discover')).toBeInTheDocument();
+  });
+
+  it('does not show discover button when onDiscoverDevices is not provided', () => {
+    render(<NotificationBell {...defaultProps} />);
+    
+    fireEvent.click(screen.getByRole('button'));
+    
+    expect(screen.queryByText('Discover')).not.toBeInTheDocument();
+  });
+
+  it('calls onDiscoverDevices when discover button is clicked', async () => {
+    const onDiscoverDevices = vi.fn().mockResolvedValue({});
+    render(<NotificationBell {...defaultProps} onDiscoverDevices={onDiscoverDevices} />);
+    
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByText('Discover'));
+    
+    expect(onDiscoverDevices).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows loading state during discover operation', async () => {
+    let resolveDiscover: () => void;
+    const discoverPromise = new Promise<void>((resolve) => {
+      resolveDiscover = resolve;
+    });
+    const onDiscoverDevices = vi.fn().mockReturnValue(discoverPromise);
+    
+    render(<NotificationBell {...defaultProps} onDiscoverDevices={onDiscoverDevices} />);
+    
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByText('Discover'));
+    
+    expect(screen.getByText('Searching...')).toBeInTheDocument();
+    
+    // Resolve the promise
+    resolveDiscover!();
+    await waitFor(() => {
+      expect(screen.getByText('Discover')).toBeInTheDocument();
+    });
+  });
+
+  it('disables discover button during operation', async () => {
+    let resolveDiscover: () => void;
+    const discoverPromise = new Promise<void>((resolve) => {
+      resolveDiscover = resolve;
+    });
+    const onDiscoverDevices = vi.fn().mockReturnValue(discoverPromise);
+    
+    render(<NotificationBell {...defaultProps} onDiscoverDevices={onDiscoverDevices} />);
+    
+    fireEvent.click(screen.getByRole('button'));
+    const discoverButton = screen.getByText('Discover');
+    fireEvent.click(discoverButton);
+    
+    const searchingButton = screen.getByText('Searching...');
+    expect(searchingButton).toBeDisabled();
+    
+    // Resolve the promise
+    resolveDiscover!();
+    await waitFor(() => {
+      expect(screen.getByText('Discover')).not.toBeDisabled();
+    });
+  });
+
+  it('handles discover error gracefully', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onDiscoverDevices = vi.fn().mockRejectedValue(new Error('Network error'));
+    
+    render(<NotificationBell {...defaultProps} onDiscoverDevices={onDiscoverDevices} />);
+    
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByText('Discover'));
+    
+    await waitFor(() => {
+      expect(screen.getByText('Discover')).toBeInTheDocument();
+    });
+    
+    expect(consoleSpy).toHaveBeenCalledWith('Discover devices failed:', expect.any(Error));
+    consoleSpy.mockRestore();
+  });
+
 });

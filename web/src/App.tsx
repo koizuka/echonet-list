@@ -288,6 +288,7 @@ function App() {
               onMarkAllAsRead={logManager.markAllAsRead}
               onClearAll={logManager.clearAllLogs}
               connectedAt={echonet.connectedAt}
+              onDiscoverDevices={echonet.discoverDevices}
             />
           </div>
         </div>

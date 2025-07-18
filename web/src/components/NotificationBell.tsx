@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Bell, AlertCircle, AlertTriangle, Search } from 'lucide-react';
 import { cn } from '../libs/utils';
 import { formatValue } from '../libs/formatValue';
 import { Button } from './ui/button';
@@ -11,6 +11,7 @@ interface NotificationBellProps {
   onMarkAllAsRead: () => void;
   onClearAll: () => void;
   connectedAt: Date | null;
+  onDiscoverDevices?: () => Promise<unknown>;
 }
 
 export function NotificationBell({ 
@@ -18,9 +19,11 @@ export function NotificationBell({
   unreadCount, 
   onMarkAllAsRead, 
   onClearAll,
-  connectedAt
+  connectedAt,
+  onDiscoverDevices
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDiscovering, setIsDiscovering] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -44,6 +47,20 @@ export function NotificationBell({
   };
 
   const hasUnreadLogs = unreadCount > 0;
+
+  // Handle discover devices
+  const handleDiscoverDevices = async () => {
+    if (!onDiscoverDevices || isDiscovering) return;
+    
+    setIsDiscovering(true);
+    try {
+      await onDiscoverDevices();
+    } catch (error) {
+      console.error('Discover devices failed:', error);
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -78,23 +95,39 @@ export function NotificationBell({
           <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Server Logs</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "text-xs h-7 px-2",
-                  logs.length === 0 
-                    ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                    : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              <div className="flex items-center gap-2">
+                {/* Discover Devices Button */}
+                {onDiscoverDevices && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-2 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900"
+                    onClick={handleDiscoverDevices}
+                    disabled={isDiscovering}
+                    title="Discover new devices on the network"
+                  >
+                    <Search className={cn("h-3 w-3 mr-1", isDiscovering && "animate-spin")} />
+                    {isDiscovering ? 'Searching...' : 'Discover'}
+                  </Button>
                 )}
-                onClick={() => {
-                  onClearAll();
-                  setIsOpen(false);
-                }}
-                disabled={logs.length === 0}
-              >
-                Clear All
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "text-xs h-7 px-2",
+                    logs.length === 0 
+                      ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  )}
+                  onClick={() => {
+                    onClearAll();
+                    setIsOpen(false);
+                  }}
+                  disabled={logs.length === 0}
+                >
+                  Clear All
+                </Button>
+              </div>
             </div>
             {connectedAt && (
               <div className="text-xs text-gray-500 dark:text-gray-400">
