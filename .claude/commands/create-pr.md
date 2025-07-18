@@ -9,7 +9,7 @@ Description: create a pull request
 - Current git diff (staged and unstaged changes): !`git diff HEAD`
 - Current branch: !`git branch --show-current`
 - Recent commits: !`git log --oneline -10`
-- Web Directory へ移動: !`cd $(git rev-parse --show-toplevel)/web`
+- Web Directory へ移動: !`git rev-parse --show-toplevel` でプロジェクトルートパスを覚えておき、その下の `web` にcdする
 
 ## Your Task
 
