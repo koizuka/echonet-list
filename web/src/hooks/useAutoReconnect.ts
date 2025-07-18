@@ -22,6 +22,7 @@ export function useAutoReconnect({
   autoDisconnect = true
 }: AutoReconnectOptions) {
   const hasReconnectedRef = useRef(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Store current values in refs to avoid stale closures
   const connectionStateRef = useRef(connectionState);
@@ -53,7 +54,10 @@ export function useAutoReconnect({
         hasReconnectedRef.current = true;
         connectRef.current();
         // Reset flag after a delay to allow for future reconnection attempts
-        setTimeout(() => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        timeoutRef.current = setTimeout(() => {
           hasReconnectedRef.current = false;
         }, delayMs);
       }
@@ -81,6 +85,10 @@ export function useAutoReconnect({
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleWindowFocus);
+      // Clear timeout on cleanup to prevent memory leaks
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, [delayMs]); // Only depend on delayMs, not connection state or functions
 }
