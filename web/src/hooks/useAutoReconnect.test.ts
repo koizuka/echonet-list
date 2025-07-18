@@ -223,15 +223,13 @@ describe('useAutoReconnect', () => {
     });
 
     it('should not attempt reconnection multiple times within delay period', () => {
-      const { rerender } = renderHook(
-        ({ connectionState }) =>
-          useAutoReconnect({
-            connectionState,
-            connect: mockConnect,
-            disconnect: mockDisconnect,
-            delayMs: 2000,
-          }),
-        { initialProps: { connectionState: 'disconnected' as const } }
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'disconnected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          delayMs: 2000,
+        })
       );
 
       // Get the visibilitychange handler
