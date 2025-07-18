@@ -14,6 +14,9 @@ import (
 
 // handleGetPropertiesFromClient handles a get_properties message from a client
 func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) protocol.CommandResultPayload {
+	// 操作追跡を開始
+	operationID := "get_properties_" + time.Now().Format("20060102_150405.000")
+
 	// Parse the payload
 	var payload protocol.GetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
@@ -23,6 +26,21 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) 
 	// Validate the payload
 	if len(payload.Targets) == 0 {
 		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "No targets specified")
+	}
+
+	// ECHONETクライアントからOperationTrackerを取得
+	if tracker := ws.getOperationTracker(); tracker != nil {
+		tracker.StartOperation(operationID, handler.OperationTypeGetProperties,
+			fmt.Sprintf("Get properties for %d targets", len(payload.Targets)),
+			map[string]interface{}{
+				"source":       "websocket",
+				"target_count": len(payload.Targets),
+				"epc_count":    len(payload.EPCs),
+			})
+
+		defer func() {
+			tracker.CompleteOperation(operationID, true, nil)
+		}()
 	}
 
 	// Process each target
@@ -85,6 +103,9 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) 
 
 // handleSetPropertiesFromClient handles a set_properties message from a client
 func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) protocol.CommandResultPayload {
+	// 操作追跡を開始
+	operationID := "set_properties_" + time.Now().Format("20060102_150405.000")
+
 	// Parse the payload
 	var payload protocol.SetPropertiesPayload
 	if err := protocol.ParsePayload(msg, &payload); err != nil {
@@ -97,6 +118,21 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 	}
 	if len(payload.Properties) == 0 {
 		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "No properties specified")
+	}
+
+	// ECHONETクライアントからOperationTrackerを取得
+	if tracker := ws.getOperationTracker(); tracker != nil {
+		tracker.StartOperation(operationID, handler.OperationTypeSetProperties,
+			fmt.Sprintf("Set properties for target %s", payload.Target),
+			map[string]interface{}{
+				"source":         "websocket",
+				"target":         payload.Target,
+				"property_count": len(payload.Properties),
+			})
+
+		defer func() {
+			tracker.CompleteOperation(operationID, true, nil)
+		}()
 	}
 
 	// Parse the target
@@ -395,16 +431,62 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(msg *protocol.Messag
 
 	// 各フィルター基準に基づいてプロパティを更新
 	var firstError error
-	for _, criteria := range filterCriteriaList {
-		// Update properties based on the criteria
-		if err := ws.echonetClient.UpdateProperties(criteria, payload.Force); err != nil {
-			// エラーが発生しても処理を継続し、最初のエラーを記録
-			if firstError == nil {
-				// エラーメッセージにcriteriaを含める (%v を使用)
-				firstError = fmt.Errorf("error updating properties for criteria '%v': %w", criteria, err)
+	// 操作追跡を開始
+	operationID := "update_properties_" + time.Now().Format("20060102_150405.000")
+
+	// ECHONETクライアントからOperationTrackerを取得
+	if tracker := ws.getOperationTracker(); tracker != nil {
+		tracker.StartOperation(operationID, handler.OperationTypeUpdateProperties,
+			fmt.Sprintf("Property update for %d criteria", len(filterCriteriaList)),
+			map[string]interface{}{
+				"source":         "websocket",
+				"criteria_count": len(filterCriteriaList),
+				"force":          payload.Force,
+			})
+
+		// 各フィルター基準に基づいてプロパティを更新
+		for i, criteria := range filterCriteriaList {
+			if err := ws.echonetClient.UpdateProperties(criteria, payload.Force); err != nil {
+				// エラーが発生しても処理を継続し、最初のエラーを記録
+				if firstError == nil {
+					firstError = fmt.Errorf("error updating properties for criteria '%v': %w", criteria, err)
+				}
+				slog.Debug("Property update failed for criteria", "index", i, "criteria", criteria, "error", err)
 			}
-			// TODO: Consider logging the error here using log package if needed
-			// log.Printf("Error updating properties for criteria %v: %v", criteria, err)
+		}
+
+		// 操作完了を記録
+		tracker.CompleteOperation(operationID, firstError == nil, firstError)
+	} else {
+		// フォールバック: 従来のログ方式
+		slog.Info("Starting property update", "criteria_count", len(filterCriteriaList), "force", payload.Force)
+		start := time.Now()
+
+		for i, criteria := range filterCriteriaList {
+			// Update properties based on the criteria
+			criteriaStart := time.Now()
+			slog.Debug("Updating properties for criteria", "index", i, "criteria", criteria)
+
+			if err := ws.echonetClient.UpdateProperties(criteria, payload.Force); err != nil {
+				criteriaDuration := time.Since(criteriaStart)
+				slog.Error("Property update failed for criteria", "index", i, "criteria", criteria, "duration", criteriaDuration, "error", err)
+
+				// エラーが発生しても処理を継続し、最初のエラーを記録
+				if firstError == nil {
+					// エラーメッセージにcriteriaを含める (%v を使用)
+					firstError = fmt.Errorf("error updating properties for criteria '%v': %w", criteria, err)
+				}
+			} else {
+				criteriaDuration := time.Since(criteriaStart)
+				slog.Debug("Property update completed for criteria", "index", i, "criteria", criteria, "duration", criteriaDuration)
+			}
+		}
+
+		duration := time.Since(start)
+		if firstError != nil {
+			slog.Error("Property update completed with errors", "duration", duration, "first_error", firstError)
+		} else {
+			slog.Info("Property update completed successfully", "duration", duration)
 		}
 	}
 
