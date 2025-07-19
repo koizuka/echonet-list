@@ -96,6 +96,11 @@ func (c *HandlerCore) RelayDeviceEvent(event DeviceEvent) {
 			Device: event.Device,
 			Type:   DeviceOffline,
 		})
+	case DeviceEventOnline:
+		c.notify(DeviceNotification{
+			Device: event.Device,
+			Type:   DeviceOnline,
+		})
 	}
 }
 

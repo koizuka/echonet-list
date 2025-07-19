@@ -660,6 +660,25 @@ func (ws *WebSocketServer) listenForNotifications() {
 				} else {
 					slog.Info("Device offline message broadcasted", "device", notification.Device.Specifier())
 				}
+
+			case handler.DeviceOnline:
+				slog.Info("Device online notification received", "device", notification.Device.Specifier())
+
+				// Create device online payload
+				device := notification.Device
+				payload := protocol.DeviceOnlinePayload{
+					IP:  device.IP.String(),
+					EOJ: device.EOJ.Specifier(),
+				}
+
+				// Broadcast the message
+				if err := ws.broadcastMessageToClients(protocol.MessageTypeDeviceOnline, payload); err != nil {
+					if !isClientDisconnectedError(err) {
+						slog.Error("Failed to broadcast device online message", "error", err, "device", notification.Device.Specifier())
+					}
+				} else {
+					slog.Info("Device online message broadcasted", "device", notification.Device.Specifier())
+				}
 			}
 		case propertyChange := <-ws.handler.PropertyChangeCh:
 			// プロパティ変化通知を処理

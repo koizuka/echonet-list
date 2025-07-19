@@ -77,6 +77,14 @@ export type DeviceOffline = {
   };
 };
 
+export type DeviceOnline = {
+  type: 'device_online';
+  payload: {
+    ip: string;
+    eoj: string;
+  };
+};
+
 export type GroupChanged = {
   type: 'group_changed';
   payload: {
@@ -108,6 +116,7 @@ export type ServerMessage =
   | PropertyChanged
   | TimeoutNotification
   | DeviceOffline
+  | DeviceOnline
   | GroupChanged
   | ErrorNotification
   | LogNotification;

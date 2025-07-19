@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from 'react';
+import { useCallback, useReducer, useRef, useEffect } from 'react';
 import { useWebSocketConnection } from './useWebSocketConnection';
 import { getCurrentLocale } from '../libs/languageHelper';
 import type {
@@ -180,6 +180,9 @@ export function useECHONET(
   onWebSocketConnected?: () => void
 ): ECHONETHook {
   const [state, dispatch] = useReducer(echonetReducer, initialState);
+  
+  // useRef to avoid circular dependency between handleServerMessage and updateDeviceProperties
+  const updateDevicePropertiesRef = useRef<((targets?: string[], force?: boolean) => Promise<unknown>) | null>(null);
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     // Call external handler if provided
@@ -217,6 +220,28 @@ export function useECHONET(
           type: 'REMOVE_DEVICE',
           payload: { ip: message.payload.ip, eoj: message.payload.eoj },
         });
+        break;
+
+      case 'device_online':
+        if (import.meta.env.DEV) {
+          console.log('🔌 Device coming online:', `${message.payload.ip} ${message.payload.eoj}`);
+        }
+        // オンライン復旧時に即座にデバイスの最新状態を取得
+        (async () => {
+          try {
+            const deviceId = `${message.payload.ip} ${message.payload.eoj}`;
+            if (updateDevicePropertiesRef.current) {
+              await updateDevicePropertiesRef.current([deviceId], true); // force=true で強制更新
+              if (import.meta.env.DEV) {
+                console.log('🔄 Device properties updated after coming online:', deviceId);
+              }
+            }
+          } catch (error) {
+            if (import.meta.env.DEV) {
+              console.warn('❌ Failed to update device properties after coming online:', error);
+            }
+          }
+        })();
         break;
 
       case 'property_changed':
@@ -327,6 +352,11 @@ export function useECHONET(
       requestId: '',
     });
   }, [connection]);
+
+  // Set the ref to avoid circular dependency
+  useEffect(() => {
+    updateDevicePropertiesRef.current = updateDeviceProperties;
+  }, [updateDeviceProperties]);
 
   const discoverDevices = useCallback(async () => {
     return connection.sendMessage({
