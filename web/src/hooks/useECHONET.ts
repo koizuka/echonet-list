@@ -225,21 +225,7 @@ export function useECHONET(
       case 'device_online':
         console.log('🔌 Device coming online:', `${message.payload.ip} ${message.payload.eoj}`);
         console.log('📊 Current devices state:', Object.keys(state.devices));
-        // オンライン復旧時に即座にデバイスの最新状態を取得
-        (async () => {
-          try {
-            const deviceId = `${message.payload.ip} ${message.payload.eoj}`;
-            if (updateDevicePropertiesRef.current) {
-              console.log('🔄 Calling updateDeviceProperties for:', deviceId);
-              await updateDevicePropertiesRef.current([deviceId], true); // force=true で強制更新
-              console.log('✅ Device properties updated after coming online:', deviceId);
-            } else {
-              console.warn('⚠️ updateDevicePropertiesRef.current is null');
-            }
-          } catch (error) {
-            console.warn('❌ Failed to update device properties after coming online:', error);
-          }
-        })();
+        // デバイス復旧は device_added メッセージで自動的に処理される
         break;
 
       case 'property_changed':

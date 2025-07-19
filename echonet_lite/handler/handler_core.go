@@ -97,9 +97,10 @@ func (c *HandlerCore) RelayDeviceEvent(event DeviceEvent) {
 			Type:   DeviceOffline,
 		})
 	case DeviceEventOnline:
+		// オンライン復旧時はデバイス追加として通知（既存の仕組みを活用）
 		c.notify(DeviceNotification{
 			Device: event.Device,
-			Type:   DeviceOnline,
+			Type:   DeviceAdded,
 		})
 	}
 }

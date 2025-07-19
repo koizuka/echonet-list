@@ -279,10 +279,10 @@ describe('useECHONET', () => {
     expect(result.current.devices['192.168.1.10 0130:1']).toBeUndefined();
   });
 
-  it('should handle device_online message and trigger property update', async () => {
+  it('should handle device_online message', async () => {
     renderHook(() => useECHONET(testUrl));
 
-    // Device online message should trigger updateDeviceProperties
+    // Device online message should be received without errors
     const deviceOnlineMessage: ServerMessage = {
       type: 'device_online',
       payload: {
@@ -291,19 +291,12 @@ describe('useECHONET', () => {
       },
     };
 
-    // Should not throw an error and should trigger property update
+    // Should not throw an error
     await act(async () => {
       capturedCallbacks.onMessage?.(deviceOnlineMessage);
-      // Wait a bit for the async updateDeviceProperties call
-      await new Promise(resolve => setTimeout(resolve, 50));
     });
 
-    // Verify that updateDeviceProperties was called
-    expect(mockSendMessage).toHaveBeenCalledWith({
-      type: 'update_properties',
-      payload: { targets: ['192.168.1.10 0130:1'], force: true },
-      requestId: '',
-    });
+    // The actual device restoration will be handled by subsequent device_added message
   });
 
   it('should send device operation messages', async () => {
