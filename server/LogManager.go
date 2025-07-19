@@ -62,16 +62,13 @@ func (lm *LogManager) AutoRotate() {
 			}
 		}()
 
-		for {
-			select {
-			case <-rotateSignalCh:
-				fmt.Fprintln(os.Stderr, "SIGHUPを受信しました。ログファイルをローテーションします...")
-				err := lm.openAndSetLogger()
-				if err != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "ログローテーションエラー: %v\n", err)
-				} else {
-					slog.Info("SIGHUPを受信しました。ログファイルをローテーションしました")
-				}
+		for range rotateSignalCh {
+			fmt.Fprintln(os.Stderr, "SIGHUPを受信しました。ログファイルをローテーションします...")
+			err := lm.openAndSetLogger()
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "ログローテーションエラー: %v\n", err)
+			} else {
+				slog.Info("SIGHUPを受信しました。ログファイルをローテーションしました")
 			}
 		}
 	}()

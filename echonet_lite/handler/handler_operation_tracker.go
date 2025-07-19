@@ -216,8 +216,3 @@ func (ot *OperationTracker) SetTimeout(opType OperationType, timeout time.Durati
 
 	ot.timeouts[opType] = timeout
 }
-
-// generateOperationID は操作IDを生成する
-func (ot *OperationTracker) generateOperationID(opType OperationType) string {
-	return opType.String() + "_" + time.Now().Format("20060102_150405.000")
-}
