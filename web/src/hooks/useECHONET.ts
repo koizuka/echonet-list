@@ -221,8 +221,17 @@ export function useECHONET(
             try {
               // get_properties で全プロパティを直接取得（差分ではなく）
               if (getDevicePropertiesRef.current) {
-                await getDevicePropertiesRef.current([deviceId], []); // 空のEPCsで全プロパティ取得
+                const result = await getDevicePropertiesRef.current([deviceId], []); // 空のEPCsで全プロパティ取得
                 console.log('✅ All properties fetched for newly added device:', deviceId);
+                
+                // get_propertiesの応答にはデバイス情報が含まれているので、それでstateを更新
+                if (result && typeof result === 'object' && 'properties' in result) {
+                  console.log('🔄 Updating device with fetched properties:', deviceId);
+                  dispatch({
+                    type: 'ADD_DEVICE',
+                    payload: { device: result as Device },
+                  });
+                }
               }
             } catch (error) {
               console.warn('❌ Failed to fetch properties for newly added device:', error);
