@@ -37,13 +37,15 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
       const deviceKey = `${action.payload.device.ip} ${action.payload.device.eoj}`;
       const propertyCount = Object.keys(action.payload.device.properties || {}).length;
       console.log('🔧 Reducer ADD_DEVICE:', { deviceKey, propertyCount, deviceName: action.payload.device.name });
-      return {
+      const newState = {
         ...state,
         devices: {
           ...state.devices,
           [deviceKey]: action.payload.device,
         },
       };
+      console.log('🔧 Reducer result: total devices:', Object.keys(newState.devices).length, 'keys:', Object.keys(newState.devices));
+      return newState;
     }
 
     case 'REMOVE_DEVICE': {
@@ -238,6 +240,11 @@ export function useECHONET(
                     payload: { device },
                   });
                   console.log('✅ Device dispatch completed for:', actualDeviceKey);
+                  
+                  // Force debug log immediately after dispatch
+                  setTimeout(() => {
+                    console.log('🔍 IMMEDIATE devices state check:', Object.keys(state.devices).length, 'devices:', Object.keys(state.devices));
+                  }, 10);
                   
                   if (propertyCount === 0) {
                     console.warn('⚠️ Device updated but properties are empty due to server errors');
