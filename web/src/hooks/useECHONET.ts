@@ -35,6 +35,8 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
 
     case 'ADD_DEVICE': {
       const deviceKey = `${action.payload.device.ip} ${action.payload.device.eoj}`;
+      const propertyCount = Object.keys(action.payload.device.properties || {}).length;
+      console.log('🔧 Reducer ADD_DEVICE:', { deviceKey, propertyCount, deviceName: action.payload.device.name });
       return {
         ...state,
         devices: {
@@ -228,11 +230,14 @@ export function useECHONET(
                 if (result && typeof result === 'object' && 'ip' in result && 'eoj' in result) {
                   const device = result as Device;
                   const propertyCount = device.properties ? Object.keys(device.properties).length : 0;
+                  const actualDeviceKey = `${device.ip} ${device.eoj}`;
                   console.log('🔄 Updating device with fetched properties:', deviceId, `(${propertyCount} properties)`);
+                  console.log('🔍 Device key comparison:', { requested: deviceId, actual: actualDeviceKey, match: deviceId === actualDeviceKey });
                   dispatch({
                     type: 'ADD_DEVICE',
                     payload: { device },
                   });
+                  console.log('✅ Device dispatch completed for:', actualDeviceKey);
                   
                   if (propertyCount === 0) {
                     console.warn('⚠️ Device updated but properties are empty due to server errors');
@@ -485,6 +490,13 @@ export function useECHONET(
 
     return data;
   }, [connection, state.propertyDescriptions]);
+
+  // Debug: Log devices state periodically
+  if (import.meta.env.DEV) {
+    setTimeout(() => {
+      console.log('🔍 Current devices state:', Object.keys(state.devices).length, 'devices:', Object.keys(state.devices));
+    }, 100);
+  }
 
   return {
     // State
