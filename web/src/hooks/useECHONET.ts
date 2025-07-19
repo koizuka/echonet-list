@@ -223,23 +223,21 @@ export function useECHONET(
         break;
 
       case 'device_online':
-        if (import.meta.env.DEV) {
-          console.log('🔌 Device coming online:', `${message.payload.ip} ${message.payload.eoj}`);
-        }
+        console.log('🔌 Device coming online:', `${message.payload.ip} ${message.payload.eoj}`);
+        console.log('📊 Current devices state:', Object.keys(state.devices));
         // オンライン復旧時に即座にデバイスの最新状態を取得
         (async () => {
           try {
             const deviceId = `${message.payload.ip} ${message.payload.eoj}`;
             if (updateDevicePropertiesRef.current) {
+              console.log('🔄 Calling updateDeviceProperties for:', deviceId);
               await updateDevicePropertiesRef.current([deviceId], true); // force=true で強制更新
-              if (import.meta.env.DEV) {
-                console.log('🔄 Device properties updated after coming online:', deviceId);
-              }
+              console.log('✅ Device properties updated after coming online:', deviceId);
+            } else {
+              console.warn('⚠️ updateDevicePropertiesRef.current is null');
             }
           } catch (error) {
-            if (import.meta.env.DEV) {
-              console.warn('❌ Failed to update device properties after coming online:', error);
-            }
+            console.warn('❌ Failed to update device properties after coming online:', error);
           }
         })();
         break;
@@ -306,7 +304,7 @@ export function useECHONET(
       default:
         console.log('Unhandled server message:', message);
     }
-  }, [onMessage]);
+  }, [onMessage, state.devices]);
 
   const handleConnectionStateChange = useCallback((connectionState: ConnectionState) => {
     if (import.meta.env.DEV) {
