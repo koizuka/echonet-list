@@ -249,11 +249,7 @@ export function useECHONET(
         break;
 
       case 'property_changed':
-        console.log('🔄 Property changed:', {
-          device: `${message.payload.ip} ${message.payload.eoj}`,
-          epc: message.payload.epc,
-          value: message.payload.value
-        });
+        console.log('🔄 Property changed received:', `${message.payload.ip} ${message.payload.eoj} EPC=${message.payload.epc}`);
         dispatch({
           type: 'UPDATE_PROPERTY',
           payload: {
@@ -337,11 +333,14 @@ export function useECHONET(
 
   // Device operations
   const getDeviceProperties = useCallback(async (targets: string[], epcs: string[]) => {
-    return connection.sendMessage({
+    console.log('📤 Sending get_properties:', { targets, epcs });
+    const result = await connection.sendMessage({
       type: 'get_properties',
       payload: { targets, epcs },
       requestId: '', // Will be set by sendMessage
     });
+    console.log('📥 get_properties response:', result);
+    return result;
   }, [connection]);
 
   const setDeviceProperties = useCallback(async (target: string, properties: Record<string, PropertyValue>) => {
