@@ -241,11 +241,6 @@ export function useECHONET(
                   });
                   console.log('✅ Device dispatch completed for:', actualDeviceKey);
                   
-                  // Force debug log immediately after dispatch
-                  setTimeout(() => {
-                    console.log('🔍 IMMEDIATE devices state check:', Object.keys(state.devices).length, 'devices:', Object.keys(state.devices));
-                  }, 10);
-                  
                   if (propertyCount === 0) {
                     console.warn('⚠️ Device updated but properties are empty due to server errors');
                     console.log('🔄 Attempting fallback with update_properties...');
@@ -498,12 +493,12 @@ export function useECHONET(
     return data;
   }, [connection, state.propertyDescriptions]);
 
-  // Debug: Log devices state periodically
-  if (import.meta.env.DEV) {
-    setTimeout(() => {
-      console.log('🔍 Current devices state:', Object.keys(state.devices).length, 'devices:', Object.keys(state.devices));
-    }, 100);
-  }
+  // Debug: Monitor devices state changes
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('🔍 useEffect devices state changed:', Object.keys(state.devices).length, 'devices:', Object.keys(state.devices));
+    }
+  }, [state.devices]);
 
   return {
     // State
