@@ -210,8 +210,10 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - デバイスのオンライン復旧時（`device_offline` で削除されたデバイスの復元）
 
 **クライアント実装時の注意事項:**
-- `properties` が空の場合（主にオンライン復旧時）、自動的に `update_properties` を実行してプロパティを取得することを推奨します
-- 通常の新規検出時も `properties` は空で送信され、後続のプロパティ更新で情報が充実されます
+- `properties` が空の場合（主にオンライン復旧時）、自動的に `get_properties` を実行して全プロパティを取得することを推奨します
+- `update_properties` は差分更新のため、オンライン復旧時にプロパティ値が変わっていない場合は通知されません
+- `get_properties` を使用することで、確実に全プロパティの `property_changed` 通知を受信できます
+- 通常の新規検出時も `properties` は空で送信され、後続のプロパティ取得で情報が充実されます
 
 ### alias_changed
 
@@ -405,17 +407,28 @@ case 'device_added':
   // デバイスを状態に追加
   addDevice(message.payload.device);
   
-  // プロパティが空の場合は自動取得
+  // プロパティが空の場合は全プロパティを取得
   if (Object.keys(message.payload.device.properties).length === 0) {
     const deviceId = `${message.payload.device.ip} ${message.payload.device.eoj}`;
-    updateProperties([deviceId], true); // force=true で強制更新
+    // get_properties で確実に全プロパティを取得
+    getProperties([deviceId], []); // 空のEPCsで全プロパティ取得
   }
   break;
 ```
 
+### update_properties vs get_properties の使い分け
+
+**オンライン復旧時には `get_properties` を推奨**
+
+- **`update_properties`**: 差分更新のみ。値が変わっていない場合は `property_changed` 通知が送信されない
+- **`get_properties`**: 全プロパティを直接取得。確実に全ての `property_changed` 通知を受信
+
+オンライン復旧時は、デバイスの実際の状態とサーバーが記録している状態が同じである可能性が高いため、`get_properties` を使用することで確実にプロパティ情報を取得できます。
+
 ### 利点
 
 - **シンプルな実装**: 既存の `device_added` ハンドラーでオンライン復旧も処理
+- **確実な復元**: `get_properties` により全プロパティが確実に取得される
 - **自動復元**: デバイスは完全な情報と共に自動的に復元される
 - **一貫性**: 新規検出とオンライン復旧で同じメッセージフローを使用
 

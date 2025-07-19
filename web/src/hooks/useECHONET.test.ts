@@ -140,10 +140,10 @@ describe('useECHONET', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
-    // プロパティが空の場合はupdateDevicePropertiesが自動的に呼ばれることを確認
+    // プロパティが空の場合はgetDevicePropertiesが自動的に呼ばれることを確認
     expect(mockSendMessage).toHaveBeenCalledWith({
-      type: 'update_properties',
-      payload: { targets: ['192.168.1.12 0130:1'], force: true },
+      type: 'get_properties',
+      payload: { targets: ['192.168.1.12 0130:1'], epcs: [] },
       requestId: '',
     });
   });

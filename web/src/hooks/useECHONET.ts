@@ -181,8 +181,8 @@ export function useECHONET(
 ): ECHONETHook {
   const [state, dispatch] = useReducer(echonetReducer, initialState);
   
-  // useRef to avoid circular dependency between handleServerMessage and updateDeviceProperties
-  const updateDevicePropertiesRef = useRef<((targets?: string[], force?: boolean) => Promise<unknown>) | null>(null);
+  // useRef to avoid circular dependency between handleServerMessage and getDeviceProperties
+  const getDevicePropertiesRef = useRef<((targets: string[], epcs: string[]) => Promise<unknown>) | null>(null);
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     // Call external handler if provided
@@ -214,16 +214,18 @@ export function useECHONET(
         
         // プロパティが空の場合（オンライン復旧時など）は自動的にプロパティを取得
         const deviceId = `${addedDevice.ip} ${addedDevice.eoj}`;
+        console.log('📊 Device added with properties count:', Object.keys(addedDevice.properties).length);
         if (Object.keys(addedDevice.properties).length === 0) {
-          console.log('🔄 Device added with empty properties, fetching latest properties:', deviceId);
+          console.log('🔄 Device added with empty properties, fetching all properties:', deviceId);
           (async () => {
             try {
-              if (updateDevicePropertiesRef.current) {
-                await updateDevicePropertiesRef.current([deviceId], true); // force=true で強制更新
-                console.log('✅ Properties updated for newly added device:', deviceId);
+              // get_properties で全プロパティを直接取得（差分ではなく）
+              if (getDevicePropertiesRef.current) {
+                await getDevicePropertiesRef.current([deviceId], []); // 空のEPCsで全プロパティ取得
+                console.log('✅ All properties fetched for newly added device:', deviceId);
               }
             } catch (error) {
-              console.warn('❌ Failed to update properties for newly added device:', error);
+              console.warn('❌ Failed to fetch properties for newly added device:', error);
             }
           })();
         }
@@ -247,6 +249,11 @@ export function useECHONET(
         break;
 
       case 'property_changed':
+        console.log('🔄 Property changed:', {
+          device: `${message.payload.ip} ${message.payload.eoj}`,
+          epc: message.payload.epc,
+          value: message.payload.value
+        });
         dispatch({
           type: 'UPDATE_PROPERTY',
           payload: {
@@ -357,8 +364,8 @@ export function useECHONET(
 
   // Set the ref to avoid circular dependency
   useEffect(() => {
-    updateDevicePropertiesRef.current = updateDeviceProperties;
-  }, [updateDeviceProperties]);
+    getDevicePropertiesRef.current = getDeviceProperties;
+  }, [getDeviceProperties]);
 
   const discoverDevices = useCallback(async () => {
     return connection.sendMessage({
