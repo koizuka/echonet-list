@@ -35,17 +35,13 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
 
     case 'ADD_DEVICE': {
       const deviceKey = `${action.payload.device.ip} ${action.payload.device.eoj}`;
-      const propertyCount = Object.keys(action.payload.device.properties || {}).length;
-      console.log('🔧 Reducer ADD_DEVICE:', { deviceKey, propertyCount, deviceName: action.payload.device.name });
-      const newState = {
+      return {
         ...state,
         devices: {
           ...state.devices,
           [deviceKey]: action.payload.device,
         },
       };
-      console.log('🔧 Reducer result: total devices:', Object.keys(newState.devices).length, 'keys:', Object.keys(newState.devices));
-      return newState;
     }
 
     case 'REMOVE_DEVICE': {
@@ -218,44 +214,35 @@ export function useECHONET(
         
         // プロパティが空の場合（オンライン復旧時など）は自動的にプロパティを取得
         const deviceId = `${addedDevice.ip} ${addedDevice.eoj}`;
-        console.log('📊 Device added with properties count:', Object.keys(addedDevice.properties).length);
         if (Object.keys(addedDevice.properties).length === 0) {
-          console.log('🔄 Device added with empty properties, fetching cached data:', deviceId);
+          // プロパティが空の場合（オンライン復旧時など）は自動的にキャッシュからプロパティを取得
           (async () => {
             try {
               // list_devices でキャッシュされたプロパティを取得（ネットワーク通信なし）
               if (listDevicesRef.current) {
-                const result = await listDevicesRef.current([deviceId]); // キャッシュからデバイス取得
-                console.log('✅ Cached data fetched for newly added device:', deviceId);
+                const result = await listDevicesRef.current([deviceId]);
                 
                 // list_devicesの応答にはデバイス情報が含まれているので、それでstateを更新
                 if (result && typeof result === 'object' && 'ip' in result && 'eoj' in result) {
                   const device = result as Device;
                   const propertyCount = device.properties ? Object.keys(device.properties).length : 0;
-                  const actualDeviceKey = `${device.ip} ${device.eoj}`;
-                  console.log('🔄 Updating device with fetched properties:', deviceId, `(${propertyCount} properties)`);
-                  console.log('🔍 Device key comparison:', { requested: deviceId, actual: actualDeviceKey, match: deviceId === actualDeviceKey });
                   dispatch({
                     type: 'ADD_DEVICE',
                     payload: { device },
                   });
-                  console.log('✅ Device dispatch completed for:', actualDeviceKey);
                   
                   if (propertyCount === 0) {
-                    console.warn('⚠️ Device updated but properties are empty due to server errors');
-                    console.log('🔄 Attempting fallback with update_properties...');
                     // フォールバック: update_propertiesで再試行
                     try {
                       await updateDeviceProperties([deviceId], true);
-                      console.log('✅ Fallback update_properties completed');
-                    } catch (fallbackError) {
-                      console.warn('❌ Fallback update_properties also failed:', fallbackError);
+                    } catch {
+                      // フォールバックも失敗した場合は静かに処理終了
                     }
                   }
                 }
               }
-            } catch (error) {
-              console.warn('❌ Failed to fetch cached data for newly added device:', error);
+            } catch {
+              // エラーは静かに処理（ログスパム回避）
             }
           })();
         }
@@ -263,9 +250,6 @@ export function useECHONET(
       }
 
       case 'device_offline':
-        if (import.meta.env.DEV) {
-          console.log('📤 Device going offline:', `${message.payload.ip} ${message.payload.eoj}`);
-        }
         dispatch({
           type: 'REMOVE_DEVICE',
           payload: { ip: message.payload.ip, eoj: message.payload.eoj },
@@ -273,13 +257,10 @@ export function useECHONET(
         break;
 
       case 'device_online':
-        console.log('🔌 Device coming online:', `${message.payload.ip} ${message.payload.eoj}`);
-        console.log('📊 Current devices state:', Object.keys(state.devices));
         // デバイス復旧は device_added メッセージで自動的に処理される
         break;
 
       case 'property_changed':
-        console.log('🔄 Property changed received:', `${message.payload.ip} ${message.payload.eoj} EPC=${message.payload.epc}`);
         dispatch({
           type: 'UPDATE_PROPERTY',
           payload: {
@@ -364,14 +345,11 @@ export function useECHONET(
 
   // Device operations
   const listDevices = useCallback(async (targets: string[]) => {
-    console.log('📤 Sending list_devices (cache-based):', { targets });
-    const result = await connection.sendMessage({
+    return connection.sendMessage({
       type: 'list_devices',
       payload: { targets },
       requestId: '', // Will be set by sendMessage
     });
-    console.log('📥 list_devices response:', result);
-    return result;
   }, [connection]);
 
   const setDeviceProperties = useCallback(async (target: string, properties: Record<string, PropertyValue>) => {
@@ -493,12 +471,6 @@ export function useECHONET(
     return data;
   }, [connection, state.propertyDescriptions]);
 
-  // Debug: Monitor devices state changes
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log('🔍 useEffect devices state changed:', Object.keys(state.devices).length, 'devices:', Object.keys(state.devices));
-    }
-  }, [state.devices]);
 
   return {
     // State
