@@ -117,7 +117,7 @@ describe('useECHONET', () => {
     expect(result.current.devices['192.168.1.11 0290:1']).toEqual(newDevice);
   });
 
-  it('should auto-fetch properties for device_added with empty properties', async () => {
+  it('should auto-fetch cached data for device_added with empty properties', async () => {
     renderHook(() => useECHONET(testUrl));
 
     const newDeviceEmptyProps: Device = {
@@ -136,14 +136,14 @@ describe('useECHONET', () => {
 
     await act(async () => {
       capturedCallbacks.onMessage?.(deviceAddedMessage);
-      // Wait for async updateDeviceProperties call
+      // Wait for async list_devices call
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
-    // プロパティが空の場合はgetDevicePropertiesが自動的に呼ばれることを確認
+    // プロパティが空の場合はlist_devicesが自動的に呼ばれることを確認（キャッシュベース）
     expect(mockSendMessage).toHaveBeenCalledWith({
-      type: 'get_properties',
-      payload: { targets: ['192.168.1.12 0130:1'], epcs: [] },
+      type: 'list_devices',
+      payload: { targets: ['192.168.1.12 0130:1'] },
       requestId: '',
     });
   });
@@ -334,14 +334,13 @@ describe('useECHONET', () => {
     const { result } = renderHook(() => useECHONET(testUrl));
 
     await act(async () => {
-      result.current.getDeviceProperties(['192.168.1.10 0130:1'], ['80', 'B3']);
+      result.current.listDevices(['192.168.1.10 0130:1']);
     });
 
     expect(mockSendMessage).toHaveBeenCalledWith({
-      type: 'get_properties',
+      type: 'list_devices',
       payload: {
         targets: ['192.168.1.10 0130:1'],
-        epcs: ['80', 'B3'],
       },
       requestId: '',
     });

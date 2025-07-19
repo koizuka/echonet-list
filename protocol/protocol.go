@@ -36,6 +36,7 @@ const (
 	MessageTypeGetProperties          MessageType = "get_properties"
 	MessageTypeSetProperties          MessageType = "set_properties"
 	MessageTypeUpdateProperties       MessageType = "update_properties"
+	MessageTypeListDevices            MessageType = "list_devices"
 	MessageTypeManageAlias            MessageType = "manage_alias"
 	MessageTypeManageGroup            MessageType = "manage_group"
 	MessageTypeDiscoverDevices        MessageType = "discover_devices"
@@ -225,6 +226,11 @@ type ManageGroupPayload struct {
 // DiscoverDevicesPayload is the payload for the discover_devices message
 type DiscoverDevicesPayload struct {
 	// Empty payload
+}
+
+// ListDevicesPayload is the payload for the list_devices message
+type ListDevicesPayload struct {
+	Targets []string `json:"targets,omitempty"` // Specific device identifiers to filter (optional)
 }
 
 // GetPropertyDescriptionPayload is the payload for the get_property_description message

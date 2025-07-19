@@ -186,6 +186,8 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 		return handle(ws.handleSetPropertiesFromClient)
 	case protocol.MessageTypeUpdateProperties:
 		return handle(ws.handleUpdatePropertiesFromClient)
+	case protocol.MessageTypeListDevices:
+		return handle(ws.handleListDevicesFromClient)
 	case protocol.MessageTypeManageAlias:
 		return handle(ws.handleManageAliasFromClient)
 	case protocol.MessageTypeManageGroup:

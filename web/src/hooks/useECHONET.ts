@@ -147,7 +147,7 @@ export type ECHONETHook = {
   connectedAt: Date | null;
 
   // Device operations
-  getDeviceProperties: (targets: string[], epcs: string[]) => Promise<unknown>;
+  listDevices: (targets: string[]) => Promise<unknown>;
   setDeviceProperties: (target: string, properties: Record<string, PropertyValue>) => Promise<unknown>;
   updateDeviceProperties: (targets?: string[], force?: boolean) => Promise<unknown>;
   discoverDevices: () => Promise<unknown>;
@@ -181,8 +181,8 @@ export function useECHONET(
 ): ECHONETHook {
   const [state, dispatch] = useReducer(echonetReducer, initialState);
   
-  // useRef to avoid circular dependency between handleServerMessage and getDeviceProperties
-  const getDevicePropertiesRef = useRef<((targets: string[], epcs: string[]) => Promise<unknown>) | null>(null);
+  // useRef to avoid circular dependency between handleServerMessage and listDevices
+  const listDevicesRef = useRef<((targets: string[]) => Promise<unknown>) | null>(null);
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     // Call external handler if provided
@@ -216,25 +216,39 @@ export function useECHONET(
         const deviceId = `${addedDevice.ip} ${addedDevice.eoj}`;
         console.log('📊 Device added with properties count:', Object.keys(addedDevice.properties).length);
         if (Object.keys(addedDevice.properties).length === 0) {
-          console.log('🔄 Device added with empty properties, fetching all properties:', deviceId);
+          console.log('🔄 Device added with empty properties, fetching cached data:', deviceId);
           (async () => {
             try {
-              // get_properties で全プロパティを直接取得（差分ではなく）
-              if (getDevicePropertiesRef.current) {
-                const result = await getDevicePropertiesRef.current([deviceId], []); // 空のEPCsで全プロパティ取得
-                console.log('✅ All properties fetched for newly added device:', deviceId);
+              // list_devices でキャッシュされたプロパティを取得（ネットワーク通信なし）
+              if (listDevicesRef.current) {
+                const result = await listDevicesRef.current([deviceId]); // キャッシュからデバイス取得
+                console.log('✅ Cached data fetched for newly added device:', deviceId);
                 
-                // get_propertiesの応答にはデバイス情報が含まれているので、それでstateを更新
-                if (result && typeof result === 'object' && 'properties' in result) {
-                  console.log('🔄 Updating device with fetched properties:', deviceId);
+                // list_devicesの応答にはデバイス情報が含まれているので、それでstateを更新
+                if (result && typeof result === 'object' && 'ip' in result && 'eoj' in result) {
+                  const device = result as Device;
+                  const propertyCount = device.properties ? Object.keys(device.properties).length : 0;
+                  console.log('🔄 Updating device with fetched properties:', deviceId, `(${propertyCount} properties)`);
                   dispatch({
                     type: 'ADD_DEVICE',
-                    payload: { device: result as Device },
+                    payload: { device },
                   });
+                  
+                  if (propertyCount === 0) {
+                    console.warn('⚠️ Device updated but properties are empty due to server errors');
+                    console.log('🔄 Attempting fallback with update_properties...');
+                    // フォールバック: update_propertiesで再試行
+                    try {
+                      await updateDeviceProperties([deviceId], true);
+                      console.log('✅ Fallback update_properties completed');
+                    } catch (fallbackError) {
+                      console.warn('❌ Fallback update_properties also failed:', fallbackError);
+                    }
+                  }
                 }
               }
             } catch (error) {
-              console.warn('❌ Failed to fetch properties for newly added device:', error);
+              console.warn('❌ Failed to fetch cached data for newly added device:', error);
             }
           })();
         }
@@ -320,6 +334,7 @@ export function useECHONET(
       default:
         console.log('Unhandled server message:', message);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onMessage, state.devices]);
 
   const handleConnectionStateChange = useCallback((connectionState: ConnectionState) => {
@@ -341,14 +356,14 @@ export function useECHONET(
   });
 
   // Device operations
-  const getDeviceProperties = useCallback(async (targets: string[], epcs: string[]) => {
-    console.log('📤 Sending get_properties:', { targets, epcs });
+  const listDevices = useCallback(async (targets: string[]) => {
+    console.log('📤 Sending list_devices (cache-based):', { targets });
     const result = await connection.sendMessage({
-      type: 'get_properties',
-      payload: { targets, epcs },
+      type: 'list_devices',
+      payload: { targets },
       requestId: '', // Will be set by sendMessage
     });
-    console.log('📥 get_properties response:', result);
+    console.log('📥 list_devices response:', result);
     return result;
   }, [connection]);
 
@@ -372,8 +387,8 @@ export function useECHONET(
 
   // Set the ref to avoid circular dependency
   useEffect(() => {
-    getDevicePropertiesRef.current = getDeviceProperties;
-  }, [getDeviceProperties]);
+    listDevicesRef.current = listDevices;
+  }, [listDevices]);
 
   const discoverDevices = useCallback(async () => {
     return connection.sendMessage({
@@ -482,7 +497,7 @@ export function useECHONET(
     connectedAt: connection.connectedAt,
 
     // Device operations
-    getDeviceProperties,
+    listDevices,
     setDeviceProperties,
     updateDeviceProperties,
     discoverDevices,
