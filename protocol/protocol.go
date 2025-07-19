@@ -28,6 +28,7 @@ const (
 	MessageTypePropertyChanged     MessageType = "property_changed"
 	MessageTypeTimeoutNotification MessageType = "timeout_notification"
 	MessageTypeDeviceOffline       MessageType = "device_offline"
+	MessageTypeDeviceOnline        MessageType = "device_online"
 	MessageTypeErrorNotification   MessageType = "error_notification"
 	MessageTypeCommandResult       MessageType = "command_result"
 
@@ -35,6 +36,7 @@ const (
 	MessageTypeGetProperties          MessageType = "get_properties"
 	MessageTypeSetProperties          MessageType = "set_properties"
 	MessageTypeUpdateProperties       MessageType = "update_properties"
+	MessageTypeListDevices            MessageType = "list_devices"
 	MessageTypeManageAlias            MessageType = "manage_alias"
 	MessageTypeManageGroup            MessageType = "manage_group"
 	MessageTypeDiscoverDevices        MessageType = "discover_devices"
@@ -144,6 +146,12 @@ type DeviceOfflinePayload struct {
 	EOJ string `json:"eoj"`
 }
 
+// DeviceOnlinePayload is the payload for the device_online message
+type DeviceOnlinePayload struct {
+	IP  string `json:"ip"`
+	EOJ string `json:"eoj"`
+}
+
 // ErrorNotificationPayload is the payload for the error_notification message
 type ErrorNotificationPayload struct {
 	Code    ErrorCode `json:"code"`
@@ -218,6 +226,11 @@ type ManageGroupPayload struct {
 // DiscoverDevicesPayload is the payload for the discover_devices message
 type DiscoverDevicesPayload struct {
 	// Empty payload
+}
+
+// ListDevicesPayload is the payload for the list_devices message
+type ListDevicesPayload struct {
+	Targets []string `json:"targets,omitempty"` // Specific device identifiers to filter (optional)
 }
 
 // GetPropertyDescriptionPayload is the payload for the get_property_description message

@@ -55,6 +55,8 @@ func NewServer(ctx context.Context, cfg *config.Config) (*Server, error) {
 				fmt.Printf("新しいデバイスが検出されました: %v\n", device)
 			case handler.DeviceOffline:
 				fmt.Printf("デバイス %v がオフラインになりました\n", device)
+			case handler.DeviceOnline:
+				fmt.Printf("デバイス %v がオンラインに復旧しました\n", device)
 			case handler.DeviceTimeout:
 				// fmt.Printf("デバイス %v へのリクエストがタイムアウトしました: %v\n",
 				// 	device, notification.Error)

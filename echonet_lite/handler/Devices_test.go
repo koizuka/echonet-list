@@ -787,6 +787,71 @@ func TestDevices_OfflineStatus(t *testing.T) {
 	}
 }
 
+// TestDevices_SetOfflineEvents はオフライン/オンラインイベントの送信をテストします
+func TestDevices_SetOfflineEvents(t *testing.T) {
+	// イベントチャンネルを作成
+	eventCh := make(chan DeviceEvent, 10)
+	devices := NewDevices()
+	devices.SetEventChannel(eventCh)
+
+	device := IPAndEOJ{
+		IP:  net.ParseIP("192.168.1.10"),
+		EOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+	}
+
+	// 最初はオンライン状態
+	if devices.IsOffline(device) {
+		t.Errorf("Expected device to be online initially, but IsOffline returned true")
+	}
+
+	// オフラインに設定 - イベントが送信されるはず
+	devices.SetOffline(device, true)
+	if !devices.IsOffline(device) {
+		t.Errorf("Expected device to be offline after SetOffline(true), but IsOffline returned false")
+	}
+
+	// オフラインイベントを確認
+	select {
+	case event := <-eventCh:
+		if event.Type != DeviceEventOffline {
+			t.Errorf("Expected DeviceEventOffline, got %v", event.Type)
+		}
+		if !event.Device.IP.Equal(device.IP) || event.Device.EOJ != device.EOJ {
+			t.Errorf("Expected event for device %v, got %v", device, event.Device)
+		}
+	default:
+		t.Errorf("Expected DeviceEventOffline event to be sent")
+	}
+
+	// オンラインに復旧 - イベントが送信されるはず
+	devices.SetOffline(device, false)
+	if devices.IsOffline(device) {
+		t.Errorf("Expected device to be online after SetOffline(false), but IsOffline returned true")
+	}
+
+	// オンラインイベントを確認
+	select {
+	case event := <-eventCh:
+		if event.Type != DeviceEventOnline {
+			t.Errorf("Expected DeviceEventOnline, got %v", event.Type)
+		}
+		if !event.Device.IP.Equal(device.IP) || event.Device.EOJ != device.EOJ {
+			t.Errorf("Expected event for device %v, got %v", device, event.Device)
+		}
+	default:
+		t.Errorf("Expected DeviceEventOnline event to be sent")
+	}
+
+	// 既にオンラインのデバイスをオンラインに設定 - イベントは送信されないはず
+	devices.SetOffline(device, false)
+	select {
+	case event := <-eventCh:
+		t.Errorf("Expected no event for already online device, but got %v", event.Type)
+	default:
+		// 期待される動作: イベントなし
+	}
+}
+
 // TestDeviceProperties_SetPropertyMap は SetPropertyMap の動的生成をテストします
 func TestDeviceProperties_SetPropertyMap(t *testing.T) {
 	props := make(DeviceProperties)

@@ -117,6 +117,37 @@ describe('useECHONET', () => {
     expect(result.current.devices['192.168.1.11 0290:1']).toEqual(newDevice);
   });
 
+  it('should auto-fetch cached data for device_added with empty properties', async () => {
+    renderHook(() => useECHONET(testUrl));
+
+    const newDeviceEmptyProps: Device = {
+      ip: '192.168.1.12',
+      eoj: '0130:1',
+      name: 'AirConditioner',
+      id: '192.168.1.12 0130:1',
+      properties: {}, // 空のプロパティ
+      lastSeen: '2023-04-01T12:35:00Z',
+    };
+
+    const deviceAddedMessage: ServerMessage = {
+      type: 'device_added',
+      payload: { device: newDeviceEmptyProps },
+    };
+
+    await act(async () => {
+      capturedCallbacks.onMessage?.(deviceAddedMessage);
+      // Wait for async list_devices call
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // プロパティが空の場合はlist_devicesが自動的に呼ばれることを確認（キャッシュベース）
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      type: 'list_devices',
+      payload: { targets: ['192.168.1.12 0130:1'] },
+      requestId: '',
+    });
+  });
+
   it('should handle property_changed message', () => {
     const { result } = renderHook(() => useECHONET(testUrl));
 
@@ -279,18 +310,37 @@ describe('useECHONET', () => {
     expect(result.current.devices['192.168.1.10 0130:1']).toBeUndefined();
   });
 
+  it('should handle device_online message', async () => {
+    renderHook(() => useECHONET(testUrl));
+
+    // Device online message should be received without errors
+    const deviceOnlineMessage: ServerMessage = {
+      type: 'device_online',
+      payload: {
+        ip: '192.168.1.10',
+        eoj: '0130:1',
+      },
+    };
+
+    // Should not throw an error
+    await act(async () => {
+      capturedCallbacks.onMessage?.(deviceOnlineMessage);
+    });
+
+    // The actual device restoration will be handled by subsequent device_added message
+  });
+
   it('should send device operation messages', async () => {
     const { result } = renderHook(() => useECHONET(testUrl));
 
     await act(async () => {
-      result.current.getDeviceProperties(['192.168.1.10 0130:1'], ['80', 'B3']);
+      result.current.listDevices(['192.168.1.10 0130:1']);
     });
 
     expect(mockSendMessage).toHaveBeenCalledWith({
-      type: 'get_properties',
+      type: 'list_devices',
       payload: {
         targets: ['192.168.1.10 0130:1'],
-        epcs: ['80', 'B3'],
       },
       requestId: '',
     });

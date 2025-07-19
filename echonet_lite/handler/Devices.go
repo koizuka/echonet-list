@@ -179,6 +179,7 @@ type DeviceEventType int
 const (
 	DeviceEventAdded   DeviceEventType = iota // デバイスが追加された
 	DeviceEventOffline                        // デバイスがオフラインになった
+	DeviceEventOnline                         // デバイスがオンラインに復旧した
 )
 
 // DeviceEvent はデバイスに関するイベントを表す構造体
@@ -239,12 +240,18 @@ func (d Devices) IsKnownDevice(device IPAndEOJ) bool {
 	return true
 }
 
+// isOfflineNoLock は指定したデバイスがオフライン状態かどうかを確認します（ロックなし版）
+// 呼び出し元がすでにロックを保持している場合に使用します
+func (d Devices) isOfflineNoLock(key string) bool {
+	_, exists := d.offlineDevices[key]
+	return exists
+}
+
 // IsOffline は指定したデバイスがオフラインかどうかを返します
 func (d Devices) IsOffline(device IPAndEOJ) bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	_, exists := d.offlineDevices[device.Key()]
-	return exists
+	return d.isOfflineNoLock(device.Key())
 }
 
 // SetOffline は指定したデバイスのオフライン状態を設定します
@@ -273,7 +280,31 @@ func (d Devices) SetOffline(device IPAndEOJ, offline bool) {
 			slog.Warn("デバイスオフラインイベントチャンネルが設定されていません", "device", device.Specifier())
 		}
 	} else {
+		// オフライン状態からオンラインに変わったかチェック
+		wasOffline := d.isOfflineNoLock(key)
 		delete(d.offlineDevices, key)
+
+		// 以前オフラインだった場合のみオンラインイベントを送信
+		if wasOffline {
+			slog.Info("デバイスをオンライン状態に設定", "device", device.Specifier())
+
+			// イベントをチャンネルに送信
+			if d.EventCh != nil {
+				select {
+				case d.EventCh <- DeviceEvent{
+					Device: device,
+					Type:   DeviceEventOnline,
+				}:
+					// 送信成功
+					slog.Info("デバイスオンラインイベントを送信", "device", device.Specifier())
+				default:
+					// チャンネルがブロックされている場合は無視
+					slog.Warn("デバイスオンラインイベントチャンネルがブロックされています", "device", device.Specifier())
+				}
+			} else {
+				slog.Warn("デバイスオンラインイベントチャンネルが設定されていません", "device", device.Specifier())
+			}
+		}
 	}
 }
 

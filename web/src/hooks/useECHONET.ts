@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from 'react';
+import { useCallback, useReducer, useRef, useEffect } from 'react';
 import { useWebSocketConnection } from './useWebSocketConnection';
 import { getCurrentLocale } from '../libs/languageHelper';
 import type {
@@ -147,7 +147,7 @@ export type ECHONETHook = {
   connectedAt: Date | null;
 
   // Device operations
-  getDeviceProperties: (targets: string[], epcs: string[]) => Promise<unknown>;
+  listDevices: (targets: string[]) => Promise<unknown>;
   setDeviceProperties: (target: string, properties: Record<string, PropertyValue>) => Promise<unknown>;
   updateDeviceProperties: (targets?: string[], force?: boolean) => Promise<unknown>;
   discoverDevices: () => Promise<unknown>;
@@ -180,6 +180,9 @@ export function useECHONET(
   onWebSocketConnected?: () => void
 ): ECHONETHook {
   const [state, dispatch] = useReducer(echonetReducer, initialState);
+  
+  // useRef to avoid circular dependency between handleServerMessage and listDevices
+  const listDevicesRef = useRef<((targets: string[]) => Promise<unknown>) | null>(null);
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     // Call external handler if provided
@@ -202,21 +205,59 @@ export function useECHONET(
         });
         break;
 
-      case 'device_added':
+      case 'device_added': {
+        const addedDevice = message.payload.device;
         dispatch({
           type: 'ADD_DEVICE',
-          payload: { device: message.payload.device },
+          payload: { device: addedDevice },
         });
+        
+        // プロパティが空の場合（オンライン復旧時など）は自動的にプロパティを取得
+        const deviceId = `${addedDevice.ip} ${addedDevice.eoj}`;
+        if (Object.keys(addedDevice.properties).length === 0) {
+          // プロパティが空の場合（オンライン復旧時など）は自動的にキャッシュからプロパティを取得
+          (async () => {
+            try {
+              // list_devices でキャッシュされたプロパティを取得（ネットワーク通信なし）
+              if (listDevicesRef.current) {
+                const result = await listDevicesRef.current([deviceId]);
+                
+                // list_devicesの応答にはデバイス情報が含まれているので、それでstateを更新
+                if (result && typeof result === 'object' && 'ip' in result && 'eoj' in result) {
+                  const device = result as Device;
+                  const propertyCount = device.properties ? Object.keys(device.properties).length : 0;
+                  dispatch({
+                    type: 'ADD_DEVICE',
+                    payload: { device },
+                  });
+                  
+                  if (propertyCount === 0) {
+                    // フォールバック: update_propertiesで再試行
+                    try {
+                      await updateDeviceProperties([deviceId], true);
+                    } catch {
+                      // フォールバックも失敗した場合は静かに処理終了
+                    }
+                  }
+                }
+              }
+            } catch {
+              // エラーは静かに処理（ログスパム回避）
+            }
+          })();
+        }
         break;
+      }
 
       case 'device_offline':
-        if (import.meta.env.DEV) {
-          console.log('📤 Device going offline:', `${message.payload.ip} ${message.payload.eoj}`);
-        }
         dispatch({
           type: 'REMOVE_DEVICE',
           payload: { ip: message.payload.ip, eoj: message.payload.eoj },
         });
+        break;
+
+      case 'device_online':
+        // デバイス復旧は device_added メッセージで自動的に処理される
         break;
 
       case 'property_changed':
@@ -281,7 +322,8 @@ export function useECHONET(
       default:
         console.log('Unhandled server message:', message);
     }
-  }, [onMessage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onMessage, state.devices]);
 
   const handleConnectionStateChange = useCallback((connectionState: ConnectionState) => {
     if (import.meta.env.DEV) {
@@ -302,10 +344,10 @@ export function useECHONET(
   });
 
   // Device operations
-  const getDeviceProperties = useCallback(async (targets: string[], epcs: string[]) => {
+  const listDevices = useCallback(async (targets: string[]) => {
     return connection.sendMessage({
-      type: 'get_properties',
-      payload: { targets, epcs },
+      type: 'list_devices',
+      payload: { targets },
       requestId: '', // Will be set by sendMessage
     });
   }, [connection]);
@@ -327,6 +369,11 @@ export function useECHONET(
       requestId: '',
     });
   }, [connection]);
+
+  // Set the ref to avoid circular dependency
+  useEffect(() => {
+    listDevicesRef.current = listDevices;
+  }, [listDevices]);
 
   const discoverDevices = useCallback(async () => {
     return connection.sendMessage({
@@ -424,6 +471,7 @@ export function useECHONET(
     return data;
   }, [connection, state.propertyDescriptions]);
 
+
   return {
     // State
     devices: state.devices,
@@ -435,7 +483,7 @@ export function useECHONET(
     connectedAt: connection.connectedAt,
 
     // Device operations
-    getDeviceProperties,
+    listDevices,
     setDeviceProperties,
     updateDeviceProperties,
     discoverDevices,
