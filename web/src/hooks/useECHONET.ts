@@ -205,7 +205,7 @@ export function useECHONET(
         });
         break;
 
-      case 'device_added':
+      case 'device_added': {
         const addedDevice = message.payload.device;
         dispatch({
           type: 'ADD_DEVICE',
@@ -228,6 +228,7 @@ export function useECHONET(
           })();
         }
         break;
+      }
 
       case 'device_offline':
         if (import.meta.env.DEV) {
