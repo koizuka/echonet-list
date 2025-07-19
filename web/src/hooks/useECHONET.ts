@@ -206,10 +206,27 @@ export function useECHONET(
         break;
 
       case 'device_added':
+        const addedDevice = message.payload.device;
         dispatch({
           type: 'ADD_DEVICE',
-          payload: { device: message.payload.device },
+          payload: { device: addedDevice },
         });
+        
+        // プロパティが空の場合（オンライン復旧時など）は自動的にプロパティを取得
+        const deviceId = `${addedDevice.ip} ${addedDevice.eoj}`;
+        if (Object.keys(addedDevice.properties).length === 0) {
+          console.log('🔄 Device added with empty properties, fetching latest properties:', deviceId);
+          (async () => {
+            try {
+              if (updateDevicePropertiesRef.current) {
+                await updateDevicePropertiesRef.current([deviceId], true); // force=true で強制更新
+                console.log('✅ Properties updated for newly added device:', deviceId);
+              }
+            } catch (error) {
+              console.warn('❌ Failed to update properties for newly added device:', error);
+            }
+          })();
+        }
         break;
 
       case 'device_offline':

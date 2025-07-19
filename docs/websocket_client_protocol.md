@@ -188,7 +188,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 ### device_added
 
-新しいデバイスが検出されたことを通知します。
+新しいデバイスが検出されたことを通知します。オンライン復旧時にも同じメッセージが送信されます。
 
 ```json
 {
@@ -204,6 +204,14 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   }
 }
 ```
+
+**使用ケース:**
+- 新規デバイス検出時
+- デバイスのオンライン復旧時（`device_offline` で削除されたデバイスの復元）
+
+**クライアント実装時の注意事項:**
+- `properties` が空の場合（主にオンライン復旧時）、自動的に `update_properties` を実行してプロパティを取得することを推奨します
+- 通常の新規検出時も `properties` は空で送信され、後続のプロパティ更新で情報が充実されます
 
 ### alias_changed
 
@@ -362,6 +370,54 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - `message`: ログメッセージ
 - `time`: ログ発生時刻（ISO 8601形式）
 - `attributes`: ログに関連する追加情報（key-valueペア）
+
+## 4.1. デバイスオフライン/オンライン復旧フロー
+
+デバイスがオフライン状態になった後、オンライン復旧する際の完全なメッセージフローを説明します。
+
+### オフライン → オンライン復旧の流れ
+
+1. **デバイスオフライン**：
+   ```
+   device_offline メッセージ送信
+   → クライアントはデバイスをUIから削除
+   ```
+
+2. **デバイスオンライン復旧検出**：
+   ```
+   device_online メッセージ送信（情報提供用）
+   → device_added メッセージ送信（実際の復旧処理）
+   → クライアントはデバイスをUIに復元
+   ```
+
+3. **プロパティ自動取得**（推奨実装）：
+   ```
+   device_added で properties が空の場合
+   → update_properties を自動実行
+   → プロパティ更新でデバイス情報を充実
+   ```
+
+### 実装推奨パターン
+
+```javascript
+// device_added ハンドラーの推奨実装
+case 'device_added':
+  // デバイスを状態に追加
+  addDevice(message.payload.device);
+  
+  // プロパティが空の場合は自動取得
+  if (Object.keys(message.payload.device.properties).length === 0) {
+    const deviceId = `${message.payload.device.ip} ${message.payload.device.eoj}`;
+    updateProperties([deviceId], true); // force=true で強制更新
+  }
+  break;
+```
+
+### 利点
+
+- **シンプルな実装**: 既存の `device_added` ハンドラーでオンライン復旧も処理
+- **自動復元**: デバイスは完全な情報と共に自動的に復元される
+- **一貫性**: 新規検出とオンライン復旧で同じメッセージフローを使用
 
 ## 5. クライアント -> サーバー メッセージ（リクエスト）
 

@@ -117,6 +117,37 @@ describe('useECHONET', () => {
     expect(result.current.devices['192.168.1.11 0290:1']).toEqual(newDevice);
   });
 
+  it('should auto-fetch properties for device_added with empty properties', async () => {
+    renderHook(() => useECHONET(testUrl));
+
+    const newDeviceEmptyProps: Device = {
+      ip: '192.168.1.12',
+      eoj: '0130:1',
+      name: 'AirConditioner',
+      id: '192.168.1.12 0130:1',
+      properties: {}, // 空のプロパティ
+      lastSeen: '2023-04-01T12:35:00Z',
+    };
+
+    const deviceAddedMessage: ServerMessage = {
+      type: 'device_added',
+      payload: { device: newDeviceEmptyProps },
+    };
+
+    await act(async () => {
+      capturedCallbacks.onMessage?.(deviceAddedMessage);
+      // Wait for async updateDeviceProperties call
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // プロパティが空の場合はupdateDevicePropertiesが自動的に呼ばれることを確認
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      type: 'update_properties',
+      payload: { targets: ['192.168.1.12 0130:1'], force: true },
+      requestId: '',
+    });
+  });
+
   it('should handle property_changed message', () => {
     const { result } = renderHook(() => useECHONET(testUrl));
 
