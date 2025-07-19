@@ -93,7 +93,7 @@ jobs:
           fi
 
       - name: Run tests
-        run: go test -v -race -timeout=3m -coverprofile=coverage.out ./...
+        run: go test -v -race -timeout=2m -coverprofile=coverage.out ./...
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
