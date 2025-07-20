@@ -977,3 +977,32 @@ func (d DeviceProperties) IsAnnouncementTarget(eoj EOJ, epc EPCType) bool {
 	// 指定されたEPCが含まれているかチェック
 	return propMap.Has(epc)
 }
+
+// RemoveDevice は指定されたデバイスをDevicesから削除する
+func (d *DevicesImpl) RemoveDevice(device IPAndEOJ) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	ipKey := device.IP.String()
+	deviceKey := device.Key()
+
+	// IP別のデバイス情報から対象EOJを削除
+	if deviceProps, exists := d.data[ipKey]; exists {
+		if _, eojExists := deviceProps[device.EOJ]; eojExists {
+			delete(deviceProps, device.EOJ)
+
+			// このIPに他のEOJが残っていない場合、IP情報自体を削除
+			if len(deviceProps) == 0 {
+				delete(d.data, ipKey)
+			}
+		}
+	}
+
+	// タイムスタンプを削除
+	delete(d.timestamps, deviceKey)
+
+	// オフライン状態を削除
+	delete(d.offlineDevices, deviceKey)
+
+	return nil
+}

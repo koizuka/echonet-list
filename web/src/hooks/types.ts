@@ -7,6 +7,7 @@ export type Device = {
   id: string | undefined; // Format: EOJ:ManufacturerCode:UniqueIdentifier, undefined when IdentificationNumber (EPC 0x83) is not available
   properties: Record<string, PropertyValue>;
   lastSeen: string; // ISO 8601 format
+  isOffline?: boolean; // true when device is offline
 };
 
 export type PropertyValue = {
@@ -85,6 +86,14 @@ export type DeviceOnline = {
   };
 };
 
+export type DeviceDeleted = {
+  type: 'device_deleted';
+  payload: {
+    ip: string;
+    eoj: string;
+  };
+};
+
 export type GroupChanged = {
   type: 'group_changed';
   payload: {
@@ -117,6 +126,7 @@ export type ServerMessage =
   | TimeoutNotification
   | DeviceOffline
   | DeviceOnline
+  | DeviceDeleted
   | GroupChanged
   | ErrorNotification
   | LogNotification;
@@ -161,6 +171,10 @@ export type GetPropertyDescriptionRequest = BaseRequest<{
   classCode: string; // 4-digit hex string
 }>;
 
+export type DeleteDeviceRequest = BaseRequest<{
+  target: string; // device ID string (IP EOJ format)
+}>;
+
 export type ClientMessage = 
   | GetPropertiesRequest
   | SetPropertiesRequest
@@ -168,7 +182,8 @@ export type ClientMessage =
   | ManageAliasRequest
   | ManageGroupRequest
   | DiscoverDevicesRequest
-  | GetPropertyDescriptionRequest;
+  | GetPropertyDescriptionRequest
+  | DeleteDeviceRequest;
 
 // Command Result Response
 export type CommandResult = {

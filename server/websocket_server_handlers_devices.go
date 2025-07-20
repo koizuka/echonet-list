@@ -102,3 +102,45 @@ func (ws *WebSocketServer) handleListDevicesFromClient(msg *protocol.Message) pr
 	// Send the success response
 	return SuccessResponse(resultJSON)
 }
+
+// handleDeleteDeviceFromClient handles a delete_device message from a client
+func (ws *WebSocketServer) handleDeleteDeviceFromClient(msg *protocol.Message) protocol.CommandResultPayload {
+	// Parse the payload
+	var payload protocol.DeleteDevicePayload
+	if err := protocol.ParsePayload(msg, &payload); err != nil {
+		return ErrorResponse(protocol.ErrorCodeInvalidRequestFormat, "Error parsing delete_device payload: %v", err)
+	}
+
+	// Parse the target device identifier
+	ipAndEOJ, err := handler.ParseDeviceIdentifier(payload.Target)
+	if err != nil {
+		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid target device identifier: %v", err)
+	}
+
+	if ws.handler.IsDebug() {
+		slog.Debug("Deleting device", "target", payload.Target, "ipAndEOJ", ipAndEOJ)
+	}
+
+	// Remove the device from the handler
+	if err := ws.handler.RemoveDevice(ipAndEOJ); err != nil {
+		return ErrorResponse(protocol.ErrorCodeInternalServerError, "Failed to remove device: %v", err)
+	}
+
+	// Broadcast device_deleted notification to all connected clients
+	deletePayload := protocol.DeviceDeletedPayload{
+		IP:  ipAndEOJ.IP.String(),
+		EOJ: ipAndEOJ.EOJ.Specifier(),
+	}
+
+	if err := ws.broadcastMessageToClients(protocol.MessageTypeDeviceDeleted, deletePayload); err != nil {
+		slog.Error("Failed to broadcast device_deleted notification", "error", err)
+		// Don't return error here since the device was successfully deleted
+	}
+
+	if ws.handler.IsDebug() {
+		slog.Debug("Device deleted successfully", "target", payload.Target)
+	}
+
+	// Return success response with empty data
+	return SuccessResponse(nil)
+}

@@ -1,6 +1,17 @@
-import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { PropertyRow } from '@/components/PropertyRow';
 import { AliasEditor } from '@/components/AliasEditor';
 import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
@@ -24,6 +35,8 @@ interface DeviceCardProps {
   onDeleteAlias?: (alias: string) => Promise<void>;
   isAliasLoading?: boolean;
   isConnected?: boolean;
+  onDeleteDevice?: (target: string) => Promise<void>;
+  isDeletingDevice?: boolean;
 }
 
 export function DeviceCard({
@@ -40,7 +53,9 @@ export function DeviceCard({
   onAddAlias,
   onDeleteAlias,
   isAliasLoading = false,
-  isConnected = true
+  isConnected = true,
+  onDeleteDevice,
+  isDeletingDevice = false
 }: DeviceCardProps) {
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const deviceAliasesInfo = getDeviceAliases(device, devices, aliases);
@@ -59,7 +74,10 @@ export function DeviceCard({
 
 
   return (
-    <Card className="transition-all duration-200 w-full max-w-sm flex flex-col" data-testid={`device-card-${device.ip}-${device.eoj}`}>
+    <Card 
+      className={`transition-all duration-200 w-full max-w-sm flex flex-col ${device.isOffline ? 'opacity-60' : ''}`} 
+      data-testid={`device-card-${device.ip}-${device.eoj}`}
+    >
       <CardHeader className="pb-2 px-3 pt-3">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 flex-1 min-w-0">
@@ -93,12 +111,52 @@ export function DeviceCard({
                 size="sm"
                 onClick={() => onUpdateProperties(`${device.ip} ${device.eoj}`)}
                 className="h-6 w-6 p-0"
-                title={isUpdating ? "Updating..." : "Update device properties"}
+                title={isUpdating ? "Updating..." : device.isOffline ? "Try to reconnect device" : "Update device properties"}
                 disabled={isUpdating || !isConnected}
                 data-testid="update-properties-button"
               >
                 <RefreshCw className={`h-3 w-3 ${isUpdating ? 'animate-spin' : ''}`} />
               </Button>
+            )}
+            {device.isOffline && onDeleteDevice && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    title="Delete offline device"
+                    disabled={isDeletingDevice || !isConnected}
+                    data-testid="delete-device-button"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Offline Device</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete &quot;{aliasInfo.aliasName || device.name}&quot;?
+                      <br />
+                      <span className="text-xs text-muted-foreground mt-1 block">
+                        {device.ip} - {device.eoj}
+                      </span>
+                      <br />
+                      This action cannot be undone. The device will be permanently removed from the device list.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => onDeleteDevice(`${device.ip} ${device.eoj}`)}
+                      disabled={isDeletingDevice}
+                    >
+                      {isDeletingDevice ? "Deleting..." : "Delete Device"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
             <Button
               variant="ghost"
@@ -150,7 +208,7 @@ export function DeviceCard({
                     onPropertyChange={onPropertyChange}
                     propertyDescriptions={propertyDescriptions}
                     classCode={classCode}
-                    isConnected={isConnected}
+                    isConnected={isConnected && !device.isOffline}
                   />
                 ))
               ) : (
@@ -165,7 +223,7 @@ export function DeviceCard({
                     onPropertyChange={onPropertyChange}
                     propertyDescriptions={propertyDescriptions}
                     classCode={classCode}
-                    isConnected={isConnected}
+                    isConnected={isConnected && !device.isOffline}
                   />
                 ))
               )}
@@ -189,7 +247,7 @@ export function DeviceCard({
                     onPropertyChange={onPropertyChange}
                     propertyDescriptions={propertyDescriptions}
                     classCode={classCode}
-                    isConnected={isConnected}
+                    isConnected={isConnected && !device.isOffline}
                   />
                 ))}
               </div>

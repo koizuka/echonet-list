@@ -35,6 +35,9 @@ type DataAccessor interface {
 	RegisterDevice(device IPAndEOJ)
 	HasIP(ip net.IP) bool
 	FindByIDString(id IDString) []IPAndEOJ
+
+	// デバイス削除
+	RemoveDevice(device IPAndEOJ) error
 }
 
 // NotificationRelay は、通知イベントを中継する機能を提供するインターフェース

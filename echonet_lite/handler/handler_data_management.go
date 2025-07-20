@@ -347,3 +347,14 @@ func (h *DataManagementHandler) ValidateEPCsInPropertyMap(device IPAndEOJ, epcs 
 
 	return len(invalidEPCs) == 0, invalidEPCs, nil
 }
+
+// RemoveDevice は、指定されたデバイスをハンドラーから削除する
+func (h *DataManagementHandler) RemoveDevice(device IPAndEOJ) error {
+	// デバイスが存在するか確認
+	if !h.IsKnownDevice(device) {
+		return fmt.Errorf("デバイスが見つかりません: %v", device)
+	}
+
+	// Devicesからデバイスを削除
+	return h.devices.RemoveDevice(device)
+}

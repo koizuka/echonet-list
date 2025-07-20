@@ -432,3 +432,8 @@ func (h *ECHONETLiteHandler) AvailablePropertyAliases(classCode EOJClassCode) ma
 	// 一時的な実装: 空のマップを返す
 	return make(map[string]echonet_lite.PropertyDescription)
 }
+
+// RemoveDevice は、指定されたデバイスをハンドラーから削除する
+func (h *ECHONETLiteHandler) RemoveDevice(device IPAndEOJ) error {
+	return h.data.RemoveDevice(device)
+}
