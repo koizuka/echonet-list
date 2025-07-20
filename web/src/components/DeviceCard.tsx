@@ -1,20 +1,11 @@
 import { ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { PropertyRow } from '@/components/PropertyRow';
 import { AliasEditor } from '@/components/AliasEditor';
 import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
+import { DeviceDeleteConfirmDialog } from '@/components/DeviceDeleteConfirmDialog';
+import { useState } from 'react';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
 import { deviceHasAlias, getDeviceIdentifierForAlias, getDeviceAliases } from '@/libs/deviceIdHelper';
 import { isSensorProperty } from '@/libs/sensorPropertyHelper';
@@ -57,6 +48,7 @@ export function DeviceCard({
   onDeleteDevice,
   isDeletingDevice = false
 }: DeviceCardProps) {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const deviceAliasesInfo = getDeviceAliases(device, devices, aliases);
   const classCode = getDeviceClassCode(device);
@@ -119,44 +111,28 @@ export function DeviceCard({
               </Button>
             )}
             {device.isOffline && onDeleteDevice && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                    title="Delete offline device"
-                    disabled={isDeletingDevice || !isConnected}
-                    data-testid="delete-device-button"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Offline Device</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete &quot;{aliasInfo.aliasName || device.name}&quot;?
-                      <br />
-                      <span className="text-xs text-muted-foreground mt-1 block">
-                        {device.ip} - {device.eoj}
-                      </span>
-                      <br />
-                      This action cannot be undone. The device will be permanently removed from the device list.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      onClick={() => onDeleteDevice(`${device.ip} ${device.eoj}`)}
-                      disabled={isDeletingDevice}
-                    >
-                      {isDeletingDevice ? "Deleting..." : "Delete Device"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  title="Delete offline device"
+                  disabled={isDeletingDevice || !isConnected}
+                  data-testid="delete-device-button"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+                <DeviceDeleteConfirmDialog
+                  device={device}
+                  aliasName={aliasInfo.aliasName}
+                  onDeleteDevice={onDeleteDevice}
+                  isDeletingDevice={isDeletingDevice}
+                  isConnected={isConnected}
+                  isOpen={isDeleteDialogOpen}
+                  onOpenChange={setIsDeleteDialogOpen}
+                />
+              </>
             )}
             <Button
               variant="ghost"
