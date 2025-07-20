@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DeviceCard } from './DeviceCard';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 import * as deviceIdHelper from '@/libs/deviceIdHelper';
@@ -584,6 +585,164 @@ describe('DeviceCard', () => {
       const lastSeenText = screen.getByText(/Last seen:/);
       // Check for normal muted color class
       expect(lastSeenText).toHaveClass('text-muted-foreground');
+    });
+  });
+
+  describe('device deletion', () => {
+    it('should show delete button only for offline devices', () => {
+      const offlineDevice = { ...mockDevice, isOffline: true };
+      const onDeleteDevice = vi.fn();
+
+      render(
+        <DeviceCard
+          device={offlineDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={vi.fn()}
+          propertyDescriptions={{}}
+          getDeviceClassCode={() => '0130'}
+          devices={{ [`${offlineDevice.ip} ${offlineDevice.eoj}`]: offlineDevice }}
+          aliases={{}}
+          onDeleteDevice={onDeleteDevice}
+        />
+      );
+
+      const deleteButton = screen.getByTestId('delete-device-button');
+      expect(deleteButton).toBeInTheDocument();
+      expect(deleteButton).toHaveAttribute('title', 'Delete offline device');
+    });
+
+    it('should not show delete button for online devices', () => {
+      const onlineDevice = { ...mockDevice, isOffline: false };
+
+      render(
+        <DeviceCard
+          device={onlineDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={vi.fn()}
+          propertyDescriptions={{}}
+          getDeviceClassCode={() => '0130'}
+          devices={{ [`${onlineDevice.ip} ${onlineDevice.eoj}`]: onlineDevice }}
+          aliases={{}}
+          onDeleteDevice={vi.fn()}
+        />
+      );
+
+      const deleteButton = screen.queryByTestId('delete-device-button');
+      expect(deleteButton).not.toBeInTheDocument();
+    });
+
+    it('should show confirmation dialog when delete button is clicked', async () => {
+      const offlineDevice = { ...mockDevice, isOffline: true };
+      const onDeleteDevice = vi.fn();
+
+      render(
+        <DeviceCard
+          device={offlineDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={vi.fn()}
+          propertyDescriptions={{}}
+          getDeviceClassCode={() => '0130'}
+          devices={{ [`${offlineDevice.ip} ${offlineDevice.eoj}`]: offlineDevice }}
+          aliases={{}}
+          onDeleteDevice={onDeleteDevice}
+        />
+      );
+
+      // Click the delete button
+      const deleteButton = screen.getByTestId('delete-device-button');
+      await userEvent.click(deleteButton);
+
+      // Check if confirmation dialog appears
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(screen.getByText('Delete Offline Device')).toBeInTheDocument();
+      expect(screen.getByText(/Are you sure you want to delete/)).toBeInTheDocument();
+      expect(screen.getByText('Cancel')).toBeInTheDocument();
+      expect(screen.getByText('Delete Device')).toBeInTheDocument();
+    });
+
+    it('should call onDeleteDevice when confirmed in dialog', async () => {
+      const offlineDevice = { ...mockDevice, isOffline: true };
+      const onDeleteDevice = vi.fn();
+
+      render(
+        <DeviceCard
+          device={offlineDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={vi.fn()}
+          propertyDescriptions={{}}
+          getDeviceClassCode={() => '0130'}
+          devices={{ [`${offlineDevice.ip} ${offlineDevice.eoj}`]: offlineDevice }}
+          aliases={{}}
+          onDeleteDevice={onDeleteDevice}
+        />
+      );
+
+      // Click the delete button to open dialog
+      const deleteButton = screen.getByTestId('delete-device-button');
+      await userEvent.click(deleteButton);
+
+      // Click the confirm button in dialog
+      const confirmButton = screen.getByText('Delete Device');
+      await userEvent.click(confirmButton);
+
+      // Check if onDeleteDevice was called
+      expect(onDeleteDevice).toHaveBeenCalledWith('192.168.1.100 0291:1');
+    });
+
+    it('should not call onDeleteDevice when cancelled in dialog', async () => {
+      const offlineDevice = { ...mockDevice, isOffline: true };
+      const onDeleteDevice = vi.fn();
+
+      render(
+        <DeviceCard
+          device={offlineDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={vi.fn()}
+          propertyDescriptions={{}}
+          getDeviceClassCode={() => '0130'}
+          devices={{ [`${offlineDevice.ip} ${offlineDevice.eoj}`]: offlineDevice }}
+          aliases={{}}
+          onDeleteDevice={onDeleteDevice}
+        />
+      );
+
+      // Click the delete button to open dialog
+      const deleteButton = screen.getByTestId('delete-device-button');
+      await userEvent.click(deleteButton);
+
+      // Click the cancel button in dialog
+      const cancelButton = screen.getByText('Cancel');
+      await userEvent.click(cancelButton);
+
+      // Check if onDeleteDevice was not called
+      expect(onDeleteDevice).not.toHaveBeenCalled();
+    });
+
+    it('should disable delete button when device is being deleted', () => {
+      const offlineDevice = { ...mockDevice, isOffline: true };
+
+      render(
+        <DeviceCard
+          device={offlineDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={vi.fn()}
+          propertyDescriptions={{}}
+          getDeviceClassCode={() => '0130'}
+          devices={{ [`${offlineDevice.ip} ${offlineDevice.eoj}`]: offlineDevice }}
+          aliases={{}}
+          onDeleteDevice={vi.fn()}
+          isDeletingDevice={true}
+        />
+      );
+
+      const deleteButton = screen.getByTestId('delete-device-button');
+      expect(deleteButton).toBeDisabled();
     });
   });
 });
