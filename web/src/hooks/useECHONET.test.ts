@@ -114,7 +114,10 @@ describe('useECHONET', () => {
       capturedCallbacks.onMessage?.(deviceAddedMessage);
     });
 
-    expect(result.current.devices['192.168.1.11 0290:1']).toEqual(newDevice);
+    expect(result.current.devices['192.168.1.11 0290:1']).toEqual({
+      ...newDevice,
+      isOffline: false, // ADD_DEVICE action adds this field
+    });
   });
 
   it('should auto-fetch cached data for device_added with empty properties', async () => {
@@ -307,6 +310,56 @@ describe('useECHONET', () => {
       capturedCallbacks.onMessage?.(deviceOfflineMessage);
     });
 
+    expect(result.current.devices['192.168.1.10 0130:1']).toEqual({
+      ...testDevice,
+      isOffline: true, // MARK_DEVICE_OFFLINE action sets this field
+    });
+  });
+
+  it('should handle device_deleted message', () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+    
+    // First add a device
+    const testDevice: Device = {
+      ip: '192.168.1.10',
+      eoj: '0130:1',
+      name: 'HomeAirConditioner',
+      id: '013001:00000B:ABCDEF0123456789ABCDEF012345',
+      properties: {},
+      lastSeen: '2023-04-01T12:34:56Z',
+      isOffline: true,
+    };
+    
+    const initialStateMessage: ServerMessage = {
+      type: 'initial_state',
+      payload: {
+        devices: { '192.168.1.10 0130:1': testDevice },
+        aliases: {},
+        groups: {},
+      },
+    };
+    
+    act(() => {
+      capturedCallbacks.onMessage?.(initialStateMessage);
+    });
+    
+    // Verify device is present
+    expect(result.current.devices['192.168.1.10 0130:1']).toBeDefined();
+    
+    // Send device_deleted message
+    const deviceDeletedMessage: ServerMessage = {
+      type: 'device_deleted',
+      payload: {
+        ip: '192.168.1.10',
+        eoj: '0130:1',
+      },
+    };
+    
+    act(() => {
+      capturedCallbacks.onMessage?.(deviceDeletedMessage);
+    });
+    
+    // Device should be removed
     expect(result.current.devices['192.168.1.10 0130:1']).toBeUndefined();
   });
 

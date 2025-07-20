@@ -65,6 +65,8 @@ function App() {
   const [updatingDevices, setUpdatingDevices] = useState<Set<string>>(new Set());
   // Track alias operations loading state
   const [aliasLoading, setAliasLoading] = useState(false);
+  // Loading state for delete operations
+  const [deletingDevices, setDeletingDevices] = useState<Set<string>>(new Set());
   
   // Group management states
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -148,6 +150,27 @@ function App() {
     } finally {
       // Remove device from updating set
       setUpdatingDevices(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(target);
+        return newSet;
+      });
+    }
+  };
+
+  // Delete device handler
+  const handleDeleteDevice = async (target: string) => {
+    try {
+      // Add device to deleting set
+      setDeletingDevices(prev => new Set([...prev, target]));
+      
+      console.log('Deleting device:', target);
+      await echonet.deleteDevice(target);
+    } catch (error) {
+      console.error('Failed to delete device:', error);
+      // TODO: Show user-friendly error message
+    } finally {
+      // Remove device from deleting set
+      setDeletingDevices(prev => {
         const newSet = new Set(prev);
         newSet.delete(target);
         return newSet;
@@ -476,6 +499,8 @@ function App() {
                         onDeleteAlias={handleDeleteAlias}
                         isAliasLoading={aliasLoading}
                         isConnected={isConnected}
+                        onDeleteDevice={handleDeleteDevice}
+                        isDeletingDevice={deletingDevices.has(deviceKey)}
                       />
                     );
                   })}

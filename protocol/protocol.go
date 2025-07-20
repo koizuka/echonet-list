@@ -29,6 +29,7 @@ const (
 	MessageTypeTimeoutNotification MessageType = "timeout_notification"
 	MessageTypeDeviceOffline       MessageType = "device_offline"
 	MessageTypeDeviceOnline        MessageType = "device_online"
+	MessageTypeDeviceDeleted       MessageType = "device_deleted"
 	MessageTypeErrorNotification   MessageType = "error_notification"
 	MessageTypeCommandResult       MessageType = "command_result"
 
@@ -41,6 +42,7 @@ const (
 	MessageTypeManageGroup            MessageType = "manage_group"
 	MessageTypeDiscoverDevices        MessageType = "discover_devices"
 	MessageTypeGetPropertyDescription MessageType = "get_property_description"
+	MessageTypeDeleteDevice           MessageType = "delete_device"
 )
 
 // AliasChangeType defines the type of alias change
@@ -152,6 +154,12 @@ type DeviceOnlinePayload struct {
 	EOJ string `json:"eoj"`
 }
 
+// DeviceDeletedPayload is the payload for the device_deleted message
+type DeviceDeletedPayload struct {
+	IP  string `json:"ip"`
+	EOJ string `json:"eoj"`
+}
+
 // ErrorNotificationPayload is the payload for the error_notification message
 type ErrorNotificationPayload struct {
 	Code    ErrorCode `json:"code"`
@@ -237,6 +245,11 @@ type ListDevicesPayload struct {
 type GetPropertyDescriptionPayload struct {
 	ClassCode string `json:"classCode"`
 	Lang      string `json:"lang,omitempty"` // Language code (e.g., "ja", "en"). Defaults to "en" if not specified
+}
+
+// DeleteDevicePayload is the payload for the delete_device message
+type DeleteDevicePayload struct {
+	Target string `json:"target"` // Device identifier (IP EOJ format)
 }
 
 // PropertyDescriptionData is the data for the command_result message when success is true

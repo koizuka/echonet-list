@@ -196,6 +196,8 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 		return handle(ws.handleDiscoverDevicesFromClient)
 	case protocol.MessageTypeGetPropertyDescription:
 		return handle(ws.handleGetPropertyDescriptionFromClient)
+	case protocol.MessageTypeDeleteDevice:
+		return handle(ws.handleDeleteDeviceFromClient)
 
 	default:
 		slog.Error("Unknown message type", "type", msg.Type)

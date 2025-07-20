@@ -15,7 +15,8 @@ import type {
 type ECHONETAction =
   | { type: 'SET_INITIAL_STATE'; payload: { devices: Record<string, Device>; aliases: DeviceAlias; groups: DeviceGroup } }
   | { type: 'ADD_DEVICE'; payload: { device: Device } }
-  | { type: 'REMOVE_DEVICE'; payload: { ip: string; eoj: string } }
+  | { type: 'MARK_DEVICE_OFFLINE'; payload: { ip: string; eoj: string } }
+  | { type: 'DELETE_DEVICE'; payload: { ip: string; eoj: string } }
   | { type: 'UPDATE_PROPERTY'; payload: { ip: string; eoj: string; epc: string; value: PropertyValue } }
   | { type: 'SET_ALIAS'; payload: { alias: string; target?: string; changeType: 'added' | 'updated' | 'deleted' } }
   | { type: 'SET_GROUP'; payload: { group: string; devices?: string[]; changeType: 'added' | 'updated' | 'deleted' } }
@@ -39,12 +40,31 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         ...state,
         devices: {
           ...state.devices,
-          [deviceKey]: action.payload.device,
+          [deviceKey]: {
+            ...action.payload.device,
+            isOffline: false, // Clear offline flag when device is added/comes back online
+          },
         },
       };
     }
 
-    case 'REMOVE_DEVICE': {
+    case 'MARK_DEVICE_OFFLINE': {
+      const deviceKey = `${action.payload.ip} ${action.payload.eoj}`;
+      const device = state.devices[deviceKey];
+      if (!device) return state;
+      
+      return {
+        ...state,
+        devices: {
+          ...state.devices,
+          [deviceKey]: {
+            ...device,
+            isOffline: true,
+          },
+        },
+      };
+    }
+    case 'DELETE_DEVICE': {
       const deviceKey = `${action.payload.ip} ${action.payload.eoj}`;
       const { [deviceKey]: _removed, ...remainingDevices } = state.devices;
       void _removed; // Explicitly void the unused variable
@@ -151,6 +171,7 @@ export type ECHONETHook = {
   setDeviceProperties: (target: string, properties: Record<string, PropertyValue>) => Promise<unknown>;
   updateDeviceProperties: (targets?: string[], force?: boolean) => Promise<unknown>;
   discoverDevices: () => Promise<unknown>;
+  deleteDevice: (target: string) => Promise<unknown>;
 
   // Alias operations
   addAlias: (alias: string, target: string) => Promise<unknown>;
@@ -251,13 +272,20 @@ export function useECHONET(
 
       case 'device_offline':
         dispatch({
-          type: 'REMOVE_DEVICE',
+          type: 'MARK_DEVICE_OFFLINE',
           payload: { ip: message.payload.ip, eoj: message.payload.eoj },
         });
         break;
 
       case 'device_online':
         // デバイス復旧は device_added メッセージで自動的に処理される
+        break;
+      
+      case 'device_deleted':
+        dispatch({
+          type: 'DELETE_DEVICE',
+          payload: { ip: message.payload.ip, eoj: message.payload.eoj },
+        });
         break;
 
       case 'property_changed':
@@ -383,6 +411,14 @@ export function useECHONET(
     });
   }, [connection]);
 
+  const deleteDevice = useCallback(async (target: string) => {
+    return connection.sendMessage({
+      type: 'delete_device',
+      payload: { target },
+      requestId: '',
+    });
+  }, [connection]);
+
   // Alias operations
   const addAlias = useCallback(async (alias: string, target: string) => {
     return connection.sendMessage({
@@ -487,6 +523,7 @@ export function useECHONET(
     setDeviceProperties,
     updateDeviceProperties,
     discoverDevices,
+    deleteDevice,
 
     // Alias operations
     addAlias,
