@@ -62,7 +62,7 @@ func TestDeviceToProtocol(t *testing.T) {
 	// Run tests
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DeviceToProtocol(tt.ipAndEOJ, tt.properties, tt.lastSeen)
+			got := DeviceToProtocol(tt.ipAndEOJ, tt.properties, tt.lastSeen, false)
 
 			// Check IP
 			if got.IP != tt.want.IP {
@@ -255,7 +255,7 @@ func TestDeviceRoundTrip(t *testing.T) {
 	lastSeen := time.Now()
 
 	// Convert to protocol Device
-	protoDevice := DeviceToProtocol(ipAndEOJ, properties, lastSeen)
+	protoDevice := DeviceToProtocol(ipAndEOJ, properties, lastSeen, false)
 
 	// Convert back to ECHONET Lite types
 	gotIPAndEOJ, gotProps, err := DeviceFromProtocol(protoDevice)

@@ -76,10 +76,16 @@ func (ws *WebSocketServer) handleGetPropertiesFromClient(msg *protocol.Message) 
 		lastSeen := ws.handler.GetLastUpdateTime(deviceAndProps.Device)
 
 		// Use DeviceToProtocol to convert to protocol format
+		// Check if device is offline
+		var isOffline bool
+		if ws.handler != nil {
+			isOffline = ws.handler.IsOffline(deviceAndProps.Device)
+		}
 		protoDevice := protocol.DeviceToProtocol(
 			deviceAndProps.Device,
 			deviceAndProps.Properties,
 			lastSeen,
+			isOffline,
 		)
 		results = append(results, protoDevice)
 	}
@@ -263,10 +269,16 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 	lastSeen := ws.handler.GetLastUpdateTime(deviceAndProps.Device)
 
 	// Use DeviceToProtocol to convert to protocol format
+	// Check if device is offline
+	var isOffline bool
+	if ws.handler != nil {
+		isOffline = ws.handler.IsOffline(deviceAndProps.Device)
+	}
 	deviceData := protocol.DeviceToProtocol(
 		deviceAndProps.Device,
 		deviceAndProps.Properties,
 		lastSeen,
+		isOffline,
 	)
 
 	// Marshal the device data

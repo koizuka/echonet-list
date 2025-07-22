@@ -371,7 +371,7 @@ func (ws *WebSocketServer) getCachedDeviceList() []handler.DeviceAndProperties {
 			}
 		}()
 		// Make another attempt - this might succeed if locks have been released
-		devices := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: true})
+		devices := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: false})
 		select {
 		case devicesCh <- devices:
 		default:
@@ -411,7 +411,7 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 					errorCh <- fmt.Errorf("panic in device list fetch: %v", r)
 				}
 			}()
-			deviceList := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: true})
+			deviceList := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: false})
 			devicesCh <- deviceList
 		}()
 
@@ -452,10 +452,16 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 		lastSeen := ws.handler.GetLastUpdateTime(device.Device)
 
 		// Use DeviceToProtocol to convert to protocol format
+		// Check if device is offline
+		var isOffline bool
+		if ws.handler != nil {
+			isOffline = ws.handler.IsOffline(device.Device)
+		}
 		protoDevice := protocol.DeviceToProtocol(
 			device.Device,
 			device.Properties,
 			lastSeen,
+			isOffline,
 		)
 
 		// Add to map with device identifier as key
@@ -618,10 +624,12 @@ func (ws *WebSocketServer) listenForNotifications() {
 				lastSeen := ws.handler.GetLastUpdateTime(device)
 
 				// Use DeviceToProtocol to convert to protocol format
+				// For device_added, the device is online (not offline)
 				protoDevice := protocol.DeviceToProtocol(
 					device,
 					echonet_lite.Properties{}, // Empty properties, will be updated later
 					lastSeen,
+					false, // Device is online when added
 				)
 
 				payload := protocol.DeviceAddedPayload{

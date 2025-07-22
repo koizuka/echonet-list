@@ -73,10 +73,16 @@ func (ws *WebSocketServer) handleListDevicesFromClient(msg *protocol.Message) pr
 		lastSeen := ws.handler.GetLastUpdateTime(device.Device)
 
 		// Use DeviceToProtocol to convert to protocol format
+		// Check if device is offline
+		var isOffline bool
+		if ws.handler != nil {
+			isOffline = ws.handler.IsOffline(device.Device)
+		}
 		protoDevice := protocol.DeviceToProtocol(
 			device.Device,
 			device.Properties,
 			lastSeen,
+			isOffline,
 		)
 		results = append(results, protoDevice)
 	}

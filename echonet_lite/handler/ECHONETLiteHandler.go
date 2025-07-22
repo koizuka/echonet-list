@@ -437,3 +437,8 @@ func (h *ECHONETLiteHandler) AvailablePropertyAliases(classCode EOJClassCode) ma
 func (h *ECHONETLiteHandler) RemoveDevice(device IPAndEOJ) error {
 	return h.data.RemoveDevice(device)
 }
+
+// IsOffline は、指定されたデバイスがオフラインかどうかを返す
+func (h *ECHONETLiteHandler) IsOffline(device IPAndEOJ) bool {
+	return h.data.IsOffline(device)
+}
