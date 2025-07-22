@@ -220,9 +220,9 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 	for connID, client := range clients {
 		client.mutex.Lock()
 		if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
-			// Check if this is a connection close error
+			// Check if this is a client disconnection error (reuses the logic from websocket_server.go)
 			if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) ||
-				strings.Contains(err.Error(), "close sent") || strings.Contains(err.Error(), "use of closed network connection") {
+				strings.Contains(err.Error(), "close sent") || isClientDisconnectedError(err) {
 				disconnectedClients = append(disconnectedClients, connID)
 			} else {
 				slog.Error("Error broadcasting message to client", "err", err, "connID", connID)
