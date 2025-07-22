@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { useAutoReconnect } from './useAutoReconnect';
+import type { ConnectionState } from './types';
 
 describe('useAutoReconnect', () => {
   let mockConnect: ReturnType<typeof vi.fn>;
@@ -478,6 +479,126 @@ describe('useAutoReconnect', () => {
       expect(clearTimeoutSpy).toHaveBeenCalledTimes(1); // Should have cleared the previous timeout
       
       clearTimeoutSpy.mockRestore();
+    });
+
+    it('should not reset flag when connection becomes connected within delay period', () => {
+      const { rerender } = renderHook(
+        ({ connectionState }: { connectionState: ConnectionState }) =>
+          useAutoReconnect({
+            connectionState,
+            connect: mockConnect,
+            disconnect: mockDisconnect,
+            delayMs: 2000,
+          }),
+        {
+          initialProps: { connectionState: 'disconnected' as ConnectionState },
+        }
+      );
+
+      // Get the visibilitychange handler
+      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'visibilitychange'
+      )?.[1];
+
+      // Trigger reconnection
+      Object.defineProperty(document, 'hidden', { value: false, writable: true });
+      act(() => {
+        visibilityChangeHandler();
+      });
+
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+
+      // Simulate connection becoming connected
+      rerender({ connectionState: 'connected' as const });
+
+      // Advance time past the delay period
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Try to trigger reconnection again (should not reconnect as we're connected)
+      act(() => {
+        visibilityChangeHandler();
+      });
+
+      expect(mockConnect).toHaveBeenCalledTimes(1); // Should still be 1
+    });
+
+    it('should allow reconnection after delay if still disconnected', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'disconnected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          delayMs: 2000,
+        })
+      );
+
+      // Get the visibilitychange handler
+      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'visibilitychange'
+      )?.[1];
+
+      // First reconnection attempt
+      Object.defineProperty(document, 'hidden', { value: false, writable: true });
+      act(() => {
+        visibilityChangeHandler();
+      });
+
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+
+      // Advance time past the delay period (still disconnected)
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Second reconnection attempt should work
+      act(() => {
+        visibilityChangeHandler();
+      });
+
+      expect(mockConnect).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle rapid visibility and focus events (Android scenario)', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'disconnected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          delayMs: 2000,
+        })
+      );
+
+      // Get both event handlers
+      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'visibilitychange'
+      )?.[1];
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
+      )?.[1];
+
+      // Simulate rapid events as might happen on Android
+      Object.defineProperty(document, 'hidden', { value: false, writable: true });
+      
+      // Visibility change event
+      act(() => {
+        visibilityChangeHandler();
+      });
+
+      // Focus event immediately after (should not trigger another connection)
+      act(() => {
+        focusHandler();
+      });
+
+      // Multiple visibility events in quick succession
+      act(() => {
+        visibilityChangeHandler();
+        visibilityChangeHandler();
+      });
+
+      // Should only connect once despite multiple events
+      expect(mockConnect).toHaveBeenCalledTimes(1);
     });
   });
 });

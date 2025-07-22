@@ -33,6 +33,14 @@ export function useAutoReconnect({
   // Update refs when values change
   useEffect(() => {
     connectionStateRef.current = connectionState;
+    // Reset reconnection flag when connected
+    if (connectionState === 'connected') {
+      hasReconnectedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    }
   }, [connectionState]);
   
   useEffect(() => {
@@ -54,11 +62,16 @@ export function useAutoReconnect({
         hasReconnectedRef.current = true;
         connectRef.current();
         // Reset flag after a delay to allow for future reconnection attempts
+        // but only if we're still disconnected
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
         }
         timeoutRef.current = setTimeout(() => {
-          hasReconnectedRef.current = false;
+          // Only reset the flag if we're still disconnected
+          // This prevents reconnection loops when connection succeeds
+          if (connectionStateRef.current === 'disconnected') {
+            hasReconnectedRef.current = false;
+          }
         }, delayMs);
       }
     };
