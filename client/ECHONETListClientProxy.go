@@ -3,7 +3,6 @@ package client
 import (
 	"echonet-list/echonet_lite"
 	"echonet-list/echonet_lite/handler"
-	"fmt"
 )
 
 // ECHONETListClientProxy は、ECHONETListClientのlocal proxy
@@ -42,8 +41,7 @@ func (c *ECHONETListClientProxy) SetDebug(debug bool) {
 }
 
 func (c *ECHONETListClientProxy) DebugSetOffline(target string, offline bool) error {
-	// This is a direct handler method, not supported in proxy mode
-	return fmt.Errorf("DebugSetOffline is not supported in proxy mode")
+	return c.handler.DebugSetOffline(target, offline)
 }
 
 func (c *ECHONETListClientProxy) IsOfflineDevice(device IPAndEOJ) bool {
