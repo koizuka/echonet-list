@@ -77,7 +77,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
     "80": { "EDT": "MzA=", "string": "on" },  // EPC "80" (OperationStatus)
     "B3": { "EDT": "MjU=", "string": "25", "number": 25 }   // EPC "B3" (温度設定)
   },
-  "lastSeen": "2023-04-01T12:34:56Z"
+  "lastSeen": "2023-04-01T12:34:56Z",
+  "isOffline": false // オプション：デバイスがオフライン状態の場合のみ true が設定される
 }
 ```
 
@@ -98,6 +99,10 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
     - `string`: 人間が読める文字列表現（必須ではない）
     - `number`: 数値表現（PropertyDescにNumberDescが含まれる場合のみ使用可能、必須ではない）
 - `lastSeen`: デバイスのプロパティが最後に更新された時刻（ISO 8601形式）
+- `isOffline`: デバイスのオフライン状態（オプション、`omitempty`）
+  - `true`: デバイスがオフライン状態（通信不可）
+  - `false` または未設定: デバイスがオンライン状態
+  - `initial_state` メッセージでオフラインデバイスも含めて送信される
 
 #### Error（エラー情報）
 
@@ -172,6 +177,17 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
           "B3": { "EDT": "NTA=", "string": "50", "number": 50 }
         },
         "lastSeen": "2023-04-01T12:35:00Z"
+      },
+      "192.168.1.12 0130:2": {
+        "ip": "192.168.1.12",
+        "eoj": "0130:2",
+        "name": "HomeAirConditioner",
+        "properties": {
+          "80": { "EDT": "MzE=", "string": "off" },
+          "B3": { "EDT": "MjI=", "string": "22", "number": 22 }
+        },
+        "lastSeen": "2023-04-01T12:30:00Z",
+        "isOffline": true // オフラインデバイスも initial_state に含まれる
       }
     },
     "aliases": {
@@ -275,7 +291,9 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 ### device_offline
 
-デバイスがオフラインとしてマークされたことを通知します。クライアントはこのデバイスを管理リストから削除するべきです。
+デバイスがオフラインとしてマークされたことを通知します。クライアントはこのデバイスにオフライン状態のマーキング（`isOffline: true`）を適用するべきです。
+
+**注意**: このメッセージは既に接続済みのクライアントにのみ送信されます。新規接続クライアントは `initial_state` でオフラインデバイスを `isOffline: true` フィールド付きで受信します。
 
 ```json
 {

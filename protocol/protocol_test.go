@@ -17,6 +17,7 @@ func TestDeviceToProtocol(t *testing.T) {
 		ipAndEOJ   echonet_lite.IPAndEOJ
 		properties echonet_lite.Properties
 		lastSeen   time.Time
+		isOffline  bool
 		want       Device
 	}{
 		{
@@ -29,7 +30,8 @@ func TestDeviceToProtocol(t *testing.T) {
 				{EPC: 0x80, EDT: []byte{0x30}},
 				{EPC: 0x81, EDT: []byte{0x01, 0x02}},
 			},
-			lastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			lastSeen:  time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			isOffline: false,
 			want: Device{
 				IP:   "192.168.1.10",
 				EOJ:  "0130:1",
@@ -38,7 +40,8 @@ func TestDeviceToProtocol(t *testing.T) {
 					"80": {EDT: base64.StdEncoding.EncodeToString([]byte{0x30}), String: "on"},
 					"81": {EDT: base64.StdEncoding.EncodeToString([]byte{0x01, 0x02})},
 				},
-				LastSeen: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				LastSeen:  time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				IsOffline: false,
 			},
 		},
 		{
@@ -49,12 +52,36 @@ func TestDeviceToProtocol(t *testing.T) {
 			},
 			properties: echonet_lite.Properties{},
 			lastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			isOffline:  false,
 			want: Device{
 				IP:         "192.168.1.20",
 				EOJ:        "0EF0:1",
 				Name:       "0EF0[Node Profile]",
 				Properties: PropertyMap{},
 				LastSeen:   time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				IsOffline:  false,
+			},
+		},
+		{
+			name: "Device with offline status",
+			ipAndEOJ: echonet_lite.IPAndEOJ{
+				IP:  net.ParseIP("192.168.1.30"),
+				EOJ: echonet_lite.MakeEOJ(echonet_lite.HomeAirConditioner_ClassCode, 1),
+			},
+			properties: echonet_lite.Properties{
+				{EPC: 0x80, EDT: []byte{0x30}},
+			},
+			lastSeen:  time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			isOffline: true,
+			want: Device{
+				IP:   "192.168.1.30",
+				EOJ:  "0130:1",
+				Name: "0130[Home Air Conditioner]",
+				Properties: PropertyMap{
+					"80": {EDT: base64.StdEncoding.EncodeToString([]byte{0x30}), String: "on"},
+				},
+				LastSeen:  time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+				IsOffline: true,
 			},
 		},
 	}
@@ -62,7 +89,7 @@ func TestDeviceToProtocol(t *testing.T) {
 	// Run tests
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DeviceToProtocol(tt.ipAndEOJ, tt.properties, tt.lastSeen, false)
+			got := DeviceToProtocol(tt.ipAndEOJ, tt.properties, tt.lastSeen, tt.isOffline)
 
 			// Check IP
 			if got.IP != tt.want.IP {
@@ -87,6 +114,9 @@ func TestDeviceToProtocol(t *testing.T) {
 			// Check LastSeen
 			if !got.LastSeen.Equal(tt.want.LastSeen) {
 				t.Errorf("DeviceToProtocol() LastSeen = %v, want %v", got.LastSeen, tt.want.LastSeen)
+			}
+			if got.IsOffline != tt.want.IsOffline {
+				t.Errorf("DeviceToProtocol() IsOffline = %v, want %v", got.IsOffline, tt.want.IsOffline)
 			}
 		})
 	}
