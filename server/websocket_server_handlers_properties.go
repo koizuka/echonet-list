@@ -471,7 +471,6 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(msg *protocol.Messag
 		tracker.CompleteOperation(operationID, firstError == nil, firstError)
 	} else {
 		// フォールバック: 従来のログ方式
-		slog.Info("Starting property update", "criteria_count", len(filterCriteriaList), "force", payload.Force)
 		start := time.Now()
 
 		for i, criteria := range filterCriteriaList {

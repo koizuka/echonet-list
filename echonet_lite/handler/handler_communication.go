@@ -528,7 +528,6 @@ func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Propert
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
 // force が true の場合、最終更新時刻に関わらず強制的に更新する
 func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
-	slog.Info("Starting UpdateProperties", "criteria", criteria, "force", force)
 	start := time.Now()
 
 	// フィルタリングを実行

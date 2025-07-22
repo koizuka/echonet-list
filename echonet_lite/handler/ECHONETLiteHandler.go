@@ -242,6 +242,11 @@ func (h *ECHONETLiteHandler) GetCore() *HandlerCore {
 	return h.core
 }
 
+// GetDataManagementHandler は、DataManagementHandlerを取得する
+func (h *ECHONETLiteHandler) GetDataManagementHandler() *DataManagementHandler {
+	return h.data
+}
+
 // StartMainLoop は、メインループを開始する
 func (h *ECHONETLiteHandler) StartMainLoop() {
 	go h.comm.session.MainLoop()

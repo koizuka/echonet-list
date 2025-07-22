@@ -43,6 +43,7 @@ const (
 	MessageTypeDiscoverDevices        MessageType = "discover_devices"
 	MessageTypeGetPropertyDescription MessageType = "get_property_description"
 	MessageTypeDeleteDevice           MessageType = "delete_device"
+	MessageTypeDebugSetOffline        MessageType = "debug_set_offline"
 )
 
 // AliasChangeType defines the type of alias change
@@ -251,6 +252,12 @@ type GetPropertyDescriptionPayload struct {
 // DeleteDevicePayload is the payload for the delete_device message
 type DeleteDevicePayload struct {
 	Target string `json:"target"` // Device identifier (IP EOJ format)
+}
+
+// DebugSetOfflinePayload is the payload for the debug_set_offline command
+type DebugSetOfflinePayload struct {
+	Target  string `json:"target"`  // Device identifier (IP EOJ format)
+	Offline bool   `json:"offline"` // true to set offline, false to set online
 }
 
 // PropertyDescriptionData is the data for the command_result message when success is true

@@ -135,6 +135,14 @@ func (m *mockECHONETListClient) GetDevicesByGroup(_ string) ([]handler.IDString,
 	return nil, false
 }
 
+func (m *mockECHONETListClient) DebugSetOffline(_ string, _ bool) error {
+	return nil
+}
+
+func (m *mockECHONETListClient) IsOfflineDevice(_ echonet_lite.IPAndEOJ) bool {
+	return false
+}
+
 func (m *mockECHONETListClient) Close() error {
 	return nil
 }
