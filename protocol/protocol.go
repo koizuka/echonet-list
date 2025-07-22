@@ -99,6 +99,7 @@ type Device struct {
 	ID         handler.IDString        `json:"id,omitempty"`
 	Properties map[string]PropertyData `json:"properties"`
 	LastSeen   time.Time               `json:"lastSeen"`
+	IsOffline  bool                    `json:"isOffline,omitempty"`
 }
 
 // Error represents an error in the WebSocket protocol
@@ -315,7 +316,7 @@ func (props PropertyMap) Set(epc echonet_lite.EPCType, data PropertyData) {
 }
 
 // DeviceToProtocol converts an ECHONET Lite device to a protocol Device
-func DeviceToProtocol(ipAndEOJ echonet_lite.IPAndEOJ, properties echonet_lite.Properties, lastSeen time.Time) Device {
+func DeviceToProtocol(ipAndEOJ echonet_lite.IPAndEOJ, properties echonet_lite.Properties, lastSeen time.Time, isOffline bool) Device {
 	protoProps := make(PropertyMap)
 	for _, prop := range properties {
 		protoProps.Set(prop.EPC, MakePropertyData(ipAndEOJ.EOJ.ClassCode(), prop))
@@ -334,6 +335,7 @@ func DeviceToProtocol(ipAndEOJ echonet_lite.IPAndEOJ, properties echonet_lite.Pr
 		ID:         ids,
 		Properties: protoProps,
 		LastSeen:   lastSeen,
+		IsOffline:  isOffline,
 	}
 }
 
