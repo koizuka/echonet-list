@@ -142,8 +142,11 @@ function App() {
       // Add device to updating set
       setUpdatingDevices(prev => new Set([...prev, target]));
       
-      console.log('Updating properties for:', target);
-      await echonet.updateDeviceProperties([target]);
+      // Check if the device is offline to determine if we need to force update
+      const device = echonet.devices[target];
+      const force = device?.isOffline || false;
+      
+      await echonet.updateDeviceProperties([target], force);
     } catch (error) {
       console.error('Failed to update properties:', error);
       // TODO: Show user-friendly error message

@@ -3,6 +3,8 @@ package client
 type Debugger interface {
 	IsDebug() bool
 	SetDebug(debug bool)
+	DebugSetOffline(target string, offline bool) error
+	IsOfflineDevice(device IPAndEOJ) bool
 }
 
 type AliasManager interface {

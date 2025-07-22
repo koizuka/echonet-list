@@ -27,6 +27,8 @@ func (c *WebSocketClient) handleNotification(msg *protocol.Message) {
 		c.handleTimeoutNotification(msg)
 	case protocol.MessageTypeDeviceOffline:
 		c.handleDeviceOffline(msg)
+	case protocol.MessageTypeDeviceOnline:
+		c.handleDeviceOnline(msg)
 	case protocol.MessageTypeErrorNotification:
 		c.handleErrorNotification(msg)
 	}
@@ -44,7 +46,7 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 	c.devicesMutex.Lock()
 	c.lastSeenMutex.Lock()
 
-	c.devices = make(map[string]handler.DeviceAndProperties)
+	c.devices = make(map[string]WebSocketDeviceAndProperties)
 	c.lastSeenTimes = make(map[string]time.Time)
 
 	for deviceID, device := range payload.Devices {
@@ -59,9 +61,12 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 		props := properties
 
 		// Add to devices
-		c.devices[deviceID] = handler.DeviceAndProperties{
-			Device:     ipAndEOJ,
-			Properties: props,
+		c.devices[deviceID] = WebSocketDeviceAndProperties{
+			DeviceAndProperties: handler.DeviceAndProperties{
+				Device:     ipAndEOJ,
+				Properties: props,
+			},
+			IsOffline: device.IsOffline,
 		}
 
 		// Update lastSeenTimes
@@ -111,9 +116,12 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 	c.lastSeenMutex.Lock()
 
 	// ipAndEOJ.Specifier() をキーとして使用
-	c.devices[ipAndEOJ.Specifier()] = handler.DeviceAndProperties{
-		Device:     ipAndEOJ,
-		Properties: props,
+	c.devices[ipAndEOJ.Specifier()] = WebSocketDeviceAndProperties{
+		DeviceAndProperties: handler.DeviceAndProperties{
+			Device:     ipAndEOJ,
+			Properties: props,
+		},
+		IsOffline: payload.Device.IsOffline,
 	}
 
 	// Update lastSeenTimes
@@ -229,7 +237,7 @@ func (c *WebSocketClient) handlePropertyChanged(msg *protocol.Message) {
 	if deviceProps, ok := c.devices[key]; ok {
 		// UpdatePropertyメソッドを使用してプロパティを更新
 		newProp := echonet_lite.Property{EPC: epc, EDT: edt}
-		deviceProps.Properties = deviceProps.Properties.UpdateProperty(newProp)
+		deviceProps.DeviceAndProperties.Properties = deviceProps.DeviceAndProperties.Properties.UpdateProperty(newProp)
 		c.devices[key] = deviceProps
 		if c.debug {
 			slog.Info("WebSocketClient.handlePropertyChanged: プロパティ更新",
@@ -280,12 +288,32 @@ func (c *WebSocketClient) handleDeviceOffline(msg *protocol.Message) {
 
 	c.lastSeenMutex.Unlock()
 	c.devicesMutex.Unlock()
+}
 
-	if c.debug {
-		slog.Info("WebSocketClient.handleDeviceOffline: [OFFLINE] Device removed due to offline status",
-			"deviceID", deviceID,
-		)
+// handleDeviceOnline handles a device_online message
+func (c *WebSocketClient) handleDeviceOnline(msg *protocol.Message) {
+	var payload protocol.DeviceOnlinePayload
+	if err := protocol.ParsePayload(msg, &payload); err != nil {
+		slog.Error("WebSocketClient.handleDeviceOnline: Error parsing device_online payload", "err", err)
+		return
 	}
+
+	// Parse the device identifier
+	ipAndEOJ, err := handler.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
+	if err != nil {
+		slog.Error("WebSocketClient.handleDeviceOnline: Error parsing device identifier for online notification", "err", err)
+		return
+	}
+
+	deviceID := ipAndEOJ.Specifier()
+
+	// Update device online status
+	c.devicesMutex.Lock()
+	if device, ok := c.devices[deviceID]; ok {
+		device.IsOffline = false
+		c.devices[deviceID] = device
+	}
+	c.devicesMutex.Unlock()
 }
 
 // handleErrorNotification handles an error_notification message

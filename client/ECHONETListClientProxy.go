@@ -40,6 +40,14 @@ func (c *ECHONETListClientProxy) SetDebug(debug bool) {
 	c.handler.SetDebug(debug)
 }
 
+func (c *ECHONETListClientProxy) DebugSetOffline(target string, offline bool) error {
+	return c.handler.DebugSetOffline(target, offline)
+}
+
+func (c *ECHONETListClientProxy) IsOfflineDevice(device IPAndEOJ) bool {
+	return c.handler.IsOffline(device)
+}
+
 func (c *ECHONETListClientProxy) UpdateProperties(criteria FilterCriteria, force bool) error {
 	return c.handler.UpdateProperties(criteria, force)
 }

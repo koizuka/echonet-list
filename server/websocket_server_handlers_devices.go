@@ -150,3 +150,30 @@ func (ws *WebSocketServer) handleDeleteDeviceFromClient(msg *protocol.Message) p
 	// Return success response with empty data
 	return SuccessResponse(nil)
 }
+
+// handleDebugSetOfflineFromClient handles a debug_set_offline message from a client
+func (ws *WebSocketServer) handleDebugSetOfflineFromClient(msg *protocol.Message) protocol.CommandResultPayload {
+	// Parse the payload
+	var payload protocol.DebugSetOfflinePayload
+	if err := protocol.ParsePayload(msg, &payload); err != nil {
+		return ErrorResponse(protocol.ErrorCodeInvalidRequestFormat, "Error parsing debug_set_offline payload: %v", err)
+	}
+
+	// Parse the target device identifier
+	ipAndEOJ, err := handler.ParseDeviceIdentifier(payload.Target)
+	if err != nil {
+		return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid target device identifier: %v", err)
+	}
+
+	if ws.handler.IsDebug() {
+		slog.Debug("Debug set offline", "target", payload.Target, "offline", payload.Offline, "ipAndEOJ", ipAndEOJ)
+	}
+
+	// Set the device offline/online state directly using DataManagementHandler
+	ws.handler.GetDataManagementHandler().SetOffline(ipAndEOJ, payload.Offline)
+
+	slog.Info("Debug set device offline state", "target", payload.Target, "offline", payload.Offline)
+
+	// Return success response with empty data
+	return SuccessResponse(nil)
+}

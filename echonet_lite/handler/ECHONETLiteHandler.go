@@ -242,6 +242,11 @@ func (h *ECHONETLiteHandler) GetCore() *HandlerCore {
 	return h.core
 }
 
+// GetDataManagementHandler は、DataManagementHandlerを取得する
+func (h *ECHONETLiteHandler) GetDataManagementHandler() *DataManagementHandler {
+	return h.data
+}
+
 // StartMainLoop は、メインループを開始する
 func (h *ECHONETLiteHandler) StartMainLoop() {
 	go h.comm.session.MainLoop()
@@ -259,6 +264,24 @@ func (h *ECHONETLiteHandler) IsDebug() bool {
 		return false
 	}
 	return h.core.IsDebug()
+}
+
+// DebugSetOffline sets the offline state of a device for debugging purposes
+func (h *ECHONETLiteHandler) DebugSetOffline(target string, offline bool) error {
+	// Parse the target device identifier
+	ipAndEOJ, err := ParseDeviceIdentifier(target)
+	if err != nil {
+		return err
+	}
+
+	// Set the device offline/online state directly using DataManagementHandler
+	h.data.SetOffline(ipAndEOJ, offline)
+	return nil
+}
+
+// IsOfflineDevice checks if a device is currently offline
+func (h *ECHONETLiteHandler) IsOfflineDevice(device IPAndEOJ) bool {
+	return h.data.IsOffline(device)
 }
 
 // NotifyNodeList は、自ノードのインスタンスリストを通知する

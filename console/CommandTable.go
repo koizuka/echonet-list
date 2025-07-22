@@ -450,6 +450,60 @@ var CommandTable = []CommandDefinition{
 		},
 	},
 	{
+		Name:    "debugoffline",
+		Summary: "デバイスのオフライン状態を手動で設定（デバッグ用）",
+		Syntax:  "debugoffline [ipAddress] classCode[:instanceCode] [on|off]",
+		Description: []string{
+			"ipAddress: 対象デバイスのIPアドレス（省略可能、省略時はクラスコードに一致するデバイスが1つだけの場合に自動選択）",
+			"classCode: クラスコード（4桁の16進数、必須）",
+			"instanceCode: インスタンスコード（1-255の数字、省略時は1）",
+			"on: デバイスをオフライン状態に設定",
+			"off: デバイスをオンライン状態に設定",
+			"引数なし: オフライン状態のトグル",
+			"注意: これはデバッグ専用の機能です。実際のデバイス状態は変わりません。",
+		},
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			words := splitWords(d.TextBeforeCursor())
+			wordCount := len(words)
+
+			if wordCount <= 2 { // コマンド名 or デバイス指定子
+				return getDeviceCandidates(c)
+			} else { // on/off
+				return []prompt.Suggest{
+					{Text: "on", Description: "オフライン状態に設定"},
+					{Text: "off", Description: "オンライン状態に設定"},
+				}
+			}
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			cmd := newCommand(CmdDebugOffline)
+
+			// デバイス識別子のパース
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, true)
+			if err != nil {
+				return nil, err
+			}
+			cmd.DeviceSpec = deviceSpec
+			cmd.GroupName = groupName
+
+			// on/off の解析（省略可能）
+			if argIndex < len(parts) {
+				switch parts[argIndex] {
+				case "on":
+					offlineFlag := "on"
+					cmd.DebugMode = &offlineFlag
+				case "off":
+					offlineFlag := "off"
+					cmd.DebugMode = &offlineFlag
+				default:
+					return nil, fmt.Errorf("debugoffline コマンドの引数は on または off のみ有効です")
+				}
+			}
+
+			return cmd, nil
+		},
+	},
+	{
 		Name:    "help",
 		Summary: "ヘルプを表示",
 		Syntax:  "help [command]",

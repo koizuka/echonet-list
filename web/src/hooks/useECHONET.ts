@@ -16,6 +16,7 @@ type ECHONETAction =
   | { type: 'SET_INITIAL_STATE'; payload: { devices: Record<string, Device>; aliases: DeviceAlias; groups: DeviceGroup } }
   | { type: 'ADD_DEVICE'; payload: { device: Device } }
   | { type: 'MARK_DEVICE_OFFLINE'; payload: { ip: string; eoj: string } }
+  | { type: 'MARK_DEVICE_ONLINE'; payload: { ip: string; eoj: string } }
   | { type: 'DELETE_DEVICE'; payload: { ip: string; eoj: string } }
   | { type: 'UPDATE_PROPERTY'; payload: { ip: string; eoj: string; epc: string; value: PropertyValue } }
   | { type: 'SET_ALIAS'; payload: { alias: string; target?: string; changeType: 'added' | 'updated' | 'deleted' } }
@@ -36,6 +37,7 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
 
     case 'ADD_DEVICE': {
       const deviceKey = `${action.payload.device.ip} ${action.payload.device.eoj}`;
+      
       return {
         ...state,
         devices: {
@@ -64,6 +66,25 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         },
       };
     }
+
+    case 'MARK_DEVICE_ONLINE': {
+      const deviceKey = `${action.payload.ip} ${action.payload.eoj}`;
+      const device = state.devices[deviceKey];
+      if (!device) return state;
+      
+      return {
+        ...state,
+        devices: {
+          ...state.devices,
+          [deviceKey]: {
+            ...device,
+            isOffline: false,
+            lastSeen: new Date().toISOString(),
+          },
+        },
+      };
+    }
+
     case 'DELETE_DEVICE': {
       const deviceKey = `${action.payload.ip} ${action.payload.eoj}`;
       const { [deviceKey]: _removed, ...remainingDevices } = state.devices;
@@ -228,6 +249,7 @@ export function useECHONET(
 
       case 'device_added': {
         const addedDevice = message.payload.device;
+        
         dispatch({
           type: 'ADD_DEVICE',
           payload: { device: addedDevice },
@@ -277,9 +299,35 @@ export function useECHONET(
         });
         break;
 
-      case 'device_online':
-        // デバイス復旧は device_added メッセージで自動的に処理される
+      case 'device_online': {
+        dispatch({
+          type: 'MARK_DEVICE_ONLINE',
+          payload: { ip: message.payload.ip, eoj: message.payload.eoj },
+        });
+        
+        // デバイスが復帰した場合、プロパティが空の可能性があるため再取得を試行
+        const deviceKey = `${message.payload.ip} ${message.payload.eoj}`;
+        (async () => {
+          try {
+            const deviceListResponse = await listDevices([deviceKey]);
+            if (deviceListResponse && typeof deviceListResponse === 'object' && 'devices' in deviceListResponse) {
+              const devices = deviceListResponse.devices as Record<string, Device>;
+              const deviceData = devices[deviceKey];
+              if (deviceData && Object.keys(deviceData.properties || {}).length > 0) {
+                // 成功した場合、デバイスを再追加（プロパティ付きで）
+                dispatch({
+                  type: 'ADD_DEVICE',
+                  payload: { device: deviceData },
+                });
+              }
+            }
+          } catch (error) {
+            // エラーが発生した場合は静かに処理（既にオンラインフラグは設定済み）
+            console.warn('Failed to fetch properties for recovered device:', deviceKey, error);
+          }
+        })();
         break;
+      }
       
       case 'device_deleted':
         dispatch({

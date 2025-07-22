@@ -198,6 +198,8 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 		return handle(ws.handleGetPropertyDescriptionFromClient)
 	case protocol.MessageTypeDeleteDevice:
 		return handle(ws.handleDeleteDeviceFromClient)
+	case protocol.MessageTypeDebugSetOffline:
+		return handle(ws.handleDebugSetOfflineFromClient)
 
 	default:
 		slog.Error("Unknown message type", "type", msg.Type)
@@ -613,6 +615,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 			// Handle the notification
 			switch notification.Type {
 			case handler.DeviceAdded:
+				slog.Info("Device added notification received", "device", notification.Device.Specifier())
 				if ws.handler.IsDebug() {
 					slog.Debug("Device added", "device", notification.Device.Specifier())
 				}
@@ -637,7 +640,13 @@ func (ws *WebSocketServer) listenForNotifications() {
 				}
 
 				// Broadcast the message
-				_ = ws.broadcastMessageToClients(protocol.MessageTypeDeviceAdded, payload)
+				if err := ws.broadcastMessageToClients(protocol.MessageTypeDeviceAdded, payload); err != nil {
+					if !isClientDisconnectedError(err) {
+						slog.Error("Failed to broadcast device added message", "error", err, "device", notification.Device.Specifier())
+					}
+				} else {
+					slog.Info("Device added message broadcasted", "device", notification.Device.Specifier())
+				}
 
 			case handler.DeviceTimeout:
 				slog.Error("Device timeout", "device", notification.Device.Specifier(), "error", notification.Error)
@@ -655,8 +664,6 @@ func (ws *WebSocketServer) listenForNotifications() {
 				_ = ws.broadcastMessageToClients(protocol.MessageTypeTimeoutNotification, payload)
 
 			case handler.DeviceOffline:
-				slog.Info("Device offline notification received", "device", notification.Device.Specifier())
-
 				// Create device offline payload
 				device := notification.Device
 				payload := protocol.DeviceOfflinePayload{
@@ -669,13 +676,9 @@ func (ws *WebSocketServer) listenForNotifications() {
 					if !isClientDisconnectedError(err) {
 						slog.Error("Failed to broadcast device offline message", "error", err, "device", notification.Device.Specifier())
 					}
-				} else {
-					slog.Info("Device offline message broadcasted", "device", notification.Device.Specifier())
 				}
 
 			case handler.DeviceOnline:
-				slog.Info("Device online notification received", "device", notification.Device.Specifier())
-
 				// Create device online payload
 				device := notification.Device
 				payload := protocol.DeviceOnlinePayload{
@@ -688,8 +691,6 @@ func (ws *WebSocketServer) listenForNotifications() {
 					if !isClientDisconnectedError(err) {
 						slog.Error("Failed to broadcast device online message", "error", err, "device", notification.Device.Specifier())
 					}
-				} else {
-					slog.Info("Device online message broadcasted", "device", notification.Device.Specifier())
 				}
 			}
 		case propertyChange := <-ws.handler.PropertyChangeCh:

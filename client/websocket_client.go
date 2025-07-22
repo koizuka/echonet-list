@@ -14,13 +14,19 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// WebSocketDeviceAndProperties extends handler.DeviceAndProperties with offline status
+type WebSocketDeviceAndProperties struct {
+	handler.DeviceAndProperties
+	IsOffline bool
+}
+
 // WebSocketClient implements the ECHONETListClient interface using WebSocket
 type WebSocketClient struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	transport       WebSocketClientTransport
 	debug           bool
-	devices         map[string]handler.DeviceAndProperties
+	devices         map[string]WebSocketDeviceAndProperties
 	devicesMutex    sync.RWMutex
 	lastSeenTimes   map[string]time.Time
 	lastSeenMutex   sync.RWMutex
@@ -50,7 +56,7 @@ func NewWebSocketClient(ctx context.Context, serverURL string, debug bool) (*Web
 		cancel:        cancel,
 		transport:     transport,
 		debug:         debug,
-		devices:       make(map[string]handler.DeviceAndProperties),
+		devices:       make(map[string]WebSocketDeviceAndProperties),
 		lastSeenTimes: make(map[string]time.Time),
 		aliases:       make(map[string]IDString),
 		groups:        make([]GroupDevicePair, 0),
@@ -94,6 +100,33 @@ func (c *WebSocketClient) SetDebug(debug bool) {
 	}
 }
 
+// DebugSetOffline sets the offline state of a device for debugging purposes
+func (c *WebSocketClient) DebugSetOffline(target string, offline bool) error {
+	// debug_set_offline メッセージを送信
+	data, err := protocol.CreateMessage("debug_set_offline", map[string]interface{}{
+		"target":  target,
+		"offline": offline,
+	}, "")
+	if err != nil {
+		return err
+	}
+
+	return c.transport.WriteMessage(websocket.TextMessage, data)
+}
+
+// IsOfflineDevice checks if a device is currently offline
+func (c *WebSocketClient) IsOfflineDevice(device IPAndEOJ) bool {
+	c.devicesMutex.RLock()
+	defer c.devicesMutex.RUnlock()
+
+	for _, d := range c.devices {
+		if d.Device.IP.Equal(device.IP) && d.Device.EOJ == device.EOJ {
+			return d.IsOffline
+		}
+	}
+	return false
+}
+
 // GetDevices returns devices matching the given device specifier
 func (c *WebSocketClient) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
 	c.devicesMutex.RLock()
@@ -102,7 +135,7 @@ func (c *WebSocketClient) GetDevices(deviceSpec DeviceSpecifier) []IPAndEOJ {
 	var result []IPAndEOJ
 
 	for _, device := range c.devices {
-		ipAndEOJ := device.Device
+		ipAndEOJ := device.DeviceAndProperties.Device
 
 		// Filter by IP
 		if deviceSpec.IP != nil && !ipAndEOJ.IP.Equal(*deviceSpec.IP) {
@@ -134,18 +167,18 @@ func (c *WebSocketClient) FindDeviceByIDString(id IDString) *IPAndEOJ {
 
 	// device の EOJ と properties の IdentificationNumber をもとに IDStringを組み立て、一致する物を探す
 	for _, device := range c.devices {
-		idString := c.GetIDString(device.Device)
+		idString := c.GetIDString(device.DeviceAndProperties.Device)
 		if idString != "" {
 			// IDString が一致するか確認
 			if idString == id {
 				// lastSeen の時刻を取得
 				c.lastSeenMutex.RLock()
-				lastSeen, ok := c.lastSeenTimes[device.Device.Specifier()]
+				lastSeen, ok := c.lastSeenTimes[device.DeviceAndProperties.Device.Specifier()]
 				c.lastSeenMutex.RUnlock()
 
 				// 初めて見つかったデバイス、または最新のlastSeenを持つデバイスを選択
 				if matchedDevice == nil || (ok && lastSeen.After(latestTime)) {
-					matchedDevice = &device.Device
+					matchedDevice = &device.DeviceAndProperties.Device
 					if ok {
 						latestTime = lastSeen
 					}
@@ -169,8 +202,8 @@ func (c *WebSocketClient) GetIDString(ipAndEOJ IPAndEOJ) IDString {
 			return ""
 		}
 
-		if decoded := npoDevice.Properties.GetIdentificationNumber(); decoded != nil {
-			return handler.MakeIDString(device.Device.EOJ, *decoded)
+		if decoded := npoDevice.DeviceAndProperties.Properties.GetIdentificationNumber(); decoded != nil {
+			return handler.MakeIDString(device.DeviceAndProperties.Device.EOJ, *decoded)
 		}
 	}
 	return ""
@@ -197,7 +230,7 @@ func (c *WebSocketClient) ListDevices(criteria FilterCriteria) []DeviceAndProper
 		match := true
 		if len(criteria.PropertyValues) > 0 {
 			for _, prop := range criteria.PropertyValues {
-				found, ok := deviceAndProps.Properties.FindEPC(prop.EPC)
+				found, ok := deviceAndProps.DeviceAndProperties.Properties.FindEPC(prop.EPC)
 				// Check if the property exists
 				if !ok {
 					match = false
@@ -213,7 +246,8 @@ func (c *WebSocketClient) ListDevices(criteria FilterCriteria) []DeviceAndProper
 		}
 
 		if match {
-			result = append(result, deviceAndProps)
+			// Convert WebSocketDeviceAndProperties to handler.DeviceAndProperties
+			result = append(result, deviceAndProps.DeviceAndProperties)
 		}
 	}
 

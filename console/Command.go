@@ -24,6 +24,7 @@ const (
 	CmdSet
 	CmdGet
 	CmdDebug
+	CmdDebugOffline
 	CmdUpdate
 	CmdAliasSet
 	CmdAliasGet

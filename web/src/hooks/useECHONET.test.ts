@@ -364,9 +364,36 @@ describe('useECHONET', () => {
   });
 
   it('should handle device_online message', async () => {
-    renderHook(() => useECHONET(testUrl));
+    const { result } = renderHook(() => useECHONET(testUrl));
+    
+    // First add an offline device
+    const testDevice: Device = {
+      ip: '192.168.1.10',
+      eoj: '0130:1',
+      name: 'HomeAirConditioner',
+      id: '013001:00000B:ABCDEF0123456789ABCDEF012345',
+      properties: {},
+      lastSeen: '2023-04-01T12:34:56Z',
+      isOffline: true,
+    };
+    
+    const initialStateMessage: ServerMessage = {
+      type: 'initial_state',
+      payload: {
+        devices: { '192.168.1.10 0130:1': testDevice },
+        aliases: {},
+        groups: {},
+      },
+    };
+    
+    act(() => {
+      capturedCallbacks.onMessage?.(initialStateMessage);
+    });
 
-    // Device online message should be received without errors
+    // Verify device is offline
+    expect(result.current.devices['192.168.1.10 0130:1']?.isOffline).toBe(true);
+
+    // Send device_online message
     const deviceOnlineMessage: ServerMessage = {
       type: 'device_online',
       payload: {
@@ -375,12 +402,14 @@ describe('useECHONET', () => {
       },
     };
 
-    // Should not throw an error
     await act(async () => {
       capturedCallbacks.onMessage?.(deviceOnlineMessage);
     });
 
-    // The actual device restoration will be handled by subsequent device_added message
+    // Device should be marked as online and lastSeen should be updated
+    const updatedDevice = result.current.devices['192.168.1.10 0130:1'];
+    expect(updatedDevice?.isOffline).toBe(false);
+    expect(updatedDevice?.lastSeen).not.toBe('2023-04-01T12:34:56Z'); // lastSeen should be updated
   });
 
   it('should send device operation messages', async () => {

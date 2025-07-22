@@ -104,6 +104,8 @@ func (p *CommandProcessor) processCommands() {
 			cmd.Error = p.processSetCommand(cmd)
 		case CmdDebug:
 			cmd.Error = p.processDebugCommand(cmd)
+		case CmdDebugOffline:
+			cmd.Error = p.processDebugOfflineCommand(cmd)
 		case CmdUpdate:
 			cmd.Error = p.processUpdateCommand(cmd)
 		case CmdAliasList:
@@ -469,6 +471,44 @@ func (p *CommandProcessor) processDebugCommand(cmd *Command) error {
 			fmt.Println("現在のデバッグモード: 無効")
 		}
 	}
+	return nil
+}
+
+func (p *CommandProcessor) processDebugOfflineCommand(cmd *Command) error {
+	// デバイスを解決
+	devices := p.handler.GetDevices(cmd.DeviceSpec)
+	if len(devices) == 0 {
+		return fmt.Errorf("条件に一致するデバイスが見つかりません")
+	}
+
+	if len(devices) > 1 {
+		return fmt.Errorf("複数のデバイスが見つかりました。より具体的な条件を指定してください")
+	}
+
+	device := devices[0]
+	target := fmt.Sprintf("%s %s", device.IP, device.EOJ.Specifier())
+
+	// on/off の判定
+	var offline bool
+	if cmd.DebugMode != nil {
+		offline = *cmd.DebugMode == "on"
+	} else {
+		// 引数なしの場合は現在の状態をトグル
+		offline = !p.handler.IsOfflineDevice(device)
+	}
+
+	// WebSocketクライアント経由でdebug_set_offlineコマンドを送信
+	err := p.handler.DebugSetOffline(target, offline)
+	if err != nil {
+		return fmt.Errorf("オフライン状態の設定に失敗しました: %v", err)
+	}
+
+	if offline {
+		fmt.Printf("デバイス %s をオフライン状態に設定しました\n", target)
+	} else {
+		fmt.Printf("デバイス %s をオンライン状態に設定しました\n", target)
+	}
+
 	return nil
 }
 
