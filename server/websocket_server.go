@@ -36,10 +36,12 @@ type WebSocketServer struct {
 	transport              WebSocketTransport
 	echonetClient          client.ECHONETListClient
 	handler                *handler.ECHONETLiteHandler
-	activeClients          atomic.Int32 // Number of currently connected clients
-	updateTicker           *time.Ticker // Ticker for periodic updates
-	tickerDone             chan bool    // Channel to stop the ticker goroutine
-	initialStateInProgress atomic.Int32 // Counter for ongoing initial state generations
+	activeClients          atomic.Int32  // Number of currently connected clients
+	updateTicker           *time.Ticker  // Ticker for periodic updates
+	tickerDone             chan bool     // Channel to stop the ticker goroutine
+	initialStateInProgress atomic.Int32  // Counter for ongoing initial state generations
+	lastUpdateTime         atomic.Int64  // Unix timestamp of last periodic update (for monitoring)
+	updateInterval         time.Duration // Expected update interval (for monitoring)
 }
 
 // NewWebSocketServer creates a new WebSocket server
@@ -78,18 +80,22 @@ func (ws *WebSocketServer) GetTransport() WebSocketTransport {
 // periodicUpdater runs in a goroutine, triggering property updates at the configured interval
 // if at least one client is connected.
 func (ws *WebSocketServer) periodicUpdater() {
-	if ws.handler.IsDebug() {
-		slog.Debug("Periodic updater started")
-	}
+	// パニックからの回復と終了ログ
 	defer func() {
-		if ws.handler.IsDebug() {
-			slog.Debug("Periodic updater stopped")
+		if r := recover(); r != nil {
+			slog.Error("Panic in periodicUpdater", "error", r)
 		}
+		// 正常終了・異常終了に関わらず、終了をエラーレベルで記録
+		slog.Error("Periodic updater stopped unexpectedly")
 	}()
+
+	slog.Info("Periodic updater started", "interval", ws.updateInterval)
 
 	for {
 		select {
 		case <-ws.updateTicker.C:
+			// 更新実行時刻を記録
+			ws.lastUpdateTime.Store(time.Now().Unix())
 			// Check if any clients are connected and no initial state generation is in progress
 			clientCount := ws.activeClients.Load()
 			initialStateCount := ws.initialStateInProgress.Load()
@@ -100,6 +106,13 @@ func (ws *WebSocketServer) periodicUpdater() {
 				}
 				// Run update in a separate goroutine to avoid blocking the ticker
 				go func() {
+					// パニックからの回復
+					defer func() {
+						if r := recover(); r != nil {
+							slog.Error("Panic in UpdateProperties goroutine", "error", r)
+						}
+					}()
+
 					// Use an empty FilterCriteria to target all devices
 					err := ws.handler.UpdateProperties(handler.FilterCriteria{}, false)
 					if err != nil {
@@ -121,6 +134,53 @@ func (ws *WebSocketServer) periodicUpdater() {
 			return
 		case <-ws.ctx.Done(): // Ensure goroutine exits if server context is cancelled
 			ws.updateTicker.Stop()
+			return
+		}
+	}
+}
+
+// monitorUpdateInterval monitors the periodic update interval in a separate goroutine
+func (ws *WebSocketServer) monitorUpdateInterval() {
+	// パニックからの回復
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("Panic in update interval monitor", "error", r)
+		}
+		slog.Info("Update interval monitor stopped")
+	}()
+
+	slog.Info("Update interval monitor started", "checkInterval", 30*time.Second)
+
+	// 監視用のティッカー（30秒ごとにチェック）
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// 最後の更新時刻をチェック
+			lastUpdate := ws.lastUpdateTime.Load()
+			if lastUpdate == 0 {
+				// まだ一度も更新されていない
+				continue
+			}
+
+			now := time.Now().Unix()
+			elapsed := time.Duration(now-lastUpdate) * time.Second
+
+			// 期待される間隔の2倍以上経過していたらエラー
+			if elapsed > ws.updateInterval*2 {
+				slog.Error("Periodic update appears to be stalled",
+					"expectedInterval", ws.updateInterval,
+					"actualElapsed", elapsed,
+					"lastUpdate", time.Unix(lastUpdate, 0).Format(time.RFC3339),
+					"activeClients", ws.activeClients.Load(),
+					"initialStateInProgress", ws.initialStateInProgress.Load(),
+				)
+			}
+		case <-ws.tickerDone:
+			return
+		case <-ws.ctx.Done():
 			return
 		}
 	}
@@ -237,11 +297,16 @@ func (ws *WebSocketServer) Start(options StartOptions) error {
 
 	// Start the periodic updater ticker if interval is positive
 	if options.PeriodicUpdateInterval > 0 {
+		// 更新間隔を保存（監視用）
+		ws.updateInterval = options.PeriodicUpdateInterval
+		// 初期時刻を設定
+		ws.lastUpdateTime.Store(time.Now().Unix())
+
 		ws.updateTicker = time.NewTicker(options.PeriodicUpdateInterval)
 		go ws.periodicUpdater()
-		if ws.handler.IsDebug() {
-			slog.Debug("Periodic property updater enabled with interval", "interval", options.PeriodicUpdateInterval)
-		}
+		go ws.monitorUpdateInterval() // 監視goroutineも開始
+
+		slog.Info("Periodic property updater and monitor enabled", "interval", options.PeriodicUpdateInterval)
 	} else {
 		if ws.handler.IsDebug() {
 			slog.Debug("Periodic property updater disabled.")
