@@ -279,14 +279,12 @@ func (c *WebSocketClient) handleDeviceOffline(msg *protocol.Message) {
 
 	deviceID := ipAndEOJ.Specifier()
 
-	// Remove from devices and lastSeenTimes
+	// Mark device as offline instead of removing it
 	c.devicesMutex.Lock()
-	c.lastSeenMutex.Lock()
-
-	delete(c.devices, deviceID)
-	delete(c.lastSeenTimes, deviceID)
-
-	c.lastSeenMutex.Unlock()
+	if device, exists := c.devices[deviceID]; exists {
+		device.IsOffline = true
+		c.devices[deviceID] = device
+	}
 	c.devicesMutex.Unlock()
 }
 
