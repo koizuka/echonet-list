@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExpandIcon, ShrinkIcon, Plus } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import type { PropertyValue, LogNotification } from '@/hooks/types';
+import type { PropertyValue, LogNotification, DeviceOnline, DeviceOffline } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
 
 function App() {
@@ -26,6 +26,8 @@ function App() {
   
   // Track the latest log notification
   const [latestLogNotification, setLatestLogNotification] = useState<LogNotification | undefined>();
+  const [latestDeviceOnlineNotification, setLatestDeviceOnlineNotification] = useState<DeviceOnline | undefined>();
+  const [latestDeviceOfflineNotification, setLatestDeviceOfflineNotification] = useState<DeviceOffline | undefined>();
   
   // Log notification state
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -34,6 +36,8 @@ function App() {
   // Log notification handlers
   const logManager = useLogNotifications({ 
     notification: latestLogNotification,
+    deviceOnlineNotification: latestDeviceOnlineNotification,
+    deviceOfflineNotification: latestDeviceOfflineNotification,
     onLogsChange: (newLogs, newUnreadCount) => {
       setLogs(newLogs);
       setUnreadCount(newUnreadCount);
@@ -44,6 +48,10 @@ function App() {
     // Handle log notifications
     if (message.type === 'log_notification') {
       setLatestLogNotification(message);
+    } else if (message.type === 'device_online') {
+      setLatestDeviceOnlineNotification(message);
+    } else if (message.type === 'device_offline') {
+      setLatestDeviceOfflineNotification(message);
     }
   }, () => {
     // Clear WebSocket connection errors when successfully connected

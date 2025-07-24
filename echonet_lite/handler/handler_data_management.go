@@ -145,9 +145,6 @@ func (h *DataManagementHandler) IsOffline(device IPAndEOJ) bool {
 }
 
 func (h *DataManagementHandler) SetOffline(device IPAndEOJ, offline bool) {
-	if offline {
-		slog.Info("デバイスをオフラインに設定", "device", device)
-	}
 	h.devices.SetOffline(device, offline)
 }
 
