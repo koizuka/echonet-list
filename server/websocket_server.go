@@ -187,6 +187,24 @@ func (ws *WebSocketServer) monitorUpdateInterval() {
 					"initialStateInProgress", ws.initialStateInProgress.Load(),
 				)
 			}
+
+			// Check for activeClients consistency
+			activeCount := ws.activeClients.Load()
+			actualCount := int32(len(ws.getActiveClientIDs()))
+			if activeCount != actualCount {
+				slog.Error("ActiveClients counter inconsistency detected",
+					"reportedCount", activeCount,
+					"actualCount", actualCount,
+					"difference", activeCount-actualCount)
+
+				// Auto-correct the counter if it's reasonable (small discrepancy)
+				if activeCount < 0 || (activeCount >= 0 && actualCount >= 0 && abs(activeCount-actualCount) <= 5) {
+					slog.Info("Auto-correcting activeClients counter",
+						"oldValue", activeCount,
+						"newValue", actualCount)
+					ws.activeClients.Store(actualCount)
+				}
+			}
 		case <-ws.monitorDone:
 			return
 		case <-ws.ctx.Done():
@@ -419,6 +437,29 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	}()
 
 	return nil
+}
+
+// abs returns the absolute value of an integer
+func abs(x int32) int32 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+// getActiveClientIDs returns a slice of currently connected client IDs
+func (ws *WebSocketServer) getActiveClientIDs() []string {
+	if transport, ok := ws.transport.(*DefaultWebSocketTransport); ok {
+		transport.clientsMutex.RLock()
+		defer transport.clientsMutex.RUnlock()
+
+		clientIDs := make([]string, 0, len(transport.clients))
+		for connID := range transport.clients {
+			clientIDs = append(clientIDs, connID)
+		}
+		return clientIDs
+	}
+	return []string{}
 }
 
 // isClientDisconnectedError checks if the error indicates that the client has disconnected
@@ -723,6 +764,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 					if !isClientDisconnectedError(err) {
 						slog.Error("Failed to broadcast device added message", "error", err, "device", notification.Device.Specifier())
 					}
+					// No logging for client disconnection errors
 				} else {
 					slog.Info("Device added message broadcasted", "device", notification.Device.Specifier())
 				}
@@ -755,6 +797,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 					if !isClientDisconnectedError(err) {
 						slog.Error("Failed to broadcast device offline message", "error", err, "device", notification.Device.Specifier())
 					}
+					// No logging for client disconnection errors
 				}
 
 			case handler.DeviceOnline:
@@ -770,6 +813,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 					if !isClientDisconnectedError(err) {
 						slog.Error("Failed to broadcast device online message", "error", err, "device", notification.Device.Specifier())
 					}
+					// No logging for client disconnection errors
 				}
 			}
 		case propertyChange := <-ws.handler.PropertyChangeCh:
@@ -792,6 +836,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 					if !isClientDisconnectedError(err) {
 						slog.Error("Failed to broadcast property change", "error", err, "device", propertyChange.Device.Specifier())
 					}
+					// No logging for client disconnection errors
 				}
 			}()
 		}
