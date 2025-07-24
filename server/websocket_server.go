@@ -68,9 +68,6 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 	transport.SetMessageHandler(ws.handleClientMessage)
 	transport.SetDisconnectHandler(ws.handleClientDisconnect)
 
-	// Start listening for notifications from the ECHONET Lite handler
-	go ws.listenForNotifications()
-
 	return ws, nil
 }
 
@@ -298,6 +295,9 @@ func (ws *WebSocketServer) handleClientDisconnect(connID string) {
 
 // Start starts the WebSocket server and optionally the periodic updater
 func (ws *WebSocketServer) Start(options StartOptions) error {
+	// Start listening for notifications from the ECHONET Lite handler
+	go ws.listenForNotifications()
+
 	// HTTPサーバーが有効な場合は静的ファイル配信を設定
 	if options.HTTPEnabled {
 		if transport, ok := ws.transport.(*DefaultWebSocketTransport); ok {

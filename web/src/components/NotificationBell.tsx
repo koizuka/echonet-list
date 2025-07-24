@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, AlertCircle, AlertTriangle, Search } from 'lucide-react';
+import { Bell, AlertCircle, AlertTriangle, Search, Info } from 'lucide-react';
 import { cn } from '../libs/utils';
 import { formatValue } from '../libs/formatValue';
 import { Button } from './ui/button';
@@ -149,21 +149,27 @@ export function NotificationBell({
                     key={log.id}
                     className={cn(
                       "p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors",
-                      log.level === 'ERROR' ? "border-l-4 border-l-red-500" : "border-l-4 border-l-yellow-500"
+                      log.level === 'ERROR' ? "border-l-4 border-l-red-500" : 
+                      log.level === 'WARN' ? "border-l-4 border-l-yellow-500" :
+                      "border-l-4 border-l-blue-500"
                     )}
                   >
                     <div className="flex items-start gap-2">
                       {log.level === 'ERROR' ? (
                         <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-                      ) : (
+                      ) : log.level === 'WARN' ? (
                         <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <Info className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
                       )}
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <span className={cn(
                             "text-xs font-medium",
-                            log.level === 'ERROR' ? "text-red-700 dark:text-red-400" : "text-yellow-700 dark:text-yellow-400"
+                            log.level === 'ERROR' ? "text-red-700 dark:text-red-400" :
+                            log.level === 'WARN' ? "text-yellow-700 dark:text-yellow-400" :
+                            "text-blue-700 dark:text-blue-400"
                           )}>
                             {log.level}
                           </span>

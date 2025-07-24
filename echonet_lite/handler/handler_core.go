@@ -78,7 +78,7 @@ func (c *HandlerCore) notify(notification DeviceNotification) {
 		// 送信成功
 	default:
 		// チャンネルがブロックされている場合は無視
-		slog.Warn("通知チャネルがブロックされています")
+		slog.Warn("通知チャネルがブロックされています", "notificationType", notification.Type, "device", notification.Device.Specifier())
 	}
 }
 
@@ -97,11 +97,13 @@ func (c *HandlerCore) RelayDeviceEvent(event DeviceEvent) {
 			Type:   DeviceOffline,
 		})
 	case DeviceEventOnline:
-		// オンライン復旧時はデバイス追加として通知（既存の仕組みを活用）
+		// オンライン復旧時はデバイスオンライン通知を送信
 		c.notify(DeviceNotification{
 			Device: event.Device,
-			Type:   DeviceAdded,
+			Type:   DeviceOnline,
 		})
+	default:
+		slog.Warn("未知のDeviceEventType", "eventType", event.Type, "device", event.Device.Specifier())
 	}
 }
 
