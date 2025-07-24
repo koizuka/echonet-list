@@ -183,19 +183,22 @@ func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) e
 		// Check if this is a connection close error
 		if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) ||
 			strings.Contains(err.Error(), "close sent") || strings.Contains(err.Error(), "use of closed network connection") {
-			slog.Debug("Client connection already closed", "connID", connID, "err", err)
-
 			// Remove the client from the map since it's already closed
+			// Check if client still exists to avoid duplicate disconnect handling
 			t.clientsMutex.Lock()
-			delete(t.clients, connID)
-			if conn := client.conn; conn != nil {
-				delete(t.clientsReverse, conn)
-			}
-			t.clientsMutex.Unlock()
+			if _, stillExists := t.clients[connID]; stillExists {
+				delete(t.clients, connID)
+				if conn := client.conn; conn != nil {
+					delete(t.clientsReverse, conn)
+				}
+				t.clientsMutex.Unlock()
 
-			// Call disconnect handler manually since the goroutine might have already exited
-			if t.disconnectHandler != nil {
-				t.disconnectHandler(connID)
+				// Call disconnect handler only if we actually removed the client
+				if t.disconnectHandler != nil {
+					t.disconnectHandler(connID)
+				}
+			} else {
+				t.clientsMutex.Unlock()
 			}
 		}
 		return fmt.Errorf("failed to send message to client %s: %w", connID, err)
@@ -220,9 +223,9 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 	for connID, client := range clients {
 		client.mutex.Lock()
 		if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
-			// Check if this is a client disconnection error (reuses the logic from websocket_server.go)
+			// Check if this is a client disconnection error
 			if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) ||
-				strings.Contains(err.Error(), "close sent") || isClientDisconnectedError(err) {
+				strings.Contains(err.Error(), "close sent") || strings.Contains(err.Error(), "use of closed network connection") {
 				disconnectedClients = append(disconnectedClients, connID)
 			} else {
 				slog.Error("Error broadcasting message to client", "err", err, "connID", connID)
@@ -233,18 +236,20 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 
 	// Clean up disconnected clients
 	if len(disconnectedClients) > 0 {
+		var actuallyDisconnected []string
 		t.clientsMutex.Lock()
 		for _, connID := range disconnectedClients {
 			if client, exists := t.clients[connID]; exists {
 				delete(t.clients, connID)
 				delete(t.clientsReverse, client.conn)
+				actuallyDisconnected = append(actuallyDisconnected, connID)
 			}
 		}
 		t.clientsMutex.Unlock()
 
-		// Call disconnect handler for each disconnected client
+		// Call disconnect handler only for clients that were actually removed
 		if t.disconnectHandler != nil {
-			for _, connID := range disconnectedClients {
+			for _, connID := range actuallyDisconnected {
 				t.disconnectHandler(connID)
 			}
 		}
@@ -320,7 +325,12 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 		// Call the message handler if set
 		if t.messageHandler != nil {
 			if err := t.messageHandler(connID, message); err != nil {
-				slog.Error("Error in message handler", "err", err)
+				// Check if this is a client disconnection error
+				errStr := err.Error()
+				if !(strings.Contains(errStr, "client with ID") && strings.Contains(errStr, "not found")) {
+					// Only log non-disconnection errors
+					slog.Error("Error in message handler", "err", err)
+				}
 			}
 		}
 	}
