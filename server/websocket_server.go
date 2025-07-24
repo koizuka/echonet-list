@@ -39,6 +39,7 @@ type WebSocketServer struct {
 	activeClients          atomic.Int32  // Number of currently connected clients
 	updateTicker           *time.Ticker  // Ticker for periodic updates
 	tickerDone             chan bool     // Channel to stop the ticker goroutine
+	monitorDone            chan bool     // Channel to stop the monitor goroutine
 	initialStateInProgress atomic.Int32  // Counter for ongoing initial state generations
 	lastUpdateTime         atomic.Int64  // Unix timestamp of last periodic update (for monitoring)
 	updateInterval         time.Duration // Expected update interval (for monitoring)
@@ -59,6 +60,7 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 		echonetClient: echonetClient,
 		handler:       handler,
 		tickerDone:    make(chan bool), // Initialize the done channel
+		monitorDone:   make(chan bool), // Initialize the monitor done channel
 	}
 
 	// Set up the transport handlers
@@ -94,8 +96,6 @@ func (ws *WebSocketServer) periodicUpdater() {
 	for {
 		select {
 		case <-ws.updateTicker.C:
-			// 更新実行時刻を記録
-			ws.lastUpdateTime.Store(time.Now().Unix())
 			// Check if any clients are connected and no initial state generation is in progress
 			clientCount := ws.activeClients.Load()
 			initialStateCount := ws.initialStateInProgress.Load()
@@ -104,12 +104,18 @@ func (ws *WebSocketServer) periodicUpdater() {
 				if ws.handler.IsDebug() {
 					slog.Debug("Ticker triggered: Updating all device properties (clients connected, no initial state in progress)")
 				}
+
+				// 更新実行時刻を記録（実際に更新を開始する時点で記録）
+				ws.lastUpdateTime.Store(time.Now().Unix())
+
 				// Run update in a separate goroutine to avoid blocking the ticker
 				go func() {
 					// パニックからの回復
 					defer func() {
 						if r := recover(); r != nil {
 							slog.Error("Panic in UpdateProperties goroutine", "error", r)
+							// パニック発生時は監視リセットのため再度タイムスタンプを更新
+							ws.lastUpdateTime.Store(time.Now().Unix())
 						}
 					}()
 
@@ -149,7 +155,8 @@ func (ws *WebSocketServer) monitorUpdateInterval() {
 		slog.Info("Update interval monitor stopped")
 	}()
 
-	slog.Info("Update interval monitor started", "checkInterval", 30*time.Second)
+	startTime := time.Now()
+	slog.Info("Update interval monitor started", "checkInterval", 30*time.Second, "graceTime", ws.updateInterval*3)
 
 	// 監視用のティッカー（30秒ごとにチェック）
 	ticker := time.NewTicker(30 * time.Second)
@@ -158,6 +165,11 @@ func (ws *WebSocketServer) monitorUpdateInterval() {
 	for {
 		select {
 		case <-ticker.C:
+			// スタートアップ時の猶予期間をスキップ（期待間隔の3倍）
+			if time.Since(startTime) < ws.updateInterval*3 {
+				continue
+			}
+
 			// 最後の更新時刻をチェック
 			lastUpdate := ws.lastUpdateTime.Load()
 			if lastUpdate == 0 {
@@ -178,7 +190,7 @@ func (ws *WebSocketServer) monitorUpdateInterval() {
 					"initialStateInProgress", ws.initialStateInProgress.Load(),
 				)
 			}
-		case <-ws.tickerDone:
+		case <-ws.monitorDone:
 			return
 		case <-ws.ctx.Done():
 			return
@@ -299,8 +311,7 @@ func (ws *WebSocketServer) Start(options StartOptions) error {
 	if options.PeriodicUpdateInterval > 0 {
 		// 更新間隔を保存（監視用）
 		ws.updateInterval = options.PeriodicUpdateInterval
-		// 初期時刻を設定
-		ws.lastUpdateTime.Store(time.Now().Unix())
+		// 初期時刻は0のまま（実際の更新が開始されるまで監視を無効にするため）
 
 		ws.updateTicker = time.NewTicker(options.PeriodicUpdateInterval)
 		go ws.periodicUpdater()
@@ -318,9 +329,12 @@ func (ws *WebSocketServer) Start(options StartOptions) error {
 
 // Stop stops the WebSocket server and the periodic updater
 func (ws *WebSocketServer) Stop() error {
-	// Signal the periodic updater to stop if it was started
+	// Signal the periodic updater and monitor to stop if they were started
 	if ws.updateTicker != nil {
 		close(ws.tickerDone)
+	}
+	if ws.monitorDone != nil {
+		close(ws.monitorDone)
 	}
 
 	ws.cancel() // Cancel the server context
