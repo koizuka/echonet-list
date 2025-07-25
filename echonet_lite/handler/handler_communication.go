@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
 	"echonet-list/echonet_lite"
 	"errors"
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/big"
+	mathrand "math/rand"
 	"net"
 	"sync"
 	"time"
@@ -592,19 +594,31 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 			// 2番目以降のリクエストには遅延を追加
 			// 指数バックオフの要素を加える（ただし上限を設定）
 			multiplier := requestIndex - 1
-			if multiplier > 5 {
-				multiplier = 5 // 最大5倍まで
+			if multiplier > MaxDelayMultiplier {
+				multiplier = MaxDelayMultiplier // 定数を使用
 			}
 			baseDelayForDevice := baseDelay * time.Duration(multiplier)
 
-			// ±30%のジッタを追加
-			jitterRange := float64(baseDelayForDevice) * 0.3
-			jitter := (rand.Float64() - 0.5) * 2 * jitterRange
+			// ±30%のジッタを追加（crypto/randを使用）
+			jitterRange := float64(baseDelayForDevice) * JitterPercentage
+
+			// 安全な乱数生成
+			randomBig, err := rand.Int(rand.Reader, big.NewInt(1<<32))
+			var jitterFactor float64
+			if err != nil {
+				// フォールバック: 時刻ベースの乱数
+				jitterFactor = mathrand.Float64()
+			} else {
+				jitterFactor = float64(randomBig.Int64()) / float64(1<<32)
+			}
+
+			jitter := (jitterFactor - 0.5) * 2 * jitterRange
 			delay = time.Duration(float64(baseDelayForDevice) + jitter)
 
-			// 最小遅延を保証
-			if delay < baseDelay/2 {
-				delay = baseDelay / 2
+			// 最小遅延を保証（定数を使用）
+			minDelay := time.Duration(float64(baseDelay) * MinIntervalRatio)
+			if delay < minDelay {
+				delay = minDelay
 			}
 		}
 

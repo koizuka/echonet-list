@@ -2,13 +2,15 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
 	"echonet-list/echonet_lite"
 	"echonet-list/echonet_lite/network"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/big"
+	mathrand "math/rand"
 	"net"
 	"sync"
 	"time"
@@ -37,6 +39,13 @@ type ErrMaxRetriesReached struct {
 func (e ErrMaxRetriesReached) Error() string {
 	return fmt.Sprintf("maximum retries reached (%d) for device %v", e.MaxRetries, e.Device)
 }
+
+// ジッタ計算用の定数
+const (
+	JitterPercentage   = 0.3 // ±30%のジッタ
+	MinIntervalRatio   = 0.5 // 最小間隔は基準値の50%
+	MaxDelayMultiplier = 5   // 同一IP遅延の最大倍率
+)
 
 // ブロードキャストアドレスの設定
 var BroadcastIP = network.GetIPv4BroadcastIP()
@@ -90,6 +99,7 @@ type Session struct {
 	TimeoutCh       chan SessionTimeoutEvent          // タイムアウト通知用チャンネル
 	failedEPCs      map[string][]echonet_lite.EPCType // 失敗したEPCsを保持するマップ
 	IsOfflineFunc   func(echonet_lite.IPAndEOJ) bool  // デバイスがオフラインかどうかを判定する関数（オプショナル）
+	rng             *mathrand.Rand                    // スレッドセーフな乱数生成器
 }
 
 // IsLocalIP は指定されたIPアドレスが自身のローカルIPのいずれかと一致するかを確認します
@@ -100,19 +110,41 @@ func (s *Session) IsLocalIP(ip net.IP) bool {
 // calculateRetryIntervalWithJitter は、再送間隔にジッタを加えた値を返します
 // ジッタは基準値の±30%の範囲でランダムに決定されます
 func (s *Session) calculateRetryIntervalWithJitter() time.Duration {
+	// 入力検証: RetryIntervalが正の値であることを確認
+	if s.RetryInterval <= 0 {
+		slog.Warn("RetryIntervalが無効な値です。デフォルト値を使用", "interval", s.RetryInterval)
+		return 3 * time.Second // デフォルト値
+	}
+
 	// 基準となる再送間隔
 	baseInterval := s.RetryInterval
 
-	// ±30%のジッタを計算
-	jitterRange := float64(baseInterval) * 0.3
+	// スレッドセーフな乱数生成（crypto/randを使用）
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 初期化されていない場合は乱数生成器を作成
+	if s.rng == nil {
+		// crypto/randを使って安全なシードを生成
+		seedBig, err := rand.Int(rand.Reader, big.NewInt(1<<62))
+		if err != nil {
+			// crypto/randが失敗した場合は時刻ベースのシード
+			s.rng = mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
+		} else {
+			s.rng = mathrand.New(mathrand.NewSource(seedBig.Int64()))
+		}
+	}
+
+	// ±30%のジッタを計算（定数を使用）
+	jitterRange := float64(baseInterval) * JitterPercentage
 	// -30% から +30% の範囲でランダムな値を生成
-	jitter := (rand.Float64() - 0.5) * 2 * jitterRange
+	jitter := (s.rng.Float64() - 0.5) * 2 * jitterRange
 
 	// 基準値にジッタを加算
 	intervalWithJitter := time.Duration(float64(baseInterval) + jitter)
 
 	// 最小値を基準値の50%に設定（極端に短い間隔を防ぐ）
-	minInterval := baseInterval / 2
+	minInterval := time.Duration(float64(baseInterval) * MinIntervalRatio)
 	if intervalWithJitter < minInterval {
 		intervalWithJitter = minInterval
 	}
