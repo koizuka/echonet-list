@@ -1,11 +1,13 @@
 package server
 
 import (
+	"echonet-list/echonet_lite"
 	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 )
 
@@ -127,20 +129,58 @@ func (ws *WebSocketServer) handleDeleteDeviceFromClient(msg *protocol.Message) p
 		slog.Debug("Deleting device", "target", payload.Target, "ipAndEOJ", ipAndEOJ)
 	}
 
-	// Remove the device from the handler
-	if err := ws.handler.RemoveDevice(ipAndEOJ); err != nil {
-		return ErrorResponse(protocol.ErrorCodeInternalServerError, "Failed to remove device: %v", err)
-	}
+	// Check if this is a NodeProfile deletion
+	if ipAndEOJ.EOJ.ClassCode() == echonet_lite.NodeProfile_ClassCode {
+		// For NodeProfile, delete all devices at the same IP address
+		if ws.handler.IsDebug() {
+			slog.Debug("NodeProfile deletion detected, removing all devices at IP", "ip", ipAndEOJ.IP.String())
+		}
 
-	// Broadcast device_deleted notification to all connected clients
-	deletePayload := protocol.DeviceDeletedPayload{
-		IP:  ipAndEOJ.IP.String(),
-		EOJ: ipAndEOJ.EOJ.Specifier(),
-	}
+		// Get all devices at the same IP address
+		deviceSpec := handler.DeviceSpecifier{
+			IP: &ipAndEOJ.IP,
+		}
+		devicesAtIP := ws.handler.GetDevices(deviceSpec)
 
-	if err := ws.broadcastMessageToClients(protocol.MessageTypeDeviceDeleted, deletePayload); err != nil {
-		slog.Error("Failed to broadcast device_deleted notification", "error", err)
-		// Don't return error here since the device was successfully deleted
+		// Remove each device
+		var deleteErrors []string
+		for _, device := range devicesAtIP {
+			if err := ws.handler.RemoveDevice(device); err != nil {
+				deleteErrors = append(deleteErrors, fmt.Sprintf("Failed to remove device %s: %v", device.Specifier(), err))
+				continue
+			}
+
+			// Broadcast device_deleted notification for each device
+			deletePayload := protocol.DeviceDeletedPayload{
+				IP:  device.IP.String(),
+				EOJ: device.EOJ.Specifier(),
+			}
+
+			if err := ws.broadcastMessageToClients(protocol.MessageTypeDeviceDeleted, deletePayload); err != nil {
+				slog.Error("Failed to broadcast device_deleted notification", "error", err, "device", device.Specifier())
+			}
+		}
+
+		// If there were any errors, return the first one
+		if len(deleteErrors) > 0 {
+			return ErrorResponse(protocol.ErrorCodeInternalServerError, strings.Join(deleteErrors, "; "))
+		}
+	} else {
+		// For non-NodeProfile devices, just remove the single device
+		if err := ws.handler.RemoveDevice(ipAndEOJ); err != nil {
+			return ErrorResponse(protocol.ErrorCodeInternalServerError, "Failed to remove device: %v", err)
+		}
+
+		// Broadcast device_deleted notification
+		deletePayload := protocol.DeviceDeletedPayload{
+			IP:  ipAndEOJ.IP.String(),
+			EOJ: ipAndEOJ.EOJ.Specifier(),
+		}
+
+		if err := ws.broadcastMessageToClients(protocol.MessageTypeDeviceDeleted, deletePayload); err != nil {
+			slog.Error("Failed to broadcast device_deleted notification", "error", err)
+			// Don't return error here since the device was successfully deleted
+		}
 	}
 
 	if ws.handler.IsDebug() {
