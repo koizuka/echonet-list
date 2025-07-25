@@ -18,6 +18,7 @@
     "epcs",
     "ESVINF",
     "ESVINFC",
+    "fanout",
     "findstr",
     "firewalld",
     "frontends",

@@ -207,9 +207,11 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	session.OnReceive(comm.onReceiveMessage)
 
 	// NotificationCh を中継用にラップし、タイムアウト時にオフライン状態を設定
+	// SubscribeNotifications を使用して専用チャンネルを取得
 	wrappedCh := make(chan DeviceNotification, 100)
+	subscribedCh := core.SubscribeNotifications(100)
 	go func() {
-		for ev := range core.NotificationCh {
+		for ev := range subscribedCh {
 			if ev.Type == DeviceTimeout {
 				// デバイスをオフラインに設定
 				data.SetOffline(ev.Device, true)
