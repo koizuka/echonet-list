@@ -78,13 +78,22 @@ func (ws *WebSocketServer) GetTransport() WebSocketTransport {
 
 // periodicUpdater runs in a goroutine, triggering property updates at the configured interval
 func (ws *WebSocketServer) periodicUpdater() {
+	// Track whether this is an expected shutdown
+	expectedShutdown := false
+
 	// パニックからの回復と終了ログ
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("Panic in periodicUpdater", "error", r)
+			// パニックは常に予期しない終了
+			slog.Error("Periodic updater stopped unexpectedly")
+		} else if !expectedShutdown {
+			// パニック以外の予期しない終了のみエラーログ
+			slog.Error("Periodic updater stopped unexpectedly")
+		} else {
+			// 正常終了
+			slog.Info("Periodic updater stopped")
 		}
-		// 正常終了・異常終了に関わらず、終了をエラーレベルで記録
-		slog.Error("Periodic updater stopped unexpectedly")
 	}()
 
 	slog.Info("Periodic updater started", "interval", ws.updateInterval)
@@ -130,9 +139,11 @@ func (ws *WebSocketServer) periodicUpdater() {
 				}
 			}
 		case <-ws.tickerDone:
+			expectedShutdown = true
 			ws.updateTicker.Stop()
 			return
 		case <-ws.ctx.Done(): // Ensure goroutine exits if server context is cancelled
+			expectedShutdown = true
 			ws.updateTicker.Stop()
 			return
 		}
