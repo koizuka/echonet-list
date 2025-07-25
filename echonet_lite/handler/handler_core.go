@@ -53,22 +53,25 @@ func (c *HandlerCore) Close() error {
 		c.OperationTracker.Stop()
 	}
 
-	// コンテキストをキャンセル
+	// コンテキストをキャンセルしてfanoutNotifications()の終了をシグナル
 	if c.cancel != nil {
 		c.cancel()
 	}
 
-	// 通知チャネルを閉じる
+	// 通知チャネルを閉じる（これによりfanoutNotifications()が終了する）
 	if c.NotificationCh != nil {
 		close(c.NotificationCh)
 	}
+
+	// fanoutNotifications()の終了を少し待つ
+	time.Sleep(10 * time.Millisecond)
 
 	// プロパティ変化通知チャネルを閉じる
 	if c.PropertyChangeCh != nil {
 		close(c.PropertyChangeCh)
 	}
 
-	// 購読者チャンネルを閉じる
+	// 購読者チャンネルを閉じる（fanoutNotifications()終了後なので安全）
 	c.subscribersMutex.Lock()
 	for _, subscriber := range c.notificationSubscribers {
 		close(subscriber)
