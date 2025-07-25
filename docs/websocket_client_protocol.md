@@ -334,6 +334,31 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - この通知は主に情報提供用途で、実際のデバイス復旧処理は後続の `device_added` メッセージで自動的に行われます
 - 特別な処理は不要ですが、ログ出力やユーザー通知などの目的で利用できます
 
+### device_deleted
+
+デバイスが削除されたことを通知します。クライアントはこのデバイスをUIから削除する必要があります。
+
+```json
+{
+  "type": "device_deleted",
+  "payload": {
+    "ip": "192.168.1.10",
+    "eoj": "0130:1"
+  }
+}
+```
+
+- `ip`: 削除されたデバイスのIPアドレス（文字列）
+- `eoj`: ECHONET Lite オブジェクト識別子（文字列、形式: "CCCC:I"）
+
+**使用ケース:**
+- 手動でのデバイス削除時
+- NodeProfile削除による同一IPアドレスデバイスの一括削除時
+
+**NodeProfile削除時の動作:**
+- NodeProfile（クラスコード0x0ef0）が削除されると、同一IPアドレスのすべてのデバイスについて個別に`device_deleted`通知が送信されます
+- クライアントは各通知を受信して対応するデバイスをUIから削除します
+
 ### group_changed
 
 デバイスグループが追加・更新・削除されたことを通知します。
@@ -600,6 +625,28 @@ case 'device_added':
 ```
 
 - `payload`: 空のJSONオブジェクト `{}`
+
+### delete_device
+
+指定したデバイスを削除します。NodeProfile（クラスコード0x0ef0）を削除する場合、同一IPアドレスのすべてのデバイスが削除されます。
+
+```json
+{
+  "type": "delete_device",
+  "payload": {
+    "target": "192.168.1.10 0130:1"
+  },
+  "requestId": "req-128"
+}
+```
+
+- `target`: デバイスID文字列（IP EOJ形式）
+
+**重要な動作仕様**:
+- **NodeProfile削除時**: 指定したデバイスのクラスコードが`0x0ef0`（NodeProfile）の場合、同一IPアドレスのすべてのデバイスが削除されます
+- **通常デバイス削除時**: 指定したデバイスのみが削除されます
+
+**削除通知**: 削除された各デバイスについて、すべてのクライアントに`device_deleted`通知が送信されます。
 
 ### get_property_description
 
@@ -888,6 +935,13 @@ function handleNotification(type: string, payload: any) {
       const deviceId = `${payload.device.ip} ${payload.device.eoj}`;
       devices[deviceId] = payload.device;
       break;
+
+    case "device_deleted":
+      console.log("Device deleted:", payload.ip, payload.eoj);
+      // デバイスリストから削除
+      const deletedDeviceId = `${payload.ip} ${payload.eoj}`;
+      delete devices[deletedDeviceId];
+      break;
       
     // 他の通知タイプも同様に処理...
     case "property_changed":
@@ -998,6 +1052,19 @@ async function setDeviceProperties(targetDevice: string, properties: Record<stri
   }
 }
 
+// デバイス削除
+async function deleteDevice(targetDevice: string) {
+  try {
+    const payload = { target: targetDevice };
+    const resultData = await sendRequest("delete_device", payload);
+    console.log(`Deleted device ${targetDevice}:`, resultData);
+    return resultData;
+  } catch (error) {
+    console.error(`Failed to delete device ${targetDevice}:`, error);
+    throw error;
+  }
+}
+
 // プロパティ詳細情報取得
 async function getPropertyDescription(classCode: string, lang?: string) {
   try {
@@ -1085,6 +1152,8 @@ async function listGroups(groupName?: string) {
 // getPropertyDescription("0130"); // エアコンのプロパティ詳細を取得（英語）
 // getPropertyDescription("0130", "ja"); // エアコンのプロパティ詳細を取得（日本語）
 // getDeviceProperties("192.168.1.10 0130:1", ["80", "B0"]);
+// deleteDevice("192.168.1.10 0130:1"); // デバイス削除
+// deleteDevice("192.168.1.10 0ef0:1"); // NodeProfile削除（同一IPのすべてのデバイスが削除される）
 // addGroup("@living_room", ["013001:00000B:ABCDEF0123456789ABCDEF012345", "029001:000005:FEDCBA9876543210FEDCBA987654"]); // 例
 ```
 
