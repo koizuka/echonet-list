@@ -77,7 +77,6 @@ func (ws *WebSocketServer) GetTransport() WebSocketTransport {
 }
 
 // periodicUpdater runs in a goroutine, triggering property updates at the configured interval
-// if at least one client is connected.
 func (ws *WebSocketServer) periodicUpdater() {
 	// パニックからの回復と終了ログ
 	defer func() {
@@ -93,13 +92,15 @@ func (ws *WebSocketServer) periodicUpdater() {
 	for {
 		select {
 		case <-ws.updateTicker.C:
-			// Check if any clients are connected and no initial state generation is in progress
+			// Check if initial state generation is in progress
 			clientCount := ws.activeClients.Load()
 			initialStateCount := ws.initialStateInProgress.Load()
 
-			if clientCount > 0 && initialStateCount == 0 {
+			// Always update properties regardless of client connection status
+			// but skip if initial state generation is in progress
+			if initialStateCount == 0 {
 				if ws.handler.IsDebug() {
-					slog.Debug("Ticker triggered: Updating all device properties (clients connected, no initial state in progress)")
+					slog.Debug("Ticker triggered: Updating all device properties", "activeClients", clientCount, "initialStateInProgress", initialStateCount)
 				}
 
 				// 更新実行時刻を記録（実際に更新を開始する時点で記録）
@@ -125,11 +126,7 @@ func (ws *WebSocketServer) periodicUpdater() {
 				}()
 			} else {
 				if ws.handler.IsDebug() {
-					if clientCount == 0 {
-						slog.Debug("Ticker triggered: Skipping update (no clients connected)")
-					} else if initialStateCount > 0 {
-						slog.Debug("Ticker triggered: Skipping update (initial state generation in progress)", "count", initialStateCount)
-					}
+					slog.Debug("Ticker triggered: Skipping update (initial state generation in progress)", "count", initialStateCount)
 				}
 			}
 		case <-ws.tickerDone:
