@@ -36,13 +36,14 @@ type WebSocketServer struct {
 	transport              WebSocketTransport
 	echonetClient          client.ECHONETListClient
 	handler                *handler.ECHONETLiteHandler
-	activeClients          atomic.Int32  // Number of currently connected clients
-	updateTicker           *time.Ticker  // Ticker for periodic updates
-	tickerDone             chan bool     // Channel to stop the ticker goroutine
-	monitorDone            chan bool     // Channel to stop the monitor goroutine
-	initialStateInProgress atomic.Int32  // Counter for ongoing initial state generations
-	lastUpdateTime         atomic.Int64  // Unix timestamp of last periodic update (for monitoring)
-	updateInterval         time.Duration // Expected update interval (for monitoring)
+	notificationCh         <-chan handler.DeviceNotification // 専用通知チャンネル
+	activeClients          atomic.Int32                      // Number of currently connected clients
+	updateTicker           *time.Ticker                      // Ticker for periodic updates
+	tickerDone             chan bool                         // Channel to stop the ticker goroutine
+	monitorDone            chan bool                         // Channel to stop the monitor goroutine
+	initialStateInProgress atomic.Int32                      // Counter for ongoing initial state generations
+	lastUpdateTime         atomic.Int64                      // Unix timestamp of last periodic update (for monitoring)
+	updateInterval         time.Duration                     // Expected update interval (for monitoring)
 }
 
 // NewWebSocketServer creates a new WebSocket server
@@ -52,15 +53,19 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 	// Create the transport
 	transport := NewDefaultWebSocketTransport(serverCtx, addr)
 
+	// WebSocketServer用の通知チャンネルを取得
+	notificationCh := handler.GetCore().SubscribeNotifications(100)
+
 	// Create the WebSocket server
 	ws := &WebSocketServer{
-		ctx:           serverCtx,
-		cancel:        cancel,
-		transport:     transport,
-		echonetClient: echonetClient,
-		handler:       handler,
-		tickerDone:    make(chan bool), // Initialize the done channel
-		monitorDone:   make(chan bool), // Initialize the monitor done channel
+		ctx:            serverCtx,
+		cancel:         cancel,
+		transport:      transport,
+		echonetClient:  echonetClient,
+		handler:        handler,
+		notificationCh: notificationCh,
+		tickerDone:     make(chan bool), // Initialize the done channel
+		monitorDone:    make(chan bool), // Initialize the monitor done channel
 	}
 
 	// Set up the transport handlers
@@ -739,7 +744,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 		case <-ws.ctx.Done():
 			slog.Debug("Notification listener stopped")
 			return
-		case notification := <-ws.handler.NotificationCh:
+		case notification := <-ws.notificationCh:
 			// Handle the notification
 			switch notification.Type {
 			case handler.DeviceAdded:

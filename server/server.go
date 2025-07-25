@@ -46,8 +46,10 @@ func NewServer(ctx context.Context, cfg *config.Config) (*Server, error) {
 	liteHandler.StartMainLoop()
 
 	// 通知を監視するゴルーチン
+	// SubscribeNotifications を使用して専用チャンネルを取得
+	serverNotificationCh := liteHandler.GetCore().SubscribeNotifications(100)
 	go func() {
-		for notification := range liteHandler.NotificationCh {
+		for notification := range serverNotificationCh {
 			device := liteHandler.DeviceStringWithAlias(notification.Device)
 
 			switch notification.Type {
