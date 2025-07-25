@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -553,9 +554,9 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		errMutex.Unlock()
 	}
 
-	sameIPDelay := 0
-	lastIP := net.IP{}
-	SameIPDelayDuration := 100 * time.Millisecond
+	// 同一IPアドレスへのリクエストの管理
+	ipRequestCounts := make(map[string]int)
+	baseDelay := 50 * time.Millisecond // 基準遅延時間を短縮
 
 	// 各デバイスに対して処理を実行
 	for _, device := range filtered.ListIPAndEOJ() {
@@ -580,12 +581,31 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 			continue
 		}
 
-		// 同じIPアドレスのデバイスに対しては、遅延を追加(床暖房が連続送信していると再送が発生しているため)
-		if device.IP.Equal(lastIP) {
-			sameIPDelay++
-		} else {
-			sameIPDelay = 0
-			lastIP = device.IP
+		// 同じIPアドレスのデバイスに対して、ジッタ付き遅延を計算
+		ipStr := device.IP.String()
+		ipRequestCounts[ipStr]++
+		requestIndex := ipRequestCounts[ipStr]
+
+		// 遅延の計算：基準遅延 * リクエスト順序 + ジッタ
+		var delay time.Duration
+		if requestIndex > 1 {
+			// 2番目以降のリクエストには遅延を追加
+			// 指数バックオフの要素を加える（ただし上限を設定）
+			multiplier := requestIndex - 1
+			if multiplier > 5 {
+				multiplier = 5 // 最大5倍まで
+			}
+			baseDelayForDevice := baseDelay * time.Duration(multiplier)
+
+			// ±30%のジッタを追加
+			jitterRange := float64(baseDelayForDevice) * 0.3
+			jitter := (rand.Float64() - 0.5) * 2 * jitterRange
+			delay = time.Duration(float64(baseDelayForDevice) + jitter)
+
+			// 最小遅延を保証
+			if delay < baseDelay/2 {
+				delay = baseDelay / 2
+			}
 		}
 
 		// 各デバイスに対して並列処理を実行
@@ -636,7 +656,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				}
 				storeError(fmt.Errorf("%v の一部のプロパティ取得に失敗: %v", deviceName, epcNames))
 			}
-		}(device, propMap, time.Duration(sameIPDelay)*SameIPDelayDuration)
+		}(device, propMap, delay)
 	}
 
 	// 全てのデバイスの更新が完了するまで待つ

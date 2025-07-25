@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -94,6 +95,29 @@ type Session struct {
 // IsLocalIP は指定されたIPアドレスが自身のローカルIPのいずれかと一致するかを確認します
 func (s *Session) IsLocalIP(ip net.IP) bool {
 	return s.conn.IsLocalIP(ip)
+}
+
+// calculateRetryIntervalWithJitter は、再送間隔にジッタを加えた値を返します
+// ジッタは基準値の±30%の範囲でランダムに決定されます
+func (s *Session) calculateRetryIntervalWithJitter() time.Duration {
+	// 基準となる再送間隔
+	baseInterval := s.RetryInterval
+
+	// ±30%のジッタを計算
+	jitterRange := float64(baseInterval) * 0.3
+	// -30% から +30% の範囲でランダムな値を生成
+	jitter := (rand.Float64() - 0.5) * 2 * jitterRange
+
+	// 基準値にジッタを加算
+	intervalWithJitter := time.Duration(float64(baseInterval) + jitter)
+
+	// 最小値を基準値の50%に設定（極端に短い間隔を防ぐ）
+	minInterval := baseInterval / 2
+	if intervalWithJitter < minInterval {
+		intervalWithJitter = minInterval
+	}
+
+	return intervalWithJitter
 }
 
 // SetTimeoutChannel はタイムアウト通知用チャンネルを設定する
@@ -412,8 +436,9 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echon
 		// 再送カウンタ
 		retryCount := 0
 
-		// タイマーの作成
-		timer := time.NewTimer(s.RetryInterval)
+		// 初回のタイマーをジッタ付きで作成
+		intervalWithJitter := s.calculateRetryIntervalWithJitter()
+		timer := time.NewTimer(intervalWithJitter)
 		defer timer.Stop()
 
 		for {
@@ -440,8 +465,11 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echon
 					return
 				}
 
-				// ログ出力
-				slog.Info("リクエストを再送します", "desc", desc, "retry", retryCount, "maxRetries", s.MaxRetries)
+				// 次の再送間隔をジッタ付きで計算
+				nextInterval := s.calculateRetryIntervalWithJitter()
+
+				// ログ出力（ジッタ付き間隔も表示）
+				slog.Info("リクエストを再送します", "desc", desc, "retry", retryCount, "maxRetries", s.MaxRetries, "nextInterval", nextInterval)
 				// fmt.Printf("%v: リクエストを再送します (試行 %d/%d)\n", desc, retryCount, s.MaxRetries) // DEBUG
 
 				// 再送
@@ -449,8 +477,8 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echon
 					return
 				}
 
-				// タイマーをリセット
-				timer.Reset(s.RetryInterval)
+				// タイマーをジッタ付き間隔でリセット
+				timer.Reset(nextInterval)
 			}
 		}
 	}()
@@ -542,8 +570,9 @@ func (s *Session) sendRequestWithContext(
 	// 再送カウンタ
 	retryCount := 0
 
-	// タイマーの作成
-	timer := time.NewTimer(s.RetryInterval)
+	// 初回のタイマーをジッタ付きで作成
+	intervalWithJitter := s.calculateRetryIntervalWithJitter()
+	timer := time.NewTimer(intervalWithJitter)
 	defer timer.Stop()
 
 	for {
@@ -573,16 +602,19 @@ func (s *Session) sendRequestWithContext(
 				return nil, s.notifyDeviceTimeout(device)
 			}
 
-			// ログ出力
-			slog.Info("リクエストを再送します", "device", device, "retry", retryCount+1, "maxRetries", s.MaxRetries)
+			// 次の再送間隔をジッタ付きで計算
+			nextInterval := s.calculateRetryIntervalWithJitter()
+
+			// ログ出力（ジッタ付き間隔も表示）
+			slog.Info("リクエストを再送します", "device", device, "retry", retryCount+1, "maxRetries", s.MaxRetries, "nextInterval", nextInterval)
 
 			// 再送
 			if err := s.sendMessage(device.IP, msg); err != nil {
 				return nil, err
 			}
 
-			// タイマーをリセット
-			timer.Reset(s.RetryInterval)
+			// タイマーをジッタ付き間隔でリセット
+			timer.Reset(nextInterval)
 		}
 	}
 }
