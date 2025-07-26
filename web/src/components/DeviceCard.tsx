@@ -67,7 +67,7 @@ export function DeviceCard({
 
   return (
     <Card 
-      className={`transition-all duration-200 w-full max-w-sm flex flex-col ${device.isOffline ? 'opacity-60' : ''}`} 
+      className={`transition-all duration-200 w-full max-w-sm flex flex-col relative ${device.isOffline ? 'after:absolute after:inset-0 after:bg-background/60 after:pointer-events-none after:rounded-lg' : ''}`} 
       data-testid={`device-card-${device.ip}-${device.eoj}`}
     >
       <CardHeader className="pb-2 px-3 pt-3">
@@ -96,7 +96,7 @@ export function DeviceCard({
               </p>
             )}
           </div>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0 relative z-10">
             {onUpdateProperties && (
               <Button
                 variant="ghost"
@@ -115,7 +115,7 @@ export function DeviceCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                   title="Delete offline device"
                   disabled={isDeletingDevice || !isConnected}
                   data-testid="delete-device-button"

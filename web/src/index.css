@@ -42,7 +42,7 @@
     --color-primary-foreground: hsl(240 5.9% 10%);
     --color-secondary: hsl(240 3.7% 15.9%);
     --color-secondary-foreground: hsl(0 0% 98%);
-    --color-destructive: hsl(0 62.8% 30.6%);
+    --color-destructive: hsl(0 75% 45%);
     --color-destructive-foreground: hsl(0 0% 98%);
     --color-muted: hsl(240 3.7% 15.9%);
     --color-muted-foreground: hsl(240 5% 64.9%);
@@ -85,4 +85,5 @@
     touch-action: manipulation;
   }
 }
+
 
