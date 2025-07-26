@@ -479,7 +479,7 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echon
 				s.UnregisterCallback(key)
 
 				if retryCount > 0 {
-					slog.Info("リトライ後に完了", "desc", desc)
+					slog.Info("リトライ後に完了", "desc", desc, "retryCount", retryCount)
 				}
 				return
 
@@ -615,7 +615,7 @@ func (s *Session) sendRequestWithContext(
 
 		case respMsg := <-responseCh:
 			if retryCount > 0 {
-				slog.Info("リトライ後に完了", "device", device)
+				slog.Info("リトライ後に完了", "device", device, "retryCount", retryCount)
 			}
 			// 応答を受信した場合
 			callbackUnregistered = true // コールバックは既に登録解除されている
