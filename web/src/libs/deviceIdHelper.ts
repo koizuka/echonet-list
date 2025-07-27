@@ -34,13 +34,13 @@ function parseIdentificationNumber(hexString: string): string {
   if (hexString.length !== 34 || !hexString.startsWith('FE')) {
     return hexString; // Return as-is if format doesn't match
   }
-  
+
   // Extract manufacturer code (3 bytes = 6 hex chars)
   const manufacturerCode = hexString.substring(2, 8);
-  
+
   // Extract unique identifier (13 bytes = 26 hex chars)
   const uniqueIdentifier = hexString.substring(8);
-  
+
   return `${manufacturerCode}:${uniqueIdentifier}`;
 }
 
@@ -59,7 +59,7 @@ export function getDeviceIdentifierForAlias(
   // Find NodeProfileObject device for the same IP
   const npoKey = `${device.ip} ${NODE_PROFILE_OBJECT_EOJ}`;
   const npoDevice = allDevices[npoKey];
-  
+
   if (!npoDevice) {
     // No NodeProfileObject found, fallback to device.id
     return device.id;
@@ -87,20 +87,6 @@ export function getDeviceIdentifierForAlias(
 }
 
 /**
- * Get display name for device using correct device identifier for alias matching
- */
-export function getDeviceDisplayNameWithCorrectId(
-  device: Device,
-  allDevices: Record<string, Device>,
-  aliases: Record<string, string>
-): string {
-  const deviceIdentifier = getDeviceIdentifierForAlias(device, allDevices);
-  const aliasName = Object.entries(aliases).find(([, id]) => id === deviceIdentifier)?.[0];
-  
-  return aliasName || device.name || device.eoj;
-}
-
-/**
  * Check if device has an alias using correct device identifier
  */
 export function deviceHasAlias(
@@ -110,7 +96,7 @@ export function deviceHasAlias(
 ): { hasAlias: boolean; aliasName?: string; deviceIdentifier: string | undefined } {
   const deviceIdentifier = getDeviceIdentifierForAlias(device, allDevices);
   const aliasName = Object.entries(aliases).find(([, id]) => id === deviceIdentifier)?.[0];
-  
+
   return {
     hasAlias: !!aliasName,
     aliasName,
@@ -130,7 +116,7 @@ export function getDeviceAliases(
   const deviceAliases = Object.entries(aliases)
     .filter(([, id]) => id === deviceIdentifier)
     .map(([alias]) => alias);
-  
+
   return {
     aliases: deviceAliases,
     deviceIdentifier
