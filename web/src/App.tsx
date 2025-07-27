@@ -1,5 +1,6 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getLocationDisplayName } from '@/libs/locationHelper';
+import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
@@ -14,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExpandIcon, ShrinkIcon, Plus } from 'lucide-react';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { PropertyValue, LogNotification, DeviceOnline, DeviceOffline } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
 
@@ -33,16 +34,8 @@ function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Log notification handlers
-  const logManager = useLogNotifications({ 
-    notification: latestLogNotification,
-    deviceOnlineNotification: latestDeviceOnlineNotification,
-    deviceOfflineNotification: latestDeviceOfflineNotification,
-    onLogsChange: (newLogs, newUnreadCount) => {
-      setLogs(newLogs);
-      setUnreadCount(newUnreadCount);
-    }
-  });
+  // Use a ref to store the logManager methods to avoid circular dependency
+  const logManagerRef = useRef<{ clearByCategory: (category: string) => void } | null>(null);
 
   const echonet = usePropertyDescriptions(wsUrl, (message) => {
     // Handle log notifications
@@ -55,8 +48,34 @@ function App() {
     }
   }, () => {
     // Clear WebSocket connection errors when successfully connected
-    logManager.clearByCategory('WebSocket');
+    logManagerRef.current?.clearByCategory('WebSocket');
   });
+
+  // Create a memoized alias resolution function
+  const resolveDeviceAlias = useCallback((ip: string, eoj: string) => {
+    const deviceKey = `${ip} ${eoj}`;
+    const device = echonet.devices[deviceKey];
+    if (!device) return null;
+    
+    const { aliasName } = deviceHasAlias(device, echonet.devices, echonet.aliases);
+    return aliasName || null;
+  }, [echonet.devices, echonet.aliases]);
+
+  // Log notification handlers
+  const logManager = useLogNotifications({ 
+    notification: latestLogNotification,
+    deviceOnlineNotification: latestDeviceOnlineNotification,
+    deviceOfflineNotification: latestDeviceOfflineNotification,
+    resolveAlias: resolveDeviceAlias,
+    onLogsChange: (newLogs, newUnreadCount) => {
+      setLogs(newLogs);
+      setUnreadCount(newUnreadCount);
+    }
+  });
+
+  // Store logManager methods in ref for use in callback
+  logManagerRef.current = logManager;
+
   const cardExpansion = useCardExpansion();
   
   // Compute isConnected from connectionState to avoid unnecessary re-renders

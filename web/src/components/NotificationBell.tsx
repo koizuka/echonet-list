@@ -28,15 +28,17 @@ export function NotificationBell({
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
+    if (isOpen) {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+          setIsOpen(false);
+        }
+      };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
 
   // Mark all as read when opening dropdown
   const handleToggleDropdown = () => {
@@ -182,7 +184,9 @@ export function NotificationBell({
                           {log.message}
                         </p>
                         
-                        {Object.keys(log.attributes).length > 0 && (
+                        {Object.keys(log.attributes).length > 0 && 
+                         log.attributes.event !== 'device_online' && 
+                         log.attributes.event !== 'device_offline' && (
                           <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
                             {Object.entries(log.attributes).map(([key, value]) => (
                               <div key={key} className="break-all">
