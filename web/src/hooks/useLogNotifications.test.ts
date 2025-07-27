@@ -1,7 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { useLogNotifications } from './useLogNotifications';
-import type { LogNotification } from './types';
+import type { LogNotification, DeviceOnline, DeviceOffline } from './types';
 
 describe('useLogNotifications', () => {
   it('starts with empty logs', () => {
@@ -313,5 +313,191 @@ describe('useLogNotifications', () => {
 
     expect(result.current.logs).toHaveLength(2);
     expect(result.current.logs[0].id).not.toBe(result.current.logs[1].id);
+  });
+
+  describe('device online notifications', () => {
+    it('adds device online notification without alias', () => {
+      const deviceOnlineNotification: DeviceOnline = {
+        type: 'device_online',
+        payload: {
+          ip: '192.168.1.100',
+          eoj: '0291:1'
+        }
+      };
+
+      const { result, rerender } = renderHook(
+        ({ deviceOnlineNotification }) => useLogNotifications({ deviceOnlineNotification }),
+        { initialProps: { deviceOnlineNotification: undefined as DeviceOnline | undefined } }
+      );
+
+      expect(result.current.logs).toEqual([]);
+
+      rerender({ deviceOnlineNotification });
+
+      expect(result.current.logs).toHaveLength(1);
+      expect(result.current.logs[0].message).toBe('Device 192.168.1.100 0291:1 came online');
+      expect(result.current.logs[0].level).toBe('INFO');
+      expect(result.current.logs[0].isRead).toBe(false);
+      expect(result.current.logs[0].attributes.ip).toBe('192.168.1.100');
+      expect(result.current.logs[0].attributes.eoj).toBe('0291:1');
+      expect(result.current.logs[0].attributes.event).toBe('device_online');
+      expect(result.current.logs[0].attributes.alias).toBeUndefined();
+    });
+
+    it('adds device online notification with alias', () => {
+      const deviceOnlineNotification: DeviceOnline = {
+        type: 'device_online',
+        payload: {
+          ip: '192.168.1.100',
+          eoj: '0291:1'
+        }
+      };
+
+      const mockResolveAlias = vi.fn(() => 'Living Room Light');
+
+      const { result, rerender } = renderHook(
+        ({ deviceOnlineNotification }) => useLogNotifications({ deviceOnlineNotification, resolveAlias: mockResolveAlias }),
+        { initialProps: { deviceOnlineNotification: undefined as DeviceOnline | undefined } }
+      );
+
+      expect(result.current.logs).toEqual([]);
+
+      rerender({ deviceOnlineNotification });
+
+      expect(result.current.logs).toHaveLength(1);
+      expect(result.current.logs[0].message).toBe('Device Living Room Light (192.168.1.100 0291:1) came online');
+      expect(result.current.logs[0].level).toBe('INFO');
+      expect(result.current.logs[0].isRead).toBe(false);
+      expect(result.current.logs[0].attributes.ip).toBe('192.168.1.100');
+      expect(result.current.logs[0].attributes.eoj).toBe('0291:1');
+      expect(result.current.logs[0].attributes.alias).toBe('Living Room Light');
+      expect(result.current.logs[0].attributes.event).toBe('device_online');
+    });
+  });
+
+  describe('device offline notifications', () => {
+    it('adds device offline notification without alias', () => {
+      const deviceOfflineNotification: DeviceOffline = {
+        type: 'device_offline',
+        payload: {
+          ip: '192.168.1.101',
+          eoj: '0130:1'
+        }
+      };
+
+      const { result, rerender } = renderHook(
+        ({ deviceOfflineNotification }) => useLogNotifications({ deviceOfflineNotification }),
+        { initialProps: { deviceOfflineNotification: undefined as DeviceOffline | undefined } }
+      );
+
+      expect(result.current.logs).toEqual([]);
+
+      rerender({ deviceOfflineNotification });
+
+      expect(result.current.logs).toHaveLength(1);
+      expect(result.current.logs[0].message).toBe('Device 192.168.1.101 0130:1 went offline');
+      expect(result.current.logs[0].level).toBe('WARN');
+      expect(result.current.logs[0].isRead).toBe(false);
+      expect(result.current.logs[0].attributes.ip).toBe('192.168.1.101');
+      expect(result.current.logs[0].attributes.eoj).toBe('0130:1');
+      expect(result.current.logs[0].attributes.event).toBe('device_offline');
+      expect(result.current.logs[0].attributes.alias).toBeUndefined();
+    });
+
+    it('adds device offline notification with alias', () => {
+      const deviceOfflineNotification: DeviceOffline = {
+        type: 'device_offline',
+        payload: {
+          ip: '192.168.1.101',
+          eoj: '0130:1'
+        }
+      };
+
+      const mockResolveAlias = vi.fn(() => 'Bedroom AC');
+
+      const { result, rerender } = renderHook(
+        ({ deviceOfflineNotification }) => useLogNotifications({ deviceOfflineNotification, resolveAlias: mockResolveAlias }),
+        { initialProps: { deviceOfflineNotification: undefined as DeviceOffline | undefined } }
+      );
+
+      expect(result.current.logs).toEqual([]);
+
+      rerender({ deviceOfflineNotification });
+
+      expect(result.current.logs).toHaveLength(1);
+      expect(result.current.logs[0].message).toBe('Device Bedroom AC (192.168.1.101 0130:1) went offline');
+      expect(result.current.logs[0].level).toBe('WARN');
+      expect(result.current.logs[0].isRead).toBe(false);
+      expect(result.current.logs[0].attributes.ip).toBe('192.168.1.101');
+      expect(result.current.logs[0].attributes.eoj).toBe('0130:1');
+      expect(result.current.logs[0].attributes.alias).toBe('Bedroom AC');
+      expect(result.current.logs[0].attributes.event).toBe('device_offline');
+    });
+  });
+
+  describe('mixed notification types', () => {
+    it('handles multiple notification types correctly', () => {
+      const onLogsChange = vi.fn();
+      const mockResolveAlias = vi.fn((ip: string, eoj: string) => {
+        if (ip === '192.168.1.100' && eoj === '0291:1') return 'Test Device';
+        return null;
+      });
+
+      const { result, rerender } = renderHook(
+        ({ notification, deviceOnlineNotification, deviceOfflineNotification }) => 
+          useLogNotifications({ notification, deviceOnlineNotification, deviceOfflineNotification, resolveAlias: mockResolveAlias, onLogsChange }),
+        { 
+          initialProps: { 
+            notification: undefined as LogNotification | undefined,
+            deviceOnlineNotification: undefined as DeviceOnline | undefined,
+            deviceOfflineNotification: undefined as DeviceOffline | undefined
+          } 
+        }
+      );
+
+      // Add log notification
+      const logNotification: LogNotification = {
+        type: 'log_notification',
+        payload: {
+          level: 'ERROR',
+          message: 'Test error',
+          time: '2023-04-01T12:00:00Z',
+          attributes: {}
+        }
+      };
+      rerender({ notification: logNotification, deviceOnlineNotification: undefined, deviceOfflineNotification: undefined });
+
+      // Add device online notification
+      const onlineNotification: DeviceOnline = {
+        type: 'device_online',
+        payload: {
+          ip: '192.168.1.100',
+          eoj: '0291:1'
+        }
+      };
+      rerender({ notification: undefined, deviceOnlineNotification: onlineNotification, deviceOfflineNotification: undefined });
+
+      // Add device offline notification
+      const offlineNotification: DeviceOffline = {
+        type: 'device_offline',
+        payload: {
+          ip: '192.168.1.101',
+          eoj: '0130:1'
+        }
+      };
+      rerender({ notification: undefined, deviceOnlineNotification: undefined, deviceOfflineNotification: offlineNotification });
+
+      expect(result.current.logs).toHaveLength(3);
+      
+      // Check that logs are in reverse chronological order (most recent first)
+      expect(result.current.logs[0].message).toBe('Device 192.168.1.101 0130:1 went offline');
+      expect(result.current.logs[0].level).toBe('WARN');
+      
+      expect(result.current.logs[1].message).toBe('Device Test Device (192.168.1.100 0291:1) came online');
+      expect(result.current.logs[1].level).toBe('INFO');
+      
+      expect(result.current.logs[2].message).toBe('Test error');
+      expect(result.current.logs[2].level).toBe('ERROR');
+    });
   });
 });
