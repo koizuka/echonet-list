@@ -143,3 +143,118 @@ func TestDeviceProperties_SetPropertiesWithAnnouncement(t *testing.T) {
 	// 通知機能は実装時にCommunicationHandlerに追加予定
 	t.Log("プロパティ変更通知機能のテスト準備完了 - 実装時にbroadcast処理を追加")
 }
+
+func TestCalculateRequestDelay(t *testing.T) {
+	baseDelay := 50 * time.Millisecond
+
+	tests := []struct {
+		name         string
+		requestIndex int
+		wantMinDelay time.Duration
+		wantMaxDelay time.Duration
+	}{
+		{
+			name:         "最初のリクエストは遅延なし",
+			requestIndex: 1,
+			wantMinDelay: 0,
+			wantMaxDelay: 0,
+		},
+		{
+			name:         "2番目のリクエストは基準遅延×1",
+			requestIndex: 2,
+			wantMinDelay: time.Duration(float64(baseDelay) * MinIntervalRatio),         // 最小値は基準値の50%
+			wantMaxDelay: time.Duration(float64(baseDelay) * (1.0 + JitterPercentage)), // 最大値は+30%
+		},
+		{
+			name:         "3番目のリクエストは基準遅延×2",
+			requestIndex: 3,
+			wantMinDelay: time.Duration(float64(baseDelay*2) * (1.0 - JitterPercentage)), // -30%
+			wantMaxDelay: time.Duration(float64(baseDelay*2) * (1.0 + JitterPercentage)), // +30%
+		},
+		{
+			name:         "最大倍率を超える場合",
+			requestIndex: MaxDelayMultiplier + 2, // 7番目
+			wantMinDelay: time.Duration(float64(baseDelay*MaxDelayMultiplier) * (1.0 - JitterPercentage)),
+			wantMaxDelay: time.Duration(float64(baseDelay*MaxDelayMultiplier) * (1.0 + JitterPercentage)),
+		},
+		{
+			name:         "requestIndex が 0 の場合",
+			requestIndex: 0,
+			wantMinDelay: 0,
+			wantMaxDelay: 0,
+		},
+		{
+			name:         "requestIndex が負の場合",
+			requestIndex: -1,
+			wantMinDelay: 0,
+			wantMaxDelay: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 複数回実行してジッタの範囲を確認
+			iterations := 100
+			for i := 0; i < iterations; i++ {
+				delay := calculateRequestDelay(tt.requestIndex, baseDelay)
+
+				if delay < tt.wantMinDelay {
+					t.Errorf("calculateRequestDelay() = %v, want minimum %v", delay, tt.wantMinDelay)
+				}
+				if delay > tt.wantMaxDelay {
+					t.Errorf("calculateRequestDelay() = %v, want maximum %v", delay, tt.wantMaxDelay)
+				}
+
+				// 最初のリクエストまたは無効なインデックスの場合は常に0
+				if tt.requestIndex <= 1 && delay != 0 {
+					t.Errorf("calculateRequestDelay() = %v for requestIndex %d, want 0", delay, tt.requestIndex)
+				}
+			}
+		})
+	}
+}
+
+func TestCalculateRequestDelayDistribution(t *testing.T) {
+	// ジッタの分布が適切かどうかを確認するテスト
+	baseDelay := 100 * time.Millisecond
+	requestIndex := 2
+
+	iterations := 1000
+	var totalDelay time.Duration
+	var minDelay = time.Hour // 大きな初期値
+	var maxDelay time.Duration
+
+	for i := 0; i < iterations; i++ {
+		delay := calculateRequestDelay(requestIndex, baseDelay)
+		totalDelay += delay
+
+		if delay < minDelay {
+			minDelay = delay
+		}
+		if delay > maxDelay {
+			maxDelay = delay
+		}
+	}
+
+	// 平均値が基準値に近いことを確認
+	avgDelay := totalDelay / time.Duration(iterations)
+	expectedAvg := baseDelay * time.Duration(requestIndex-1)
+	tolerance := time.Duration(float64(expectedAvg) * 0.05) // 5%の許容範囲
+
+	if avgDelay < expectedAvg-tolerance || avgDelay > expectedAvg+tolerance {
+		t.Errorf("Average delay = %v, want approximately %v (±%v)", avgDelay, expectedAvg, tolerance)
+	}
+
+	// 最小値と最大値が期待範囲内であることを確認
+	expectedMin := time.Duration(float64(baseDelay) * MinIntervalRatio)
+	expectedMax := time.Duration(float64(baseDelay) * (1.0 + JitterPercentage))
+
+	if minDelay < expectedMin*9/10 { // 若干の余裕を持たせる
+		t.Errorf("Minimum delay too low: %v, expected at least %v", minDelay, expectedMin)
+	}
+	if maxDelay > expectedMax*11/10 { // 若干の余裕を持たせる
+		t.Errorf("Maximum delay too high: %v, expected at most %v", maxDelay, expectedMax)
+	}
+
+	t.Logf("Delay distribution: min=%v, avg=%v, max=%v", minDelay, avgDelay, maxDelay)
+}

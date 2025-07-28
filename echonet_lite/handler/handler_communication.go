@@ -588,39 +588,8 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		ipRequestCounts[ipStr]++
 		requestIndex := ipRequestCounts[ipStr]
 
-		// 遅延の計算：基準遅延 * リクエスト順序 + ジッタ
-		var delay time.Duration
-		if requestIndex > 1 {
-			// 2番目以降のリクエストには遅延を追加
-			// 指数バックオフの要素を加える（ただし上限を設定）
-			multiplier := requestIndex - 1
-			if multiplier > MaxDelayMultiplier {
-				multiplier = MaxDelayMultiplier // 定数を使用
-			}
-			baseDelayForDevice := baseDelay * time.Duration(multiplier)
-
-			// ±30%のジッタを追加（crypto/randを使用）
-			jitterRange := float64(baseDelayForDevice) * JitterPercentage
-
-			// 安全な乱数生成
-			randomBig, err := rand.Int(rand.Reader, big.NewInt(1<<32))
-			var jitterFactor float64
-			if err != nil {
-				// フォールバック: 時刻ベースの乱数
-				jitterFactor = mathrand.Float64()
-			} else {
-				jitterFactor = float64(randomBig.Int64()) / float64(1<<32)
-			}
-
-			jitter := (jitterFactor - 0.5) * 2 * jitterRange
-			delay = time.Duration(float64(baseDelayForDevice) + jitter)
-
-			// 最小遅延を保証（定数を使用）
-			minDelay := time.Duration(float64(baseDelay) * MinIntervalRatio)
-			if delay < minDelay {
-				delay = minDelay
-			}
-		}
+		// 遅延の計算
+		delay := calculateRequestDelay(requestIndex, baseDelay)
 
 		// 各デバイスに対して並列処理を実行
 		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration) {
@@ -686,6 +655,41 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 
 	slog.Info("UpdateProperties completed successfully", "duration", duration)
 	return nil
+}
+
+// calculateRequestDelay は同一IPアドレスへの連続リクエストに対する遅延を計算する
+// requestIndex: リクエストの順序（1から始まる）
+// baseDelay: 基準となる遅延時間
+func calculateRequestDelay(requestIndex int, baseDelay time.Duration) time.Duration {
+	// 1番目のリクエストには遅延なし
+	if requestIndex <= 1 {
+		return 0
+	}
+
+	// 2番目以降のリクエストには遅延を追加
+	// 指数バックオフの要素を加える（ただし上限を設定）
+	multiplier := min(requestIndex-1, MaxDelayMultiplier)
+	baseDelayForDevice := baseDelay * time.Duration(multiplier)
+
+	// ±30%のジッタを追加（crypto/randを使用）
+	jitterRange := float64(baseDelayForDevice) * JitterPercentage
+
+	// 安全な乱数生成
+	randomBig, err := rand.Int(rand.Reader, big.NewInt(1<<32))
+	var jitterFactor float64
+	if err != nil {
+		// フォールバック: 時刻ベースの乱数
+		jitterFactor = mathrand.Float64()
+	} else {
+		jitterFactor = float64(randomBig.Int64()) / float64(1<<32)
+	}
+
+	jitter := (jitterFactor - 0.5) * 2 * jitterRange
+	delay := time.Duration(float64(baseDelayForDevice) + jitter)
+
+	// 最小遅延を保証
+	minDelay := time.Duration(float64(baseDelay) * MinIntervalRatio)
+	return max(delay, minDelay)
 }
 
 // validateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
