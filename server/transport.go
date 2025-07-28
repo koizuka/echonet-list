@@ -165,6 +165,14 @@ func (t *DefaultWebSocketTransport) SetDisconnectHandler(handler func(connID str
 	t.disconnectHandler = handler
 }
 
+// isConnectionClosedError checks if the error indicates a closed connection
+func isConnectionClosedError(err error) bool {
+	return websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) ||
+		strings.Contains(err.Error(), "close sent") ||
+		strings.Contains(err.Error(), "use of closed network connection") ||
+		strings.Contains(err.Error(), "broken pipe")
+}
+
 // SendMessage は特定のクライアントにメッセージを送信する
 func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) error {
 	t.clientsMutex.RLock()
@@ -181,8 +189,7 @@ func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) e
 	err := client.conn.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
 		// Check if this is a connection close error
-		if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) ||
-			strings.Contains(err.Error(), "close sent") || strings.Contains(err.Error(), "use of closed network connection") {
+		if isConnectionClosedError(err) {
 			// Remove the client from the map since it's already closed
 			// Check if client still exists to avoid duplicate disconnect handling
 			t.clientsMutex.Lock()
@@ -224,8 +231,7 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 		client.mutex.Lock()
 		if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 			// Check if this is a client disconnection error
-			if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) ||
-				strings.Contains(err.Error(), "close sent") || strings.Contains(err.Error(), "use of closed network connection") {
+			if isConnectionClosedError(err) {
 				disconnectedClients = append(disconnectedClients, connID)
 			} else {
 				slog.Error("Error broadcasting message to client", "err", err, "connID", connID)
