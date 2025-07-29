@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PropertyRow } from '@/components/PropertyRow';
 import { AliasEditor } from '@/components/AliasEditor';
-import { DeviceStatusIndicators } from '@/components/DeviceStatusIndicators';
 import { DeviceDeleteConfirmDialog } from '@/components/DeviceDeleteConfirmDialog';
+import { DeviceIcon } from '@/components/DeviceIcon';
 import { useState } from 'react';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
 import { deviceHasAlias, getDeviceIdentifierForAlias, getDeviceAliases } from '@/libs/deviceIdHelper';
@@ -74,6 +74,7 @@ export function DeviceCard({
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 flex-1 min-w-0">
             <div className="flex items-center gap-2">
+              <DeviceIcon device={device} classCode={classCode} />
               <CardTitle className="text-sm font-semibold truncate" data-testid="device-title">
                 {aliasInfo.aliasName || device.name}
               </CardTitle>
@@ -83,7 +84,6 @@ export function DeviceCard({
                   {deviceAliasesInfo.aliases.length}
                 </div>
               )}
-              <DeviceStatusIndicators device={device} />
             </div>
             {aliasInfo.hasAlias && isExpanded && (
               <p className="text-xs text-muted-foreground truncate">
