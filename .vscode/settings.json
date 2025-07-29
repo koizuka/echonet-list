@@ -23,6 +23,7 @@
     "firewalld",
     "frontends",
     "gofmt",
+    "gomod",
     "Goroutines",
     "iface",
     "ifaces",
@@ -48,6 +49,9 @@
     "tmpfiles",
     "unmarshal",
     "upgrader",
+    "vite",
+    "vitejs",
+    "vitest",
     "webroot"
   ],
   "eslint.enable": true,
