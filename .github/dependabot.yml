@@ -47,11 +47,28 @@ updates:
         patterns:
           - "tailwindcss"
           - "@tailwindcss/*"
+          - "tailwindcss-animate"
       eslint:
         patterns:
           - "eslint"
           - "@eslint/*"
           - "typescript-eslint"
+          - "eslint-plugin-*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "vitest"
+      postcss:
+        patterns:
+          - "postcss"
+          - "autofixer"
     commit-message:
       prefix: "npm"
       include: "scope"
