@@ -494,8 +494,30 @@ type DevicePropertyData struct {
 
 // ListDevicePropertyData は、デバイス（IPAndEOJ）とそのプロパティの組を表します
 func (d Devices) ListDevicePropertyData() []DevicePropertyData {
+	startTime := time.Now()
+	const lockWarnThreshold = 100 * time.Millisecond
+	const totalWarnThreshold = 1 * time.Second
+
 	d.mu.RLock()
-	defer d.mu.RUnlock()
+	lockAcquiredTime := time.Now()
+	lockWaitTime := lockAcquiredTime.Sub(startTime)
+
+	// ロック待機時間が異常に長い場合のみログ出力
+	if lockWaitTime > lockWarnThreshold {
+		slog.Warn("ListDevicePropertyData: Lock acquisition took too long", "lockWaitTime", lockWaitTime)
+	}
+
+	defer func() {
+		d.mu.RUnlock()
+		totalDuration := time.Since(startTime)
+		// 全体の処理時間が異常に長い場合のみログ出力
+		if totalDuration > totalWarnThreshold {
+			slog.Warn("ListDevicePropertyData: Operation took too long",
+				"totalDuration", totalDuration,
+				"lockWaitTime", lockWaitTime,
+				"deviceCount", len(d.data))
+		}
+	}()
 
 	// 結果が空の場合は早期リターン
 	if len(d.data) == 0 {
