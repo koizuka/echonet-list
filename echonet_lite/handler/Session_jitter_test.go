@@ -15,7 +15,7 @@ func TestSession_calculateRetryIntervalWithJitter(t *testing.T) {
 	// ジッタが適用されることを確認するために複数回実行
 	intervals := make([]time.Duration, 10)
 	for i := 0; i < 10; i++ {
-		intervals[i] = session.calculateRetryIntervalWithJitter()
+		intervals[i] = session.calculateRetryIntervalWithJitter(0) // retryCount = 0
 	}
 
 	// 基準値の範囲を確認（定数を使用）
@@ -66,7 +66,7 @@ func TestSession_calculateRetryIntervalWithJitter_MinimumValue(t *testing.T) {
 
 	// 最小値の保証を確認
 	for i := 0; i < 100; i++ {
-		interval := session.calculateRetryIntervalWithJitter()
+		interval := session.calculateRetryIntervalWithJitter(0) // retryCount = 0
 		minAllowed := time.Duration(float64(session.RetryInterval) * MinIntervalRatio)
 		if interval < minAllowed {
 			t.Errorf("Interval (%v) is less than minimum allowed (%v)", interval, minAllowed)
@@ -104,7 +104,7 @@ func TestSession_calculateRetryIntervalWithJitter_InvalidInput(t *testing.T) {
 				RetryInterval: tt.retryInterval,
 			}
 
-			interval := session.calculateRetryIntervalWithJitter()
+			interval := session.calculateRetryIntervalWithJitter(0) // retryCount = 0
 
 			if tt.expectDefault {
 				// デフォルト値（3秒）が返されることを確認
@@ -141,7 +141,7 @@ func TestSession_calculateRetryIntervalWithJitter_Concurrency(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < numIterations; j++ {
-				interval := session.calculateRetryIntervalWithJitter()
+				interval := session.calculateRetryIntervalWithJitter(0) // retryCount = 0
 				results <- interval
 			}
 		}()
@@ -199,7 +199,7 @@ func TestSession_calculateRetryIntervalWithJitter_ThreadSafety(t *testing.T) {
 		go func(routineID int) {
 			defer wg.Done()
 			for j := 0; j < numIterations; j++ {
-				interval := session.calculateRetryIntervalWithJitter()
+				interval := session.calculateRetryIntervalWithJitter(0) // retryCount = 0
 
 				// 基本的な妥当性チェック
 				if interval <= 0 {
@@ -222,5 +222,71 @@ func TestSession_calculateRetryIntervalWithJitter_ThreadSafety(t *testing.T) {
 	// エラーがないことを確認
 	for err := range errors {
 		t.Error(err)
+	}
+}
+
+// TestSession_calculateRetryIntervalWithJitter_ExponentialBackoff はexponential backoffのテスト
+func TestSession_calculateRetryIntervalWithJitter_ExponentialBackoff(t *testing.T) {
+	session := &Session{
+		RetryInterval: 1 * time.Second,
+	}
+
+	// 各リトライ回数での期待される基準間隔を計算
+	expectedBaseIntervals := []time.Duration{
+		1 * time.Second,  // retryCount = 0: 1s
+		2 * time.Second,  // retryCount = 1: 1s * 2
+		4 * time.Second,  // retryCount = 2: 1s * 2^2
+		8 * time.Second,  // retryCount = 3: 1s * 2^3
+		16 * time.Second, // retryCount = 4: 1s * 2^4
+		32 * time.Second, // retryCount = 5: 1s * 2^5
+		60 * time.Second, // retryCount = 6: MaxRetryInterval (60s)
+		60 * time.Second, // retryCount = 7: MaxRetryInterval (60s)
+	}
+
+	for retryCount, expectedBase := range expectedBaseIntervals {
+		t.Run(fmt.Sprintf("retryCount=%d", retryCount), func(t *testing.T) {
+			// 複数回実行して範囲を確認
+			for i := 0; i < 10; i++ {
+				interval := session.calculateRetryIntervalWithJitter(retryCount)
+
+				// 最大値を超えないことを確認
+				if expectedBase > MaxRetryInterval {
+					expectedBase = MaxRetryInterval
+				}
+
+				// ジッタを考慮した期待範囲
+				minExpected := time.Duration(float64(expectedBase) * (1.0 - JitterPercentage))
+				maxExpected := time.Duration(float64(expectedBase) * (1.0 + JitterPercentage))
+				minAllowed := time.Duration(float64(expectedBase) * MinIntervalRatio)
+
+				// 範囲内にあることを確認
+				if interval < minAllowed {
+					t.Errorf("Interval (%v) is less than minimum allowed (%v) for retryCount=%d", interval, minAllowed, retryCount)
+				}
+				if interval < minExpected || interval > maxExpected {
+					t.Errorf("Interval (%v) is outside expected range [%v, %v] for retryCount=%d", interval, minExpected, maxExpected, retryCount)
+				}
+			}
+		})
+	}
+}
+
+// TestSession_calculateRetryIntervalWithJitter_MaxRetryInterval は最大値制限のテスト
+func TestSession_calculateRetryIntervalWithJitter_MaxRetryInterval(t *testing.T) {
+	session := &Session{
+		RetryInterval: 10 * time.Second, // 大きめの初期値
+	}
+
+	// 高いリトライ回数で最大値を超えないことを確認
+	for retryCount := 5; retryCount < 10; retryCount++ {
+		for i := 0; i < 5; i++ {
+			interval := session.calculateRetryIntervalWithJitter(retryCount)
+
+			// MaxRetryIntervalにジッタを加えた値を超えないことを確認
+			maxAllowed := time.Duration(float64(MaxRetryInterval) * (1.0 + JitterPercentage))
+			if interval > maxAllowed {
+				t.Errorf("Interval (%v) exceeds maximum allowed (%v) for retryCount=%d", interval, maxAllowed, retryCount)
+			}
+		}
 	}
 }
