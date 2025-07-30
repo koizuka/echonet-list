@@ -547,6 +547,7 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 		const errorThreshold = 10 * time.Second
 
 		go func() {
+			goroutineStartTime := time.Now()
 			defer func() {
 				if r := recover(); r != nil {
 					slog.Error("Panic in device list fetch goroutine", "error", r, "connID", connID)
@@ -559,15 +560,15 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 			}
 
 			deviceList := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: false})
-			fetchDuration := time.Since(fetchStartTime)
+			goroutineDuration := time.Since(goroutineStartTime)
 
-			// 異常に長い場合のみログ出力
-			if fetchDuration > errorThreshold {
-				slog.Error("Device list fetch goroutine took too long", "connID", connID, "duration", fetchDuration, "deviceCount", len(deviceList))
-			} else if fetchDuration > warnThreshold {
-				slog.Warn("Device list fetch goroutine is slow", "connID", connID, "duration", fetchDuration, "deviceCount", len(deviceList))
+			// goroutine内での処理時間が異常に長い場合のみログ出力
+			if goroutineDuration > errorThreshold {
+				slog.Error("Device list fetch operation took too long", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
+			} else if goroutineDuration > warnThreshold {
+				slog.Warn("Device list fetch operation is slow", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
 			} else if ws.handler.IsDebug() {
-				slog.Debug("Device list fetch goroutine completed", "connID", connID, "duration", fetchDuration, "deviceCount", len(deviceList))
+				slog.Debug("Device list fetch operation completed", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
 			}
 
 			devicesCh <- deviceList
@@ -576,18 +577,23 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 		// Use a shorter timeout for device list fetching (20 seconds instead of waiting for full 30s timeout)
 		select {
 		case devices = <-devicesCh:
-			fetchDuration := time.Since(fetchStartTime)
-			// 正常時はデバッグモードでのみログ出力
-			if ws.handler.IsDebug() {
-				slog.Debug("Device list fetched successfully", "connID", connID, "deviceCount", len(devices), "duration", fetchDuration)
+			totalDuration := time.Since(fetchStartTime)
+			// 正常時でも、呼び出し元の待機時間が長い場合は警告
+			if totalDuration > warnThreshold {
+				slog.Warn("Device list fetch completed but took longer than expected",
+					"connID", connID,
+					"totalDuration", totalDuration,
+					"deviceCount", len(devices))
+			} else if ws.handler.IsDebug() {
+				slog.Debug("Device list fetched successfully", "connID", connID, "deviceCount", len(devices), "totalDuration", totalDuration)
 			}
 		case err := <-errorCh:
-			fetchDuration := time.Since(fetchStartTime)
-			slog.Error("Error during device list fetch", "connID", connID, "error", err, "duration", fetchDuration)
+			totalDuration := time.Since(fetchStartTime)
+			slog.Error("Error during device list fetch", "connID", connID, "error", err, "totalDuration", totalDuration)
 			return fmt.Errorf("error fetching device list: %w", err)
 		case <-time.After(20 * time.Second):
-			fetchDuration := time.Since(fetchStartTime)
-			slog.Warn("Device list fetch timed out, using cached data if available", "connID", connID, "duration", fetchDuration)
+			totalDuration := time.Since(fetchStartTime)
+			slog.Warn("Device list fetch timed out, using cached data if available", "connID", connID, "totalDuration", totalDuration)
 			// Try to get cached device list with minimal blocking
 			devices = ws.getCachedDeviceList()
 		}
