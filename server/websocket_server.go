@@ -540,26 +540,54 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 		devicesCh := make(chan []handler.DeviceAndProperties, 1)
 		errorCh := make(chan error, 1)
 
+		// Log before starting device fetch
+		fetchStartTime := time.Now()
+		// 処理時間の閾値
+		const warnThreshold = 5 * time.Second
+		const errorThreshold = 10 * time.Second
+
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
+					slog.Error("Panic in device list fetch goroutine", "error", r, "connID", connID)
 					errorCh <- fmt.Errorf("panic in device list fetch: %v", r)
 				}
 			}()
+			// Log when goroutine starts - only in debug mode
+			if ws.handler.IsDebug() {
+				slog.Debug("Device list fetch goroutine started", "connID", connID)
+			}
+
 			deviceList := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: false})
+			fetchDuration := time.Since(fetchStartTime)
+
+			// 異常に長い場合のみログ出力
+			if fetchDuration > errorThreshold {
+				slog.Error("Device list fetch goroutine took too long", "connID", connID, "duration", fetchDuration, "deviceCount", len(deviceList))
+			} else if fetchDuration > warnThreshold {
+				slog.Warn("Device list fetch goroutine is slow", "connID", connID, "duration", fetchDuration, "deviceCount", len(deviceList))
+			} else if ws.handler.IsDebug() {
+				slog.Debug("Device list fetch goroutine completed", "connID", connID, "duration", fetchDuration, "deviceCount", len(deviceList))
+			}
+
 			devicesCh <- deviceList
 		}()
 
 		// Use a shorter timeout for device list fetching (20 seconds instead of waiting for full 30s timeout)
 		select {
 		case devices = <-devicesCh:
+			fetchDuration := time.Since(fetchStartTime)
+			// 正常時はデバッグモードでのみログ出力
 			if ws.handler.IsDebug() {
-				slog.Debug("Device list fetched successfully", "connID", connID, "deviceCount", len(devices))
+				slog.Debug("Device list fetched successfully", "connID", connID, "deviceCount", len(devices), "duration", fetchDuration)
 			}
 		case err := <-errorCh:
+			fetchDuration := time.Since(fetchStartTime)
+			slog.Error("Error during device list fetch", "connID", connID, "error", err, "duration", fetchDuration)
 			return fmt.Errorf("error fetching device list: %w", err)
 		case <-time.After(20 * time.Second):
-			slog.Warn("Device list fetch timed out, using cached data if available", "connID", connID)
+			fetchDuration := time.Since(fetchStartTime)
+			slog.Warn("Device list fetch timed out, using cached data if available", "connID", connID, "duration", fetchDuration)
 			// Try to get cached device list with minimal blocking
 			devices = ws.getCachedDeviceList()
 		}

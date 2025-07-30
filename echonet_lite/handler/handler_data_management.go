@@ -93,9 +93,36 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 // ListDevices は、検出されたデバイスの一覧を表示する
 func (h *DataManagementHandler) ListDevices(criteria FilterCriteria) []DeviceAndProperties {
 	// フィルタリングを実行
-	filtered := h.devices.Filter(criteria)
+	startTime := time.Now()
 
+	// 処理時間の閾値（正常時はこの時間以内に完了すべき）
+	const warnThreshold = 1 * time.Second
+	const errorThreshold = 5 * time.Second
+
+	filtered := h.devices.Filter(criteria)
+	filterDuration := time.Since(startTime)
+
+	// フィルタリングが異常に遅い場合のみログ出力
+	if filterDuration > errorThreshold {
+		slog.Error("ListDevices: Filter operation took too long", "duration", filterDuration, "criteria", criteria.String())
+	} else if filterDuration > warnThreshold {
+		slog.Warn("ListDevices: Filter operation is slow", "duration", filterDuration, "criteria", criteria.String())
+	}
+
+	// デバイスプロパティデータの取得
+	listStartTime := time.Now()
 	temp := filtered.ListDevicePropertyData()
+	listDuration := time.Since(listStartTime)
+
+	// ListDevicePropertyDataが異常に遅い場合のみログ出力
+	if listDuration > errorThreshold {
+		slog.Error("ListDevices: ListDevicePropertyData took too long", "duration", listDuration, "deviceCount", len(temp))
+	} else if listDuration > warnThreshold {
+		slog.Warn("ListDevices: ListDevicePropertyData is slow", "duration", listDuration, "deviceCount", len(temp))
+	}
+
+	// 結果の変換
+	convertStartTime := time.Now()
 	result := make([]DeviceAndProperties, 0, len(temp))
 	for _, d := range temp {
 		p := make(Properties, 0, len(d.Properties))
@@ -107,6 +134,26 @@ func (h *DataManagementHandler) ListDevices(criteria FilterCriteria) []DeviceAnd
 			Properties: p,
 		})
 	}
+	convertDuration := time.Since(convertStartTime)
+	totalDuration := time.Since(startTime)
+
+	// 全体の処理時間が異常に長い場合のみログ出力
+	if totalDuration > errorThreshold {
+		slog.Error("ListDevices: Operation took too long",
+			"totalDuration", totalDuration,
+			"filterDuration", filterDuration,
+			"listDuration", listDuration,
+			"convertDuration", convertDuration,
+			"resultCount", len(result))
+	} else if totalDuration > warnThreshold {
+		slog.Warn("ListDevices: Operation is slow",
+			"totalDuration", totalDuration,
+			"filterDuration", filterDuration,
+			"listDuration", listDuration,
+			"convertDuration", convertDuration,
+			"resultCount", len(result))
+	}
+
 	return result
 }
 
