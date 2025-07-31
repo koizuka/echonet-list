@@ -88,16 +88,10 @@ export function useAutoReconnect({
       }
     };
 
-    const handleWindowFocus = () => {
-      attemptReconnection();
-    };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleWindowFocus);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleWindowFocus);
       // Clear timeout on cleanup to prevent memory leaks
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);

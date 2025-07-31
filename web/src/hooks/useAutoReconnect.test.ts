@@ -55,12 +55,10 @@ describe('useAutoReconnect', () => {
     );
 
     expect(mockAddEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
-    expect(mockAddEventListener).toHaveBeenCalledWith('focus', expect.any(Function));
 
     unmount();
 
     expect(mockRemoveEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
-    expect(mockRemoveEventListener).toHaveBeenCalledWith('focus', expect.any(Function));
   });
 
   it('should disconnect when page becomes hidden and autoDisconnect is enabled', () => {
@@ -181,25 +179,6 @@ describe('useAutoReconnect', () => {
     expect(mockConnect).not.toHaveBeenCalled();
   });
 
-  it('should attempt reconnection on window focus when disconnected', () => {
-    renderHook(() =>
-      useAutoReconnect({
-        connectionState: 'disconnected',
-        connect: mockConnect,
-        disconnect: mockDisconnect,
-      })
-    );
-
-    // Get the window focus handler
-    const focusHandler = mockAddEventListener.mock.calls.find(
-      (call) => call[0] === 'focus'
-    )?.[1];
-
-    expect(focusHandler).toBeDefined();
-    focusHandler();
-
-    expect(mockConnect).toHaveBeenCalledTimes(1);
-  });
 
   it('should use default values for optional parameters', () => {
     const { unmount } = renderHook(() =>
@@ -560,7 +539,7 @@ describe('useAutoReconnect', () => {
       expect(mockConnect).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle rapid visibility and focus events (Android scenario)', () => {
+    it('should handle rapid visibility events', () => {
       renderHook(() =>
         useAutoReconnect({
           connectionState: 'disconnected',
@@ -570,25 +549,17 @@ describe('useAutoReconnect', () => {
         })
       );
 
-      // Get both event handlers
+      // Get visibility change handler
       const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
         (call) => call[0] === 'visibilitychange'
       )?.[1];
-      const focusHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'focus'
-      )?.[1];
 
-      // Simulate rapid events as might happen on Android
+      // Simulate rapid events
       Object.defineProperty(document, 'hidden', { value: false, writable: true });
       
       // Visibility change event
       act(() => {
         visibilityChangeHandler();
-      });
-
-      // Focus event immediately after (should not trigger another connection)
-      act(() => {
-        focusHandler();
       });
 
       // Multiple visibility events in quick succession
