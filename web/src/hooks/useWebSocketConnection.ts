@@ -169,11 +169,27 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   }, [options]);
 
   const actualConnect = useCallback(() => {
+    // 既存の接続があるかチェック
+    const existingWs = wsRef.current;
+    if (existingWs && existingWs.readyState === WebSocket.OPEN) {
+      console.warn('⚠️ WebSocket is already connected, skipping new connection');
+      sendLogNotification('WARN', 'Attempted to connect while already connected', {
+        component: 'WebSocket-Debug',
+        url: options.url,
+        existingState: existingWs.readyState
+      });
+      return;
+    }
+    
     cleanup();
     
     if (import.meta.env.DEV) {
       console.log('🔄 WebSocket接続を開始:', options.url);
     }
+    sendLogNotification('WARN', 'Starting WebSocket connection', {
+      component: 'WebSocket-Debug',
+      url: options.url
+    });
     updateConnectionState('connecting');
     
     try {
@@ -181,9 +197,23 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       wsRef.current = ws;
       
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        const connectedTime = new Date();
+        console.log('🟢 WebSocket connected:', {
+          url: options.url,
+          timestamp: connectedTime.toISOString(),
+          reconnectAttempts: reconnectAttemptsRef.current
+        });
+        
+        // スマホでも確認できるよう、接続成功を通知
+        sendLogNotification('WARN', `WebSocket connected successfully`, {
+          component: 'WebSocket-Debug',
+          url: options.url,
+          timestamp: connectedTime.toISOString(),
+          reconnectAttempts: reconnectAttemptsRef.current
+        });
+        
         reconnectAttemptsRef.current = 0;
-        setConnectedAt(new Date());
+        setConnectedAt(connectedTime);
         updateConnectionState('connected');
         // Call the onWebSocketConnected callback to clear WebSocket error logs
         options.onWebSocketConnected?.();
@@ -200,11 +230,32 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       };
       
       ws.onclose = (event) => {
-        console.log('WebSocket disconnected:', {
+        const currentConnectedAt = connectedAt;
+        const connectionDuration = currentConnectedAt ? Date.now() - currentConnectedAt.getTime() : 0;
+        const disconnectInfo = {
           code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean
-        });
+          reason: event.reason || 'No reason provided',
+          wasClean: event.wasClean,
+          connectionDuration: `${connectionDuration}ms`,
+          timestamp: new Date().toISOString(),
+          url: options.url
+        };
+        
+        console.log('🔌 WebSocket disconnected:', disconnectInfo);
+        
+        // スマホでも確認できるよう、通知として切断情報を送信
+        // 短時間での切断（10秒未満）は特に詳細にログ
+        if (connectionDuration > 0 && connectionDuration < 10000) {
+          sendLogNotification('WARN', `WebSocket unexpectedly disconnected after ${connectionDuration}ms`, {
+            component: 'WebSocket-Debug',
+            closeCode: event.code,
+            reason: event.reason || 'No reason provided',
+            wasClean: event.wasClean,
+            connectionDuration: connectionDuration,
+            url: options.url
+          });
+        }
+        
         setConnectedAt(null);
         updateConnectionState('disconnected');
         
@@ -272,7 +323,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       });
       updateConnectionState('error');
     }
-  }, [options, handleMessage, updateConnectionState, scheduleReconnect, maxReconnectAttempts, cleanup, sendLogNotification]);
+  }, [options, handleMessage, updateConnectionState, scheduleReconnect, maxReconnectAttempts, cleanup, sendLogNotification, connectedAt]);
 
   // Debounced connect function to handle React StrictMode double mounting
   const connect = useCallback(() => {
