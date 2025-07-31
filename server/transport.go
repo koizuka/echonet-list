@@ -191,8 +191,13 @@ func (t *DefaultWebSocketTransport) removeClient(connID string) bool {
 
 	// Call disconnect handler outside of the mutex lock
 	go func() {
-		if t.disconnectHandler != nil {
-			t.disconnectHandler(connID)
+		select {
+		case <-t.ctx.Done():
+			return
+		default:
+			if t.disconnectHandler != nil {
+				t.disconnectHandler(connID)
+			}
 		}
 	}()
 
