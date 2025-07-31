@@ -66,7 +66,9 @@ describe('useAutoReconnect', () => {
     expect(mockRemoveEventListener).toHaveBeenCalledWith('focus', expect.any(Function));
   });
 
-  it('should trigger reconnecting state when page becomes visible and connection is disconnected', () => {
+  it('should trigger reconnecting state when page becomes visible and connection is disconnected', async () => {
+    vi.useFakeTimers();
+    
     renderHook(() =>
       useAutoReconnect({
         connectionState: 'disconnected',
@@ -85,10 +87,19 @@ describe('useAutoReconnect', () => {
     Object.defineProperty(document, 'hidden', { value: false, writable: true });
     visibilityChangeHandler();
 
+    // Wait for debounce timeout (100ms)
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
     expect(mockSetConnectionState).toHaveBeenCalledWith('reconnecting');
+    
+    vi.useRealTimers();
   });
 
   it('should trigger reconnecting state on focus when connection is disconnected', () => {
+    vi.useFakeTimers();
+    
     renderHook(() =>
       useAutoReconnect({
         connectionState: 'disconnected',
@@ -105,7 +116,14 @@ describe('useAutoReconnect', () => {
     expect(focusHandler).toBeDefined();
     focusHandler();
 
+    // Wait for debounce timeout (100ms)
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
     expect(mockSetConnectionState).toHaveBeenCalledWith('reconnecting');
+    
+    vi.useRealTimers();
   });
 
   it('should connect when state changes to reconnecting', () => {
@@ -261,7 +279,6 @@ describe('useAutoReconnect', () => {
             connect: mockConnect,
             disconnect: mockDisconnect,
             setConnectionState: mockSetConnectionState,
-            delayMs: 2000,
           }),
         {
           initialProps: { connectionState: 'disconnected' as ConnectionState },
@@ -275,10 +292,15 @@ describe('useAutoReconnect', () => {
 
       expect(visibilityChangeHandler).toBeDefined();
 
-      // First trigger should set reconnecting state
+      // First trigger should set reconnecting state after debounce
       Object.defineProperty(document, 'hidden', { value: false, writable: true });
       act(() => {
         visibilityChangeHandler();
+      });
+
+      // Wait for debounce timeout (100ms)
+      act(() => {
+        vi.advanceTimersByTime(100);
       });
 
       expect(mockSetConnectionState).toHaveBeenCalledWith('reconnecting');
@@ -294,6 +316,11 @@ describe('useAutoReconnect', () => {
       mockSetConnectionState.mockClear();
       act(() => {
         visibilityChangeHandler();
+      });
+
+      // Wait for debounce timeout again
+      act(() => {
+        vi.advanceTimersByTime(100);
       });
 
       expect(mockSetConnectionState).not.toHaveBeenCalled();

@@ -6,7 +6,6 @@ export interface AutoReconnectOptions {
   connect: () => void;
   disconnect: () => void;
   setConnectionState: (state: ConnectionState) => void;
-  delayMs?: number;
   autoDisconnect?: boolean;
 }
 
@@ -20,11 +19,10 @@ export function useAutoReconnect({
   connect, 
   disconnect,
   setConnectionState,
-  delayMs = 2000,
   autoDisconnect = true
 }: AutoReconnectOptions) {
   const hasReconnectedRef = useRef(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Store current values in refs to avoid stale closures
   const connectionStateRef = useRef(connectionState);
@@ -36,13 +34,10 @@ export function useAutoReconnect({
   // Update refs when values change
   useEffect(() => {
     connectionStateRef.current = connectionState;
-    // Reset reconnection flag when connected
+    // Reset reconnection flag ONLY when successfully connected
+    // This prevents automatic retry loops on connection failure
     if (connectionState === 'connected') {
       hasReconnectedRef.current = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
     }
   }, [connectionState]);
   
@@ -67,44 +62,51 @@ export function useAutoReconnect({
     if (connectionState === 'reconnecting' && !hasReconnectedRef.current) {
       hasReconnectedRef.current = true;
       connectRef.current();
-      // Reset flag after a delay to allow for future reconnection attempts
-      // but only if we're still disconnected
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = setTimeout(() => {
-        // Only reset the flag if we're still disconnected or in error state
-        // This prevents reconnection loops when connection succeeds
-        if (connectionStateRef.current === 'disconnected' || connectionStateRef.current === 'error') {
-          hasReconnectedRef.current = false;
-        }
-      }, delayMs);
+      // Note: フラグは接続成功時（connected状態）のみリセットされる
+      // 接続失敗時の自動再試行は行わず、明示的なユーザーアクションを待つ
     }
-  }, [connectionState, delayMs]);
+  }, [connectionState]);
   
   // Main effect - only runs once on mount
   useEffect(() => {
-    const triggerReconnection = () => {
-      if (connectionStateRef.current === 'disconnected' || connectionStateRef.current === 'error') {
-        setConnectionStateRef.current('reconnecting');
+    const triggerReconnectionDebounced = () => {
+      // Clear any pending debounced reconnection
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
       }
+      
+      // Debounce multiple rapid events (like simultaneous visibilitychange + focus)
+      debounceTimeoutRef.current = setTimeout(() => {
+        // Prevent triggering reconnection if already reconnecting or connected
+        if (connectionStateRef.current === 'disconnected' || connectionStateRef.current === 'error') {
+          // Additional check: don't trigger if we're already in a reconnection attempt
+          if (!hasReconnectedRef.current) {
+            setConnectionStateRef.current('reconnecting');
+          }
+        }
+      }, 100); // 100ms debounce to handle rapid events
     };
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
+        // Clear any pending reconnection when hiding
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
+          debounceTimeoutRef.current = null;
+        }
         // Page became hidden - disconnect if auto-disconnect is enabled
         if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
           disconnectRef.current();
         }
       } else {
-        // Page became visible - trigger reconnection
-        triggerReconnection();
+        // Page became visible - trigger debounced reconnection
+        triggerReconnectionDebounced();
       }
     };
 
     const handleFocus = () => {
-      // Window became focused - trigger reconnection (for PC browsers)
-      triggerReconnection();
+      // Window became focused - trigger debounced reconnection
+      triggerReconnectionDebounced();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -113,9 +115,9 @@ export function useAutoReconnect({
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
-      // Clear timeout on cleanup to prevent memory leaks
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+      // Clear debounce timeout on cleanup to prevent memory leaks
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
       }
     };
   }, []); // No dependencies - event handlers use refs

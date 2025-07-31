@@ -411,8 +411,8 @@ export function useECHONET(
 
   const connection = useWebSocketConnection({
     url,
-    // 開発環境では再接続を無効化、本番環境では有効
-    reconnectAttempts: import.meta.env.DEV ? 0 : 5,
+    // useAutoReconnectで手動再接続を制御するため、自動再接続は無効化
+    reconnectAttempts: 0,
     reconnectDelay: 1000,
     maxReconnectDelay: 30000,
     onMessage: handleServerMessage,
