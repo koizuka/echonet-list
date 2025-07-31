@@ -21,6 +21,7 @@ export type WebSocketConnection = {
   sendMessage: <T extends ClientMessage>(message: T) => Promise<unknown>;
   connect: () => void;
   disconnect: () => void;
+  setConnectionState: (state: ConnectionState) => void;
   connectedAt: Date | null;
 };
 
@@ -342,6 +343,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     sendMessage,
     connect,
     disconnect,
+    setConnectionState: updateConnectionState,
     connectedAt,
   };
 }

@@ -86,6 +86,7 @@ function App() {
     connectionState: echonet.connectionState,
     connect: echonet.connect,
     disconnect: echonet.disconnect,
+    setConnectionState: echonet.setConnectionState,
   });
   
   // Loading state for update operations

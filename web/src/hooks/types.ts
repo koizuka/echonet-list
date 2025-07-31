@@ -230,7 +230,7 @@ export type PropertyDescriptionData = {
 };
 
 // WebSocket Connection State
-export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error';
+export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting';
 
 // Hook State Types
 export type ECHONETState = {

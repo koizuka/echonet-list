@@ -5,6 +5,7 @@ export interface AutoReconnectOptions {
   connectionState: ConnectionState;
   connect: () => void;
   disconnect: () => void;
+  setConnectionState: (state: ConnectionState) => void;
   delayMs?: number;
   autoDisconnect?: boolean;
 }
@@ -12,12 +13,13 @@ export interface AutoReconnectOptions {
 /**
  * Hook that automatically manages WebSocket connections based on page visibility:
  * - Disconnects when the page becomes hidden (if autoDisconnect is enabled)
- * - Reconnects when the page becomes visible and the connection is disconnected
+ * - Triggers reconnection when the page becomes visible and the connection is disconnected
  */
 export function useAutoReconnect({ 
   connectionState, 
   connect, 
   disconnect,
+  setConnectionState,
   delayMs = 2000,
   autoDisconnect = true
 }: AutoReconnectOptions) {
@@ -28,6 +30,7 @@ export function useAutoReconnect({
   const connectionStateRef = useRef(connectionState);
   const connectRef = useRef(connect);
   const disconnectRef = useRef(disconnect);
+  const setConnectionStateRef = useRef(setConnectionState);
   const autoDisconnectRef = useRef(autoDisconnect);
   
   // Update refs when values change
@@ -52,27 +55,38 @@ export function useAutoReconnect({
   }, [disconnect]);
   
   useEffect(() => {
+    setConnectionStateRef.current = setConnectionState;
+  }, [setConnectionState]);
+  
+  useEffect(() => {
     autoDisconnectRef.current = autoDisconnect;
   }, [autoDisconnect]);
+
+  // Handle reconnection when state changes to 'reconnecting'
+  useEffect(() => {
+    if (connectionState === 'reconnecting' && !hasReconnectedRef.current) {
+      hasReconnectedRef.current = true;
+      connectRef.current();
+      // Reset flag after a delay to allow for future reconnection attempts
+      // but only if we're still disconnected
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = setTimeout(() => {
+        // Only reset the flag if we're still disconnected or in error state
+        // This prevents reconnection loops when connection succeeds
+        if (connectionStateRef.current === 'disconnected' || connectionStateRef.current === 'error') {
+          hasReconnectedRef.current = false;
+        }
+      }, delayMs);
+    }
+  }, [connectionState, delayMs]);
   
   // Main effect - only runs once on mount
   useEffect(() => {
-    const attemptReconnection = () => {
-      if (connectionStateRef.current === 'disconnected' && !hasReconnectedRef.current) {
-        hasReconnectedRef.current = true;
-        connectRef.current();
-        // Reset flag after a delay to allow for future reconnection attempts
-        // but only if we're still disconnected
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
-        timeoutRef.current = setTimeout(() => {
-          // Only reset the flag if we're still disconnected
-          // This prevents reconnection loops when connection succeeds
-          if (connectionStateRef.current === 'disconnected') {
-            hasReconnectedRef.current = false;
-          }
-        }, delayMs);
+    const triggerReconnection = () => {
+      if (connectionStateRef.current === 'disconnected' || connectionStateRef.current === 'error') {
+        setConnectionStateRef.current('reconnecting');
       }
     };
 
@@ -83,19 +97,26 @@ export function useAutoReconnect({
           disconnectRef.current();
         }
       } else {
-        // Page became visible - attempt reconnection
-        attemptReconnection();
+        // Page became visible - trigger reconnection
+        triggerReconnection();
       }
     };
 
+    const handleFocus = () => {
+      // Window became focused - trigger reconnection (for PC browsers)
+      triggerReconnection();
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       // Clear timeout on cleanup to prevent memory leaks
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [delayMs]); // Only depend on delayMs, not connection state or functions
+  }, []); // No dependencies - event handlers use refs
 }
