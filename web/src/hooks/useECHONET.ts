@@ -411,13 +411,17 @@ export function useECHONET(
 
   const connection = useWebSocketConnection({
     url,
-    // useAutoReconnectで手動再接続を制御するため、自動再接続は無効化
-    reconnectAttempts: 0,
+    // useAutoReconnectで手動再接続を制御するため、自動再接続は完全に無効化
+    // reconnectAttempts: 0 だとmaxReconnectAttemptsも0になり、切断時に即error状態になってしまう
+    // 代わりに十分大きな値を設定し、oncloseでの自動再接続を無効化する
+    reconnectAttempts: 999,
     reconnectDelay: 1000,
     maxReconnectDelay: 30000,
     onMessage: handleServerMessage,
     onConnectionStateChange: handleConnectionStateChange,
     onWebSocketConnected,
+    // 自動再接続を完全に無効化（useAutoReconnectが制御）
+    disableAutoReconnect: true,
   });
 
   // Device operations

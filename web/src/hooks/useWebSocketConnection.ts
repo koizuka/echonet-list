@@ -14,6 +14,7 @@ export type WebSocketConnectionOptions = {
   onMessage?: (message: ServerMessage) => void;
   onConnectionStateChange?: (state: ConnectionState) => void;
   onWebSocketConnected?: () => void;
+  disableAutoReconnect?: boolean;
 };
 
 export type WebSocketConnection = {
@@ -236,7 +237,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         
         // Don't reconnect for certain error codes that indicate permanent failures
         const permanentFailureCodes = [1002, 1003, 1007, 1008, 1011];
-        const shouldReconnect = event.code !== 1000 && 
+        const shouldReconnect = !options.disableAutoReconnect &&
+                              event.code !== 1000 && 
                               !permanentFailureCodes.includes(event.code) && 
                               reconnectAttemptsRef.current < maxReconnectAttempts;
         
@@ -255,7 +257,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
             console.log('🛑 再接続しません:', {
               code: event.code,
               currentAttempts: reconnectAttemptsRef.current,
-              maxAttempts: maxReconnectAttempts
+              maxAttempts: maxReconnectAttempts,
+              disableAutoReconnect: options.disableAutoReconnect
             });
           }
         }
