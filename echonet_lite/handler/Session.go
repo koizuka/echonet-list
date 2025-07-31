@@ -32,12 +32,15 @@ type SessionTimeoutEvent struct {
 
 // ErrMaxRetriesReached は最大再送回数に達したことを示すエラー
 type ErrMaxRetriesReached struct {
-	MaxRetries int
-	Device     echonet_lite.IPAndEOJ
+	MaxRetries    int
+	Device        echonet_lite.IPAndEOJ
+	TotalDuration time.Duration
+	RetryInterval time.Duration
 }
 
 func (e ErrMaxRetriesReached) Error() string {
-	return fmt.Sprintf("maximum retries reached (%d) for device %v", e.MaxRetries, e.Device)
+	return fmt.Sprintf("maximum retries reached (%d) for device %v after %v (retry interval: %v)",
+		e.MaxRetries, e.Device, e.TotalDuration, e.RetryInterval)
 }
 
 // ジッタ計算用の定数
@@ -523,10 +526,18 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echon
 	return nil
 }
 
+// notifyDeviceTimeout - デバイスタイムアウトを通知（簡易版）
 func (s *Session) notifyDeviceTimeout(device echonet_lite.IPAndEOJ) error {
+	return s.notifyDeviceTimeoutWithContext(device, 0, s.RetryInterval)
+}
+
+// notifyDeviceTimeoutWithContext - デバイスタイムアウトを詳細情報付きで通知
+func (s *Session) notifyDeviceTimeoutWithContext(device echonet_lite.IPAndEOJ, totalDuration time.Duration, retryInterval time.Duration) error {
 	maxRetriesErr := ErrMaxRetriesReached{
-		MaxRetries: s.MaxRetries,
-		Device:     device,
+		MaxRetries:    s.MaxRetries,
+		Device:        device,
+		TotalDuration: totalDuration,
+		RetryInterval: retryInterval,
 	}
 	if s.TimeoutCh != nil {
 		select {
@@ -536,7 +547,7 @@ func (s *Session) notifyDeviceTimeout(device echonet_lite.IPAndEOJ) error {
 			Error:  maxRetriesErr,
 		}:
 			// 送信成功
-			slog.Info("デバイスタイムアウト通知を送信", "device", device.Specifier())
+			slog.Info("デバイスタイムアウト通知を送信", "device", device.Specifier(), "totalDuration", totalDuration)
 		default:
 			// チャンネルがブロックされている場合は無視
 			slog.Warn("タイムアウト通知チャンネルがブロックされています", "device", device.Specifier())
@@ -610,8 +621,9 @@ func (s *Session) waitForResponseWithRetry(
 	msg *echonet_lite.ECHONETLiteMessage,
 	responseCh <-chan *echonet_lite.ECHONETLiteMessage,
 ) (*echonet_lite.ECHONETLiteMessage, error) {
-	// 再送カウンタ
+	// 再送カウンタと時間追跡
 	retryCount := 0
+	startTime := time.Now()
 
 	// 初回のタイマーをジッタ付きで作成
 	intervalWithJitter := s.calculateRetryIntervalWithJitter(0)
@@ -637,11 +649,12 @@ func (s *Session) waitForResponseWithRetry(
 
 			if retryCount >= s.MaxRetries {
 				// 最大再送回数に達した場合
+				totalDuration := time.Since(startTime)
 				// オフラインでない場合のみログ出力
 				if s.IsOfflineFunc == nil || !s.IsOfflineFunc(device) {
-					slog.Warn("デバイスがオフラインになりました", "device", device, "maxRetries", s.MaxRetries)
+					slog.Warn("デバイスがオフラインになりました", "device", device, "maxRetries", s.MaxRetries, "totalDuration", totalDuration)
 				}
-				return nil, s.notifyDeviceTimeout(device)
+				return nil, s.notifyDeviceTimeoutWithContext(device, totalDuration, s.RetryInterval)
 			}
 
 			// 次の再送間隔をジッタ付きで計算 (retryCountをパラメータとして渡す)
@@ -652,7 +665,7 @@ func (s *Session) waitForResponseWithRetry(
 
 			// 再送
 			if err := s.sendMessage(device.IP, msg); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to resend message to device %v (retry %d/%d): %w", device, retryCount+1, s.MaxRetries, err)
 			}
 
 			// タイマーをジッタ付き間隔でリセット
@@ -702,7 +715,7 @@ func (s *Session) sendRequestWithContext(
 
 	// 最初のリクエスト送信
 	if err := s.sendMessage(device.IP, msg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to send initial message to device %v: %w", device, err)
 	}
 
 	// 応答待ちと再送処理
@@ -765,18 +778,14 @@ func (s *Session) sendRequestWithContextBroadcast(
 		return CallbackContinue, nil
 	})
 
-	// 関数終了時にコールバックを登録解除
-	defer func() {
+	// ブロードキャストメッセージを送信
+	if err := s.sendMessage(devices[0].IP, broadcastMsg); err != nil {
+		// エラー時はコールバック登録解除とチャネルクリーンアップ
 		s.UnregisterCallback(key)
-		// 全てのチャネルを閉じる
 		for _, dr := range deviceResponses {
 			close(dr.responseCh)
 		}
-	}()
-
-	// ブロードキャストメッセージを送信
-	if err := s.sendMessage(devices[0].IP, broadcastMsg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to send broadcast message to %d devices at %v (class: %04X): %w", len(devices), devices[0].IP, uint16(devices[0].EOJ.ClassCode()), err)
 	}
 
 	// 各インスタンス用にgoroutineでwaitForResponseWithRetryを実行
@@ -807,6 +816,12 @@ func (s *Session) sendRequestWithContextBroadcast(
 
 	// 全goroutineの完了を待つ
 	wg.Wait()
+
+	// 全goroutineが完了した後にクリーンアップ
+	s.UnregisterCallback(key)
+	for _, dr := range deviceResponses {
+		close(dr.responseCh)
+	}
 
 	// 結果を収集
 	return s.collectBroadcastResults(deviceResponses), nil
