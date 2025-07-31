@@ -119,13 +119,21 @@ describe('useWebSocketConnection', () => {
   });
 
   it('should attempt to create WebSocket on mount', () => {
+    vi.useFakeTimers();
     const MockWebSocket = createMockWebSocket(0);
     globalThis.WebSocket = MockWebSocket as unknown as typeof globalThis.WebSocket;
 
     renderHook(() => useWebSocketConnection(getDefaultOptions()));
     
+    // Wait for the connection delay
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    
     // Should attempt to create WebSocket due to auto-connect
     expect(MockWebSocket).toHaveBeenCalledWith('ws://localhost:8080/ws');
+    
+    vi.useRealTimers();
   });
 
   it('should handle WebSocket connection flow', () => {
@@ -205,10 +213,16 @@ describe('useWebSocketConnection', () => {
   });
 
   it('should clean up on unmount', () => {
+    vi.useFakeTimers();
     const MockWebSocket = createMockWebSocket(1);
     globalThis.WebSocket = MockWebSocket as unknown as typeof globalThis.WebSocket;
 
     const { unmount } = renderHook(() => useWebSocketConnection(getDefaultOptions()));
+    
+    // Wait for the connection delay
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
     
     // Should create WebSocket
     expect(MockWebSocket).toHaveBeenCalledWith('ws://localhost:8080/ws');
@@ -218,15 +232,25 @@ describe('useWebSocketConnection', () => {
     
     // Cleanup should be called (we can't easily verify close was called due to refs)
     expect(true).toBe(true); // Basic cleanup completion test
+    
+    vi.useRealTimers();
   });
 
   it('should set up WebSocket event handlers', () => {
+    vi.useFakeTimers();
     const MockWebSocket = createMockWebSocket(0);
     globalThis.WebSocket = MockWebSocket as unknown as typeof globalThis.WebSocket;
 
     renderHook(() => useWebSocketConnection(getDefaultOptions()));
     
+    // Wait for the connection delay
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    
     // Mock should have been called to create WebSocket
     expect(MockWebSocket).toHaveBeenCalledWith('ws://localhost:8080/ws');
+    
+    vi.useRealTimers();
   });
 });

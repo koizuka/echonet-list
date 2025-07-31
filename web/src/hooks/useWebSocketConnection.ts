@@ -88,7 +88,17 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         wsRef.current.onerror = null;
         wsRef.current.onclose = null;
       }
-      wsRef.current.close();
+      // サーバーに明示的に正常終了を通知 (1000 = Normal Closure)
+      try {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.close(1000, 'Client disconnecting');
+        } else {
+          wsRef.current.close();
+        }
+      } catch (error) {
+        // closeでエラーが発生した場合は静かに処理
+        console.warn('Error during WebSocket close:', error);
+      }
       wsRef.current = null;
     }
   }, []); // cleanupは外部の状態に依存しない
@@ -192,9 +202,14 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     });
     updateConnectionState('connecting');
     
-    try {
-      const ws = new WebSocket(options.url);
-      wsRef.current = ws;
+    // バックグラウンド復帰時の重複接続対策: 接続前に短い遅延を追加
+    // サーバー側で古い接続がクリーンアップされる時間を確保
+    const connectDelay = 100;
+    
+    const doConnect = () => {
+      try {
+        const ws = new WebSocket(options.url);
+        wsRef.current = ws;
       
       ws.onopen = () => {
         const connectedTime = new Date();
@@ -323,6 +338,14 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       });
       updateConnectionState('error');
     }
+    };
+    
+    // 短い遅延で重複接続を回避
+    sendLogNotification('WARN', `Waiting ${connectDelay}ms before connecting (duplicate connection prevention)`, {
+      component: 'WebSocket-Debug',
+      delay: connectDelay
+    });
+    setTimeout(doConnect, connectDelay);
   }, [options, handleMessage, updateConnectionState, scheduleReconnect, maxReconnectAttempts, cleanup, sendLogNotification, connectedAt]);
 
   // Debounced connect function to handle React StrictMode double mounting
