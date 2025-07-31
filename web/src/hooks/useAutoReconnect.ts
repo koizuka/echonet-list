@@ -10,9 +10,10 @@ export interface AutoReconnectOptions {
 }
 
 /**
- * Hook that automatically manages WebSocket connections based on page visibility:
+ * Hook that automatically manages WebSocket connections based on page visibility and focus:
  * - Disconnects when the page becomes hidden (if autoDisconnect is enabled)
  * - Reconnects when the page becomes visible and the connection is disconnected
+ * - Reconnects when the window receives focus and the connection is disconnected
  */
 export function useAutoReconnect({ 
   connectionState, 
@@ -23,6 +24,8 @@ export function useAutoReconnect({
 }: AutoReconnectOptions) {
   const hasReconnectedRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastEventTimeRef = useRef<number>(0);
+  const eventDedupeDelayMs = 100; // 100ms window to dedupe rapid events
   
   // Store current values in refs to avoid stale closures
   const connectionStateRef = useRef(connectionState);
@@ -58,6 +61,16 @@ export function useAutoReconnect({
   // Main effect - only runs once on mount
   useEffect(() => {
     const attemptReconnection = () => {
+      const currentTime = Date.now();
+      
+      // Check if this event is too close to the previous one (mobile deduplication)
+      if (currentTime - lastEventTimeRef.current < eventDedupeDelayMs) {
+        return; // Skip this event as it's likely a duplicate
+      }
+      
+      lastEventTimeRef.current = currentTime;
+      
+      // Only attempt if disconnected and not already attempting reconnection
       if (connectionStateRef.current === 'disconnected' && !hasReconnectedRef.current) {
         hasReconnectedRef.current = true;
         connectRef.current();
@@ -88,10 +101,17 @@ export function useAutoReconnect({
       }
     };
 
+    const handleFocus = () => {
+      // Window received focus - attempt reconnection if disconnected
+      attemptReconnection();
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       // Clear timeout on cleanup to prevent memory leaks
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);

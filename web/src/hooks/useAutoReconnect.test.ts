@@ -55,10 +55,12 @@ describe('useAutoReconnect', () => {
     );
 
     expect(mockAddEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+    expect(mockAddEventListener).toHaveBeenCalledWith('focus', expect.any(Function));
 
     unmount();
 
     expect(mockRemoveEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+    expect(mockRemoveEventListener).toHaveBeenCalledWith('focus', expect.any(Function));
   });
 
   it('should disconnect when page becomes hidden and autoDisconnect is enabled', () => {
@@ -260,6 +262,7 @@ describe('useAutoReconnect', () => {
     });
 
     it('should use updated connection state from ref', () => {
+      vi.useFakeTimers();
       let currentConnectionState: 'connected' | 'disconnected' = 'connected';
       
       const { rerender } = renderHook(
@@ -290,12 +293,18 @@ describe('useAutoReconnect', () => {
       currentConnectionState = 'disconnected';
       rerender();
 
+      // Advance time past dedupe delay to allow next event
+      act(() => {
+        vi.advanceTimersByTime(150); // > 100ms dedupe delay
+      });
+
       // Now attempt reconnection (should work with updated state)
       act(() => {
         visibilityChangeHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
     });
 
     it('should use updated connect function from ref', () => {
@@ -569,6 +578,96 @@ describe('useAutoReconnect', () => {
       });
 
       // Should only connect once despite multiple events
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should prevent duplicate reconnection attempts from multiple events within 100ms', () => {
+      vi.useFakeTimers();
+      
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'disconnected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          delayMs: 2000,
+        })
+      );
+
+      // Get both event handlers
+      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'visibilitychange'
+      )?.[1];
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
+      )?.[1];
+
+      expect(visibilityChangeHandler).toBeDefined();
+      expect(focusHandler).toBeDefined();
+
+      // Simulate rapid events as might happen on mobile
+      Object.defineProperty(document, 'hidden', { value: false, writable: true });
+      
+      // First event (visibility change)
+      act(() => {
+        visibilityChangeHandler();
+      });
+
+      // Second event immediately after (focus) - should be deduped within 100ms window
+      act(() => {
+        focusHandler();
+      });
+
+      // Should only connect once despite both events firing
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+
+      // Advance time past dedupe window but not past reconnection delay
+      act(() => {
+        vi.advanceTimersByTime(150); // > 100ms dedupe window
+      });
+
+      // Now focus should work again if called
+      act(() => {
+        focusHandler();
+      });
+
+      // Still should be 1 because hasReconnectedRef is still true
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+
+      // Advance past the reconnection delay to reset hasReconnectedRef
+      act(() => {
+        vi.advanceTimersByTime(2000); // > 2000ms reconnection delay
+      });
+
+      // Now focus should work again
+      act(() => {
+        focusHandler();
+      });
+
+      expect(mockConnect).toHaveBeenCalledTimes(2);
+      
+      vi.useRealTimers();
+    });
+
+    it('should attempt reconnection on window focus when disconnected', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'disconnected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+        })
+      );
+
+      // Get the window focus handler
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
+      )?.[1];
+
+      expect(focusHandler).toBeDefined();
+      
+      act(() => {
+        focusHandler();
+      });
+
       expect(mockConnect).toHaveBeenCalledTimes(1);
     });
   });
