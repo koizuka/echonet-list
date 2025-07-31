@@ -564,20 +564,14 @@ func (s *Session) UnregisterCallback(key Key) {
 	delete(s.dispatchTable, key)
 }
 
-// 共通処理を行う内部関数
-func (s *Session) sendRequestWithContext(
+// registerCallbackForResponse は応答受信用のコールバックを登録する
+func (s *Session) registerCallbackForResponse(
 	ctx context.Context,
-	device echonet_lite.IPAndEOJ,
-	msg *echonet_lite.ECHONETLiteMessage,
-) (*echonet_lite.ECHONETLiteMessage, error) {
-	// 結果を受け取るためのチャネル
-	responseCh := make(chan *echonet_lite.ECHONETLiteMessage, 1)
-
-	// キーを取得
-	key := MakeKey(msg)
-
-	// コールバックを登録
-	s.registerCallback(key, msg.ESV.ResponseESVs(), func(ip net.IP, respMsg *echonet_lite.ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+	key Key,
+	responseESVs []echonet_lite.ESVType,
+	responseCh chan<- *echonet_lite.ECHONETLiteMessage,
+) {
+	s.registerCallback(key, responseESVs, func(ip net.IP, respMsg *echonet_lite.ECHONETLiteMessage) (CallbackCompleteStatus, error) {
 		// 応答メッセージをチャネルに送信
 		select {
 		case <-ctx.Done():
@@ -591,20 +585,31 @@ func (s *Session) sendRequestWithContext(
 
 		return CallbackFinished, nil
 	})
+}
 
-	// 関数終了時にコールバックを登録解除するための遅延処理
-	callbackUnregistered := false
-	defer func() {
-		if !callbackUnregistered {
-			s.UnregisterCallback(key)
-		}
-	}()
+// deviceResponse はブロードキャスト時の各デバイスの応答状態を管理する
+type deviceResponse struct {
+	device     echonet_lite.IPAndEOJ
+	responseCh chan *echonet_lite.ECHONETLiteMessage
+	responded  bool
+	response   *echonet_lite.ECHONETLiteMessage
+}
 
-	// 最初のリクエスト送信
-	if err := s.sendMessage(device.IP, msg); err != nil {
-		return nil, err
-	}
+// BroadcastResult はブロードキャストの結果を表す
+type BroadcastResult struct {
+	Device   echonet_lite.IPAndEOJ
+	Response *echonet_lite.ECHONETLiteMessage
+	Error    error
+}
 
+// waitForResponseWithRetry は送信後の応答待ちと再送処理を行う
+// 注意: 最初の送信は呼び出し側で行うこと
+func (s *Session) waitForResponseWithRetry(
+	ctx context.Context,
+	device echonet_lite.IPAndEOJ,
+	msg *echonet_lite.ECHONETLiteMessage,
+	responseCh <-chan *echonet_lite.ECHONETLiteMessage,
+) (*echonet_lite.ECHONETLiteMessage, error) {
 	// 再送カウンタ
 	retryCount := 0
 
@@ -624,7 +629,6 @@ func (s *Session) sendRequestWithContext(
 				slog.Info("リトライ後に完了", "device", device, "retryCount", retryCount)
 			}
 			// 応答を受信した場合
-			callbackUnregistered = true // コールバックは既に登録解除されている
 			return respMsg, nil
 
 		case <-timer.C:
@@ -655,6 +659,215 @@ func (s *Session) sendRequestWithContext(
 			timer.Reset(nextInterval)
 		}
 	}
+}
+
+// collectBroadcastResults は各デバイスの応答結果を収集する
+func (s *Session) collectBroadcastResults(deviceResponses []*deviceResponse) []BroadcastResult {
+	results := make([]BroadcastResult, len(deviceResponses))
+	for i, dr := range deviceResponses {
+		result := BroadcastResult{
+			Device: dr.device,
+		}
+		if dr.responded {
+			result.Response = dr.response
+		} else {
+			result.Error = fmt.Errorf("no response received")
+		}
+		results[i] = result
+	}
+	return results
+}
+
+// 共通処理を行う内部関数
+func (s *Session) sendRequestWithContext(
+	ctx context.Context,
+	device echonet_lite.IPAndEOJ,
+	msg *echonet_lite.ECHONETLiteMessage,
+) (*echonet_lite.ECHONETLiteMessage, error) {
+	// 結果を受け取るためのチャネル
+	responseCh := make(chan *echonet_lite.ECHONETLiteMessage, 1)
+
+	// キーを取得
+	key := MakeKey(msg)
+
+	// コールバックを登録
+	s.registerCallbackForResponse(ctx, key, msg.ESV.ResponseESVs(), responseCh)
+
+	// 関数終了時にコールバックを登録解除するための遅延処理
+	defer func() {
+		// レスポンスチャネルがコールバック内で既に登録解除される可能性があるが、
+		// 念のため再度呼び出す（重複しても問題ない）
+		s.UnregisterCallback(key)
+	}()
+
+	// 最初のリクエスト送信
+	if err := s.sendMessage(device.IP, msg); err != nil {
+		return nil, err
+	}
+
+	// 応答待ちと再送処理
+	return s.waitForResponseWithRetry(ctx, device, msg, responseCh)
+}
+
+// sendRequestWithContextBroadcast は同一クラスコードの複数デバイスへブロードキャストリクエストを送信する
+func (s *Session) sendRequestWithContextBroadcast(
+	ctx context.Context,
+	devices []echonet_lite.IPAndEOJ,
+	msg *echonet_lite.ECHONETLiteMessage,
+) ([]BroadcastResult, error) {
+	if len(devices) == 0 {
+		return nil, fmt.Errorf("devices list is empty")
+	}
+
+	// 全デバイスが同一IPとclassCodeを持つことを確認
+	firstDevice := devices[0]
+	for _, d := range devices[1:] {
+		if !d.IP.Equal(firstDevice.IP) || d.EOJ.ClassCode() != firstDevice.EOJ.ClassCode() {
+			return nil, fmt.Errorf("all devices must have same IP and classCode")
+		}
+	}
+
+	// ブロードキャスト用メッセージを作成（instanceCode = 0）
+	broadcastMsg := &echonet_lite.ECHONETLiteMessage{
+		TID:              msg.TID,
+		SEOJ:             msg.SEOJ,
+		DEOJ:             echonet_lite.MakeEOJ(msg.DEOJ.ClassCode(), 0),
+		ESV:              msg.ESV,
+		Properties:       msg.Properties,
+		SetGetProperties: msg.SetGetProperties,
+	}
+
+	// 各デバイス用の応答管理構造体を準備
+	deviceResponses := make([]*deviceResponse, len(devices))
+	deviceMap := make(map[echonet_lite.EOJ]*deviceResponse)
+	for i, device := range devices {
+		dr := &deviceResponse{
+			device:     device,
+			responseCh: make(chan *echonet_lite.ECHONETLiteMessage, 1),
+			responded:  false,
+		}
+		deviceResponses[i] = dr
+		deviceMap[device.EOJ] = dr
+	}
+
+	// TIDに対して1つのコールバックを登録（複数デバイスからの応答を各chanに分配）
+	key := MakeKey(broadcastMsg)
+	s.registerCallback(key, msg.ESV.ResponseESVs(), func(ip net.IP, respMsg *echonet_lite.ECHONETLiteMessage) (CallbackCompleteStatus, error) {
+		// 応答したデバイスを特定し、対応するchanに送信
+		if dr, ok := deviceMap[respMsg.SEOJ]; ok {
+			select {
+			case dr.responseCh <- respMsg:
+				// 応答をチャネルに送信
+			default:
+				// チャネルがフルまたは既に閉じられている場合は無視
+			}
+		}
+		return CallbackContinue, nil
+	})
+
+	// 関数終了時にコールバックを登録解除
+	defer func() {
+		s.UnregisterCallback(key)
+		// 全てのチャネルを閉じる
+		for _, dr := range deviceResponses {
+			close(dr.responseCh)
+		}
+	}()
+
+	// ブロードキャストメッセージを送信
+	if err := s.sendMessage(devices[0].IP, broadcastMsg); err != nil {
+		return nil, err
+	}
+
+	// 各インスタンス用にgoroutineでwaitForResponseWithRetryを実行
+	var wg sync.WaitGroup
+	for i, dr := range deviceResponses {
+		wg.Add(1)
+		go func(index int, deviceResp *deviceResponse) {
+			defer wg.Done()
+
+			// 各デバイス用のメッセージを作成
+			deviceMsg := &echonet_lite.ECHONETLiteMessage{
+				TID:              msg.TID,
+				SEOJ:             msg.SEOJ,
+				DEOJ:             deviceResp.device.EOJ,
+				ESV:              msg.ESV,
+				Properties:       msg.Properties,
+				SetGetProperties: msg.SetGetProperties,
+			}
+
+			// 各デバイス用の応答待ち（最初の送信は既に完了）
+			respMsg, err := s.waitForResponseWithRetry(ctx, deviceResp.device, deviceMsg, deviceResp.responseCh)
+			if err == nil {
+				deviceResp.responded = true
+				deviceResp.response = respMsg
+			}
+		}(i, dr)
+	}
+
+	// 全goroutineの完了を待つ
+	wg.Wait()
+
+	// 結果を収集
+	return s.collectBroadcastResults(deviceResponses), nil
+}
+
+// GetPropertiesBroadcast - 同一クラスコードの複数デバイスからブロードキャストでプロパティ取得
+func (s *Session) GetPropertiesBroadcast(
+	ctx context.Context,
+	devices []echonet_lite.IPAndEOJ,
+	EPCs []echonet_lite.EPCType,
+) ([]BroadcastResult, error) {
+	if len(devices) == 0 {
+		return nil, fmt.Errorf("devices list is empty")
+	}
+
+	// メッセージを作成（最初のデバイスをベースにする）
+	msg := s.CreateGetPropertyMessage(devices[0], EPCs)
+
+	// ブロードキャスト送信
+	results, err := s.sendRequestWithContextBroadcast(ctx, devices, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	// 各デバイスの結果を処理
+	for i := range results {
+		result := &results[i]
+		if result.Response != nil {
+			// 共通処理を使用
+			success, successProperties, _ := s.processGetPropertiesResponse(result.Device, result.Response)
+
+			// 結果が空の場合はエラーとして扱う
+			if !success && len(successProperties) == 0 {
+				result.Error = fmt.Errorf("no properties retrieved successfully")
+			}
+		}
+	}
+
+	return results, nil
+}
+
+// processGetPropertiesResponse は Get プロパティの応答を共通処理する
+func (s *Session) processGetPropertiesResponse(device echonet_lite.IPAndEOJ, respMsg *echonet_lite.ECHONETLiteMessage) (bool, echonet_lite.Properties, []echonet_lite.EPCType) {
+	// 応答を処理
+	success := respMsg.ESV == echonet_lite.ESVGet_Res
+
+	// 成功/失敗のプロパティを分類
+	successProperties := make(echonet_lite.Properties, 0, len(respMsg.Properties))
+	failedEPCs := make([]echonet_lite.EPCType, 0, len(respMsg.Properties))
+
+	for _, p := range respMsg.Properties {
+		if p.EDT != nil {
+			successProperties = append(successProperties, p)
+		} else {
+			failedEPCs = append(failedEPCs, p.EPC)
+		}
+	}
+
+	failedEPCs = s.updateFailedEPCs(device, successProperties, failedEPCs)
+
+	return success, successProperties, failedEPCs
 }
 
 func (s *Session) updateFailedEPCs(device echonet_lite.IPAndEOJ, success echonet_lite.Properties, failed []echonet_lite.EPCType) []echonet_lite.EPCType {
@@ -730,22 +943,8 @@ func (s *Session) GetProperties(
 		return false, nil, EPCs, err
 	}
 
-	// 応答を処理
-	success := respMsg.ESV == echonet_lite.ESVGet_Res
-
-	// 成功/失敗のプロパティを分類
-	successProperties := make(echonet_lite.Properties, 0, len(respMsg.Properties))
-	failedEPCs := make([]echonet_lite.EPCType, 0, len(respMsg.Properties))
-
-	for _, p := range respMsg.Properties {
-		if p.EDT != nil {
-			successProperties = append(successProperties, p)
-		} else {
-			failedEPCs = append(failedEPCs, p.EPC)
-		}
-	}
-
-	failedEPCs = s.updateFailedEPCs(device, successProperties, failedEPCs)
+	// 共通処理を使用
+	success, successProperties, failedEPCs := s.processGetPropertiesResponse(device, respMsg)
 
 	return success, successProperties, failedEPCs, nil
 }

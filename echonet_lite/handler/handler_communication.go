@@ -560,8 +560,42 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 	ipRequestCounts := make(map[string]int)
 	baseDelay := 50 * time.Millisecond // 基準遅延時間を短縮
 
-	// 各デバイスに対して処理を実行
+	// デバイスをIP+classCodeでグループ化し、ブロードキャスト可能なものと個別処理が必要なものに分類
+	deviceGroups := make(map[string][]IPAndEOJ) // key: "IP:classCode"
 	for _, device := range filtered.ListIPAndEOJ() {
+		key := fmt.Sprintf("%s:%04X", device.IP.String(), uint16(device.EOJ.ClassCode()))
+		deviceGroups[key] = append(deviceGroups[key], device)
+	}
+
+	// ブロードキャスト対象グループと個別処理グループに分類
+	var broadcastGroups [][]IPAndEOJ
+	var individualDevices []IPAndEOJ
+
+	for _, group := range deviceGroups {
+		if len(group) > 1 {
+			broadcastGroups = append(broadcastGroups, group)
+		} else {
+			individualDevices = append(individualDevices, group[0])
+		}
+	}
+
+	if h.Debug {
+		slog.Info("Device processing strategy",
+			"broadcast_groups", len(broadcastGroups),
+			"individual_devices", len(individualDevices))
+	}
+
+	// ブロードキャストグループの処理
+	for _, group := range broadcastGroups {
+		wg.Add(1)
+		go func(devices []IPAndEOJ) {
+			defer wg.Done()
+			h.processBroadcastGroup(devices, force, &errMutex, &firstErr)
+		}(group)
+	}
+
+	// 個別デバイスの処理
+	for _, device := range individualDevices {
 		// forceがfalseの場合、最終更新時刻をチェック
 		if !force {
 			lastUpdateTime := h.dataAccessor.GetLastUpdateTime(device)
@@ -594,51 +628,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		// 各デバイスに対して並列処理を実行
 		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration) {
 			defer wg.Done()
-			deviceName := h.dataAccessor.DeviceStringWithAlias(device)
-
-			// 同じIPアドレスのデバイスに対して遅延を追加
-			if delay > 0 {
-				time.Sleep(delay)
-			}
-
-			success, properties, failedEPCs, err := h.session.GetProperties(
-				h.ctx,
-				device,
-				propMap.EPCs(),
-			)
-
-			if err != nil {
-				storeError(fmt.Errorf("%v のプロパティ取得に失敗: %w", deviceName, err))
-				return
-			}
-
-			var changed []ChangedProperty
-
-			// 成功したプロパティを登録（部分的な成功の場合も含む）
-			if len(properties) > 0 {
-				changed = h.dataAccessor.RegisterProperties(device, properties)
-				// デバイス情報を保存
-				h.dataAccessor.SaveDeviceInfo()
-				h.dataAccessor.SetOffline(device, false)
-			}
-
-			// 結果を記録
-			if len(changed) > 0 {
-				classCode := device.EOJ.ClassCode()
-				changes := make([]string, len(changed))
-				for i, p := range changed {
-					changes[i] = p.StringForClass(classCode)
-				}
-			}
-
-			// 全体の成功/失敗を判定
-			if !success && len(failedEPCs) > 0 {
-				epcNames := make([]string, len(failedEPCs))
-				for i, epc := range failedEPCs {
-					epcNames[i] = epc.StringForClass(device.EOJ.ClassCode())
-				}
-				storeError(fmt.Errorf("%v の一部のプロパティ取得に失敗: %v", deviceName, epcNames))
-			}
+			h.processIndividualDevice(device, propMap, delay, force, storeError)
 		}(device, propMap, delay)
 	}
 
@@ -690,6 +680,140 @@ func calculateRequestDelay(requestIndex int, baseDelay time.Duration) time.Durat
 	// 最小遅延を保証
 	minDelay := time.Duration(float64(baseDelay) * MinIntervalRatio)
 	return max(delay, minDelay)
+}
+
+// processBroadcastGroup はブロードキャスト対象のデバイスグループを処理する
+func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force bool, errMutex *sync.Mutex, errPtr *error) {
+	if len(devices) == 0 {
+		return
+	}
+
+	storeError := func(err error) {
+		errMutex.Lock()
+		if *errPtr == nil {
+			*errPtr = err
+		}
+		errMutex.Unlock()
+	}
+
+	// 最初のデバイスのプロパティマップを取得（グループ内の全デバイスは同じクラスコードなので共通）
+	firstDevice := devices[0]
+	propMap := h.dataAccessor.GetPropertyMap(firstDevice, GetPropertyMap)
+	if propMap == nil {
+		storeError(fmt.Errorf("プロパティマップが見つかりません: %v", firstDevice))
+		return
+	}
+
+	// forceがfalseの場合の事前チェック
+	if !force {
+		validDevices := make([]IPAndEOJ, 0, len(devices))
+		for _, device := range devices {
+			lastUpdateTime := h.dataAccessor.GetLastUpdateTime(device)
+			if !lastUpdateTime.IsZero() && time.Since(lastUpdateTime) < UpdateIntervalThreshold {
+				continue // 更新をスキップ
+			}
+			if h.dataAccessor.IsOffline(device) {
+				continue // オフラインのデバイスはスキップ
+			}
+			validDevices = append(validDevices, device)
+		}
+		devices = validDevices
+
+		if len(devices) == 0 {
+			return // 処理対象デバイス無し
+		}
+	}
+
+	// ブロードキャストでプロパティ取得
+	results, err := h.session.GetPropertiesBroadcast(
+		h.ctx,
+		devices,
+		propMap.EPCs(),
+	)
+
+	if err != nil {
+		storeError(fmt.Errorf("ブロードキャスト取得に失敗: %w", err))
+		return
+	}
+
+	// 各デバイスの結果を処理
+	for _, result := range results {
+		deviceName := h.dataAccessor.DeviceStringWithAlias(result.Device)
+
+		if result.Error != nil {
+			storeError(fmt.Errorf("%v のプロパティ取得に失敗: %w", deviceName, result.Error))
+			continue
+		}
+
+		if result.Response != nil {
+			// 成功したプロパティを分類
+			var successProperties Properties
+			for _, p := range result.Response.Properties {
+				if p.EDT != nil {
+					successProperties = append(successProperties, p)
+				}
+			}
+
+			if len(successProperties) > 0 {
+				h.dataAccessor.RegisterProperties(result.Device, successProperties)
+				h.dataAccessor.SaveDeviceInfo()
+				h.dataAccessor.SetOffline(result.Device, false)
+			}
+		}
+	}
+
+	if h.Debug {
+		slog.Info("Broadcast group processed", "device_count", len(devices), "first_device", firstDevice.Specifier())
+	}
+}
+
+// processIndividualDevice は個別デバイスを処理する
+func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap PropertyMap, delay time.Duration, force bool, storeError func(error)) {
+	deviceName := h.dataAccessor.DeviceStringWithAlias(device)
+
+	// 同じIPアドレスのデバイスに対して遅延を追加
+	if delay > 0 {
+		time.Sleep(delay)
+	}
+
+	success, properties, failedEPCs, err := h.session.GetProperties(
+		h.ctx,
+		device,
+		propMap.EPCs(),
+	)
+
+	if err != nil {
+		storeError(fmt.Errorf("%v のプロパティ取得に失敗: %w", deviceName, err))
+		return
+	}
+
+	var changed []ChangedProperty
+
+	// 成功したプロパティを登録（部分的な成功の場合も含む）
+	if len(properties) > 0 {
+		changed = h.dataAccessor.RegisterProperties(device, properties)
+		// デバイス情報を保存
+		h.dataAccessor.SaveDeviceInfo()
+		h.dataAccessor.SetOffline(device, false)
+	}
+
+	// 結果を記録
+	if len(changed) > 0 {
+		classCode := device.EOJ.ClassCode()
+		changes := make([]string, len(changed))
+		for i, p := range changed {
+			changes[i] = p.StringForClass(classCode)
+		}
+	}
+
+	// 全体の成功/失敗を判定
+	if !success && len(failedEPCs) > 0 {
+		epcNames := make([]string, len(failedEPCs))
+		for i, epc := range failedEPCs {
+			epcNames[i] = epc.StringForClass(device.EOJ.ClassCode())
+		}
+		storeError(fmt.Errorf("%v の一部のプロパティ取得に失敗: %v", deviceName, epcNames))
+	}
 }
 
 // validateEPCsInPropertyMap は、指定されたEPCがプロパティマップに含まれているかを確認する
