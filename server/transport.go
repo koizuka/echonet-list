@@ -173,6 +173,32 @@ func isConnectionClosedError(err error) bool {
 		strings.Contains(err.Error(), "broken pipe")
 }
 
+// removeClient safely removes a client from the transport and calls the disconnect handler.
+// Returns true if the client was actually removed, false if it was already removed.
+func (t *DefaultWebSocketTransport) removeClient(connID string) bool {
+	t.clientsMutex.Lock()
+	defer t.clientsMutex.Unlock()
+
+	client, exists := t.clients[connID]
+	if !exists {
+		return false
+	}
+
+	delete(t.clients, connID)
+	if client.conn != nil {
+		delete(t.clientsReverse, client.conn)
+	}
+
+	// Call disconnect handler outside of the mutex lock
+	go func() {
+		if t.disconnectHandler != nil {
+			t.disconnectHandler(connID)
+		}
+	}()
+
+	return true
+}
+
 // SendMessage は特定のクライアントにメッセージを送信する
 func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) error {
 	t.clientsMutex.RLock()
@@ -190,23 +216,8 @@ func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) e
 	if err != nil {
 		// Check if this is a connection close error
 		if isConnectionClosedError(err) {
-			// Remove the client from the map since it's already closed
-			// Check if client still exists to avoid duplicate disconnect handling
-			t.clientsMutex.Lock()
-			if _, stillExists := t.clients[connID]; stillExists {
-				delete(t.clients, connID)
-				if conn := client.conn; conn != nil {
-					delete(t.clientsReverse, conn)
-				}
-				t.clientsMutex.Unlock()
-
-				// Call disconnect handler only if we actually removed the client
-				if t.disconnectHandler != nil {
-					t.disconnectHandler(connID)
-				}
-			} else {
-				t.clientsMutex.Unlock()
-			}
+			// Remove the client using the common method
+			t.removeClient(connID)
 		}
 		return fmt.Errorf("failed to send message to client %s: %w", connID, err)
 	}
@@ -240,25 +251,9 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 		client.mutex.Unlock()
 	}
 
-	// Clean up disconnected clients
-	if len(disconnectedClients) > 0 {
-		var actuallyDisconnected []string
-		t.clientsMutex.Lock()
-		for _, connID := range disconnectedClients {
-			if client, exists := t.clients[connID]; exists {
-				delete(t.clients, connID)
-				delete(t.clientsReverse, client.conn)
-				actuallyDisconnected = append(actuallyDisconnected, connID)
-			}
-		}
-		t.clientsMutex.Unlock()
-
-		// Call disconnect handler only for clients that were actually removed
-		if t.disconnectHandler != nil {
-			for _, connID := range actuallyDisconnected {
-				t.disconnectHandler(connID)
-			}
-		}
+	// Clean up disconnected clients using the common method
+	for _, connID := range disconnectedClients {
+		t.removeClient(connID)
 	}
 
 	return nil
@@ -299,15 +294,7 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 
 	// Remove the client when the function returns
 	defer func() {
-		t.clientsMutex.Lock()
-		delete(t.clients, connID)
-		delete(t.clientsReverse, conn)
-		t.clientsMutex.Unlock()
-
-		// Call the disconnect handler if set
-		if t.disconnectHandler != nil {
-			t.disconnectHandler(connID)
-		}
+		t.removeClient(connID)
 	}()
 
 	// Call the connect handler if set
