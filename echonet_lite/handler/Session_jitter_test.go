@@ -12,9 +12,10 @@ func TestSession_calculateRetryIntervalWithJitter(t *testing.T) {
 		RetryInterval: 3 * time.Second,
 	}
 
-	// ジッタが適用されることを確認するために複数回実行
-	intervals := make([]time.Duration, 10)
-	for i := 0; i < 10; i++ {
+	// 統計的に十分なサンプル数で実行
+	const sampleSize = 1000
+	intervals := make([]time.Duration, sampleSize)
+	for i := 0; i < sampleSize; i++ {
 		intervals[i] = session.calculateRetryIntervalWithJitter(0) // retryCount = 0
 	}
 
@@ -34,28 +35,30 @@ func TestSession_calculateRetryIntervalWithJitter(t *testing.T) {
 		}
 	}
 
-	// すべての値が同じでないことを確認（ジッタが機能していることの確認）
-	allSame := true
-	for i := 1; i < len(intervals); i++ {
-		if intervals[i] != intervals[0] {
-			allSame = false
-			break
-		}
+	// 少なくとも10個の異なる値があることを確認（ジッタが機能していることの確認）
+	uniqueValues := make(map[time.Duration]bool)
+	for _, interval := range intervals {
+		uniqueValues[interval] = true
 	}
-	if allSame {
-		t.Error("All intervals are the same, jitter is not working")
+	if len(uniqueValues) < 10 {
+		t.Errorf("Expected at least 10 unique values, got %d", len(uniqueValues))
 	}
 
-	// 値の分散を確認
+	// 大数の法則により、平均値が基準値に収束することを確認（±3%以内）
 	var sum time.Duration
 	for _, interval := range intervals {
 		sum += interval
 	}
 	average := sum / time.Duration(len(intervals))
 
-	// 平均値が基準値に近いことを確認（±10%以内）
-	if average < time.Duration(float64(baseInterval)*0.9) || average > time.Duration(float64(baseInterval)*1.1) {
-		t.Errorf("Average interval (%v) deviates too much from base interval (%v)", average, baseInterval)
+	// サンプルサイズが大きいため、より厳しい許容範囲を使用
+	tolerance := 0.03 // 3%
+	minAverage := time.Duration(float64(baseInterval) * (1.0 - tolerance))
+	maxAverage := time.Duration(float64(baseInterval) * (1.0 + tolerance))
+
+	if average < minAverage || average > maxAverage {
+		t.Errorf("Average interval (%v) deviates too much from base interval (%v), expected within [%v, %v]",
+			average, baseInterval, minAverage, maxAverage)
 	}
 }
 
