@@ -34,6 +34,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdCounterRef = useRef(0);
+  const connectCallCountRef = useRef(0);
   const pendingRequestsRef = useRef<Map<string, {
     resolve: (value: unknown) => void;
     reject: (error: unknown) => void;
@@ -181,12 +182,18 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const actualConnect = useCallback(() => {
     // 既存の接続があるかチェック
     const existingWs = wsRef.current;
-    if (existingWs && existingWs.readyState === WebSocket.OPEN) {
-      console.warn('⚠️ WebSocket is already connected, skipping new connection');
-      sendLogNotification('WARN', 'Attempted to connect while already connected', {
+    if (existingWs && (existingWs.readyState === WebSocket.OPEN || existingWs.readyState === WebSocket.CONNECTING)) {
+      console.warn('⚠️ WebSocket is already connected or connecting, skipping new connection');
+      sendLogNotification('WARN', 'Attempted to connect while connection exists', {
         component: 'WebSocket-Debug',
         url: options.url,
-        existingState: existingWs.readyState
+        existingState: existingWs.readyState,
+        stateNames: {
+          0: 'CONNECTING',
+          1: 'OPEN', 
+          2: 'CLOSING',
+          3: 'CLOSED'
+        }
       });
       return;
     }
@@ -350,6 +357,15 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
 
   // Debounced connect function to handle React StrictMode double mounting
   const connect = useCallback(() => {
+    connectCallCountRef.current++;
+    const callNumber = connectCallCountRef.current;
+    
+    sendLogNotification('WARN', `connect() called (call #${callNumber})`, {
+      component: 'WebSocket-Debug',
+      url: options.url,
+      callNumber: callNumber
+    });
+    
     // Clear any pending connection attempt
     if (connectTimeoutRef.current) {
       clearTimeout(connectTimeoutRef.current);
@@ -364,7 +380,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     } else {
       actualConnect();
     }
-  }, [actualConnect]);
+  }, [actualConnect, options.url, sendLogNotification]);
 
   // Assign connect function to ref for use in scheduleReconnect
   connectRef.current = connect;

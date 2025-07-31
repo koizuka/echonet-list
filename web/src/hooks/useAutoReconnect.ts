@@ -23,6 +23,7 @@ export function useAutoReconnect({
 }: AutoReconnectOptions) {
   const hasReconnectedRef = useRef(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTriggerCountRef = useRef(0);
   
   // Store current values in refs to avoid stale closures
   const connectionStateRef = useRef(connectionState);
@@ -70,24 +71,37 @@ export function useAutoReconnect({
   // Main effect - only runs once on mount
   useEffect(() => {
     const triggerReconnectionDebounced = () => {
+      reconnectTriggerCountRef.current++;
+      const triggerNumber = reconnectTriggerCountRef.current;
+      
+      console.log(`🔄 triggerReconnectionDebounced called (trigger #${triggerNumber})`);
+      
       // Clear any pending debounced reconnection
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
+        console.log(`🔄 Cleared previous debounce timeout`);
       }
       
       // Debounce multiple rapid events (like simultaneous visibilitychange + focus)
       debounceTimeoutRef.current = setTimeout(() => {
+        console.log(`🔄 Debounce timeout executed (trigger #${triggerNumber}), state: ${connectionStateRef.current}, hasReconnected: ${hasReconnectedRef.current}`);
         // Prevent triggering reconnection if already reconnecting or connected
         if (connectionStateRef.current === 'disconnected' || connectionStateRef.current === 'error') {
           // Additional check: don't trigger if we're already in a reconnection attempt
           if (!hasReconnectedRef.current) {
+            console.log(`🔄 Setting connection state to 'reconnecting'`);
             setConnectionStateRef.current('reconnecting');
+          } else {
+            console.log(`🔄 Skipping reconnection - already attempted`);
           }
+        } else {
+          console.log(`🔄 Skipping reconnection - state is ${connectionStateRef.current}`);
         }
       }, 100); // 100ms debounce to handle rapid events
     };
 
     const handleVisibilityChange = () => {
+      console.log(`👁️ visibilitychange: document.hidden = ${document.hidden}`);
       if (document.hidden) {
         // Clear any pending reconnection when hiding
         if (debounceTimeoutRef.current) {
@@ -96,15 +110,18 @@ export function useAutoReconnect({
         }
         // Page became hidden - disconnect if auto-disconnect is enabled
         if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
+          console.log(`👁️ Auto-disconnecting due to page hidden`);
           disconnectRef.current();
         }
       } else {
         // Page became visible - trigger debounced reconnection
+        console.log(`👁️ Page became visible, triggering reconnection`);
         triggerReconnectionDebounced();
       }
     };
 
     const handleFocus = () => {
+      console.log(`🎯 focus event triggered`);
       // Window became focused - trigger debounced reconnection
       triggerReconnectionDebounced();
     };
