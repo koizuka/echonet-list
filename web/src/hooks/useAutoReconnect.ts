@@ -10,9 +10,13 @@ export interface AutoReconnectOptions {
 }
 
 /**
- * Hook that automatically manages WebSocket connections based on page visibility:
+ * Hook that automatically manages WebSocket connections based on page visibility and focus:
  * - Disconnects when the page becomes hidden (if autoDisconnect is enabled)
- * - Reconnects when the page becomes visible and the connection is disconnected
+ * - Reconnects when the window gains focus and the connection is disconnected
+ * 
+ * Uses asymmetric event handling to avoid reconnection loops:
+ * - Focus event triggers connection attempts
+ * - Visibility change only triggers disconnection
  */
 export function useAutoReconnect({ 
   connectionState, 
@@ -82,16 +86,21 @@ export function useAutoReconnect({
         if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
           disconnectRef.current();
         }
-      } else {
-        // Page became visible - attempt reconnection
-        attemptReconnection();
       }
+      // Note: We don't reconnect on visibility change to avoid race conditions with focus event
+    };
+
+    const handleWindowFocus = () => {
+      // Window gained focus - attempt reconnection
+      attemptReconnection();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
       // Clear timeout on cleanup to prevent memory leaks
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
