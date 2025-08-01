@@ -133,7 +133,7 @@ describe('useAutoReconnect', () => {
     expect(mockDisconnect).not.toHaveBeenCalled();
   });
 
-  it('should attempt reconnection when page becomes visible and connection is disconnected', () => {
+  it('should not attempt reconnection when page becomes visible', () => {
     renderHook(() =>
       useAutoReconnect({
         connectionState: 'disconnected',
@@ -153,10 +153,33 @@ describe('useAutoReconnect', () => {
     Object.defineProperty(document, 'hidden', { value: false, writable: true });
     visibilityChangeHandler();
 
+    // Should NOT connect on visibility change (only on focus)
+    expect(mockConnect).not.toHaveBeenCalled();
+  });
+
+  it('should attempt reconnection when window gains focus and connection is disconnected', () => {
+    renderHook(() =>
+      useAutoReconnect({
+        connectionState: 'disconnected',
+        connect: mockConnect,
+        disconnect: mockDisconnect,
+      })
+    );
+
+    // Get the focus handler
+    const focusHandler = mockAddEventListener.mock.calls.find(
+      (call) => call[0] === 'focus'
+    )?.[1];
+
+    expect(focusHandler).toBeDefined();
+
+    // Simulate window gaining focus
+    focusHandler();
+
     expect(mockConnect).toHaveBeenCalledTimes(1);
   });
 
-  it('should not attempt reconnection when page becomes visible but connection is already connected', () => {
+  it('should not attempt reconnection when window gains focus but connection is already connected', () => {
     renderHook(() =>
       useAutoReconnect({
         connectionState: 'connected',
@@ -165,17 +188,59 @@ describe('useAutoReconnect', () => {
       })
     );
 
-    // Get the visibilitychange handler
+    // Get the focus handler
+    const focusHandler = mockAddEventListener.mock.calls.find(
+      (call) => call[0] === 'focus'
+    )?.[1];
+
+    expect(focusHandler).toBeDefined();
+
+    // Simulate window gaining focus
+    focusHandler();
+
+    expect(mockConnect).not.toHaveBeenCalled();
+  });
+
+  it('should handle asymmetric event processing correctly', () => {
+    // Test to verify that focus triggers connection and visibility only triggers disconnection
+    renderHook(() =>
+      useAutoReconnect({
+        connectionState: 'disconnected',
+        connect: mockConnect,
+        disconnect: mockDisconnect,
+      })
+    );
+
+    // Get both handlers
+    const focusHandler = mockAddEventListener.mock.calls.find(
+      (call) => call[0] === 'focus'
+    )?.[1];
+    
     const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
       (call) => call[0] === 'visibilitychange'
     )?.[1];
 
+    expect(focusHandler).toBeDefined();
     expect(visibilityChangeHandler).toBeDefined();
 
-    // Simulate page becoming visible
+    // Test 1: Focus should trigger connection when disconnected
+    focusHandler();
+    expect(mockConnect).toHaveBeenCalledTimes(1);
+    expect(mockDisconnect).not.toHaveBeenCalled();
+
+    // Test 2: Visibility change to visible should NOT trigger connection
+    mockConnect.mockClear();
     Object.defineProperty(document, 'hidden', { value: false, writable: true });
     visibilityChangeHandler();
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(mockDisconnect).not.toHaveBeenCalled();
 
+    // Test 3: Visibility change to hidden should NOT trigger disconnection when disconnected
+    // (disconnection only happens when connected)
+    mockDisconnect.mockClear();
+    Object.defineProperty(document, 'hidden', { value: true, writable: true });
+    visibilityChangeHandler();
+    expect(mockDisconnect).not.toHaveBeenCalled();
     expect(mockConnect).not.toHaveBeenCalled();
   });
 
@@ -212,24 +277,23 @@ describe('useAutoReconnect', () => {
         })
       );
 
-      // Get the visibilitychange handler
-      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'visibilitychange'
+      // Get the focus handler
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
       )?.[1];
 
-      expect(visibilityChangeHandler).toBeDefined();
+      expect(focusHandler).toBeDefined();
 
-      // Simulate page becoming visible (should trigger reconnection)
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
+      // Simulate window gaining focus (should trigger reconnection)
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Try to trigger reconnection again immediately (should be prevented)
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1); // Still only called once
@@ -241,7 +305,7 @@ describe('useAutoReconnect', () => {
 
       // Try to trigger reconnection again (should still be prevented)
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1); // Still only called once
@@ -253,7 +317,7 @@ describe('useAutoReconnect', () => {
 
       // Now reconnection should be allowed again
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(2); // Called twice now
@@ -271,17 +335,16 @@ describe('useAutoReconnect', () => {
           })
       );
 
-      // Get the visibilitychange handler
-      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'visibilitychange'
+      // Get the focus handler
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
       )?.[1];
 
-      expect(visibilityChangeHandler).toBeDefined();
+      expect(focusHandler).toBeDefined();
 
-      // Simulate page becoming visible with connected state (should not reconnect)
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
+      // Simulate window gaining focus with connected state (should not reconnect)
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).not.toHaveBeenCalled();
@@ -292,7 +355,7 @@ describe('useAutoReconnect', () => {
 
       // Now attempt reconnection (should work with updated state)
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1);
@@ -311,21 +374,20 @@ describe('useAutoReconnect', () => {
           })
       );
 
-      // Get the visibilitychange handler
-      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'visibilitychange'
+      // Get the focus handler
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
       )?.[1];
 
-      expect(visibilityChangeHandler).toBeDefined();
+      expect(focusHandler).toBeDefined();
 
       // Update connect function
       currentConnect = newMockConnect;
       rerender();
 
       // Trigger reconnection (should use new connect function)
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).not.toHaveBeenCalled();
@@ -393,17 +455,16 @@ describe('useAutoReconnect', () => {
         })
       );
 
-      // Get the visibilitychange handler
-      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'visibilitychange'
+      // Get the focus handler
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
       )?.[1];
 
-      expect(visibilityChangeHandler).toBeDefined();
+      expect(focusHandler).toBeDefined();
 
       // Trigger reconnection to start timeout
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1);
@@ -429,17 +490,16 @@ describe('useAutoReconnect', () => {
         })
       );
 
-      // Get the visibilitychange handler
-      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'visibilitychange'
+      // Get the focus handler
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
       )?.[1];
 
-      expect(visibilityChangeHandler).toBeDefined();
+      expect(focusHandler).toBeDefined();
 
       // Trigger reconnection to start timeout
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1);
@@ -451,7 +511,7 @@ describe('useAutoReconnect', () => {
 
       // Trigger reconnection again (should clear previous timeout and set new one)
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(2); // Should be called again
@@ -474,15 +534,14 @@ describe('useAutoReconnect', () => {
         }
       );
 
-      // Get the visibilitychange handler
-      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'visibilitychange'
+      // Get the focus handler
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
       )?.[1];
 
       // Trigger reconnection
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1);
@@ -497,7 +556,7 @@ describe('useAutoReconnect', () => {
 
       // Try to trigger reconnection again (should not reconnect as we're connected)
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1); // Should still be 1
@@ -513,15 +572,14 @@ describe('useAutoReconnect', () => {
         })
       );
 
-      // Get the visibilitychange handler
-      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'visibilitychange'
+      // Get the focus handler
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
       )?.[1];
 
       // First reconnection attempt
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1);
@@ -533,7 +591,7 @@ describe('useAutoReconnect', () => {
 
       // Second reconnection attempt should work
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(2);
@@ -549,23 +607,21 @@ describe('useAutoReconnect', () => {
         })
       );
 
-      // Get visibility change handler
-      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'visibilitychange'
+      // Get focus handler
+      const focusHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'focus'
       )?.[1];
 
       // Simulate rapid events
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
-      
-      // Visibility change event
+      // Focus event
       act(() => {
-        visibilityChangeHandler();
+        focusHandler();
       });
 
-      // Multiple visibility events in quick succession
+      // Multiple focus events in quick succession
       act(() => {
-        visibilityChangeHandler();
-        visibilityChangeHandler();
+        focusHandler();
+        focusHandler();
       });
 
       // Should only connect once despite multiple events
