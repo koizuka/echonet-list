@@ -170,7 +170,8 @@ func isConnectionClosedError(err error) bool {
 	return websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) ||
 		strings.Contains(err.Error(), "close sent") ||
 		strings.Contains(err.Error(), "use of closed network connection") ||
-		strings.Contains(err.Error(), "broken pipe")
+		strings.Contains(err.Error(), "broken pipe") ||
+		strings.Contains(err.Error(), "connection reset by peer")
 }
 
 // removeClient safely removes a client from the transport and calls the disconnect handler.
