@@ -326,7 +326,8 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 			if err := t.messageHandler(connID, message); err != nil {
 				// Check if this is a client disconnection error
 				errStr := err.Error()
-				if !(strings.Contains(errStr, "client with ID") && strings.Contains(errStr, "not found")) {
+				if !isConnectionClosedError(err) &&
+					!(strings.Contains(errStr, "client with ID") && strings.Contains(errStr, "not found")) {
 					// Only log non-disconnection errors
 					slog.Error("Error in message handler", "err", err)
 				}
