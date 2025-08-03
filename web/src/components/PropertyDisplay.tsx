@@ -34,11 +34,8 @@ export function PropertyDisplay({
   
   // Check if this is NodeProfile SelfNodeInstanceListS  
   // NodeProfile class code is 0x0ef0, so check for various formats
-  const isNodeProfile = device && (
-    device.eoj.toUpperCase().startsWith('0EF0:') || 
-    device.eoj.toLowerCase().startsWith('0ef0:')
-  );
-  const isSelfNodeInstanceListS = isNodeProfile && (epc.toUpperCase() === 'D6');
+  const isNodeProfile = device && device.eoj.startsWith('0EF0:');
+  const isSelfNodeInstanceListS = isNodeProfile && (epc === 'D6');
   
   
   // Handle SelfNodeInstanceListS special display
