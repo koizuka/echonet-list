@@ -4,6 +4,7 @@ import {
   isDeviceOperational, 
   isDeviceFaulty, 
   decodePropertyMap,
+  decodeInstanceList,
   getPropertyName,
   getPropertyDescriptor,
   formatPropertyValue 
@@ -589,6 +590,129 @@ describe('Internationalization (i18n)', () => {
 
       expect(formatPropertyValue({ number: 25 }, numericDescriptor, 'en')).toBe('25°C');
       expect(formatPropertyValue({ number: 25 }, numericDescriptor, 'ja')).toBe('25°C');
+    });
+  });
+
+  describe('decodeInstanceList', () => {
+    it('should decode single instance correctly', () => {
+      // Single instance: count(1) + classCode(0x0291) + instanceCode(0x01)
+      const data = [1, 0x02, 0x91, 0x01];
+      const edt = btoa(String.fromCharCode(...data));
+      
+      const result = decodeInstanceList(edt);
+      
+      expect(result).toEqual([
+        { classCode: '0291', instanceCode: '01' }
+      ]);
+    });
+
+    it('should decode multiple instances correctly', () => {
+      // Multiple instances: count(3) + three instances
+      const data = [
+        3,                    // count
+        0x02, 0x91, 0x01,     // 0291:1
+        0x01, 0x30, 0x01,     // 0130:1 
+        0x0E, 0xF0, 0x01      // 0EF0:1
+      ];
+      const edt = btoa(String.fromCharCode(...data));
+      
+      const result = decodeInstanceList(edt);
+      
+      expect(result).toEqual([
+        { classCode: '0291', instanceCode: '01' },
+        { classCode: '0130', instanceCode: '01' },
+        { classCode: '0EF0', instanceCode: '01' }
+      ]);
+    });
+
+    it('should handle NodeProfile instance correctly', () => {
+      // NodeProfile: count(1) + 0EF0:1
+      const data = [1, 0x0E, 0xF0, 0x01];
+      const edt = btoa(String.fromCharCode(...data));
+      
+      const result = decodeInstanceList(edt);
+      
+      expect(result).toEqual([
+        { classCode: '0EF0', instanceCode: '01' }
+      ]);
+    });
+
+    it('should handle empty EDT', () => {
+      const result = decodeInstanceList('');
+      
+      expect(result).toBeNull();
+    });
+
+    it('should handle null/undefined EDT', () => {
+      expect(decodeInstanceList(null as any)).toBeNull();
+      expect(decodeInstanceList(undefined as any)).toBeNull();
+    });
+
+    it('should handle malformed base64', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      
+      const result = decodeInstanceList('invalid-base64!!!');
+      
+      expect(result).toBeNull();
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to decode instance list:', expect.any(Error));
+      
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle insufficient data length', () => {
+      // Count says 2 instances but only 1 instance worth of data
+      const data = [2, 0x02, 0x91, 0x01]; // Missing second instance
+      const edt = btoa(String.fromCharCode(...data));
+      
+      const result = decodeInstanceList(edt);
+      
+      expect(result).toBeNull();
+    });
+
+    it('should handle zero instance count', () => {
+      // Count = 0, no instances
+      const data = [0];
+      const edt = btoa(String.fromCharCode(...data));
+      
+      const result = decodeInstanceList(edt);
+      
+      expect(result).toEqual([]);
+    });
+
+    it('should handle large instance count correctly', () => {
+      // Test with 5 instances
+      const instanceCount = 5;
+      const data = [instanceCount];
+      
+      // Add 5 instances with different class codes
+      for (let i = 0; i < instanceCount; i++) {
+        data.push(0x02, 0x90 + i, 0x01); // Class codes: 0290, 0291, 0292, 0293, 0294
+      }
+      
+      const edt = btoa(String.fromCharCode(...data));
+      
+      const result = decodeInstanceList(edt);
+      
+      expect(result).toHaveLength(5);
+      expect(result).toEqual([
+        { classCode: '0290', instanceCode: '01' },
+        { classCode: '0291', instanceCode: '01' },
+        { classCode: '0292', instanceCode: '01' },
+        { classCode: '0293', instanceCode: '01' },
+        { classCode: '0294', instanceCode: '01' }
+      ]);
+    });
+
+    it('should pad hex values correctly', () => {
+      // Test with small values that need padding
+      const data = [1, 0x00, 0x05, 0x0A]; // Class: 0005, Instance: 0A
+      const edt = btoa(String.fromCharCode(...data));
+      
+      const result = decodeInstanceList(edt);
+      
+      expect(result).toEqual([
+        { classCode: '0005', instanceCode: '0A' }
+      ]);
     });
   });
 });
