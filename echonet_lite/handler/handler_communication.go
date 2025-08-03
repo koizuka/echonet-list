@@ -628,7 +628,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		// 各デバイスに対して並列処理を実行
 		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration) {
 			defer wg.Done()
-			h.processIndividualDevice(device, propMap, delay, force, storeError)
+			h.processIndividualDevice(device, propMap, delay, storeError)
 		}(device, propMap, delay)
 	}
 
@@ -768,7 +768,7 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 }
 
 // processIndividualDevice は個別デバイスを処理する
-func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap PropertyMap, delay time.Duration, force bool, storeError func(error)) {
+func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap PropertyMap, delay time.Duration, storeError func(error)) {
 	deviceName := h.dataAccessor.DeviceStringWithAlias(device)
 
 	// 同じIPアドレスのデバイスに対して遅延を追加

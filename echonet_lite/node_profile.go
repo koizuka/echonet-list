@@ -94,7 +94,7 @@ func DecodeInstanceList(EDT []byte) *InstanceList {
 	if len(EDT) < 1+instances*3 {
 		return nil
 	}
-	for i := 0; i < instances; i++ {
+	for i := range instances {
 		eoj := DecodeEOJ(EDT[1+i*3 : 1+i*3+3])
 		result = append(result, eoj)
 	}
