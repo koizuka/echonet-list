@@ -49,12 +49,16 @@ export function SelfNodeInstanceListSDisplay({
     
     if (!targetDevice) {
       // Device not found in current devices list
+      // Add debugging information for device key format issues
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`Device not found: expected "${deviceKey}", available keys:`, Object.keys(allDevices).slice(0, 3));
+      }
       return (
         <div key={index} className={`p-2 border rounded text-muted-foreground ${
           isCompact ? "text-xs" : "text-sm"
         }`}>
           <div className="font-mono">{eoj}</div>
-          <div className={isCompact ? "text-xs" : "text-xs"}>Device not found</div>
+          <div className={isCompact ? "text-xs" : "text-sm"}>Device not found</div>
         </div>
       );
     }
