@@ -90,9 +90,8 @@ export function SimpleDeviceCard({
               ) : null}
               {/* Installation location display */}
               {locationDisplay && (
-                <div className={`text-xs text-muted-foreground ${isCompact ? 'truncate' : ''}`}>
-                  <span className="sr-only">設置場所:</span>
-                  <span aria-label="Installation location">{locationDisplay}</span>
+                <div className={`text-xs text-muted-foreground ${isCompact ? 'truncate' : ''}`} aria-label="Installation location">
+                  設置場所: {locationDisplay}
                 </div>
               )}
             </div>
