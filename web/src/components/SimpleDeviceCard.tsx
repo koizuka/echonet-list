@@ -46,8 +46,13 @@ export function SimpleDeviceCard({
   className = '',
   isCompact = false,
 }: SimpleDeviceCardProps) {
+  // Null safety checks
+  if (!device || !getDeviceClassCode) {
+    return null;
+  }
+
   const { aliases: deviceAliases } = getDeviceAliases(device, allDevices, aliases);
-  const locationProperty = device.properties['81'];
+  const locationProperty = device.properties?.['81'];
   
   // Get device class code and property descriptor like original DeviceCard does
   const classCode = getDeviceClassCode(device);
@@ -72,6 +77,7 @@ export function SimpleDeviceCard({
       } ${isLoading ? 'cursor-not-allowed opacity-50' : ''} ${
         device.isOffline ? 'after:absolute after:inset-0 after:bg-background/60 after:pointer-events-none after:rounded-lg' : ''
       } ${className}`}
+      aria-label={device.isOffline ? `${deviceAliases[0] || deviceDisplayName} (オフライン)` : deviceAliases[0] || deviceDisplayName}
     >
       <CardContent className="p-3">
         <div className="flex items-start gap-2">
