@@ -3,7 +3,7 @@ import { PropertyDisplay } from './PropertyDisplay';
 import { getPropertyName, getPropertyDescriptor, isPropertySettable } from '@/libs/propertyHelper';
 import { isSensorProperty, getSensorIcon, getSensorIconColor } from '@/libs/sensorPropertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
-import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
+import type { Device, PropertyValue, PropertyDescriptionData, DeviceAlias } from '@/hooks/types';
 
 interface PropertyRowProps {
   device: Device;
@@ -14,6 +14,9 @@ interface PropertyRowProps {
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   classCode: string;
   isConnected?: boolean;
+  allDevices?: Record<string, Device>;
+  aliases?: DeviceAlias;
+  getDeviceClassCode?: (device: Device) => string;
 }
 
 export function PropertyRow({
@@ -24,8 +27,12 @@ export function PropertyRow({
   onPropertyChange,
   propertyDescriptions,
   classCode,
-  isConnected
+  isConnected,
+  allDevices,
+  aliases,
+  getDeviceClassCode
 }: PropertyRowProps) {
+  
   const currentLang = getCurrentLocale();
   const propertyName = getPropertyName(epc, propertyDescriptions, classCode, currentLang);
   const propertyDescriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode, currentLang);
@@ -57,6 +64,10 @@ export function PropertyRow({
               onPropertyChange={onPropertyChange}
               propertyDescriptions={propertyDescriptions}
               isConnected={isConnected}
+              allDevices={allDevices}
+              aliases={aliases}
+              getDeviceClassCode={getDeviceClassCode}
+              isCompact={isCompact}
             />
           ) : (
             <PropertyDisplay
@@ -65,6 +76,10 @@ export function PropertyRow({
               epc={epc}
               propertyDescriptions={propertyDescriptions}
               device={device}
+              allDevices={allDevices}
+              aliases={aliases}
+              getDeviceClassCode={getDeviceClassCode}
+              isCompact={isCompact}
             />
           )}
         </div>
@@ -90,6 +105,10 @@ export function PropertyRow({
                 onPropertyChange={onPropertyChange}
                 propertyDescriptions={propertyDescriptions}
                 isConnected={isConnected}
+                allDevices={allDevices}
+                aliases={aliases}
+                getDeviceClassCode={getDeviceClassCode}
+                isCompact={isCompact}
               />
             ) : (
               <PropertyDisplay
@@ -98,6 +117,10 @@ export function PropertyRow({
                 epc={epc}
                 propertyDescriptions={propertyDescriptions}
                 device={device}
+                allDevices={allDevices}
+                aliases={aliases}
+                getDeviceClassCode={getDeviceClassCode}
+                isCompact={isCompact}
               />
             )}
           </div>
@@ -121,6 +144,10 @@ export function PropertyRow({
             onPropertyChange={onPropertyChange}
             propertyDescriptions={propertyDescriptions}
             isConnected={isConnected}
+            allDevices={allDevices}
+            aliases={aliases}
+            getDeviceClassCode={getDeviceClassCode}
+            isCompact={isCompact}
           />
         </div>
       </div>

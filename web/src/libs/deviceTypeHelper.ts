@@ -13,6 +13,11 @@ export const ESSENTIAL_PROPERTIES = ['80'] as const; // Operation Status
  * Value: Array of EPC codes to display in compact view
  */
 export const DEVICE_PRIMARY_PROPERTIES: Record<string, string[]> = {
+  // Node Profile (0EF0)
+  '0EF0': [
+    'D6', // SelfNodeInstanceListS
+  ],
+
   // Home Air Conditioner (0130)
   '0130': [
     'BB', 'BA', // temperature, humidity

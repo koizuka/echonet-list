@@ -185,6 +185,9 @@ export function DeviceCard({
                     propertyDescriptions={propertyDescriptions}
                     classCode={classCode}
                     isConnected={isConnected && !device.isOffline}
+                    allDevices={devices}
+                    aliases={aliases}
+                    getDeviceClassCode={getDeviceClassCode}
                   />
                 ))
               ) : (
@@ -200,6 +203,9 @@ export function DeviceCard({
                     propertyDescriptions={propertyDescriptions}
                     classCode={classCode}
                     isConnected={isConnected && !device.isOffline}
+                    allDevices={devices}
+                    aliases={aliases}
+                    getDeviceClassCode={getDeviceClassCode}
                   />
                 ))
               )}
@@ -224,6 +230,9 @@ export function DeviceCard({
                     propertyDescriptions={propertyDescriptions}
                     classCode={classCode}
                     isConnected={isConnected && !device.isOffline}
+                    allDevices={devices}
+                    aliases={aliases}
+                    getDeviceClassCode={getDeviceClassCode}
                   />
                 ))}
               </div>
@@ -247,6 +256,9 @@ export function DeviceCard({
                   propertyDescriptions={propertyDescriptions}
                   classCode={classCode}
                   isConnected={isConnected}
+                  allDevices={devices}
+                  aliases={aliases}
+                  getDeviceClassCode={getDeviceClassCode}
                 />
               ))}
             </div>

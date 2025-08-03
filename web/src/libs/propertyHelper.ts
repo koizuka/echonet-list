@@ -364,3 +364,42 @@ export function decodePropertyMap(edt: string): string[] | null {
     return null;
   }
 }
+
+/**
+ * Decodes an instance list from ECHONET Lite EDT data
+ * Used for EPC D5 (InstanceListNotification) and D6 (SelfNodeInstanceListS)
+ * 
+ * @param edt Base64 encoded EDT data
+ * @returns Array of EOJ objects with classCode and instanceCode, or null if parsing fails
+ */
+export function decodeInstanceList(edt: string): { classCode: string; instanceCode: string }[] | null {
+  if (!edt) return null;
+  
+  try {
+    const bytes = atob(edt);
+    if (bytes.length < 1) return null;
+    
+    const instanceCount = bytes.charCodeAt(0);
+    if (bytes.length < 1 + instanceCount * 3) return null;
+    
+    const instances: { classCode: string; instanceCode: string }[] = [];
+    
+    for (let i = 0; i < instanceCount; i++) {
+      const offset = 1 + i * 3;
+      // EOJ format: 3 bytes - class code (2 bytes) + instance code (1 byte)
+      const classByte1 = bytes.charCodeAt(offset).toString(16).toUpperCase().padStart(2, '0');
+      const classByte2 = bytes.charCodeAt(offset + 1).toString(16).toUpperCase().padStart(2, '0');
+      const instanceByte = bytes.charCodeAt(offset + 2).toString(16).toUpperCase().padStart(2, '0');
+      
+      instances.push({
+        classCode: classByte1 + classByte2,
+        instanceCode: instanceByte
+      });
+    }
+    
+    return instances;
+  } catch (error) {
+    console.error('Failed to decode instance list:', error);
+    return null;
+  }
+}
