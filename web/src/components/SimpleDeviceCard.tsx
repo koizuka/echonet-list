@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { GripVertical, Plus, Minus } from 'lucide-react';
+import { DeviceIcon } from '@/components/DeviceIcon';
 import { getDeviceAliases } from '@/libs/deviceIdHelper';
 import { formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import type { Device, DeviceAlias, PropertyDescriptionData } from '@/hooks/types';
@@ -66,9 +67,11 @@ export function SimpleDeviceCard({
       draggable={isDraggable && !isLoading}
       onDragStart={isDraggable ? (e) => onDragStart?.(e, deviceKey) : undefined}
       onDragEnd={isDraggable ? onDragEnd : undefined}
-      className={`transition-opacity overflow-hidden ${
+      className={`transition-opacity overflow-hidden relative ${
         isDragging ? 'opacity-50' : ''
-      } ${isLoading ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
+      } ${isLoading ? 'cursor-not-allowed opacity-50' : ''} ${
+        device.isOffline ? 'after:absolute after:inset-0 after:bg-background/60 after:pointer-events-none after:rounded-lg' : ''
+      } ${className}`}
     >
       <CardContent className="p-3">
         <div className="flex items-start gap-2">
@@ -78,11 +81,14 @@ export function SimpleDeviceCard({
           <div className="flex-1 min-w-0 space-y-2">
             {/* Primary identification */}
             <div className="space-y-1">
-              {deviceAliases.length > 0 ? (
-                <div className={`text-sm font-medium ${isCompact ? 'truncate' : ''}`}>{deviceAliases[0]}</div>
-              ) : (
-                <div className={`text-sm font-medium ${isCompact ? 'truncate' : ''}`}>{deviceDisplayName}</div>
-              )}
+              <div className="flex items-center gap-2">
+                <DeviceIcon device={device} classCode={classCode} />
+                {deviceAliases.length > 0 ? (
+                  <div className={`text-sm font-medium ${isCompact ? 'truncate' : ''}`}>{deviceAliases[0]}</div>
+                ) : (
+                  <div className={`text-sm font-medium ${isCompact ? 'truncate' : ''}`}>{deviceDisplayName}</div>
+                )}
+              </div>
               {deviceAliases.length > 0 && !isCompact ? (
                 <div className={`text-xs text-muted-foreground ${isCompact ? 'truncate' : ''}`}>{deviceDisplayName}</div>
               ) : !deviceAliases.length ? (
