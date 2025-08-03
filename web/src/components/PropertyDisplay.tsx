@@ -1,10 +1,9 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import { HexViewer } from './HexViewer';
-import { formatPropertyValue, shouldShowHexViewer, decodePropertyMap, getPropertyName, extractClassCodeFromEOJ } from '@/libs/propertyHelper';
+import { PropertyMapDisplay } from './PropertyMapDisplay';
+import { SelfNodeInstanceListSDisplay } from './SelfNodeInstanceListSDisplay';
+import { formatPropertyValue, shouldShowHexViewer, decodeInstanceList } from '@/libs/propertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
-import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device } from '@/hooks/types';
+import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device, DeviceAlias } from '@/hooks/types';
 
 interface PropertyDisplayProps {
   currentValue: PropertyValue;
@@ -12,6 +11,10 @@ interface PropertyDisplayProps {
   epc: string;
   propertyDescriptions?: Record<string, PropertyDescriptionData>;
   device?: Device;
+  allDevices?: Record<string, Device>;
+  aliases?: DeviceAlias;
+  getDeviceClassCode?: (device: Device) => string;
+  isCompact?: boolean;
 }
 
 export function PropertyDisplay({ 
@@ -19,87 +22,72 @@ export function PropertyDisplay({
   descriptor, 
   epc,
   propertyDescriptions,
-  device
+  device,
+  allDevices,
+  aliases,
+  getDeviceClassCode,
+  isCompact = false
 }: PropertyDisplayProps) {
-  const [showPropertyMap, setShowPropertyMap] = useState(false);
   const currentLang = getCurrentLocale();
   const canShowHexViewer = shouldShowHexViewer(currentValue, descriptor, currentLang);
   const isPropertyMap = ['9D', '9E', '9F'].includes(epc);
   
-  // Parse property map if applicable
-  const parsePropertyMap = () => {
-    if (!isPropertyMap || !currentValue.EDT || !propertyDescriptions || !device) return null;
-    
-    const epcs = decodePropertyMap(currentValue.EDT);
-    if (!epcs) return null;
-    
-    const classCode = extractClassCodeFromEOJ(device.eoj);
-    const properties = epcs.map(epc => ({
-      epc,
-      description: getPropertyName(epc, propertyDescriptions, classCode, currentLang)
-    }));
-    
-    // Get property count from the original EDT data
-    try {
-      const mapBytes = atob(currentValue.EDT);
-      const propertyCount = mapBytes.length > 0 ? mapBytes.charCodeAt(0) : 0;
-      return { propertyCount, properties };
-    } catch {
-      return { propertyCount: epcs.length, properties };
-    }
-  };
+  // Check if this is NodeProfile SelfNodeInstanceListS  
+  // NodeProfile class code is 0x0ef0, so check for various formats
+  const isNodeProfile = device && (
+    device.eoj.toUpperCase().startsWith('0EF0:') || 
+    device.eoj.toLowerCase().startsWith('0ef0:')
+  );
+  const isSelfNodeInstanceListS = isNodeProfile && (epc.toUpperCase() === 'D6');
   
-  const formattedValue = formatPropertyValue(currentValue, descriptor, currentLang);
   
-  if (isPropertyMap && propertyDescriptions && currentValue.EDT) {
-    const mapData = parsePropertyMap();
-    if (mapData) {
+  // Handle SelfNodeInstanceListS special display
+  if (isSelfNodeInstanceListS) {
+    // If we have all required props, show the full display
+    if (allDevices && aliases && getDeviceClassCode) {
       return (
-        <div className="relative">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">
-              {formattedValue} ({mapData.propertyCount})
-            </span>
-            <Button
-              variant={showPropertyMap ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowPropertyMap(!showPropertyMap)}
-              className="h-6 w-6 p-0"
-              title={showPropertyMap ? "Hide property details" : "Show property details"}
-            >
-              {showPropertyMap ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            </Button>
-            <HexViewer 
-              canShowHexViewer={canShowHexViewer} 
-              currentValue={currentValue}
-            />
-          </div>
-          {showPropertyMap && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded shadow-md z-20 min-w-max">
-              <div className="p-2 space-y-1">
-                {mapData.properties.map((property) => (
-                  <div
-                    key={property.epc}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">
-                      {property.epc}
-                    </span>
-                    <span>{property.description}</span>
-                  </div>
-                ))}
-                {mapData.properties.length === 0 && (
-                  <div className="text-sm text-muted-foreground">
-                    No properties in this map
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+        <SelfNodeInstanceListSDisplay
+          currentValue={currentValue}
+          device={device}
+          allDevices={allDevices}
+          aliases={aliases}
+          propertyDescriptions={propertyDescriptions || {}}
+          getDeviceClassCode={getDeviceClassCode}
+          isCompact={isCompact}
+        />
+      );
+    } else {
+      // Fallback: just show the count with hex viewer
+      const instances = currentValue.EDT ? decodeInstanceList(currentValue.EDT) : null;
+      const instanceCount = instances ? instances.length : 0;
+      return (
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">
+            Instance List ({instanceCount})
+          </span>
+          <HexViewer 
+            canShowHexViewer={true} 
+            currentValue={currentValue}
+          />
         </div>
       );
     }
   }
+  
+  // Handle Property Map display
+  if (isPropertyMap && propertyDescriptions && currentValue.EDT) {
+    return (
+      <PropertyMapDisplay
+        currentValue={currentValue}
+        descriptor={descriptor}
+        propertyDescriptions={propertyDescriptions}
+        device={device}
+      />
+    );
+  }
+  
+  // Default display
+  const formattedValue = formatPropertyValue(currentValue, descriptor, currentLang);
   
   return (
     <div className="relative">

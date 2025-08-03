@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { GripVertical, Plus, Minus, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
+import { SimpleDeviceCard } from '@/components/SimpleDeviceCard';
 import { getDeviceAliases } from '@/libs/deviceIdHelper';
-import { formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import type { Device, DeviceAlias, PropertyDescriptionData } from '@/hooks/types';
 
 interface GroupMemberEditorProps {
@@ -176,99 +175,27 @@ export function GroupMemberEditor({
   };
 
   const renderDeviceCard = (deviceKey: string, device: Device, isMember: boolean) => {
-    const { aliases: deviceAliases } = getDeviceAliases(device, allDevices, aliases);
-    const locationProperty = device.properties['81'];
-    
-    // Get device class code and property descriptor like DeviceCard does
-    const classCode = getDeviceClassCode(device);
-    const propertyDescriptor = getPropertyDescriptor('81', propertyDescriptions, classCode);
-    
-    
-    // Format installation location using the same method as DeviceCard
-    const locationDisplay = locationProperty 
-      ? formatPropertyValue(locationProperty, propertyDescriptor)
-      : '';
-    
-    
-    // Use device.name for better readability (e.g., "0EF0[Node Profile]")
-    const deviceDisplayName = device.name || device.eoj;
-    
     return (
-      <Card
+      <SimpleDeviceCard
         key={deviceKey}
-        data-testid={`device-card-${deviceKey.replace(/\s+/g, '-')}`}
-        draggable={!isLoading}
-        onDragStart={(e) => handleDragStart(e, deviceKey)}
+        deviceKey={deviceKey}
+        device={device}
+        allDevices={allDevices}
+        aliases={aliases}
+        propertyDescriptions={propertyDescriptions}
+        getDeviceClassCode={getDeviceClassCode}
+        isDraggable={true}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        className={`transition-opacity ${
-          draggingDevice === deviceKey ? 'opacity-50' : ''
-        } ${isLoading ? 'cursor-not-allowed opacity-50' : ''}`}
-      >
-        <CardContent className="p-3">
-          <div className="flex items-start gap-2">
-            <GripVertical className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0 space-y-2">
-              {/* Primary identification */}
-              <div className="space-y-1">
-                {deviceAliases.length > 0 ? (
-                  <div className="text-sm font-medium">{deviceAliases[0]}</div>
-                ) : (
-                  <div className="text-sm font-medium">{deviceDisplayName}</div>
-                )}
-                {deviceAliases.length > 0 ? (
-                  <div className="text-xs text-muted-foreground">{deviceDisplayName}</div>
-                ) : (
-                  <div className="text-xs text-muted-foreground">{device.ip} {device.eoj}</div>
-                )}
-                {/* Installation location display */}
-                {locationDisplay && (
-                  <div className="text-xs text-muted-foreground">
-                    設置場所: {locationDisplay}
-                  </div>
-                )}
-              </div>
-              
-              {/* Device info badges */}
-              <div className="flex flex-wrap gap-1">
-                {deviceAliases.length > 1 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{deviceAliases.length - 1}
-                  </Badge>
-                )}
-              </div>
-            </div>
-            
-            {/* Add/Remove Button */}
-            <div className="flex-shrink-0">
-              {isMember ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRemoveDevice(deviceKey)}
-                  disabled={isLoading || !isConnected}
-                  className="h-8 w-8 p-0"
-                  title="グループから削除"
-                  data-testid={`remove-device-${deviceKey.replace(/\s+/g, '-')}`}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleAddDevice(deviceKey)}
-                  disabled={isLoading || !isConnected}
-                  className="h-8 w-8 p-0"
-                  title="グループに追加"
-                  data-testid={`add-device-${deviceKey.replace(/\s+/g, '-')}`}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        isDragging={draggingDevice === deviceKey}
+        isLoading={isLoading}
+        actionButton={{
+          type: isMember ? 'remove' : 'add',
+          onClick: () => isMember ? handleRemoveDevice(deviceKey) : handleAddDevice(deviceKey),
+          title: isMember ? "グループから削除" : "グループに追加",
+          disabled: isLoading || !isConnected
+        }}
+      />
     );
   };
 

@@ -6,7 +6,7 @@ import { PropertyDisplay } from './PropertyDisplay';
 import { HexViewer } from './HexViewer';
 import { isPropertySettable, formatPropertyValue, shouldShowHexViewer } from '@/libs/propertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
-import type { PropertyDescriptor, PropertyValue, Device, PropertyDescriptionData } from '@/hooks/types';
+import type { PropertyDescriptor, PropertyValue, Device, PropertyDescriptionData, DeviceAlias } from '@/hooks/types';
 
 interface PropertyEditorProps {
   device: Device;
@@ -16,6 +16,10 @@ interface PropertyEditorProps {
   onPropertyChange: (target: string, epc: string, value: PropertyValue) => Promise<void>;
   propertyDescriptions?: Record<string, PropertyDescriptionData>;
   isConnected?: boolean;
+  allDevices?: Record<string, Device>;
+  aliases?: DeviceAlias;
+  getDeviceClassCode?: (device: Device) => string;
+  isCompact?: boolean;
 }
 
 export function PropertyEditor({ 
@@ -25,8 +29,13 @@ export function PropertyEditor({
   descriptor, 
   onPropertyChange,
   propertyDescriptions,
-  isConnected 
+  isConnected,
+  allDevices,
+  aliases,
+  getDeviceClassCode,
+  isCompact = false
 }: PropertyEditorProps) {
+  
   const deviceId = `${device.ip} ${device.eoj}`;
 
   const hasAliases = descriptor?.aliases && Object.keys(descriptor.aliases).length > 0;
@@ -80,6 +89,10 @@ export function PropertyEditor({
         epc={epc}
         propertyDescriptions={propertyDescriptions}
         device={device}
+        allDevices={allDevices}
+        aliases={aliases}
+        getDeviceClassCode={getDeviceClassCode}
+        isCompact={isCompact}
       />
     );
   }
