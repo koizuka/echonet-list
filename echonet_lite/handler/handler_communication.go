@@ -641,7 +641,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		return firstErr
 	}
 
-	slog.Info("UpdateProperties completed successfully", "deviceCount", filtered.Len(), "duration", duration)
+	slog.Debug("UpdateProperties completed successfully", "deviceCount", filtered.Len(), "duration", duration)
 	return nil
 }
 
