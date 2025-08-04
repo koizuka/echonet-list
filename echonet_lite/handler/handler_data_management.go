@@ -75,8 +75,8 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 		changes := make([]string, len(changedProperties))
 		for i, p := range changedProperties {
 			changes[i] = p.StringForClass(classCode)
-			slog.Info("プロパティ更新", "device", h.DeviceStringWithAlias(device), "count", len(changedProperties), "changes", strings.Join(changes, ", "))
 		}
+		slog.Info("プロパティ更新", "device", h.DeviceStringWithAlias(device), "count", len(changedProperties), "changes", strings.Join(changes, ", "))
 	}
 
 	// デバイスのプロパティを登録
