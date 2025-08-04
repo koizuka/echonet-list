@@ -542,8 +542,6 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		return fmt.Errorf("条件に一致するデバイスが見つかりません")
 	}
 
-	slog.Info("Filtered devices for update", "device_count", filtered.Len(), "criteria", criteria)
-
 	// 全てのデバイスの更新完了を待つためのWaitGroup
 	var wg sync.WaitGroup
 	var errMutex sync.Mutex
@@ -639,11 +637,11 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 	duration := time.Since(start)
 	// エラーがあれば返す
 	if firstErr != nil {
-		slog.Error("UpdateProperties completed with errors", "duration", duration, "first_error", firstErr)
+		slog.Error("UpdateProperties completed with errors", "deviceCount", filtered.Len(), "duration", duration, "first_error", firstErr)
 		return firstErr
 	}
 
-	slog.Info("UpdateProperties completed successfully", "duration", duration)
+	slog.Info("UpdateProperties completed successfully", "deviceCount", filtered.Len(), "duration", duration)
 	return nil
 }
 
