@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"echonet-list/echonet_lite"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -547,9 +546,7 @@ func (h *CommunicationHandler) GetProperties(device IPAndEOJ, EPCs []EPCType, sk
 
 	// 全体の成功/失敗を判定
 	if !success {
-		errMsg := fmt.Sprintf("%v: 一部のプロパティ取得に失敗: %v", device, failedEPCs)
-		slog.Warn("警告", "msg", errMsg)
-		return result, errors.New(errMsg)
+		slog.Warn("一部のプロパティ取得に失敗", "device", device, "failed_epcs", failedEPCs)
 	}
 
 	return result, nil
@@ -602,9 +599,7 @@ func (h *CommunicationHandler) SetProperties(device IPAndEOJ, properties Propert
 
 	// 全体の成功/失敗を判定
 	if !success {
-		errMsg := fmt.Sprintf("一部のプロパティ設定に失敗: %v: %v", device, failedEPCs)
-		slog.Warn("警告", "device", device, "msg", errMsg)
-		return result, errors.New(errMsg)
+		slog.Warn("一部のプロパティ設定に失敗", "device", device, "failed_epcs", failedEPCs)
 	}
 
 	return result, nil
@@ -931,7 +926,7 @@ func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap 
 		for i, epc := range failedEPCs {
 			epcNames[i] = epc.StringForClass(device.EOJ.ClassCode())
 		}
-		storeError(fmt.Errorf("%v の一部のプロパティ取得に失敗: %v", deviceName, epcNames))
+		slog.Warn("プロパティ取得に失敗", "device", deviceName, "failed_epcs", epcNames)
 	}
 }
 
