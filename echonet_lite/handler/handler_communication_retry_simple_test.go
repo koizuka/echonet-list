@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sync"
 	"testing"
@@ -84,7 +85,7 @@ func TestActiveUpdatesTracking(t *testing.T) {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
-				testIP := net.ParseIP("192.168.1." + string(rune(100+id)))
+				testIP := net.ParseIP(fmt.Sprintf("192.168.1.%d", 100+id))
 
 				for j := 0; j < iterations; j++ {
 					handler.markUpdateActive(testIP)

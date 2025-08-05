@@ -104,7 +104,7 @@ func (h *CommunicationHandler) markUpdateInactive(ip net.IP) {
 
 // startActiveUpdatesCleanup は、古いアクティブ更新エントリを定期的にクリーンアップする
 func (h *CommunicationHandler) startActiveUpdatesCleanup() {
-	ticker := time.NewTicker(MaxUpdateAge / 2) // 半分の間隔でクリーンアップ
+	ticker := time.NewTicker(MaxUpdateAge / 3) // より積極的なクリーンアップ（3.3分間隔）
 	defer ticker.Stop()
 
 	for {
