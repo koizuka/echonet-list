@@ -669,7 +669,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 	for _, group := range broadcastGroups {
 		// ブロードキャストグループは同一IPなので、最初のデバイスのIPでチェック
 		if len(group) > 0 && h.isUpdateActive(group[0].IP, force) {
-			slog.Debug("IPアドレスの更新処理が既にアクティブのためブロードキャストグループをスキップ", "ip", group[0].IP, "devices", len(group))
+			slog.Info("IPアドレスの更新処理が既にアクティブのためブロードキャストグループをスキップ", "ip", group[0].IP, "devices", len(group))
 			continue
 		}
 
@@ -717,7 +717,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 
 		// IPアドレス別の更新処理がアクティブかチェック
 		if h.isUpdateActive(device.IP, force) {
-			slog.Debug("IPアドレスの更新処理が既にアクティブのためスキップ", "ip", device.IP, "device", device.Specifier())
+			slog.Info("IPアドレスの更新処理が既にアクティブのためスキップ", "ip", device.IP, "device", device.Specifier())
 			continue
 		}
 
