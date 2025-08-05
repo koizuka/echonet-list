@@ -104,7 +104,7 @@ func (h *CommunicationHandler) markUpdateInactive(ip net.IP) {
 
 // startActiveUpdatesCleanup は、古いアクティブ更新エントリを定期的にクリーンアップする
 func (h *CommunicationHandler) startActiveUpdatesCleanup() {
-	ticker := time.NewTicker(MaxUpdateAge / 3) // より積極的なクリーンアップ（3.3分間隔）
+	ticker := time.NewTicker(MaxUpdateAge / 2) // 安全なクリーンアップ間隔（5分間隔）
 	defer ticker.Stop()
 
 	for {
@@ -676,6 +676,13 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		wg.Add(1)
 		go func(devices []IPAndEOJ, force bool) {
 			defer wg.Done()
+
+			// IPアドレスをアクティブとしてマーク（処理開始前に実行）
+			if len(devices) > 0 {
+				h.markUpdateActive(devices[0].IP)
+				defer h.markUpdateInactive(devices[0].IP)
+			}
+
 			h.processBroadcastGroup(devices, force, &errMutex, &firstErr)
 		}(group, force)
 	}
@@ -720,6 +727,11 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		// 各デバイスに対して並列処理を実行
 		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration, force bool) {
 			defer wg.Done()
+
+			// IPアドレスをアクティブとしてマーク（遅延前に実行）
+			h.markUpdateActive(device.IP)
+			defer h.markUpdateInactive(device.IP)
+
 			h.processIndividualDevice(device, propMap, delay, force, storeError)
 		}(device, propMap, delay, force)
 	}
@@ -780,10 +792,8 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 		return
 	}
 
-	// IPアドレスをアクティブとしてマーク
+	// IPアドレスのアクティブマークはgoroutine開始時に既に実行済み
 	firstDevice := devices[0]
-	h.markUpdateActive(firstDevice.IP)
-	defer h.markUpdateInactive(firstDevice.IP)
 
 	storeError := func(err error) {
 		errMutex.Lock()
@@ -872,9 +882,7 @@ func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap 
 		time.Sleep(delay)
 	}
 
-	// IPアドレスをアクティブとしてマーク
-	h.markUpdateActive(device.IP)
-	defer h.markUpdateInactive(device.IP)
+	// IPアドレスのアクティブマークはgoroutine開始時に既に実行済み
 
 	success, properties, failedEPCs, err := h.session.GetProperties(
 		h.ctx,
