@@ -44,6 +44,7 @@ type WebSocketServer struct {
 	initialStateInProgress atomic.Int32                      // Counter for ongoing initial state generations
 	lastUpdateTime         atomic.Int64                      // Unix timestamp of last periodic update (for monitoring)
 	updateInterval         time.Duration                     // Expected update interval (for monitoring)
+	timeProvider           TimeProvider                      // Time provider for testability
 }
 
 // NewWebSocketServer creates a new WebSocket server
@@ -64,8 +65,9 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 		echonetClient:  echonetClient,
 		handler:        handler,
 		notificationCh: notificationCh,
-		tickerDone:     make(chan bool), // Initialize the done channel
-		monitorDone:    make(chan bool), // Initialize the monitor done channel
+		tickerDone:     make(chan bool),     // Initialize the done channel
+		monitorDone:    make(chan bool),     // Initialize the monitor done channel
+		timeProvider:   &RealTimeProvider{}, // Use real time by default
 	}
 
 	// Set up the transport handlers
