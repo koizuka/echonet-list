@@ -16,12 +16,14 @@ import (
 
 // CommunicationHandler は、ECHONET Lite 通信機能を担当する構造体
 type CommunicationHandler struct {
-	session      *Session          // セッション
-	localDevices DeviceProperties  // 自ノードが所有するデバイスのプロパティ
-	dataAccessor DataAccessor      // データアクセス機能
-	notifier     NotificationRelay // 通知中継
-	ctx          context.Context   // コンテキスト
-	Debug        bool              // デバッグモード
+	session         *Session             // セッション
+	localDevices    DeviceProperties     // 自ノードが所有するデバイスのプロパティ
+	dataAccessor    DataAccessor         // データアクセス機能
+	notifier        NotificationRelay    // 通知中継
+	ctx             context.Context      // コンテキスト
+	Debug           bool                 // デバッグモード
+	activeUpdatesMu sync.RWMutex         // アクティブな更新処理の排他制御
+	activeUpdates   map[string]time.Time // IP別のアクティブな更新処理 (key: IP文字列)
 }
 
 // NewCommunicationHandler は、CommunicationHandlerの新しいインスタンスを作成する
@@ -33,20 +35,100 @@ func NewCommunicationHandler(
 	notifier NotificationRelay,
 	debug bool,
 ) *CommunicationHandler {
-	return &CommunicationHandler{
-		session:      session,
-		localDevices: localDevices,
-		dataAccessor: dataAccessor,
-		notifier:     notifier,
-		ctx:          ctx,
-		Debug:        debug,
+	h := &CommunicationHandler{
+		session:       session,
+		localDevices:  localDevices,
+		dataAccessor:  dataAccessor,
+		notifier:      notifier,
+		ctx:           ctx,
+		Debug:         debug,
+		activeUpdates: make(map[string]time.Time),
 	}
+
+	// バックグラウンドクリーンアップを開始
+	go h.startActiveUpdatesCleanup()
+
+	return h
 }
 
 // SetDebug は、デバッグモードを設定する
 func (h *CommunicationHandler) SetDebug(debug bool) {
 	h.Debug = debug
 	h.session.Debug = debug
+}
+
+// isUpdateActive は指定されたIPアドレスの更新処理がアクティブかどうかを確認する
+func (h *CommunicationHandler) isUpdateActive(ip net.IP, force bool) bool {
+	if force {
+		return false // force=trueの場合は常に実行
+	}
+
+	ipStr := ip.String()
+	h.activeUpdatesMu.RLock()
+	startTime, exists := h.activeUpdates[ipStr]
+	h.activeUpdatesMu.RUnlock()
+
+	if !exists {
+		return false
+	}
+
+	// 古いエントリは無効とする
+	if time.Since(startTime) > MaxUpdateAge {
+		h.activeUpdatesMu.Lock()
+		// 再度チェックして、まだ古い場合のみ削除（Double-checked locking pattern）
+		if startTime2, exists2 := h.activeUpdates[ipStr]; exists2 && time.Since(startTime2) > MaxUpdateAge {
+			delete(h.activeUpdates, ipStr)
+		}
+		h.activeUpdatesMu.Unlock()
+		return false
+	}
+
+	return true
+}
+
+// markUpdateActive は指定されたIPアドレスの更新処理をアクティブとしてマークする
+func (h *CommunicationHandler) markUpdateActive(ip net.IP) {
+	ipStr := ip.String()
+	h.activeUpdatesMu.Lock()
+	h.activeUpdates[ipStr] = time.Now()
+	h.activeUpdatesMu.Unlock()
+}
+
+// markUpdateInactive は指定されたIPアドレスの更新処理を非アクティブとしてマークする
+func (h *CommunicationHandler) markUpdateInactive(ip net.IP) {
+	ipStr := ip.String()
+	h.activeUpdatesMu.Lock()
+	delete(h.activeUpdates, ipStr)
+	h.activeUpdatesMu.Unlock()
+}
+
+// startActiveUpdatesCleanup は、古いアクティブ更新エントリを定期的にクリーンアップする
+func (h *CommunicationHandler) startActiveUpdatesCleanup() {
+	ticker := time.NewTicker(MaxUpdateAge / 2) // 半分の間隔でクリーンアップ
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-h.ctx.Done():
+			return
+		case <-ticker.C:
+			h.cleanupStaleActiveUpdates()
+		}
+	}
+}
+
+// cleanupStaleActiveUpdates は、古いアクティブ更新エントリを削除する
+func (h *CommunicationHandler) cleanupStaleActiveUpdates() {
+	now := time.Now()
+	h.activeUpdatesMu.Lock()
+	defer h.activeUpdatesMu.Unlock()
+
+	for ipStr, startTime := range h.activeUpdates {
+		if now.Sub(startTime) > MaxUpdateAge {
+			delete(h.activeUpdates, ipStr)
+			slog.Debug("Cleaned up stale active update entry", "ip", ipStr, "age", now.Sub(startTime))
+		}
+	}
 }
 
 // NotifyNodeList は、自ノードのインスタンスリストを通知する
@@ -585,11 +667,17 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 
 	// ブロードキャストグループの処理
 	for _, group := range broadcastGroups {
+		// ブロードキャストグループは同一IPなので、最初のデバイスのIPでチェック
+		if len(group) > 0 && h.isUpdateActive(group[0].IP, force) {
+			slog.Debug("IPアドレスの更新処理が既にアクティブのためブロードキャストグループをスキップ", "ip", group[0].IP, "devices", len(group))
+			continue
+		}
+
 		wg.Add(1)
-		go func(devices []IPAndEOJ) {
+		go func(devices []IPAndEOJ, force bool) {
 			defer wg.Done()
 			h.processBroadcastGroup(devices, force, &errMutex, &firstErr)
-		}(group)
+		}(group, force)
 	}
 
 	// 個別デバイスの処理
@@ -606,12 +694,9 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 			}
 		}
 
-		wg.Add(1)
-
 		propMap := h.dataAccessor.GetPropertyMap(device, GetPropertyMap)
 		if propMap == nil {
 			storeError(fmt.Errorf("プロパティマップが見つかりません: %v", device))
-			wg.Done()
 			continue
 		}
 
@@ -623,11 +708,20 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		// 遅延の計算
 		delay := calculateRequestDelay(requestIndex, baseDelay)
 
+		// IPアドレス別の更新処理がアクティブかチェック
+		if h.isUpdateActive(device.IP, force) {
+			slog.Debug("IPアドレスの更新処理が既にアクティブのためスキップ", "ip", device.IP, "device", device.Specifier())
+			continue
+		}
+
+		// goroutineを起動する直前にカウンターを増やす
+		wg.Add(1)
+
 		// 各デバイスに対して並列処理を実行
-		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration) {
+		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration, force bool) {
 			defer wg.Done()
-			h.processIndividualDevice(device, propMap, delay, storeError)
-		}(device, propMap, delay)
+			h.processIndividualDevice(device, propMap, delay, force, storeError)
+		}(device, propMap, delay, force)
 	}
 
 	// 全てのデバイスの更新が完了するまで待つ
@@ -686,6 +780,11 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 		return
 	}
 
+	// IPアドレスをアクティブとしてマーク
+	firstDevice := devices[0]
+	h.markUpdateActive(firstDevice.IP)
+	defer h.markUpdateInactive(firstDevice.IP)
+
 	storeError := func(err error) {
 		errMutex.Lock()
 		if *errPtr == nil {
@@ -695,7 +794,6 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 	}
 
 	// 最初のデバイスのプロパティマップを取得（グループ内の全デバイスは同じクラスコードなので共通）
-	firstDevice := devices[0]
 	propMap := h.dataAccessor.GetPropertyMap(firstDevice, GetPropertyMap)
 	if propMap == nil {
 		storeError(fmt.Errorf("プロパティマップが見つかりません: %v", firstDevice))
@@ -766,13 +864,17 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 }
 
 // processIndividualDevice は個別デバイスを処理する
-func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap PropertyMap, delay time.Duration, storeError func(error)) {
+func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap PropertyMap, delay time.Duration, force bool, storeError func(error)) {
 	deviceName := h.dataAccessor.DeviceStringWithAlias(device)
 
 	// 同じIPアドレスのデバイスに対して遅延を追加
 	if delay > 0 {
 		time.Sleep(delay)
 	}
+
+	// IPアドレスをアクティブとしてマーク
+	h.markUpdateActive(device.IP)
+	defer h.markUpdateInactive(device.IP)
 
 	success, properties, failedEPCs, err := h.session.GetProperties(
 		h.ctx,

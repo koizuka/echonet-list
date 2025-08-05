@@ -9,7 +9,8 @@ const (
 	DeviceAliasesFileName = "aliases.json"
 	DeviceGroupsFileName  = "groups.json"
 
-	UpdateIntervalThreshold = 5 * time.Second // プロパティ更新をスキップする閾値
+	UpdateIntervalThreshold = 5 * time.Second  // プロパティ更新をスキップする閾値
+	MaxUpdateAge            = 10 * time.Minute // IP更新の最大有効期間
 )
 
 // NotificationType は通知の種類を表す型
