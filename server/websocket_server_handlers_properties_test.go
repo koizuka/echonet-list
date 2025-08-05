@@ -300,7 +300,8 @@ func TestHandleGetPropertyDescriptionFromClient(t *testing.T) {
 				ctx:           context.Background(),
 				transport:     nil,
 				echonetClient: mockClient,
-				handler:       nil, // テストでは使用しないのでnilでOK
+				handler:       nil,                 // テストでは使用しないのでnilでOK
+				timeProvider:  &RealTimeProvider{}, // Add time provider
 			}
 
 			// テスト用のメッセージを作成

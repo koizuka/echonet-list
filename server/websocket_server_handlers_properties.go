@@ -225,7 +225,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 			go func(device handler.IPAndEOJ, delay time.Duration, targets []echonet_lite.EPCType) {
 				// Wait for the delay or until context is cancelled
 				select {
-				case <-time.After(delay):
+				case <-ws.timeProvider.After(delay):
 					// Continue with the update
 				case <-ws.ctx.Done():
 					// Context was cancelled, abort the update

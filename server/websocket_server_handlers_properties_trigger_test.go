@@ -30,7 +30,7 @@ func (m *MockECHONETClientWithUpdateTracking) SetProperties(device echonet_lite.
 }
 
 // createTestSetup creates a reusable test setup for trigger update tests
-func createTestSetup(t *testing.T, ctx context.Context) (*WebSocketServer, *MockECHONETClientWithUpdateTracking, time.Duration) {
+func createTestSetup(t *testing.T, ctx context.Context) (*WebSocketServer, *MockECHONETClientWithUpdateTracking, *MockTimeProvider, time.Duration) {
 	// Get the UpdateDelay from PropertyTable
 	desc, ok := echonet_lite.GetPropertyDesc(echonet_lite.HomeAirConditioner_ClassCode, echonet_lite.EPC_HAC_OperationModeSetting)
 	if !ok {
@@ -52,13 +52,17 @@ func createTestSetup(t *testing.T, ctx context.Context) (*WebSocketServer, *Mock
 		t.Fatalf("Failed to create handler: %v", err)
 	}
 
+	// Create mock time provider
+	mockTimeProvider := NewMockTimeProvider()
+
 	ws := &WebSocketServer{
 		ctx:           ctx,
 		echonetClient: mockClient,
 		handler:       handlerInstance,
+		timeProvider:  mockTimeProvider,
 	}
 
-	return ws, mockClient, desc.UpdateDelay
+	return ws, mockClient, mockTimeProvider, desc.UpdateDelay
 }
 
 // createOperationModeMessage creates a standard operation mode change message
@@ -126,15 +130,20 @@ func verifyFilterCriteria(t *testing.T, mockClient *MockECHONETClientWithUpdateT
 
 func TestSetPropertiesWithTriggerUpdate(t *testing.T) {
 	t.Parallel()
-	ws, mockClient, updateDelay := createTestSetup(t, context.Background())
+	ws, mockClient, mockTime, updateDelay := createTestSetup(t, context.Background())
 	msg := createOperationModeMessage()
 
 	// Execute and verify response
 	executeAndVerifyResponse(t, ws, msg)
 
-	// Wait for the trigger update to be executed (minimized buffer time)
-	bufferTime := 100 * time.Millisecond
-	time.Sleep(updateDelay + bufferTime)
+	// Wait for the goroutine to set up the timer
+	time.Sleep(10 * time.Millisecond)
+
+	// Advance mock time to trigger the update
+	mockTime.Advance(updateDelay)
+
+	// Wait for the goroutine to process the timer event
+	time.Sleep(50 * time.Millisecond)
 
 	// Verify that UpdateProperties was called
 	verifyUpdatePropertiesCalls(t, mockClient, 1)
@@ -143,14 +152,20 @@ func TestSetPropertiesWithTriggerUpdate(t *testing.T) {
 
 func TestSetPropertiesWithoutTriggerUpdate(t *testing.T) {
 	t.Parallel()
-	ws, mockClient, _ := createTestSetup(t, context.Background())
+	ws, mockClient, mockTime, _ := createTestSetup(t, context.Background())
 	msg := createTemperatureMessage()
 
 	// Execute and verify response
 	executeAndVerifyResponse(t, ws, msg)
 
-	// Wait a bit to ensure no trigger update is executed
-	time.Sleep(100 * time.Millisecond)
+	// Wait for the goroutine to set up the timer (if any)
+	time.Sleep(10 * time.Millisecond)
+
+	// Advance time more than enough to trigger an update if there was one
+	mockTime.Advance(10 * time.Second)
+
+	// Wait for the goroutine to process (if any timer was set)
+	time.Sleep(50 * time.Millisecond)
 
 	// Verify that UpdateProperties was NOT called
 	verifyUpdatePropertiesCalls(t, mockClient, 0)
@@ -158,40 +173,36 @@ func TestSetPropertiesWithoutTriggerUpdate(t *testing.T) {
 
 func TestSetPropertiesWithTriggerUpdateTiming(t *testing.T) {
 	t.Parallel()
-	ws, mockClient, updateDelay := createTestSetup(t, context.Background())
+	ws, mockClient, mockTime, updateDelay := createTestSetup(t, context.Background())
 	msg := createOperationModeMessage()
-
-	// Record start time
-	startTime := time.Now()
 
 	// Execute and verify response
 	executeAndVerifyResponse(t, ws, msg)
 
+	// Wait for the goroutine to set up the timer
+	time.Sleep(10 * time.Millisecond)
+
 	// Check that UpdateProperties is NOT called immediately
 	verifyUpdatePropertiesCalls(t, mockClient, 0)
 
-	// Wait for half the configured delay
+	// Advance time by half the configured delay
 	halfDelay := updateDelay / 2
-	time.Sleep(halfDelay)
+	mockTime.Advance(halfDelay)
+
+	// Wait a bit but no timer should fire yet
+	time.Sleep(50 * time.Millisecond)
 
 	// UpdateProperties should still not be called
 	verifyUpdatePropertiesCalls(t, mockClient, 0)
 
-	// Wait for remaining time plus buffer
-	bufferTime := 100 * time.Millisecond
-	remainingTime := updateDelay - halfDelay + bufferTime
-	time.Sleep(remainingTime)
+	// Advance time to complete the full delay
+	mockTime.Advance(halfDelay)
+
+	// Wait for the goroutine to process the timer event
+	time.Sleep(50 * time.Millisecond)
 
 	// Now UpdateProperties should have been called
 	verifyUpdatePropertiesCalls(t, mockClient, 1)
-
-	// Verify timing: should be approximately the configured delay (with some tolerance)
-	elapsedTime := time.Since(startTime)
-	tolerance := 200 * time.Millisecond
-
-	if elapsedTime < updateDelay-tolerance || elapsedTime > updateDelay+tolerance*5 {
-		t.Errorf("UpdateProperties timing out of expected range. Expected: ~%v, Actual: %v", updateDelay, elapsedTime)
-	}
 }
 
 func TestSetPropertiesWithTriggerUpdateCancelled(t *testing.T) {
@@ -200,18 +211,23 @@ func TestSetPropertiesWithTriggerUpdateCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ws, mockClient, _ := createTestSetup(t, ctx)
+	ws, mockClient, mockTime, updateDelay := createTestSetup(t, ctx)
 	msg := createOperationModeMessage()
 
 	// Execute and verify response
 	executeAndVerifyResponse(t, ws, msg)
 
+	// Wait for the goroutine to set up the timer
+	time.Sleep(10 * time.Millisecond)
+
 	// Cancel the context immediately after the request to simulate shutdown
 	cancel()
 
-	// Wait enough time to ensure the goroutine would have been triggered
-	// but was cancelled instead
-	time.Sleep(100 * time.Millisecond)
+	// Advance time past the delay
+	mockTime.Advance(updateDelay + time.Second)
+
+	// Wait to ensure no processing occurs
+	time.Sleep(50 * time.Millisecond)
 
 	// Verify that UpdateProperties was NOT called due to cancellation
 	verifyUpdatePropertiesCalls(t, mockClient, 0)

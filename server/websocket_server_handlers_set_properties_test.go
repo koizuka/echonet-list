@@ -114,6 +114,7 @@ func TestHandleSetPropertiesFromClient(t *testing.T) {
 				transport:     nil,
 				echonetClient: mockClient,
 				handler:       nil,
+				timeProvider:  &RealTimeProvider{}, // Add time provider
 			}
 
 			data, err := json.Marshal(tt.payload)
