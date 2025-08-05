@@ -90,9 +90,19 @@ export function SimpleDeviceCard({
               <div className="flex items-center gap-2">
                 <DeviceIcon device={device} classCode={classCode} />
                 {deviceAliases.length > 0 ? (
-                  <div className={`text-sm font-medium ${isCompact ? 'truncate' : ''}`}>{deviceAliases[0]}</div>
+                  <div 
+                    className={`text-sm font-medium ${isCompact ? 'truncate' : ''}`}
+                    title={isCompact ? deviceAliases[0] : undefined}
+                  >
+                    {deviceAliases[0]}
+                  </div>
                 ) : (
-                  <div className={`text-sm font-medium ${isCompact ? 'truncate' : ''}`}>{deviceDisplayName}</div>
+                  <div 
+                    className={`text-sm font-medium ${isCompact ? 'truncate' : ''}`}
+                    title={isCompact ? deviceDisplayName : undefined}
+                  >
+                    {deviceDisplayName}
+                  </div>
                 )}
               </div>
               {deviceAliases.length > 0 && !isCompact ? (
@@ -102,7 +112,11 @@ export function SimpleDeviceCard({
               ) : null}
               {/* Installation location display */}
               {locationDisplay && (
-                <div className={`text-xs text-muted-foreground ${isCompact ? 'truncate' : ''}`} aria-label="Installation location">
+                <div 
+                  className={`text-xs text-muted-foreground ${isCompact ? 'truncate' : ''}`} 
+                  aria-label="Installation location"
+                  title={isCompact ? `設置場所: ${locationDisplay}` : undefined}
+                >
                   設置場所: {locationDisplay}
                 </div>
               )}
