@@ -16,12 +16,14 @@ import (
 
 // CommunicationHandler は、ECHONET Lite 通信機能を担当する構造体
 type CommunicationHandler struct {
-	session      *Session          // セッション
-	localDevices DeviceProperties  // 自ノードが所有するデバイスのプロパティ
-	dataAccessor DataAccessor      // データアクセス機能
-	notifier     NotificationRelay // 通知中継
-	ctx          context.Context   // コンテキスト
-	Debug        bool              // デバッグモード
+	session         *Session             // セッション
+	localDevices    DeviceProperties     // 自ノードが所有するデバイスのプロパティ
+	dataAccessor    DataAccessor         // データアクセス機能
+	notifier        NotificationRelay    // 通知中継
+	ctx             context.Context      // コンテキスト
+	Debug           bool                 // デバッグモード
+	activeUpdatesMu sync.RWMutex         // アクティブな更新処理の排他制御
+	activeUpdates   map[string]time.Time // IP+EOJ別のアクティブな更新処理 (key: "IP:ClassCode:InstanceCode")
 }
 
 // NewCommunicationHandler は、CommunicationHandlerの新しいインスタンスを作成する
@@ -33,20 +35,100 @@ func NewCommunicationHandler(
 	notifier NotificationRelay,
 	debug bool,
 ) *CommunicationHandler {
-	return &CommunicationHandler{
-		session:      session,
-		localDevices: localDevices,
-		dataAccessor: dataAccessor,
-		notifier:     notifier,
-		ctx:          ctx,
-		Debug:        debug,
+	h := &CommunicationHandler{
+		session:       session,
+		localDevices:  localDevices,
+		dataAccessor:  dataAccessor,
+		notifier:      notifier,
+		ctx:           ctx,
+		Debug:         debug,
+		activeUpdates: make(map[string]time.Time),
 	}
+
+	// バックグラウンドクリーンアップを開始
+	go h.startActiveUpdatesCleanup()
+
+	return h
 }
 
 // SetDebug は、デバッグモードを設定する
 func (h *CommunicationHandler) SetDebug(debug bool) {
 	h.Debug = debug
 	h.session.Debug = debug
+}
+
+// isUpdateActive は指定されたデバイス(IP+EOJ)の更新処理がアクティブかどうかを確認する
+func (h *CommunicationHandler) isUpdateActive(device IPAndEOJ, force bool) bool {
+	if force {
+		return false // force=trueの場合は常に実行
+	}
+
+	deviceKey := fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
+	h.activeUpdatesMu.RLock()
+	startTime, exists := h.activeUpdates[deviceKey]
+	h.activeUpdatesMu.RUnlock()
+
+	if !exists {
+		return false
+	}
+
+	// 古いエントリは無効とする
+	if time.Since(startTime) > MaxUpdateAge {
+		h.activeUpdatesMu.Lock()
+		// 再度チェックして、まだ古い場合のみ削除（Double-checked locking pattern）
+		if startTime2, exists2 := h.activeUpdates[deviceKey]; exists2 && time.Since(startTime2) > MaxUpdateAge {
+			delete(h.activeUpdates, deviceKey)
+		}
+		h.activeUpdatesMu.Unlock()
+		return false
+	}
+
+	return true
+}
+
+// markUpdateActive は指定されたデバイス(IP+EOJ)の更新処理をアクティブとしてマークする
+func (h *CommunicationHandler) markUpdateActive(device IPAndEOJ) {
+	deviceKey := fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
+	h.activeUpdatesMu.Lock()
+	h.activeUpdates[deviceKey] = time.Now()
+	h.activeUpdatesMu.Unlock()
+}
+
+// markUpdateInactive は指定されたデバイス(IP+EOJ)の更新処理を非アクティブとしてマークする
+func (h *CommunicationHandler) markUpdateInactive(device IPAndEOJ) {
+	deviceKey := fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
+	h.activeUpdatesMu.Lock()
+	delete(h.activeUpdates, deviceKey)
+	h.activeUpdatesMu.Unlock()
+}
+
+// startActiveUpdatesCleanup は、古いアクティブ更新エントリを定期的にクリーンアップする
+func (h *CommunicationHandler) startActiveUpdatesCleanup() {
+	ticker := time.NewTicker(MaxUpdateAge / 2) // 安全なクリーンアップ間隔（5分間隔）
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-h.ctx.Done():
+			return
+		case <-ticker.C:
+			h.cleanupStaleActiveUpdates()
+		}
+	}
+}
+
+// cleanupStaleActiveUpdates は、古いアクティブ更新エントリを削除する
+func (h *CommunicationHandler) cleanupStaleActiveUpdates() {
+	now := time.Now()
+	h.activeUpdatesMu.Lock()
+	defer h.activeUpdatesMu.Unlock()
+
+	for deviceKey, startTime := range h.activeUpdates {
+		if now.Sub(startTime) > MaxUpdateAge {
+			delete(h.activeUpdates, deviceKey)
+			slog.Debug("Cleaned up stale active update entry", "device", deviceKey, "age", now.Sub(startTime))
+		}
+	}
 }
 
 // NotifyNodeList は、自ノードのインスタンスリストを通知する
@@ -585,11 +667,35 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 
 	// ブロードキャストグループの処理
 	for _, group := range broadcastGroups {
+		// ブロードキャストグループ内の任意のデバイスでアクティブチェック
+		groupActive := false
+		for _, device := range group {
+			if h.isUpdateActive(device, force) {
+				groupActive = true
+				break
+			}
+		}
+		if groupActive {
+			slog.Info("ブロードキャストグループ内のデバイスが既にアクティブのためスキップ", "group_size", len(group))
+			continue
+		}
+
 		wg.Add(1)
-		go func(devices []IPAndEOJ) {
+		go func(devices []IPAndEOJ, force bool) {
 			defer wg.Done()
+
+			// グループ内の全デバイスをアクティブとしてマーク（処理開始前に実行）
+			for _, device := range devices {
+				h.markUpdateActive(device)
+			}
+			defer func() {
+				for _, device := range devices {
+					h.markUpdateInactive(device)
+				}
+			}()
+
 			h.processBroadcastGroup(devices, force, &errMutex, &firstErr)
-		}(group)
+		}(group, force)
 	}
 
 	// 個別デバイスの処理
@@ -606,12 +712,9 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 			}
 		}
 
-		wg.Add(1)
-
 		propMap := h.dataAccessor.GetPropertyMap(device, GetPropertyMap)
 		if propMap == nil {
 			storeError(fmt.Errorf("プロパティマップが見つかりません: %v", device))
-			wg.Done()
 			continue
 		}
 
@@ -623,11 +726,25 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		// 遅延の計算
 		delay := calculateRequestDelay(requestIndex, baseDelay)
 
+		// デバイスの更新処理がアクティブかチェック
+		if h.isUpdateActive(device, force) {
+			slog.Info("デバイスの更新処理が既にアクティブのためスキップ", "device", device.Specifier())
+			continue
+		}
+
+		// goroutineを起動する直前にカウンターを増やす
+		wg.Add(1)
+
 		// 各デバイスに対して並列処理を実行
-		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration) {
+		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration, force bool) {
 			defer wg.Done()
-			h.processIndividualDevice(device, propMap, delay, storeError)
-		}(device, propMap, delay)
+
+			// デバイスをアクティブとしてマーク（遅延前に実行）
+			h.markUpdateActive(device)
+			defer h.markUpdateInactive(device)
+
+			h.processIndividualDevice(device, propMap, delay, force, storeError)
+		}(device, propMap, delay, force)
 	}
 
 	// 全てのデバイスの更新が完了するまで待つ
@@ -686,6 +803,9 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 		return
 	}
 
+	// グループ内デバイスのアクティブマークはgoroutine開始時に既に実行済み
+	firstDevice := devices[0]
+
 	storeError := func(err error) {
 		errMutex.Lock()
 		if *errPtr == nil {
@@ -695,7 +815,6 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 	}
 
 	// 最初のデバイスのプロパティマップを取得（グループ内の全デバイスは同じクラスコードなので共通）
-	firstDevice := devices[0]
 	propMap := h.dataAccessor.GetPropertyMap(firstDevice, GetPropertyMap)
 	if propMap == nil {
 		storeError(fmt.Errorf("プロパティマップが見つかりません: %v", firstDevice))
@@ -766,13 +885,15 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 }
 
 // processIndividualDevice は個別デバイスを処理する
-func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap PropertyMap, delay time.Duration, storeError func(error)) {
+func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap PropertyMap, delay time.Duration, force bool, storeError func(error)) {
 	deviceName := h.dataAccessor.DeviceStringWithAlias(device)
 
 	// 同じIPアドレスのデバイスに対して遅延を追加
 	if delay > 0 {
 		time.Sleep(delay)
 	}
+
+	// デバイスのアクティブマークはgoroutine開始時に既に実行済み
 
 	success, properties, failedEPCs, err := h.session.GetProperties(
 		h.ctx,
