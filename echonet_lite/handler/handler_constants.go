@@ -18,6 +18,7 @@ type NotificationType int
 
 const (
 	DeviceAdded NotificationType = iota
+	DeviceRemoved
 	DeviceTimeout
 	DeviceOffline
 	DeviceOnline

@@ -356,7 +356,39 @@ func (h *CommunicationHandler) onInstanceList(ip net.IP, il echonet_lite.Instanc
 	// NodeProfileObjectも追加して取得する
 	il = append(il, echonet_lite.NodeProfileObject)
 
-	// デバイスの登録
+	// 1. そのIPアドレスの既存デバイスを取得
+	criteria := FilterCriteria{
+		Device: DeviceSpecifier{IP: &ip},
+	}
+	existingDevices := h.dataAccessor.Filter(criteria).ListIPAndEOJ()
+
+	// 2. 新しいインスタンスリストをセットに変換（高速な検索のため）
+	newDeviceSet := make(map[string]struct{})
+	for _, eoj := range il {
+		device := IPAndEOJ{IP: ip, EOJ: eoj}
+		newDeviceSet[device.Key()] = struct{}{}
+	}
+
+	// 3. 削除されたデバイスを検出
+	var devicesToRemove []IPAndEOJ
+	for _, existingDevice := range existingDevices {
+		if existingDevice.IP.Equal(ip) {
+			if _, exists := newDeviceSet[existingDevice.Key()]; !exists {
+				devicesToRemove = append(devicesToRemove, existingDevice)
+			}
+		}
+	}
+
+	// 4. 削除されたデバイスを削除
+	for _, device := range devicesToRemove {
+		if err := h.dataAccessor.RemoveDevice(device); err != nil {
+			slog.Warn("デバイスの削除に失敗", "device", device, "err", err)
+		} else {
+			slog.Info("デバイスを削除", "device", device)
+		}
+	}
+
+	// 5. デバイスの登録（新規・既存両方）
 	for _, eoj := range il {
 		h.dataAccessor.RegisterDevice(IPAndEOJ{IP: ip, EOJ: eoj})
 	}

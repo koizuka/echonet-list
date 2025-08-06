@@ -178,6 +178,7 @@ type DeviceEventType int
 
 const (
 	DeviceEventAdded   DeviceEventType = iota // デバイスが追加された
+	DeviceEventRemoved                        // デバイスが削除された
 	DeviceEventOffline                        // デバイスがオフラインになった
 	DeviceEventOnline                         // デバイスがオンラインに復旧した
 )
@@ -1008,10 +1009,12 @@ func (d *DevicesImpl) RemoveDevice(device IPAndEOJ) error {
 	ipKey := device.IP.String()
 	deviceKey := device.Key()
 
-	// IP別のデバイス情報から対象EOJを削除
+	// デバイスが実際に存在することを確認
+	var deviceRemoved bool
 	if deviceProps, exists := d.data[ipKey]; exists {
 		if _, eojExists := deviceProps[device.EOJ]; eojExists {
 			delete(deviceProps, device.EOJ)
+			deviceRemoved = true
 
 			// このIPに他のEOJが残っていない場合、IP情報自体を削除
 			if len(deviceProps) == 0 {
@@ -1025,6 +1028,18 @@ func (d *DevicesImpl) RemoveDevice(device IPAndEOJ) error {
 
 	// オフライン状態を削除
 	delete(d.offlineDevices, deviceKey)
+
+	// デバイスが実際に削除された場合、イベントを発行
+	if deviceRemoved && d.EventCh != nil {
+		select {
+		case d.EventCh <- DeviceEvent{
+			Device: device,
+			Type:   DeviceEventRemoved,
+		}:
+		default:
+			// チャンネルがフルの場合はイベントをドロップ（ノンブロッキング）
+		}
+	}
 
 	return nil
 }
