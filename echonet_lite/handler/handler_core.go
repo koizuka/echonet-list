@@ -111,6 +111,11 @@ func (c *HandlerCore) RelayDeviceEvent(event DeviceEvent) {
 			Device: event.Device,
 			Type:   DeviceAdded,
 		})
+	case DeviceEventRemoved:
+		c.notify(DeviceNotification{
+			Device: event.Device,
+			Type:   DeviceRemoved,
+		})
 	case DeviceEventOffline:
 		c.notify(DeviceNotification{
 			Device: event.Device,

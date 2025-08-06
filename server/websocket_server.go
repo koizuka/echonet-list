@@ -818,6 +818,29 @@ func (ws *WebSocketServer) listenForNotifications() {
 					slog.Info("Device added message broadcasted", "device", notification.Device.Specifier())
 				}
 
+			case handler.DeviceRemoved:
+				slog.Info("Device removed notification received", "device", notification.Device.Specifier())
+				if ws.handler.IsDebug() {
+					slog.Debug("Device removed", "device", notification.Device.Specifier())
+				}
+
+				// Create device removed payload
+				device := notification.Device
+				payload := protocol.DeviceDeletedPayload{
+					IP:  device.IP.String(),
+					EOJ: device.EOJ.Specifier(),
+				}
+
+				// Broadcast the message
+				if err := ws.broadcastMessageToClients(protocol.MessageTypeDeviceDeleted, payload); err != nil {
+					if !isClientDisconnectedError(err) {
+						slog.Error("Failed to broadcast device deleted message", "error", err, "device", notification.Device.Specifier())
+					}
+					// No logging for client disconnection errors
+				} else {
+					slog.Info("Device deleted message broadcasted", "device", notification.Device.Specifier())
+				}
+
 			case handler.DeviceTimeout:
 				slog.Error("Device timeout", "device", notification.Device.Specifier(), "error", notification.Error)
 

@@ -17,6 +17,8 @@ func (c *WebSocketClient) handleNotification(msg *protocol.Message) {
 		c.handleInitialState(msg)
 	case protocol.MessageTypeDeviceAdded:
 		c.handleDeviceAdded(msg)
+	case protocol.MessageTypeDeviceDeleted:
+		c.handleDeviceDeleted(msg)
 	case protocol.MessageTypeAliasChanged:
 		c.handleAliasChanged(msg)
 	case protocol.MessageTypeGroupChanged:
@@ -129,6 +131,40 @@ func (c *WebSocketClient) handleDeviceAdded(msg *protocol.Message) {
 
 	c.lastSeenMutex.Unlock()
 	c.devicesMutex.Unlock()
+}
+
+// handleDeviceDeleted handles a device_deleted message
+func (c *WebSocketClient) handleDeviceDeleted(msg *protocol.Message) {
+	var payload protocol.DeviceDeletedPayload
+	if err := protocol.ParsePayload(msg, &payload); err != nil {
+		slog.Error("WebSocketClient.handleDeviceDeleted: Error parsing device_deleted payload", "err", err)
+		return
+	}
+
+	// Parse the device identifier
+	ipAndEOJ, err := handler.ParseDeviceIdentifier(payload.IP + " " + payload.EOJ)
+	if err != nil {
+		slog.Error("WebSocketClient.handleDeviceDeleted: Error parsing device identifier", "err", err)
+		return
+	}
+
+	deviceID := ipAndEOJ.Specifier()
+
+	// Remove the device from client cache
+	c.devicesMutex.Lock()
+	c.lastSeenMutex.Lock()
+
+	delete(c.devices, deviceID)
+	delete(c.lastSeenTimes, deviceID)
+
+	c.lastSeenMutex.Unlock()
+	c.devicesMutex.Unlock()
+
+	if c.debug {
+		slog.Info("WebSocketClient.handleDeviceDeleted: Device removed",
+			"device", ipAndEOJ.String(),
+		)
+	}
 }
 
 // handleAliasChanged handles an alias_changed message
