@@ -40,6 +40,36 @@ func getFileOrDefault(customFile, defaultFile string) string {
 	return customFile
 }
 
+// OfflineManager defines the interface for managing device offline states
+type OfflineManager interface {
+	IsOffline(device IPAndEOJ) bool
+	SetOffline(device IPAndEOJ, offline bool)
+	SetOfflineByIP(ip net.IP, offline bool)
+}
+
+// handleDeviceTimeout processes device timeout events based on device type
+// For NodeProfile: marks all devices with the same IP as offline
+// For other devices: marks as offline only if the NodeProfile is already offline
+func handleDeviceTimeout(device IPAndEOJ, manager OfflineManager) {
+	// NodeProfileの場合は、そのIPの全デバイスをオフラインに
+	if device.EOJ.ClassCode() == echonet_lite.NodeProfile_ClassCode {
+		slog.Info("NodeProfileタイムアウト: IPの全デバイスをオフラインに設定", "ip", device.IP)
+		manager.SetOfflineByIP(device.IP, true)
+	} else {
+		// NodeProfile以外の場合、NodeProfileがオフラインの場合のみオフラインに
+		nodeProfile := IPAndEOJ{
+			IP:  device.IP,
+			EOJ: echonet_lite.NodeProfileObject,
+		}
+		if manager.IsOffline(nodeProfile) {
+			slog.Info("デバイスタイムアウト: NodeProfileがオフラインのため、デバイスをオフラインに設定", "device", device.Specifier())
+			manager.SetOffline(device, true)
+		} else {
+			slog.Info("デバイスタイムアウト: NodeProfileがオンラインのため、オフライン設定をスキップ", "device", device.Specifier())
+		}
+	}
+}
+
 // NewECHONETLiteHandler は、ECHONETLiteHandler の新しいインスタンスを作成する
 func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions) (*ECHONETLiteHandler, error) {
 	// タイムアウト付きのコンテキストを作成
@@ -213,8 +243,7 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	go func() {
 		for ev := range subscribedCh {
 			if ev.Type == DeviceTimeout {
-				// デバイスをオフラインに設定
-				data.SetOffline(ev.Device, true)
+				handleDeviceTimeout(ev.Device, data)
 			}
 			wrappedCh <- ev
 		}

@@ -309,6 +309,67 @@ func (d Devices) SetOffline(device IPAndEOJ, offline bool) {
 	}
 }
 
+// SetOfflineByIP sets the offline state of all devices with the given IP address
+func (d Devices) SetOfflineByIP(ip net.IP, offline bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	ipStr := ip.String()
+	eojMap, exists := d.data[ipStr]
+	if !exists {
+		// No devices with this IP address
+		return
+	}
+
+	// Set offline state for all devices with this IP
+	for eoj := range eojMap {
+		device := IPAndEOJ{IP: ip, EOJ: eoj}
+		key := device.Key()
+
+		if offline {
+			// Check if already offline
+			if _, alreadyOffline := d.offlineDevices[key]; !alreadyOffline {
+				d.offlineDevices[key] = struct{}{}
+				slog.Info("デバイスをオフライン状態に設定 (IP一括)", "device", device.Specifier())
+
+				// Send offline event
+				if d.EventCh != nil {
+					select {
+					case d.EventCh <- DeviceEvent{
+						Device: device,
+						Type:   DeviceEventOffline,
+					}:
+						slog.Info("デバイスオフラインイベントを送信 (IP一括)", "device", device.Specifier())
+					default:
+						slog.Warn("デバイスオフラインイベントチャンネルがブロックされています (IP一括)", "device", device.Specifier())
+					}
+				}
+			}
+		} else {
+			// Check if was offline
+			wasOffline := d.isOfflineNoLock(key)
+			delete(d.offlineDevices, key)
+
+			if wasOffline {
+				slog.Info("デバイスをオンライン状態に設定 (IP一括)", "device", device.Specifier())
+
+				// Send online event
+				if d.EventCh != nil {
+					select {
+					case d.EventCh <- DeviceEvent{
+						Device: device,
+						Type:   DeviceEventOnline,
+					}:
+						slog.Info("デバイスオンラインイベントを送信 (IP一括)", "device", device.Specifier())
+					default:
+						slog.Warn("デバイスオンラインイベントチャンネルがブロックされています (IP一括)", "device", device.Specifier())
+					}
+				}
+			}
+		}
+	}
+}
+
 // ensureDeviceExists ensures the map structure exists for the given IP and EOJ
 // Caller must hold the lock
 func (d *Devices) ensureDeviceExists(device IPAndEOJ) {
