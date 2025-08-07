@@ -195,6 +195,11 @@ func (h *DataManagementHandler) SetOffline(device IPAndEOJ, offline bool) {
 	h.devices.SetOffline(device, offline)
 }
 
+// SetOfflineByIP sets the offline state of all devices with the given IP address
+func (h *DataManagementHandler) SetOfflineByIP(ip net.IP, offline bool) {
+	h.devices.SetOfflineByIP(ip, offline)
+}
+
 // AliasSet は、デバイスにエイリアスを設定する
 func (h *DataManagementHandler) AliasSet(alias *string, criteria FilterCriteria) error {
 	devices := h.devices.Filter(criteria)
