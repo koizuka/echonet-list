@@ -60,7 +60,7 @@ func TestSession_OfflineLogSuppression(t *testing.T) {
 	}
 
 	// notifyDeviceTimeoutは常にErrMaxRetriesReachedエラーを返す
-	err = session.notifyDeviceTimeout(device)
+	err = session.notifyDeviceTimeout(device, 0)
 	if err == nil {
 		t.Error("Expected error from notifyDeviceTimeout")
 	}
@@ -90,7 +90,7 @@ func TestSession_OfflineLogSuppressionWithNilFunc(t *testing.T) {
 	defer session.Close()
 
 	// notifyDeviceTimeoutを直接呼び出してテスト
-	err = session.notifyDeviceTimeout(device)
+	err = session.notifyDeviceTimeout(device, 0)
 	if err == nil {
 		t.Error("Expected error from notifyDeviceTimeout")
 	}
@@ -147,7 +147,7 @@ func TestSession_OnlineDeviceLogging(t *testing.T) {
 	}
 
 	// notifyDeviceTimeoutを直接呼び出してテスト
-	err = session.notifyDeviceTimeout(device)
+	err = session.notifyDeviceTimeout(device, 0)
 	if err == nil {
 		t.Error("Expected error from notifyDeviceTimeout")
 	}
