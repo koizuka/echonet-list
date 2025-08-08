@@ -498,11 +498,7 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echon
 
 				if retryCount >= s.MaxRetries {
 					// 最大再送回数に達した場合
-					// オフラインでない場合のみログ出力
-					if s.IsOfflineFunc == nil || !s.IsOfflineFunc(device) {
-						slog.Warn("デバイスがオフラインになりました", "desc", desc, "maxRetries", s.MaxRetries)
-					}
-					_ = s.notifyDeviceTimeout(device)
+					_ = s.notifyDeviceTimeout(device, 0)
 					return
 				}
 
@@ -526,18 +522,13 @@ func (s *Session) StartGetPropertiesWithRetry(ctx1 context.Context, device echon
 	return nil
 }
 
-// notifyDeviceTimeout - デバイスタイムアウトを通知（簡易版）
-func (s *Session) notifyDeviceTimeout(device echonet_lite.IPAndEOJ) error {
-	return s.notifyDeviceTimeoutWithContext(device, 0, s.RetryInterval)
-}
-
-// notifyDeviceTimeoutWithContext - デバイスタイムアウトを詳細情報付きで通知
-func (s *Session) notifyDeviceTimeoutWithContext(device echonet_lite.IPAndEOJ, totalDuration time.Duration, retryInterval time.Duration) error {
+// notifyDeviceTimeout - デバイスタイムアウトを詳細情報付きで通知
+func (s *Session) notifyDeviceTimeout(device echonet_lite.IPAndEOJ, totalDuration time.Duration) error {
 	maxRetriesErr := ErrMaxRetriesReached{
 		MaxRetries:    s.MaxRetries,
 		Device:        device,
 		TotalDuration: totalDuration,
-		RetryInterval: retryInterval,
+		RetryInterval: s.RetryInterval,
 	}
 	if s.TimeoutCh != nil {
 		select {
@@ -650,11 +641,7 @@ func (s *Session) waitForResponseWithRetry(
 			if retryCount >= s.MaxRetries {
 				// 最大再送回数に達した場合
 				totalDuration := time.Since(startTime)
-				// オフラインでない場合のみログ出力
-				if s.IsOfflineFunc == nil || !s.IsOfflineFunc(device) {
-					slog.Warn("デバイスがオフラインになりました", "device", device, "maxRetries", s.MaxRetries, "totalDuration", totalDuration)
-				}
-				return nil, s.notifyDeviceTimeoutWithContext(device, totalDuration, s.RetryInterval)
+				return nil, s.notifyDeviceTimeout(device, totalDuration)
 			}
 
 			// 次の再送間隔をジッタ付きで計算 (retryCountをパラメータとして渡す)
