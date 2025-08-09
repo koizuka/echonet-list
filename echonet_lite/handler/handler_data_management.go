@@ -47,52 +47,55 @@ func (h *DataManagementHandler) SaveDeviceInfo() {
 
 // RegisterProperties は、デバイスのプロパティを登録し、追加・変更されたプロパティを返す
 func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties Properties) []ChangedProperty {
-	h.propMutex.Lock()
-	defer h.propMutex.Unlock()
-
-	// 変更されたプロパティを追跡
+	// propMutexの保護下で変更を検出して登録
 	var changedProperties []ChangedProperty
+	func() {
+		h.propMutex.Lock()
+		defer h.propMutex.Unlock()
 
-	// 各プロパティについて処理
-	for _, prop := range properties {
-		// 現在の値を取得
-		currentProp, exists := h.devices.GetProperty(device, prop.EPC)
+		// 変更されたプロパティを追跡
+		// 各プロパティについて処理
+		for _, prop := range properties {
+			// 現在の値を取得
+			currentProp, exists := h.devices.GetProperty(device, prop.EPC)
 
-		// プロパティが新規または値が変更された場合
-		if !exists || !bytes.Equal(currentProp.EDT, prop.EDT) {
-			if !exists {
-				currentProp = &Property{EPC: prop.EPC, EDT: []byte{}}
-			}
-			before := currentProp.EDTString(device.EOJ.ClassCode())
-			after := prop.EDTString(device.EOJ.ClassCode())
-			if before != after {
-				// 変更されたプロパティとして追加
-				changedProperties = append(changedProperties, ChangedProperty{
-					EPC:       prop.EPC,
-					beforeEDT: currentProp.EDT,
-					afterEDT:  prop.EDT,
-				})
+			// プロパティが新規または値が変更された場合
+			if !exists || !bytes.Equal(currentProp.EDT, prop.EDT) {
+				if !exists {
+					currentProp = &Property{EPC: prop.EPC, EDT: []byte{}}
+				}
+				before := currentProp.EDTString(device.EOJ.ClassCode())
+				after := prop.EDTString(device.EOJ.ClassCode())
+				if before != after {
+					// 変更されたプロパティとして追加
+					changedProperties = append(changedProperties, ChangedProperty{
+						EPC:       prop.EPC,
+						beforeEDT: currentProp.EDT,
+						afterEDT:  prop.EDT,
+					})
+				}
 			}
 		}
-	}
 
-	if len(changedProperties) > 0 {
-		classCode := device.EOJ.ClassCode()
-		changes := make([]string, len(changedProperties))
-		for i, p := range changedProperties {
-			changes[i] = p.StringForClass(classCode)
+		if len(changedProperties) > 0 {
+			classCode := device.EOJ.ClassCode()
+			changes := make([]string, len(changedProperties))
+			for i, p := range changedProperties {
+				changes[i] = p.StringForClass(classCode)
+			}
+			slog.Info("プロパティ更新", "device", h.DeviceStringWithAlias(device), "count", len(changedProperties), "changes", strings.Join(changes, ", "))
 		}
-		slog.Info("プロパティ更新", "device", h.DeviceStringWithAlias(device), "count", len(changedProperties), "changes", strings.Join(changes, ", "))
-	}
 
-	// デバイスのプロパティを登録
-	h.devices.RegisterProperties(device, properties, time.Now())
+		// デバイスのプロパティを登録
+		h.devices.RegisterProperties(device, properties, time.Now())
 
-	// 変更されたプロパティについて通知を送信
-	for _, prop := range changedProperties {
-		h.notifier.RelayPropertyChangeEvent(device, prop.After())
-	}
+		// 変更されたプロパティについて通知を送信
+		for _, prop := range changedProperties {
+			h.notifier.RelayPropertyChangeEvent(device, prop.After())
+		}
+	}()
 
+	// propMutexのロック外でフック処理を実行（デッドロック防止）
 	// プロパティ更新後の追加処理を実行
 	if h.hookProcessor != nil {
 		if err := h.hookProcessor.ProcessPropertyUpdateHooks(device, properties); err != nil {
