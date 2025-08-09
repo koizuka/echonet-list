@@ -53,6 +53,12 @@ type NotificationRelay interface {
 	RelayPropertyChangeEvent(device IPAndEOJ, property Property)
 }
 
+// PropertyUpdateHookProcessor は、プロパティ更新後の追加処理を実行するインターフェース
+type PropertyUpdateHookProcessor interface {
+	// プロパティ更新後の追加処理（特定デバイス・プロパティに対する処理を実行）
+	ProcessPropertyUpdateHooks(device IPAndEOJ, properties Properties) error
+}
+
 type ChangedProperty struct {
 	EPC       EPCType
 	beforeEDT []byte

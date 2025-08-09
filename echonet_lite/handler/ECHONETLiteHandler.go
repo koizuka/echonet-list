@@ -229,6 +229,9 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	data := NewDataManagementHandler(devices, aliases, groups, core)
 	comm := NewCommunicationHandler(handlerCtx, session, localDevices, data, core, options.Debug)
 
+	// プロパティ更新後のフック処理を設定
+	data.SetHookProcessor(comm)
+
 	// イベント中継ループを開始
 	core.StartEventRelayLoop(deviceEventCh, sessionTimeoutCh)
 

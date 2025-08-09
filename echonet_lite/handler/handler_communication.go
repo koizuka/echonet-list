@@ -390,7 +390,16 @@ func (h *CommunicationHandler) onInstanceList(ip net.IP, il echonet_lite.Instanc
 
 	// 5. デバイスの登録（新規・既存両方）
 	for _, eoj := range il {
-		h.dataAccessor.RegisterDevice(IPAndEOJ{IP: ip, EOJ: eoj})
+		device := IPAndEOJ{IP: ip, EOJ: eoj}
+		h.dataAccessor.RegisterDevice(device)
+
+		// NodeProfileが有効なデバイスとして報告している場合、
+		// オフライン状態をオンラインに復帰
+		if h.dataAccessor.IsOffline(device) {
+			slog.Info("NodeProfileからのインスタンスリストによりデバイスをオンラインに復帰",
+				"device", device.Specifier())
+			h.dataAccessor.SetOffline(device, false)
+		}
 	}
 
 	// デバイス情報の保存
@@ -1006,4 +1015,61 @@ func (h *CommunicationHandler) sendAnnouncementForChangedProperties(eoj EOJ, pro
 			slog.Error("INF通知の送信に失敗", "err", err)
 		}
 	}
+}
+
+// ProcessPropertyUpdateHooks は、プロパティ更新後の追加処理を実行する
+func (h *CommunicationHandler) ProcessPropertyUpdateHooks(device IPAndEOJ, properties Properties) error {
+	// NodeProfile の EPC_NPO_SelfNodeInstanceListS の場合、オフライン復帰処理を実行
+	if device.EOJ == echonet_lite.NodeProfileObject {
+		for _, prop := range properties {
+			if prop.EPC == echonet_lite.EPC_NPO_SelfNodeInstanceListS {
+				return h.processInstanceListFromProperty(device, prop)
+			}
+		}
+	}
+
+	// 将来の追加処理もここに追加可能
+	// if device.EOJ.ClassCode() == 0x0130 && prop.EPC == 0x80 { ... }
+
+	return nil
+}
+
+// processInstanceListFromProperty は、プロパティからインスタンスリストを抽出してオフライン復帰処理を実行する
+func (h *CommunicationHandler) processInstanceListFromProperty(device IPAndEOJ, property Property) error {
+	// プロパティからInstanceListを抽出
+	il := echonet_lite.DecodeSelfNodeInstanceListS(property.EDT)
+	if il == nil {
+		return fmt.Errorf("SelfNodeInstanceListSのデコードに失敗しました: %X", property.EDT)
+	}
+
+	// オフライン復帰処理のみを実行（無限ループを避けるため、プロパティ取得は行わない）
+	return h.processInstanceListForOfflineRecovery(device.IP, echonet_lite.InstanceList(*il))
+}
+
+// processInstanceListForOfflineRecovery は、インスタンスリストによるオフライン復帰処理のみを行う
+// onInstanceListと違い、プロパティマップ取得は行わない（無限ループ防止）
+// テスト用にパッケージ内から呼び出し可能
+func (h *CommunicationHandler) processInstanceListForOfflineRecovery(ip net.IP, il echonet_lite.InstanceList) error {
+	// NodeProfileObjectも追加して取得する
+	il = append(il, echonet_lite.NodeProfileObject)
+
+	// 5. デバイスの登録（新規・既存両方）とオフライン復帰処理
+	for _, eoj := range il {
+		device := IPAndEOJ{IP: ip, EOJ: eoj}
+		h.dataAccessor.RegisterDevice(device)
+
+		// NodeProfileが有効なデバイスとして報告している場合、
+		// オフライン状態をオンラインに復帰
+		if h.dataAccessor.IsOffline(device) {
+			slog.Info("NodeProfileからのインスタンスリストによりデバイスをオンラインに復帰",
+				"device", device.Specifier())
+			h.dataAccessor.SetOffline(device, false)
+		}
+	}
+
+	// デバイス情報の保存
+	h.dataAccessor.SaveDeviceInfo()
+
+	// プロパティマップ取得は行わない（無限ループ防止のため）
+	return nil
 }
