@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"echonet-list/echonet_lite"
+	"fmt"
 	"log/slog"
 	"net"
 	"testing"
@@ -69,11 +70,16 @@ func (m *MockDataAccessorForInstanceList) HasIP(ip net.IP) bool               { 
 func (m *MockDataAccessorForInstanceList) RegisterProperties(device IPAndEOJ, properties Properties) []ChangedProperty {
 	return nil
 }
-func (m *MockDataAccessorForInstanceList) SetOffline(device IPAndEOJ, offline bool) {}
+func (m *MockDataAccessorForInstanceList) SetOffline(device IPAndEOJ, offline bool) {
+	m.Called(device, offline)
+}
 func (m *MockDataAccessorForInstanceList) GetLastUpdateTime(device IPAndEOJ) time.Time {
 	return time.Time{}
 }
-func (m *MockDataAccessorForInstanceList) IsOffline(device IPAndEOJ) bool { return false }
+func (m *MockDataAccessorForInstanceList) IsOffline(device IPAndEOJ) bool {
+	args := m.Called(device)
+	return args.Bool(0)
+}
 func (m *MockDataAccessorForInstanceList) DeviceStringWithAlias(device IPAndEOJ) string {
 	return device.String()
 }
@@ -91,6 +97,18 @@ func (m *MockDataAccessorForInstanceList) GetIDString(device IPAndEOJ) IDString 
 
 func (m *MockDataAccessorForInstanceList) GetProperty(device IPAndEOJ, epc EPCType) (*Property, bool) {
 	return nil, false
+}
+
+// processInstanceListFromPropertyWithoutSession is a test helper for processInstanceListFromProperty that doesn't need a session
+func processInstanceListFromPropertyWithoutSession(h *CommunicationHandler, device IPAndEOJ, property Property) error {
+	// プロパティからInstanceListを抽出
+	il := echonet_lite.DecodeSelfNodeInstanceListS(property.EDT)
+	if il == nil {
+		return fmt.Errorf("SelfNodeInstanceListSのデコードに失敗しました: %X", property.EDT)
+	}
+
+	// processInstanceListForOfflineRecoveryを使用してオフライン復帰処理を実行
+	return h.processInstanceListForOfflineRecovery(device.IP, echonet_lite.InstanceList(*il))
 }
 
 // onInstanceListWithoutPropertyMap is a test helper that tests onInstanceList logic without calling GetGetPropertyMap
@@ -132,7 +150,16 @@ func onInstanceListWithoutPropertyMap(h *CommunicationHandler, ip net.IP, il ech
 
 	// 5. デバイスの登録（新規・既存両方）
 	for _, eoj := range il {
-		h.dataAccessor.RegisterDevice(IPAndEOJ{IP: ip, EOJ: eoj})
+		device := IPAndEOJ{IP: ip, EOJ: eoj}
+		h.dataAccessor.RegisterDevice(device)
+
+		// NodeProfileが有効なデバイスとして報告している場合、
+		// オフライン状態をオンラインに復帰
+		if h.dataAccessor.IsOffline(device) {
+			slog.Info("NodeProfileからのインスタンスリストによりデバイスをオンラインに復帰",
+				"device", device.Specifier())
+			h.dataAccessor.SetOffline(device, false)
+		}
 	}
 
 	// デバイス情報の保存
@@ -177,6 +204,11 @@ func TestOnInstanceList_AddDevices(t *testing.T) {
 	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: newEOJ1}).Once()
 	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: newEOJ2}).Once()
 	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Once()
+
+	// Expect IsOffline to be called for each device (all return false - not offline)
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: newEOJ1}).Return(false).Once()
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: newEOJ2}).Return(false).Once()
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Return(false).Once()
 
 	// Expect SaveDeviceInfo to be called
 	mockDataAccessor.On("SaveDeviceInfo").Once()
@@ -239,6 +271,10 @@ func TestOnInstanceList_RemoveDevices(t *testing.T) {
 	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: existingEOJ1}).Once()
 	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Once()
 
+	// Expect IsOffline to be called for remaining devices (all return false - not offline)
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ1}).Return(false).Once()
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Return(false).Once()
+
 	// Expect SaveDeviceInfo to be called
 	mockDataAccessor.On("SaveDeviceInfo").Once()
 
@@ -298,6 +334,11 @@ func TestOnInstanceList_MixedAddRemove(t *testing.T) {
 	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: newEOJ3}).Once()
 	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Once()
 
+	// Expect IsOffline to be called for all devices (all return false - not offline)
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ1}).Return(false).Once()
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: newEOJ3}).Return(false).Once()
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Return(false).Once()
+
 	// Expect SaveDeviceInfo to be called
 	mockDataAccessor.On("SaveDeviceInfo").Once()
 
@@ -344,6 +385,9 @@ func TestOnInstanceList_NodeProfileAlwaysPresent(t *testing.T) {
 	// Expect RegisterDevice for NodeProfile
 	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Once()
 
+	// Expect IsOffline to be called for NodeProfile (returns false - not offline)
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Return(false).Once()
+
 	// Expect SaveDeviceInfo to be called
 	mockDataAccessor.On("SaveDeviceInfo").Once()
 
@@ -355,4 +399,261 @@ func TestOnInstanceList_NodeProfileAlwaysPresent(t *testing.T) {
 	mockDataAccessor.AssertExpectations(t)
 	// Verify that RemoveDevice was NOT called for NodeProfile
 	mockDataAccessor.AssertNotCalled(t, "RemoveDevice", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject})
+}
+
+// TestOnInstanceList_OfflineToOnlineRecovery tests that offline devices are brought back online when NodeProfile reports them
+func TestOnInstanceList_OfflineToOnlineRecovery(t *testing.T) {
+	ctx := context.Background()
+	mockDataAccessor := NewMockDataAccessorForInstanceList()
+	mockNotifier := new(MockNotificationRelay)
+
+	handler := &CommunicationHandler{
+		session:       nil, // Not used in this test
+		localDevices:  nil,
+		dataAccessor:  mockDataAccessor,
+		notifier:      mockNotifier,
+		ctx:           ctx,
+		Debug:         false,
+		activeUpdates: make(map[string]time.Time),
+	}
+
+	ip := net.ParseIP("192.168.1.100")
+
+	// Prepare initial state - existing devices (some are offline)
+	existingEOJ1 := echonet_lite.MakeEOJ(0x0130, 1) // Air conditioner (offline)
+	existingEOJ2 := echonet_lite.MakeEOJ(0x0291, 1) // Lighting (online)
+	existingEOJ3 := echonet_lite.MakeEOJ(0x0260, 1) // TV (offline)
+
+	// Setup existing devices in mock
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: existingEOJ1}.Key()] = IPAndEOJ{IP: ip, EOJ: existingEOJ1}
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: existingEOJ2}.Key()] = IPAndEOJ{IP: ip, EOJ: existingEOJ2}
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: existingEOJ3}.Key()] = IPAndEOJ{IP: ip, EOJ: existingEOJ3}
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}.Key()] = IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}
+
+	criteria := FilterCriteria{
+		Device: DeviceSpecifier{IP: &ip},
+	}
+	existingDevices := NewDevices()
+	existingDevices.RegisterDevice(IPAndEOJ{IP: ip, EOJ: existingEOJ1})
+	existingDevices.RegisterDevice(IPAndEOJ{IP: ip, EOJ: existingEOJ2})
+	existingDevices.RegisterDevice(IPAndEOJ{IP: ip, EOJ: existingEOJ3})
+	existingDevices.RegisterDevice(IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject})
+	mockDataAccessor.On("Filter", criteria).Return(existingDevices)
+
+	// New instance list - all three devices are reported by NodeProfile
+	instanceList := echonet_lite.InstanceList{existingEOJ1, existingEOJ2, existingEOJ3}
+
+	// Expect RegisterDevice to be called for all devices + NodeProfile
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: existingEOJ1}).Once()
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: existingEOJ2}).Once()
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: existingEOJ3}).Once()
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Once()
+
+	// Expect IsOffline to be called - EOJ1 and EOJ3 are offline, EOJ2 and NodeProfile are online
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ1}).Return(true).Once()                    // offline
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ2}).Return(false).Once()                   // online
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ3}).Return(true).Once()                    // offline
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Return(false).Once() // online
+
+	// Expect SetOffline(false) to be called for offline devices (EOJ1 and EOJ3)
+	mockDataAccessor.On("SetOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ1}, false).Once()
+	mockDataAccessor.On("SetOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ3}, false).Once()
+
+	// Expect SaveDeviceInfo to be called
+	mockDataAccessor.On("SaveDeviceInfo").Once()
+
+	// Execute
+	err := onInstanceListWithoutPropertyMap(handler, ip, instanceList)
+
+	// Assert
+	assert.NoError(t, err)
+	mockDataAccessor.AssertExpectations(t)
+}
+
+// TestOnInstanceList_OnlineDevicesStayOnline tests that already online devices remain online
+func TestOnInstanceList_OnlineDevicesStayOnline(t *testing.T) {
+	ctx := context.Background()
+	mockDataAccessor := NewMockDataAccessorForInstanceList()
+	mockNotifier := new(MockNotificationRelay)
+
+	handler := &CommunicationHandler{
+		session:       nil, // Not used in this test
+		localDevices:  nil,
+		dataAccessor:  mockDataAccessor,
+		notifier:      mockNotifier,
+		ctx:           ctx,
+		Debug:         false,
+		activeUpdates: make(map[string]time.Time),
+	}
+
+	ip := net.ParseIP("192.168.1.100")
+
+	// Prepare initial state - all devices are online
+	existingEOJ1 := echonet_lite.MakeEOJ(0x0130, 1) // Air conditioner (online)
+	existingEOJ2 := echonet_lite.MakeEOJ(0x0291, 1) // Lighting (online)
+
+	// Setup existing devices in mock
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: existingEOJ1}.Key()] = IPAndEOJ{IP: ip, EOJ: existingEOJ1}
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: existingEOJ2}.Key()] = IPAndEOJ{IP: ip, EOJ: existingEOJ2}
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}.Key()] = IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}
+
+	criteria := FilterCriteria{
+		Device: DeviceSpecifier{IP: &ip},
+	}
+	existingDevices := NewDevices()
+	existingDevices.RegisterDevice(IPAndEOJ{IP: ip, EOJ: existingEOJ1})
+	existingDevices.RegisterDevice(IPAndEOJ{IP: ip, EOJ: existingEOJ2})
+	existingDevices.RegisterDevice(IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject})
+	mockDataAccessor.On("Filter", criteria).Return(existingDevices)
+
+	// New instance list - both devices are reported by NodeProfile
+	instanceList := echonet_lite.InstanceList{existingEOJ1, existingEOJ2}
+
+	// Expect RegisterDevice to be called for all devices + NodeProfile
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: existingEOJ1}).Once()
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: existingEOJ2}).Once()
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Once()
+
+	// Expect IsOffline to be called - all are online
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ1}).Return(false).Once()
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ2}).Return(false).Once()
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Return(false).Once()
+
+	// SetOffline should NOT be called since all devices are already online
+
+	// Expect SaveDeviceInfo to be called
+	mockDataAccessor.On("SaveDeviceInfo").Once()
+
+	// Execute
+	err := onInstanceListWithoutPropertyMap(handler, ip, instanceList)
+
+	// Assert
+	assert.NoError(t, err)
+	mockDataAccessor.AssertExpectations(t)
+	// Verify that SetOffline was NOT called for any device
+	mockDataAccessor.AssertNotCalled(t, "SetOffline", mock.Anything, mock.Anything)
+}
+
+// TestProcessPropertyUpdateHooks_NodeProfileInstanceList tests that NodeProfile instance list property triggers offline recovery
+func TestProcessPropertyUpdateHooks_NodeProfileInstanceList(t *testing.T) {
+	ctx := context.Background()
+	mockDataAccessor := NewMockDataAccessorForInstanceList()
+	mockNotifier := new(MockNotificationRelay)
+
+	handler := &CommunicationHandler{
+		session:       nil, // Not used in this test
+		localDevices:  nil,
+		dataAccessor:  mockDataAccessor,
+		notifier:      mockNotifier,
+		ctx:           ctx,
+		Debug:         false,
+		activeUpdates: make(map[string]time.Time),
+	}
+
+	ip := net.ParseIP("192.168.1.100")
+	nodeProfile := IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}
+
+	// Create a NodeProfile instance list property
+	existingEOJ1 := echonet_lite.MakeEOJ(0x0130, 1) // Air conditioner
+	existingEOJ2 := echonet_lite.MakeEOJ(0x0291, 1) // Lighting
+	instanceList := echonet_lite.SelfNodeInstanceListS([]echonet_lite.EOJ{existingEOJ1, existingEOJ2})
+	instanceListProperty := *instanceList.Property()
+
+	// Setup existing devices in mock (simulating offline devices)
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: existingEOJ1}.Key()] = IPAndEOJ{IP: ip, EOJ: existingEOJ1}
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: existingEOJ2}.Key()] = IPAndEOJ{IP: ip, EOJ: existingEOJ2}
+	mockDataAccessor.devices[IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}.Key()] = IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}
+
+	// Note: processInstanceListForOfflineRecovery doesn't use Filter, it only does RegisterDevice and SetOffline
+
+	// Expect RegisterDevice to be called for all devices + NodeProfile
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: existingEOJ1}).Once()
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: existingEOJ2}).Once()
+	mockDataAccessor.On("RegisterDevice", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Once()
+
+	// Expect IsOffline to be called - both devices are offline
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ1}).Return(true).Once()                    // offline
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ2}).Return(true).Once()                    // offline
+	mockDataAccessor.On("IsOffline", IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}).Return(false).Once() // online
+
+	// Expect SetOffline(false) to be called for offline devices
+	mockDataAccessor.On("SetOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ1}, false).Once()
+	mockDataAccessor.On("SetOffline", IPAndEOJ{IP: ip, EOJ: existingEOJ2}, false).Once()
+
+	// Expect SaveDeviceInfo to be called
+	mockDataAccessor.On("SaveDeviceInfo").Once()
+
+	// Execute - this should trigger the instance list processing
+	err := processInstanceListFromPropertyWithoutSession(handler, nodeProfile, instanceListProperty)
+
+	// Assert
+	assert.NoError(t, err)
+	mockDataAccessor.AssertExpectations(t)
+}
+
+// TestProcessPropertyUpdateHooks_NonNodeProfile tests that non-NodeProfile devices don't trigger processing
+func TestProcessPropertyUpdateHooks_NonNodeProfile(t *testing.T) {
+	ctx := context.Background()
+	mockDataAccessor := NewMockDataAccessorForInstanceList()
+	mockNotifier := new(MockNotificationRelay)
+
+	handler := &CommunicationHandler{
+		session:       nil, // Not used in this test
+		localDevices:  nil,
+		dataAccessor:  mockDataAccessor,
+		notifier:      mockNotifier,
+		ctx:           ctx,
+		Debug:         false,
+		activeUpdates: make(map[string]time.Time),
+	}
+
+	ip := net.ParseIP("192.168.1.100")
+	airConditioner := IPAndEOJ{IP: ip, EOJ: echonet_lite.MakeEOJ(0x0130, 1)}
+
+	// Create some property (not NodeProfile instance list)
+	properties := Properties{
+		{EPC: echonet_lite.EPCType(0x80), EDT: []byte{0x30}}, // Operation status
+	}
+
+	// Execute - this should NOT trigger any instance list processing
+	err := handler.ProcessPropertyUpdateHooks(airConditioner, properties)
+
+	// Assert
+	assert.NoError(t, err)
+	// No mock expectations needed as nothing should be called
+	mockDataAccessor.AssertExpectations(t)
+}
+
+// TestProcessPropertyUpdateHooks_NodeProfileNonInstanceList tests that NodeProfile with non-instance list properties don't trigger processing
+func TestProcessPropertyUpdateHooks_NodeProfileNonInstanceList(t *testing.T) {
+	ctx := context.Background()
+	mockDataAccessor := NewMockDataAccessorForInstanceList()
+	mockNotifier := new(MockNotificationRelay)
+
+	handler := &CommunicationHandler{
+		session:       nil, // Not used in this test
+		localDevices:  nil,
+		dataAccessor:  mockDataAccessor,
+		notifier:      mockNotifier,
+		ctx:           ctx,
+		Debug:         false,
+		activeUpdates: make(map[string]time.Time),
+	}
+
+	ip := net.ParseIP("192.168.1.100")
+	nodeProfile := IPAndEOJ{IP: ip, EOJ: echonet_lite.NodeProfileObject}
+
+	// Create NodeProfile properties but NOT instance list
+	properties := Properties{
+		{EPC: echonet_lite.EPCType(0x80), EDT: []byte{0x30}}, // Operation status
+		{EPC: echonet_lite.EPCType(0x82), EDT: []byte{0x01}}, // Version
+	}
+
+	// Execute - this should NOT trigger any instance list processing
+	err := handler.ProcessPropertyUpdateHooks(nodeProfile, properties)
+
+	// Assert
+	assert.NoError(t, err)
+	// No mock expectations needed as nothing should be called
+	mockDataAccessor.AssertExpectations(t)
 }

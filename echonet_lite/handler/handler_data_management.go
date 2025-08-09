@@ -14,11 +14,12 @@ import (
 
 // DataManagementHandler は、データ管理機能を担当する構造体
 type DataManagementHandler struct {
-	devices       Devices           // デバイス情報
-	DeviceAliases *DeviceAliases    // デバイスエイリアス
-	DeviceGroups  *DeviceGroups     // デバイスグループ
-	propMutex     sync.RWMutex      // プロパティの排他制御用ミューテックス
-	notifier      NotificationRelay // 通知中継
+	devices       Devices                     // デバイス情報
+	DeviceAliases *DeviceAliases              // デバイスエイリアス
+	DeviceGroups  *DeviceGroups               // デバイスグループ
+	propMutex     sync.RWMutex                // プロパティの排他制御用ミューテックス
+	notifier      NotificationRelay           // 通知中継
+	hookProcessor PropertyUpdateHookProcessor // プロパティ更新後処理
 }
 
 // NewDataManagementHandler は、DataManagementHandlerの新しいインスタンスを作成する
@@ -29,6 +30,11 @@ func NewDataManagementHandler(devices Devices, aliases *DeviceAliases, groups *D
 		DeviceGroups:  groups,
 		notifier:      notifier,
 	}
+}
+
+// SetHookProcessor は、プロパティ更新後の追加処理を実行するプロセッサーを設定する
+func (h *DataManagementHandler) SetHookProcessor(processor PropertyUpdateHookProcessor) {
+	h.hookProcessor = processor
 }
 
 // SaveDeviceInfo は、デバイス情報をファイルに保存する
@@ -85,6 +91,13 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 	// 変更されたプロパティについて通知を送信
 	for _, prop := range changedProperties {
 		h.notifier.RelayPropertyChangeEvent(device, prop.After())
+	}
+
+	// プロパティ更新後の追加処理を実行
+	if h.hookProcessor != nil {
+		if err := h.hookProcessor.ProcessPropertyUpdateHooks(device, properties); err != nil {
+			slog.Warn("プロパティ更新後の追加処理でエラー", "device", device, "err", err)
+		}
 	}
 
 	return changedProperties
