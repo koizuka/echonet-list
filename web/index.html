@@ -57,6 +57,7 @@
         'use strict';
         
         const RELOAD_FLAG_KEY = 'echonet-bundle-reload-attempted';
+        const SCRIPT_PATTERN = window.BUNDLE_SCRIPT_PATTERN || '/assets/index-';
         
         function showErrorOverlay() {
           let overlay = document.getElementById('bundle-error-overlay');
@@ -71,26 +72,36 @@
                   アプリケーションが更新されています。<br>
                   ページを再読み込みしてください。
                 </div>
-                <button class="bundle-error-button" onclick="location.reload()">
+                <button class="bundle-error-button">
                   ページを再読み込み
                 </button>
               </div>
             `;
             document.body.appendChild(overlay);
+            
+            // Add event listener programmatically
+            const button = overlay.querySelector('.bundle-error-button');
+            if (button) {
+              button.addEventListener('click', () => location.reload());
+            }
           }
           overlay.style.display = 'flex';
         }
         
         function handleScriptError(event) {
-          if (event.target && event.target.tagName === 'SCRIPT') {
-            const reloadAttempted = sessionStorage.getItem(RELOAD_FLAG_KEY);
-            
-            if (!reloadAttempted) {
-              sessionStorage.setItem(RELOAD_FLAG_KEY, 'true');
-              location.reload();
-            } else {
-              showErrorOverlay();
+          try {
+            if (event.target && event.target.tagName === 'SCRIPT') {
+              const reloadAttempted = sessionStorage.getItem(RELOAD_FLAG_KEY);
+              
+              if (!reloadAttempted) {
+                sessionStorage.setItem(RELOAD_FLAG_KEY, 'true');
+                location.reload();
+              } else {
+                showErrorOverlay();
+              }
             }
+          } catch (error) {
+            console.warn('Bundle stale detection error:', error);
           }
         }
         
@@ -99,17 +110,21 @@
         }
         
         function checkOnVisibilityChange() {
-          if (!document.hidden) {
-            const mainScript = document.querySelector('script[src*="/assets/index-"]');
-            if (mainScript && !window.React) {
-              const reloadAttempted = sessionStorage.getItem(RELOAD_FLAG_KEY);
-              if (!reloadAttempted) {
-                sessionStorage.setItem(RELOAD_FLAG_KEY, 'true');
-                location.reload();
-              } else {
-                showErrorOverlay();
+          try {
+            if (!document.hidden) {
+              const mainScript = document.querySelector(`script[src*="${SCRIPT_PATTERN}"]`);
+              if (mainScript && !window.React) {
+                const reloadAttempted = sessionStorage.getItem(RELOAD_FLAG_KEY);
+                if (!reloadAttempted) {
+                  sessionStorage.setItem(RELOAD_FLAG_KEY, 'true');
+                  location.reload();
+                } else {
+                  showErrorOverlay();
+                }
               }
             }
+          } catch (error) {
+            console.warn('Bundle stale detection error:', error);
           }
         }
         
@@ -117,10 +132,14 @@
         document.addEventListener('visibilitychange', checkOnVisibilityChange);
         
         document.addEventListener('DOMContentLoaded', function() {
-          const mainScript = document.querySelector('script[src*="/assets/index-"]');
-          if (mainScript) {
-            mainScript.addEventListener('load', handleScriptLoad);
-            mainScript.addEventListener('error', handleScriptError);
+          try {
+            const mainScript = document.querySelector(`script[src*="${SCRIPT_PATTERN}"]`);
+            if (mainScript) {
+              mainScript.addEventListener('load', handleScriptLoad);
+              mainScript.addEventListener('error', handleScriptError);
+            }
+          } catch (error) {
+            console.warn('Bundle stale detection error:', error);
           }
         });
       })();
