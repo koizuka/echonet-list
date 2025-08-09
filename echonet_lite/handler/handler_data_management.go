@@ -45,8 +45,8 @@ func (h *DataManagementHandler) SaveDeviceInfo() {
 	}
 }
 
-// RegisterProperties は、デバイスのプロパティを登録し、追加・変更されたプロパティを返す
-func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties Properties) []ChangedProperty {
+// detectAndRegisterPropertyChanges は、プロパティの変更を検出し、登録と通知を行う
+func (h *DataManagementHandler) detectAndRegisterPropertyChanges(device IPAndEOJ, properties Properties) []ChangedProperty {
 	h.propMutex.Lock()
 	defer h.propMutex.Unlock()
 
@@ -93,6 +93,15 @@ func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties P
 		h.notifier.RelayPropertyChangeEvent(device, prop.After())
 	}
 
+	return changedProperties
+}
+
+// RegisterProperties は、デバイスのプロパティを登録し、追加・変更されたプロパティを返す
+func (h *DataManagementHandler) RegisterProperties(device IPAndEOJ, properties Properties) []ChangedProperty {
+	// プロパティの変更検出、登録、通知を実行
+	changedProperties := h.detectAndRegisterPropertyChanges(device, properties)
+
+	// propMutexのロック外でフック処理を実行（デッドロック防止）
 	// プロパティ更新後の追加処理を実行
 	if h.hookProcessor != nil {
 		if err := h.hookProcessor.ProcessPropertyUpdateHooks(device, properties); err != nil {
