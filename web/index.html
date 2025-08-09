@@ -5,6 +5,126 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ECHONET List</title>
+    <style>
+      .bundle-error-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      .bundle-error-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        text-align: center;
+        max-width: 400px;
+        margin: 1rem;
+      }
+      .bundle-error-title {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-bottom: 1rem;
+        color: #dc2626;
+      }
+      .bundle-error-message {
+        margin-bottom: 1.5rem;
+        color: #374151;
+        line-height: 1.5;
+      }
+      .bundle-error-button {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background-color 0.2s;
+      }
+      .bundle-error-button:hover {
+        background: #2563eb;
+      }
+    </style>
+    <script>
+      (function() {
+        'use strict';
+        
+        const RELOAD_FLAG_KEY = 'echonet-bundle-reload-attempted';
+        
+        function showErrorOverlay() {
+          let overlay = document.getElementById('bundle-error-overlay');
+          if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'bundle-error-overlay';
+            overlay.className = 'bundle-error-overlay';
+            overlay.innerHTML = `
+              <div class="bundle-error-content">
+                <div class="bundle-error-title">アプリケーションの更新が必要です</div>
+                <div class="bundle-error-message">
+                  アプリケーションが更新されています。<br>
+                  ページを再読み込みしてください。
+                </div>
+                <button class="bundle-error-button" onclick="location.reload()">
+                  ページを再読み込み
+                </button>
+              </div>
+            `;
+            document.body.appendChild(overlay);
+          }
+          overlay.style.display = 'flex';
+        }
+        
+        function handleScriptError(event) {
+          if (event.target && event.target.tagName === 'SCRIPT') {
+            const reloadAttempted = sessionStorage.getItem(RELOAD_FLAG_KEY);
+            
+            if (!reloadAttempted) {
+              sessionStorage.setItem(RELOAD_FLAG_KEY, 'true');
+              location.reload();
+            } else {
+              showErrorOverlay();
+            }
+          }
+        }
+        
+        function handleScriptLoad() {
+          sessionStorage.removeItem(RELOAD_FLAG_KEY);
+        }
+        
+        function checkOnVisibilityChange() {
+          if (!document.hidden) {
+            const mainScript = document.querySelector('script[src*="/assets/index-"]');
+            if (mainScript && !window.React) {
+              const reloadAttempted = sessionStorage.getItem(RELOAD_FLAG_KEY);
+              if (!reloadAttempted) {
+                sessionStorage.setItem(RELOAD_FLAG_KEY, 'true');
+                location.reload();
+              } else {
+                showErrorOverlay();
+              }
+            }
+          }
+        }
+        
+        window.addEventListener('error', handleScriptError, true);
+        document.addEventListener('visibilitychange', checkOnVisibilityChange);
+        
+        document.addEventListener('DOMContentLoaded', function() {
+          const mainScript = document.querySelector('script[src*="/assets/index-"]');
+          if (mainScript) {
+            mainScript.addEventListener('load', handleScriptLoad);
+            mainScript.addEventListener('error', handleScriptError);
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
