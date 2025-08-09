@@ -112,16 +112,27 @@
         function checkOnVisibilityChange() {
           try {
             if (!document.hidden) {
-              const mainScript = document.querySelector(`script[src*="${SCRIPT_PATTERN}"]`);
-              if (mainScript && !window.React) {
-                const reloadAttempted = sessionStorage.getItem(RELOAD_FLAG_KEY);
-                if (!reloadAttempted) {
-                  sessionStorage.setItem(RELOAD_FLAG_KEY, 'true');
-                  location.reload();
-                } else {
-                  showErrorOverlay();
+              // Give a small delay to allow React to render after tab becomes visible
+              setTimeout(() => {
+                try {
+                  // Check if React app root is populated (more reliable than window.React)
+                  const root = document.getElementById('root');
+                  const hasRenderedContent = root && root.children.length > 0;
+                  
+                  // Only trigger reload if root is empty (indicating failed app load)
+                  if (!hasRenderedContent) {
+                    const reloadAttempted = sessionStorage.getItem(RELOAD_FLAG_KEY);
+                    if (!reloadAttempted) {
+                      sessionStorage.setItem(RELOAD_FLAG_KEY, 'true');
+                      location.reload();
+                    } else {
+                      showErrorOverlay();
+                    }
+                  }
+                } catch (error) {
+                  console.warn('Bundle stale detection error:', error);
                 }
-              }
+              }, 500); // 500ms delay to allow React to rehydrate
             }
           } catch (error) {
             console.warn('Bundle stale detection error:', error);
