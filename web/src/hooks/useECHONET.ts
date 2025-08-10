@@ -13,7 +13,7 @@ import type {
 } from './types';
 
 type ECHONETAction =
-  | { type: 'SET_INITIAL_STATE'; payload: { devices: Record<string, Device>; aliases: DeviceAlias; groups: DeviceGroup } }
+  | { type: 'SET_INITIAL_STATE'; payload: { devices: Record<string, Device>; aliases: DeviceAlias; groups: DeviceGroup; serverStartupTime?: string } }
   | { type: 'ADD_DEVICE'; payload: { device: Device } }
   | { type: 'MARK_DEVICE_OFFLINE'; payload: { ip: string; eoj: string } }
   | { type: 'MARK_DEVICE_ONLINE'; payload: { ip: string; eoj: string } }
@@ -32,6 +32,7 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         devices: action.payload.devices,
         aliases: action.payload.aliases,
         groups: action.payload.groups,
+        serverStartupTime: action.payload.serverStartupTime ? new Date(action.payload.serverStartupTime) : null,
         initialStateReceived: true,
       };
 
@@ -175,6 +176,7 @@ const initialState: ECHONETState = {
   connectionState: 'disconnected',
   propertyDescriptions: {},
   initialStateReceived: false,
+  serverStartupTime: null,
 };
 
 export type ECHONETHook = {
@@ -186,6 +188,7 @@ export type ECHONETHook = {
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   initialStateReceived: boolean;
   connectedAt: Date | null;
+  serverStartupTime: Date | null;
 
   // Device operations
   listDevices: (targets: string[]) => Promise<unknown>;
@@ -243,6 +246,7 @@ export function useECHONET(
             devices: message.payload.devices,
             aliases: message.payload.aliases,
             groups: message.payload.groups,
+            serverStartupTime: message.payload.serverStartupTime,
           },
         });
         break;
@@ -565,6 +569,7 @@ export function useECHONET(
     propertyDescriptions: state.propertyDescriptions,
     initialStateReceived: state.initialStateReceived,
     connectedAt: connection.connectedAt,
+    serverStartupTime: state.serverStartupTime,
 
     // Device operations
     listDevices,

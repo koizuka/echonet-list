@@ -45,10 +45,11 @@ type WebSocketServer struct {
 	lastUpdateTime         atomic.Int64                      // Unix timestamp of last periodic update (for monitoring)
 	updateInterval         time.Duration                     // Expected update interval (for monitoring)
 	timeProvider           TimeProvider                      // Time provider for testability
+	serverStartupTime      time.Time                         // Server startup timestamp
 }
 
 // NewWebSocketServer creates a new WebSocket server
-func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.ECHONETListClient, handler *handler.ECHONETLiteHandler) (*WebSocketServer, error) {
+func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.ECHONETListClient, handler *handler.ECHONETLiteHandler, startupTime time.Time) (*WebSocketServer, error) {
 	serverCtx, cancel := context.WithCancel(ctx)
 
 	// Create the transport
@@ -59,15 +60,16 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 
 	// Create the WebSocket server
 	ws := &WebSocketServer{
-		ctx:            serverCtx,
-		cancel:         cancel,
-		transport:      transport,
-		echonetClient:  echonetClient,
-		handler:        handler,
-		notificationCh: notificationCh,
-		tickerDone:     make(chan bool),     // Initialize the done channel
-		monitorDone:    make(chan bool),     // Initialize the monitor done channel
-		timeProvider:   &RealTimeProvider{}, // Use real time by default
+		ctx:               serverCtx,
+		cancel:            cancel,
+		transport:         transport,
+		echonetClient:     echonetClient,
+		handler:           handler,
+		notificationCh:    notificationCh,
+		tickerDone:        make(chan bool),     // Initialize the done channel
+		monitorDone:       make(chan bool),     // Initialize the monitor done channel
+		timeProvider:      &RealTimeProvider{}, // Use real time by default
+		serverStartupTime: startupTime,
 	}
 
 	// Set up the transport handlers
@@ -715,9 +717,10 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 
 	// Create initial state payload
 	payload := protocol.InitialStatePayload{
-		Devices: protoDevices,
-		Aliases: aliases,
-		Groups:  groups,
+		Devices:           protoDevices,
+		Aliases:           aliases,
+		Groups:            groups,
+		ServerStartupTime: ws.serverStartupTime,
 	}
 
 	if ws.handler.IsDebug() {

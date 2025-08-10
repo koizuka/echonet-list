@@ -23,6 +23,9 @@ const (
 )
 
 func main() {
+	// サーバーの起動時刻を記録（UTC）
+	serverStartupTime := time.Now().UTC()
+
 	// コマンドライン引数のヘルプメッセージをカスタマイズ
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr, "使用方法: %s [オプション]\n\nオプション:\n", os.Args[0])
@@ -133,7 +136,7 @@ func main() {
 		httpAddr := fmt.Sprintf("%s:%d", cfg.HTTPServer.Host, cfg.HTTPServer.Port)
 
 		// WebSocketサーバーの作成と起動
-		wsServer, err := server.NewWebSocketServer(ctx, httpAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler())
+		wsServer, err := server.NewWebSocketServer(ctx, httpAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler(), serverStartupTime)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WebSocketサーバーの作成に失敗しました: %v\n", err)
 			os.Exit(1)

@@ -81,6 +81,7 @@ describe('useECHONET', () => {
         devices: { '192.168.1.10 0130:1': testDevice },
         aliases: { living_ac: '013001:00000B:ABCDEF0123456789ABCDEF012345' },
         groups: { '@living_room': ['013001:00000B:ABCDEF0123456789ABCDEF012345'] },
+        serverStartupTime: '2023-04-01T11:00:00Z',
       },
     };
 
@@ -172,6 +173,7 @@ describe('useECHONET', () => {
         devices: { '192.168.1.10 0130:1': testDevice },
         aliases: {},
         groups: {},
+        serverStartupTime: '2023-04-01T11:00:00Z',
       },
     };
 
@@ -288,6 +290,7 @@ describe('useECHONET', () => {
         devices: { '192.168.1.10 0130:1': testDevice },
         aliases: {},
         groups: {},
+        serverStartupTime: '2023-04-01T11:00:00Z',
       },
     };
 
@@ -336,6 +339,7 @@ describe('useECHONET', () => {
         devices: { '192.168.1.10 0130:1': testDevice },
         aliases: {},
         groups: {},
+        serverStartupTime: '2023-04-01T11:00:00Z',
       },
     };
     
@@ -383,6 +387,7 @@ describe('useECHONET', () => {
         devices: { '192.168.1.10 0130:1': testDevice },
         aliases: {},
         groups: {},
+        serverStartupTime: '2023-04-01T11:00:00Z',
       },
     };
     

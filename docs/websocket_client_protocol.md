@@ -150,7 +150,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 
 ### initial_state
 
-接続確立時に現在のデバイス状態とエイリアスを通知します。
+接続確立時に現在のデバイス状態とエイリアス、およびサーバーの起動時刻を通知します。
 
 ```json
 {
@@ -197,7 +197,8 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
     "groups": {
       "@living_room": ["013001:00000B:ABCDEF0123456789ABCDEF012345", "029001:000005:FEDCBA9876543210FEDCBA987654"], // 例
       "@bedroom": ["013001:000008:FEDCBA9876543210ABCDEF012345"] // 例
-    }
+    },
+    "serverStartupTime": "2023-04-01T12:00:00Z" // サーバーの起動時刻（ISO 8601形式）
   }
 }
 ```

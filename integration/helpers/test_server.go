@@ -4,6 +4,7 @@ package helpers
 
 import (
 	"context"
+	"echonet-list/client"
 	"echonet-list/config"
 	"echonet-list/server"
 	"fmt"
@@ -103,7 +104,8 @@ func (ts *TestServer) Start() error {
 
 	// WebSocketサーバーを作成
 	httpAddr := fmt.Sprintf("%s:%d", ts.Config.HTTPServer.Host, ts.Config.HTTPServer.Port)
-	wsServer, err := server.NewWebSocketServer(ts.ctx, httpAddr, s.GetHandler(), s.GetHandler())
+	serverStartupTime := time.Now().UTC() // テスト用のサーバー起動時刻
+	wsServer, err := server.NewWebSocketServer(ts.ctx, httpAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler(), serverStartupTime)
 	if err != nil {
 		return fmt.Errorf("WebSocketサーバーの作成に失敗: %v", err)
 	}
