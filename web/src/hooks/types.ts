@@ -31,6 +31,7 @@ export type InitialState = {
     devices: Record<string, Device>;
     aliases: DeviceAlias;
     groups: DeviceGroup;
+    serverStartupTime: string; // ISO 8601 format
   };
 };
 
@@ -240,4 +241,5 @@ export type ECHONETState = {
   connectionState: ConnectionState;
   propertyDescriptions: Record<string, PropertyDescriptionData>; // classCode -> PropertyDescriptionData
   initialStateReceived: boolean;
+  serverStartupTime: Date | null; // Server startup timestamp
 };

@@ -20,5 +20,8 @@ export default defineConfig({
       key: '../certs/localhost+2-key.pem',
       cert: '../certs/localhost+2.pem'
     }
-  }
+  },
+  define: {
+    'import.meta.env.BUILD_DATE': JSON.stringify(new Date().toISOString()),
+  },
 })

@@ -111,9 +111,10 @@ type Error struct {
 
 // InitialStatePayload is the payload for the initial_state message
 type InitialStatePayload struct {
-	Devices map[string]Device             `json:"devices"`
-	Aliases map[string]handler.IDString   `json:"aliases"`
-	Groups  map[string][]handler.IDString `json:"groups"`
+	Devices           map[string]Device             `json:"devices"`
+	Aliases           map[string]handler.IDString   `json:"aliases"`
+	Groups            map[string][]handler.IDString `json:"groups"`
+	ServerStartupTime time.Time                     `json:"serverStartupTime"`
 }
 
 // DeviceAddedPayload is the payload for the device_added message

@@ -341,6 +341,7 @@ function App() {
               onMarkAllAsRead={logManager.markAllAsRead}
               onClearAll={logManager.clearAllLogs}
               connectedAt={echonet.connectedAt}
+              serverStartupTime={echonet.serverStartupTime}
               onDiscoverDevices={echonet.discoverDevices}
             />
           </div>

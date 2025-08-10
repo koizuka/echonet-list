@@ -11,6 +11,7 @@ interface NotificationBellProps {
   onMarkAllAsRead: () => void;
   onClearAll: () => void;
   connectedAt: Date | null;
+  serverStartupTime: Date | null;
   onDiscoverDevices?: () => Promise<unknown>;
 }
 
@@ -20,6 +21,7 @@ export function NotificationBell({
   onMarkAllAsRead, 
   onClearAll,
   connectedAt,
+  serverStartupTime,
   onDiscoverDevices
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -131,11 +133,22 @@ export function NotificationBell({
                 </Button>
               </div>
             </div>
-            {connectedAt && (
+            {/* Timestamp information */}
+            <div className="space-y-1">
+              {serverStartupTime && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Server started: {serverStartupTime.toLocaleString()}
+                </div>
+              )}
               <div className="text-xs text-gray-500 dark:text-gray-400">
-                Connected at: {connectedAt.toLocaleString()}
+                Web UI built: {new Date(import.meta.env.BUILD_DATE).toLocaleString()}
               </div>
-            )}
+              {connectedAt && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Connected at: {connectedAt.toLocaleString()}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Content */}
