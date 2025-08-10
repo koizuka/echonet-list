@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { LogEntry } from '../hooks/useLogNotifications';
-import { NotificationBell } from './NotificationBell';
+import { NotificationBell, type NotificationBellProps } from './NotificationBell';
 
 describe('NotificationBell', () => {
   const mockLogs: LogEntry[] = [
@@ -23,7 +23,7 @@ describe('NotificationBell', () => {
     }
   ];
 
-  const defaultProps = {
+  const defaultProps: NotificationBellProps = {
     logs: mockLogs,
     unreadCount: 1,
     onMarkAllAsRead: vi.fn(),
@@ -150,7 +150,10 @@ describe('NotificationBell', () => {
     render(<NotificationBell {...defaultProps} onDiscoverDevices={onDiscoverDevices} />);
     
     fireEvent.click(screen.getByRole('button'));
-    fireEvent.click(screen.getByText('Discover'));
+    
+    await act(async () => {
+      fireEvent.click(screen.getByText('Discover'));
+    });
     
     expect(onDiscoverDevices).toHaveBeenCalledTimes(1);
   });
@@ -214,6 +217,69 @@ describe('NotificationBell', () => {
     
     expect(consoleSpy).toHaveBeenCalledWith('Discover devices failed:', expect.any(Error));
     consoleSpy.mockRestore();
+  });
+
+  describe('timestamp display', () => {
+    it('displays server startup time when provided', () => {
+      render(<NotificationBell {...defaultProps} />);
+      
+      fireEvent.click(screen.getByRole('button'));
+      
+      expect(screen.getByTestId('server-startup-time')).toBeInTheDocument();
+      expect(screen.getByTestId('server-startup-time')).toHaveTextContent('Server started:');
+    });
+
+    it('hides server startup time when null', () => {
+      render(<NotificationBell {...defaultProps} serverStartupTime={null} />);
+      
+      fireEvent.click(screen.getByRole('button'));
+      
+      expect(screen.queryByTestId('server-startup-time')).not.toBeInTheDocument();
+    });
+
+    it('displays Web UI build date from environment', () => {
+      // Mock the BUILD_DATE environment variable
+      const originalBuildDate = import.meta.env.BUILD_DATE;
+      import.meta.env.BUILD_DATE = '2023-04-01T10:00:00.000Z';
+      
+      render(<NotificationBell {...defaultProps} />);
+      
+      fireEvent.click(screen.getByRole('button'));
+      
+      expect(screen.getByTestId('build-time')).toBeInTheDocument();
+      expect(screen.getByTestId('build-time')).toHaveTextContent('Web UI built:');
+      
+      // Restore original value
+      import.meta.env.BUILD_DATE = originalBuildDate;
+    });
+
+    it('displays connection time when provided', () => {
+      render(<NotificationBell {...defaultProps} />);
+      
+      fireEvent.click(screen.getByRole('button'));
+      
+      expect(screen.getByTestId('connection-time')).toBeInTheDocument();
+      expect(screen.getByTestId('connection-time')).toHaveTextContent('Connected at:');
+    });
+
+    it('hides connection time when null', () => {
+      render(<NotificationBell {...defaultProps} connectedAt={null} />);
+      
+      fireEvent.click(screen.getByRole('button'));
+      
+      expect(screen.queryByTestId('connection-time')).not.toBeInTheDocument();
+    });
+
+    it('displays all timestamps in correct order when all provided', () => {
+      render(<NotificationBell {...defaultProps} />);
+      
+      fireEvent.click(screen.getByRole('button'));
+      
+      // Check that all three timestamps are present
+      expect(screen.getByTestId('server-startup-time')).toBeInTheDocument();
+      expect(screen.getByTestId('build-time')).toBeInTheDocument();
+      expect(screen.getByTestId('connection-time')).toBeInTheDocument();
+    });
   });
 
 });

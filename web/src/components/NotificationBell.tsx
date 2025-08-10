@@ -5,7 +5,7 @@ import { formatValue } from '../libs/formatValue';
 import { Button } from './ui/button';
 import type { LogEntry } from '../hooks/useLogNotifications';
 
-interface NotificationBellProps {
+export interface NotificationBellProps {
   logs: LogEntry[];
   unreadCount: number;
   onMarkAllAsRead: () => void;
@@ -136,15 +136,15 @@ export function NotificationBell({
             {/* Timestamp information */}
             <div className="space-y-1">
               {serverStartupTime && (
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="text-xs text-gray-500 dark:text-gray-400" data-testid="server-startup-time">
                   Server started: {serverStartupTime.toLocaleString()}
                 </div>
               )}
-              <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="text-xs text-gray-500 dark:text-gray-400" data-testid="build-time">
                 Web UI built: {new Date(import.meta.env.BUILD_DATE).toLocaleString()}
               </div>
               {connectedAt && (
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="text-xs text-gray-500 dark:text-gray-400" data-testid="connection-time">
                   Connected at: {connectedAt.toLocaleString()}
                 </div>
               )}
