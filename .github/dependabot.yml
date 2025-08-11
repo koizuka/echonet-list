@@ -71,7 +71,7 @@ updates:
           - "autofixer"
     ignore:
       - dependency-name: "rollup"
-        versions: ["4.46.0", "4.46.1", "4.46.2"]
+        versions: ["4.45.3", "4.46.0", "4.46.1", "4.46.2"]
     commit-message:
       prefix: "npm"
       include: "scope"
