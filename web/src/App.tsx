@@ -385,7 +385,9 @@ function App() {
                         <div className="flex items-center gap-1">
                           <div 
                             className={`w-2 h-2 rounded-full ${
-                              hasOperationalDevice ? 'bg-green-500' : 'bg-gray-400'
+                              hasOperationalDevice 
+                                ? 'bg-green-500' 
+                                : 'border-2 border-gray-400 bg-transparent'
                             }`}
                             title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
                           />
