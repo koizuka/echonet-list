@@ -52,6 +52,9 @@ func TestHandleDeviceOnlineTriggersNodeProfileRecovery(t *testing.T) {
 	// handleDeviceOnline関数を直接呼び出し
 	handleDeviceOnline(lightingDevice, handler)
 
+	// 処理が完了するまで少し待機
+	time.Sleep(10 * time.Millisecond)
+
 	// この時点で、UpdatePropertiesが呼ばれてNodeProfile復活処理が実行される
 	// 実際のネットワーク通信は発生しないが、ログで確認できる
 
@@ -100,6 +103,9 @@ func TestHandleDeviceOnlineSkipsRecoveryWhenNodeProfileOnline(t *testing.T) {
 	// NodeProfileがオンラインなので、何も処理されないはず
 	handleDeviceOnline(lightingDevice, handler)
 
+	// 処理が完了するまで少し待機
+	time.Sleep(10 * time.Millisecond)
+
 	// NodeProfileがオンライン状態のままであることを確認
 	if handler.IsOffline(nodeProfileDevice) {
 		t.Error("NodeProfileがオフライン状態になってしまいました")
@@ -138,6 +144,9 @@ func TestHandleDeviceOnlineSkipsRecoveryForNodeProfileDevice(t *testing.T) {
 	// NodeProfileデバイス自体でhandleDeviceOnlineを呼び出し
 	// NodeProfileデバイス自体の場合は何も処理されないはず
 	handleDeviceOnline(nodeProfileDevice, handler)
+
+	// 処理が完了するまで少し待機
+	time.Sleep(10 * time.Millisecond)
 
 	t.Log("NodeProfileデバイス自体でのhandleDeviceOnlineテストが完了しました")
 }
@@ -192,9 +201,15 @@ func TestMultipleDevicesCanTriggerNodeProfileRecovery(t *testing.T) {
 	// 最初のデバイス（lighting）でNodeProfile復活を試行
 	handleDeviceOnline(lightingDevice, handler)
 
+	// 処理が完了するまで少し待機
+	time.Sleep(10 * time.Millisecond)
+
 	// 2番目のデバイス（airCond）でもNodeProfile復活を試行
 	// NodeProfileがまだオフラインなら再度復活処理が実行される
 	handleDeviceOnline(airCondDevice, handler)
+
+	// 処理が完了するまで少し待機
+	time.Sleep(10 * time.Millisecond)
 
 	t.Log("複数デバイスでのNodeProfile復活テストが完了しました")
 }
@@ -242,6 +257,9 @@ func TestNodeProfileRecoveryUsesCorrectIPAddress(t *testing.T) {
 	// handleDeviceOnlineを呼び出し
 	// ログでIP確認とNodeProfile復活処理が実行されることを確認
 	handleDeviceOnline(lightingDevice, handler)
+
+	// 処理が完了するまで少し待機
+	time.Sleep(10 * time.Millisecond)
 
 	t.Log("IPアドレス正常処理テストが完了しました")
 }

@@ -283,8 +283,10 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 		data.SetHookProcessor(comm)
 	}
 
-	// イベント中継ループを開始
-	core.StartEventRelayLoop(deviceEventCh, sessionTimeoutCh)
+	// イベント中継ループを開始（テストモードでは省略）
+	if !options.TestMode {
+		core.StartEventRelayLoop(deviceEventCh, sessionTimeoutCh)
+	}
 
 	// INFメッセージのコールバックを設定（テストモードでは省略）
 	if !options.TestMode && session != nil && comm != nil {
