@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// TestHandleDeviceOnlineBasic tests the handleDeviceOnline function directly
-func TestHandleDeviceOnlineBasic(t *testing.T) {
+// TestHandleDeviceOnlineTriggersNodeProfileRecovery tests that handleDeviceOnline triggers NodeProfile recovery when conditions are met
+func TestHandleDeviceOnlineTriggersNodeProfileRecovery(t *testing.T) {
 	testIP := net.ParseIP("192.168.1.200")
 
 	lightingDevice := IPAndEOJ{
@@ -58,9 +58,8 @@ func TestHandleDeviceOnlineBasic(t *testing.T) {
 	t.Log("handleDeviceOnline関数の直接テストが完了しました")
 }
 
-// TestHandleDeviceOnlineWithNodeProfileOnline tests that handleDeviceOnline does nothing
-// when NodeProfile is already online
-func TestHandleDeviceOnlineWithNodeProfileOnline(t *testing.T) {
+// TestHandleDeviceOnlineSkipsRecoveryWhenNodeProfileOnline tests that handleDeviceOnline does nothing when NodeProfile is already online
+func TestHandleDeviceOnlineSkipsRecoveryWhenNodeProfileOnline(t *testing.T) {
 	testIP := net.ParseIP("192.168.1.300")
 
 	lightingDevice := IPAndEOJ{
@@ -109,9 +108,8 @@ func TestHandleDeviceOnlineWithNodeProfileOnline(t *testing.T) {
 	t.Log("NodeProfileオンライン時のhandleDeviceOnlineテストが完了しました")
 }
 
-// TestHandleDeviceOnlineWithNodeProfileDevice tests that handleDeviceOnline does nothing
-// when the device itself is a NodeProfile
-func TestHandleDeviceOnlineWithNodeProfileDevice(t *testing.T) {
+// TestHandleDeviceOnlineSkipsRecoveryForNodeProfileDevice tests that handleDeviceOnline does nothing when the device itself is a NodeProfile
+func TestHandleDeviceOnlineSkipsRecoveryForNodeProfileDevice(t *testing.T) {
 	testIP := net.ParseIP("192.168.1.400")
 
 	nodeProfileDevice := IPAndEOJ{
@@ -144,8 +142,8 @@ func TestHandleDeviceOnlineWithNodeProfileDevice(t *testing.T) {
 	t.Log("NodeProfileデバイス自体でのhandleDeviceOnlineテストが完了しました")
 }
 
-// TestMultipleDevicesNodeProfileRecovery tests NodeProfile recovery with multiple devices
-func TestMultipleDevicesNodeProfileRecovery(t *testing.T) {
+// TestMultipleDevicesCanTriggerNodeProfileRecovery tests NodeProfile recovery with multiple devices on the same IP
+func TestMultipleDevicesCanTriggerNodeProfileRecovery(t *testing.T) {
 	testIP := net.ParseIP("192.168.1.700")
 
 	// 複数のデバイス
@@ -201,8 +199,8 @@ func TestMultipleDevicesNodeProfileRecovery(t *testing.T) {
 	t.Log("複数デバイスでのNodeProfile復活テストが完了しました")
 }
 
-// TestNodeProfileRecoveryWithCorrectIP tests that IP address is correctly handled
-func TestNodeProfileRecoveryWithCorrectIP(t *testing.T) {
+// TestNodeProfileRecoveryUsesCorrectIPAddress tests that IP address is correctly handled during recovery
+func TestNodeProfileRecoveryUsesCorrectIPAddress(t *testing.T) {
 	testIP := net.ParseIP("192.168.1.800")
 
 	lightingDevice := IPAndEOJ{
