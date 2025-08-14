@@ -30,6 +30,8 @@ type ECHONETLieHandlerOptions struct {
 	DevicesFile string // デバイスファイルパス
 	AliasesFile string // エイリアスファイルパス
 	GroupsFile  string // グループファイルパス
+	// テスト用設定（CI環境での実行時にファイルアクセスやネットワーク通信を避ける）
+	TestMode bool // テストモード（ファイル読み込みとネットワーク通信を無効化）
 }
 
 // getFileOrDefault は、カスタムファイル名が空文字の場合にデフォルトファイル名を返す
@@ -70,6 +72,41 @@ func handleDeviceTimeout(device IPAndEOJ, manager OfflineManager) {
 	}
 }
 
+// handleDeviceOnline processes device online events to potentially recover NodeProfile
+// For non-NodeProfile devices: if the NodeProfile of the same IP is offline, try to recover it by UpdateProperties
+func handleDeviceOnline(device IPAndEOJ, handler *ECHONETLiteHandler) {
+	// NodeProfile以外のデバイスがオンラインになった場合
+	if device.EOJ.ClassCode() != echonet_lite.NodeProfile_ClassCode {
+		nodeProfile := IPAndEOJ{
+			IP:  device.IP,
+			EOJ: echonet_lite.NodeProfileObject,
+		}
+
+		// NodeProfileがオフラインの場合、復活を試みる
+		if handler.IsOffline(nodeProfile) {
+			slog.Info("デバイスオンライン: NodeProfileがオフラインのため復活を試行", "device", device.Specifier(), "nodeProfile", nodeProfile.Specifier())
+
+			// NodeProfileのプロパティを更新することで生存確認
+			nodeProfileClassCode := echonet_lite.NodeProfile_ClassCode
+			criteria := FilterCriteria{
+				Device: DeviceSpecifier{
+					IP:           &device.IP,
+					ClassCode:    &nodeProfileClassCode,
+					InstanceCode: nil, // 全インスタンス
+				},
+				ExcludeOffline: false, // オフラインデバイスも対象に含める
+			}
+
+			err := handler.UpdateProperties(criteria, true) // forceフラグをtrueで実行
+			if err != nil {
+				slog.Warn("NodeProfile復活の試行に失敗", "nodeProfile", nodeProfile.Specifier(), "error", err)
+			} else {
+				slog.Info("NodeProfile復活処理を実行", "nodeProfile", nodeProfile.Specifier())
+			}
+		}
+	}
+}
+
 // NewECHONETLiteHandler は、ECHONETLiteHandler の新しいインスタンスを作成する
 func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions) (*ECHONETLiteHandler, error) {
 	// タイムアウト付きのコンテキストを作成
@@ -86,48 +123,58 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	// Devicesにイベントチャンネルを設定
 	devices.SetEventChannel(deviceEventCh)
 
-	// デバイス情報を読み込む
-	devicesFile := getFileOrDefault(options.DevicesFile, DeviceFileName)
-	slog.Info("デバイスファイルを使用", "file", devicesFile)
-	err := devices.LoadFromFile(devicesFile)
-	if err != nil {
-		cancel() // エラーの場合はコンテキストをキャンセル
-		slog.Error("デバイス情報の読み込みに失敗", "file", devicesFile, "error", err)
-		return nil, fmt.Errorf("デバイス情報の読み込みに失敗 (file: %s): %w", devicesFile, err)
+	// デバイス情報を読み込む（テストモードでは省略）
+	if !options.TestMode {
+		devicesFile := getFileOrDefault(options.DevicesFile, DeviceFileName)
+		slog.Info("デバイスファイルを使用", "file", devicesFile)
+		err := devices.LoadFromFile(devicesFile)
+		if err != nil {
+			cancel() // エラーの場合はコンテキストをキャンセル
+			slog.Error("デバイス情報の読み込みに失敗", "file", devicesFile, "error", err)
+			return nil, fmt.Errorf("デバイス情報の読み込みに失敗 (file: %s): %w", devicesFile, err)
+		}
+		slog.Info("デバイス情報の読み込み完了", "file", devicesFile, "deviceCount", devices.CountAll())
 	}
-	slog.Info("デバイス情報の読み込み完了", "file", devicesFile, "deviceCount", devices.CountAll())
 
 	aliases := NewDeviceAliases()
 
-	// エイリアス情報を読み込む
-	aliasesFile := getFileOrDefault(options.AliasesFile, DeviceAliasesFileName)
-	slog.Info("エイリアスファイルを使用", "file", aliasesFile)
-	err = aliases.LoadFromFile(aliasesFile)
-	if err != nil {
-		cancel() // エラーの場合はコンテキストをキャンセル
-		slog.Error("エイリアス情報の読み込みに失敗", "file", aliasesFile, "error", err)
-		return nil, fmt.Errorf("エイリアス情報の読み込みに失敗 (file: %s): %w", aliasesFile, err)
+	// エイリアス情報を読み込む（テストモードでは省略）
+	if !options.TestMode {
+		aliasesFile := getFileOrDefault(options.AliasesFile, DeviceAliasesFileName)
+		slog.Info("エイリアスファイルを使用", "file", aliasesFile)
+		err := aliases.LoadFromFile(aliasesFile)
+		if err != nil {
+			cancel() // エラーの場合はコンテキストをキャンセル
+			slog.Error("エイリアス情報の読み込みに失敗", "file", aliasesFile, "error", err)
+			return nil, fmt.Errorf("エイリアス情報の読み込みに失敗 (file: %s): %w", aliasesFile, err)
+		}
+		slog.Info("エイリアス情報の読み込み完了", "file", aliasesFile, "aliasCount", aliases.Count())
 	}
-	slog.Info("エイリアス情報の読み込み完了", "file", aliasesFile, "aliasCount", aliases.Count())
 
 	groups := NewDeviceGroups()
 
-	// グループ情報を読み込む
-	groupsFile := getFileOrDefault(options.GroupsFile, DeviceGroupsFileName)
-	slog.Info("グループファイルを使用", "file", groupsFile)
-	err = groups.LoadFromFile(groupsFile)
-	if err != nil {
-		cancel() // エラーの場合はコンテキストをキャンセル
-		slog.Error("グループ情報の読み込みに失敗", "file", groupsFile, "error", err)
-		return nil, fmt.Errorf("グループ情報の読み込みに失敗 (file: %s): %w", groupsFile, err)
+	// グループ情報を読み込む（テストモードでは省略）
+	if !options.TestMode {
+		groupsFile := getFileOrDefault(options.GroupsFile, DeviceGroupsFileName)
+		slog.Info("グループファイルを使用", "file", groupsFile)
+		err := groups.LoadFromFile(groupsFile)
+		if err != nil {
+			cancel() // エラーの場合はコンテキストをキャンセル
+			slog.Error("グループ情報の読み込みに失敗", "file", groupsFile, "error", err)
+			return nil, fmt.Errorf("グループ情報の読み込みに失敗 (file: %s): %w", groupsFile, err)
+		}
+		slog.Info("グループ情報の読み込み完了", "file", groupsFile, "groupCount", groups.Count())
 	}
-	slog.Info("グループ情報の読み込み完了", "file", groupsFile, "groupCount", groups.Count())
 
-	// 自ノードのセッションを作成（IsOffline関数を渡す）
-	session, err := CreateSession(handlerCtx, options.IP, seoj, options.Debug, options.NetworkMonitorConfig, devices.IsOffline)
-	if err != nil {
-		cancel() // エラーの場合はコンテキストをキャンセル
-		return nil, fmt.Errorf("接続に失敗: %w", err)
+	// 自ノードのセッションを作成（テストモードでは省略）
+	var session *Session
+	var err error
+	if !options.TestMode {
+		session, err = CreateSession(handlerCtx, options.IP, seoj, options.Debug, options.NetworkMonitorConfig, devices.IsOffline)
+		if err != nil {
+			cancel() // エラーの場合はコンテキストをキャンセル
+			return nil, fmt.Errorf("接続に失敗: %w", err)
+		}
 	}
 
 	localDevices := make(DeviceProperties)
@@ -221,46 +268,57 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	// セッションのタイムアウト通知チャンネルを作成
 	sessionTimeoutCh := make(chan SessionTimeoutEvent, 100)
 
-	// セッションにタイムアウト通知チャンネルを設定
-	session.SetTimeoutChannel(sessionTimeoutCh)
+	// セッションにタイムアウト通知チャンネルを設定（テストモードでは省略）
+	if !options.TestMode && session != nil {
+		session.SetTimeoutChannel(sessionTimeoutCh)
+	}
 
 	// 各ハンドラを初期化
 	core := NewHandlerCore(handlerCtx, cancel, options.Debug)
 	data := NewDataManagementHandler(devices, aliases, groups, core)
-	comm := NewCommunicationHandler(handlerCtx, session, localDevices, data, core, options.Debug)
+	var comm *CommunicationHandler
+	if !options.TestMode && session != nil {
+		comm = NewCommunicationHandler(handlerCtx, session, localDevices, data, core, options.Debug)
+		// プロパティ更新後のフック処理を設定
+		data.SetHookProcessor(comm)
+	}
 
-	// プロパティ更新後のフック処理を設定
-	data.SetHookProcessor(comm)
+	// イベント中継ループを開始（テストモードでは省略）
+	if !options.TestMode {
+		core.StartEventRelayLoop(deviceEventCh, sessionTimeoutCh)
+	}
 
-	// イベント中継ループを開始
-	core.StartEventRelayLoop(deviceEventCh, sessionTimeoutCh)
-
-	// INFメッセージのコールバックを設定
-	session.OnInf(comm.onInfMessage)
-	session.OnReceive(comm.onReceiveMessage)
-
-	// NotificationCh を中継用にラップし、タイムアウト時にオフライン状態を設定
-	// SubscribeNotifications を使用して専用チャンネルを取得
-	wrappedCh := make(chan DeviceNotification, 100)
-	subscribedCh := core.SubscribeNotifications(100)
-	go func() {
-		for ev := range subscribedCh {
-			if ev.Type == DeviceTimeout {
-				handleDeviceTimeout(ev.Device, data)
-			}
-			wrappedCh <- ev
-		}
-		close(wrappedCh)
-	}()
+	// INFメッセージのコールバックを設定（テストモードでは省略）
+	if !options.TestMode && session != nil && comm != nil {
+		session.OnInf(comm.onInfMessage)
+		session.OnReceive(comm.onReceiveMessage)
+	}
 
 	// ECHONETLiteHandlerを作成
 	handler := &ECHONETLiteHandler{
 		core:             core,
 		comm:             comm,
 		data:             data,
-		NotificationCh:   wrappedCh,
+		NotificationCh:   make(chan DeviceNotification, 100),
 		PropertyChangeCh: core.PropertyChangeCh,
 	}
+
+	// NotificationCh を中継用にラップし、タイムアウト時にオフライン状態を設定
+	// SubscribeNotifications を使用して専用チャンネルを取得
+	subscribedCh := core.SubscribeNotifications(100)
+	go func() {
+		defer close(handler.NotificationCh)
+
+		for ev := range subscribedCh {
+			if ev.Type == DeviceTimeout {
+				handleDeviceTimeout(ev.Device, data)
+			}
+			if ev.Type == DeviceOnline {
+				handleDeviceOnline(ev.Device, handler)
+			}
+			handler.NotificationCh <- ev
+		}
+	}()
 
 	return handler, nil
 }
@@ -349,6 +407,10 @@ func (h *ECHONETLiteHandler) SetProperties(device IPAndEOJ, properties Propertie
 
 // UpdateProperties は、フィルタリングされたデバイスのプロパティキャッシュを更新する
 func (h *ECHONETLiteHandler) UpdateProperties(criteria FilterCriteria, force bool) error {
+	if h.comm == nil {
+		// テストモードではCommunicationHandlerが無いため、何も実行しない
+		return nil
+	}
 	return h.comm.UpdateProperties(criteria, force)
 }
 
