@@ -4,6 +4,8 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 
 **Author**: @koizuka
 
+<img width="1266" height="528" alt="image" src="https://github.com/user-attachments/assets/99f49b81-65c4-49a9-a55e-43ec12505f69" />
+
 <img width="1305" height="529" alt="image" src="https://github.com/user-attachments/assets/4787f973-d8b8-41ee-880d-746e562bf2fb" />
 
 ## Features
