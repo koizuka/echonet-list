@@ -10,6 +10,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { GroupNameEditor } from '@/components/GroupNameEditor';
 import { GroupMemberEditor } from '@/components/GroupMemberEditor';
 import { GroupManagementPanel } from '@/components/GroupManagementPanel';
+import { RefreshAllOfflineButton } from '@/components/RefreshAllOfflineButton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -94,6 +95,8 @@ function App() {
   const [aliasLoading, setAliasLoading] = useState(false);
   // Loading state for delete operations
   const [deletingDevices, setDeletingDevices] = useState<Set<string>>(new Set());
+  // Loading state for global offline refresh
+  const [isUpdatingAllOffline, setIsUpdatingAllOffline] = useState(false);
   
   // Group management states
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -208,6 +211,26 @@ function App() {
     }
   };
 
+  // Update all offline devices handler
+  const handleUpdateAllOfflineDevices = async () => {
+    if (allOfflineDevices.length === 0) return;
+    
+    try {
+      setIsUpdatingAllOffline(true);
+      
+      // Get all offline device targets
+      const offlineTargets = allOfflineDevices.map(device => `${device.ip} ${device.eoj}`);
+      
+      // Update all offline devices with force=true
+      await echonet.updateDeviceProperties(offlineTargets, true);
+    } catch (error) {
+      console.error('Failed to update all offline devices:', error);
+      // TODO: Show user-friendly error message
+    } finally {
+      setIsUpdatingAllOffline(false);
+    }
+  };
+
   // Add alias handler
   const handleAddAlias = async (alias: string, target: string) => {
     try {
@@ -299,6 +322,9 @@ function App() {
     return `${device.ip} ${device.eoj}`;
   });
 
+  // Get all offline devices
+  const allOfflineDevices = Object.values(echonet.devices).filter(device => device.isOffline);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto p-4">
@@ -330,6 +356,14 @@ function App() {
                 </Button>
               </div>
             )}
+            
+            {/* Refresh All Offline Button */}
+            <RefreshAllOfflineButton
+              offlineDevices={allOfflineDevices}
+              onRefreshAll={handleUpdateAllOfflineDevices}
+              isUpdating={isUpdatingAllOffline}
+              isConnected={isConnected}
+            />
             <Badge variant="outline" className={`${getConnectionColor(echonet.connectionState)} text-white text-xs`} data-testid="connection-status">
               {echonet.connectionState}
             </Badge>
