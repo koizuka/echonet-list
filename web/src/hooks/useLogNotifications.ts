@@ -14,6 +14,7 @@ interface LogNotificationsProps {
   notification?: LogNotification;
   deviceOnlineNotification?: DeviceOnline;
   deviceOfflineNotification?: DeviceOffline;
+  localErrorNotification?: LogEntry;
   resolveAlias?: (ip: string, eoj: string) => string | null;
   maxLogs?: number;
   onLogsChange?: (logs: LogEntry[], unreadCount: number) => void;
@@ -23,6 +24,7 @@ export function useLogNotifications({
   notification, 
   deviceOnlineNotification,
   deviceOfflineNotification,
+  localErrorNotification,
   resolveAlias,
   maxLogs = 50,
   onLogsChange
@@ -116,6 +118,13 @@ export function useLogNotifications({
     const newLog = createDeviceStatusLogEntry('offline', deviceOfflineNotification);
     addLogEntry(newLog);
   }, [deviceOfflineNotification, addLogEntry, createDeviceStatusLogEntry]);
+
+  // Handle local error notifications
+  useEffect(() => {
+    if (localErrorNotification) {
+      addLogEntry(localErrorNotification);
+    }
+  }, [localErrorNotification, addLogEntry]);
 
   // Notify parent component about logs changes
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getLocationDisplayName } from '@/libs/locationHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
@@ -10,6 +11,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { GroupNameEditor } from '@/components/GroupNameEditor';
 import { GroupMemberEditor } from '@/components/GroupMemberEditor';
 import { GroupManagementPanel } from '@/components/GroupManagementPanel';
+import { RefreshAllOfflineButton } from '@/components/RefreshAllOfflineButton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,6 +35,9 @@ function App() {
   // Log notification state
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Local error notification state for user actions
+  const [localErrorNotification, setLocalErrorNotification] = useState<LogEntry | undefined>();
 
   // Use a ref to store the logManager methods to avoid circular dependency
   const logManagerRef = useRef<{ clearByCategory: (category: string) => void } | null>(null);
@@ -61,11 +66,51 @@ function App() {
     return aliasName || null;
   }, [echonet.devices, echonet.aliases]);
 
+  // Helper function to create error notification
+  const createErrorNotification = useCallback((operation: string, error: unknown) => {
+    // Get error message from error object
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Create localized error message
+    const currentLocale = getCurrentLocale();
+    const operationLabels = {
+      en: {
+        'property_change': 'Failed to change property',
+        'update_properties': 'Failed to update device properties',
+        'update_all_offline': 'Failed to update all offline devices',
+        'delete_device': 'Failed to delete device',
+        'add_alias': 'Failed to add alias',
+        'delete_alias': 'Failed to delete alias'
+      },
+      ja: {
+        'property_change': 'プロパティの変更に失敗しました',
+        'update_properties': 'デバイスプロパティの更新に失敗しました',
+        'update_all_offline': 'すべてのオフラインデバイスの更新に失敗しました',
+        'delete_device': 'デバイスの削除に失敗しました',
+        'add_alias': 'エイリアスの追加に失敗しました',
+        'delete_alias': 'エイリアスの削除に失敗しました'
+      }
+    };
+    
+    const localizedOperation = operationLabels[currentLocale]?.[operation as keyof typeof operationLabels['en']] || operation;
+    
+    const errorEntry: LogEntry = {
+      id: `error-${Date.now()}-${Math.random()}`,
+      level: 'ERROR',
+      message: `${localizedOperation}: ${errorMessage}`,
+      time: new Date().toISOString(),
+      attributes: { category: 'User Action' },
+      isRead: false
+    };
+    setLocalErrorNotification(errorEntry);
+  }, []);
+
   // Log notification handlers
   const logManager = useLogNotifications({ 
     notification: latestLogNotification,
     deviceOnlineNotification: latestDeviceOnlineNotification,
     deviceOfflineNotification: latestDeviceOfflineNotification,
+    localErrorNotification: localErrorNotification,
     resolveAlias: resolveDeviceAlias,
     onLogsChange: (newLogs, newUnreadCount) => {
       setLogs(newLogs);
@@ -94,6 +139,8 @@ function App() {
   const [aliasLoading, setAliasLoading] = useState(false);
   // Loading state for delete operations
   const [deletingDevices, setDeletingDevices] = useState<Set<string>>(new Set());
+  // Loading state for global offline refresh
+  const [isUpdatingAllOffline, setIsUpdatingAllOffline] = useState(false);
   
   // Group management states
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -159,7 +206,7 @@ function App() {
       await echonet.setDeviceProperties(target, { [epc]: value });
     } catch (error) {
       console.error('Failed to change property:', error);
-      // TODO: Show user-friendly error message
+      createErrorNotification('property_change', error);
     }
   };
 
@@ -176,7 +223,7 @@ function App() {
       await echonet.updateDeviceProperties([target], force);
     } catch (error) {
       console.error('Failed to update properties:', error);
-      // TODO: Show user-friendly error message
+      createErrorNotification('update_properties', error);
     } finally {
       // Remove device from updating set
       setUpdatingDevices(prev => {
@@ -197,7 +244,7 @@ function App() {
       await echonet.deleteDevice(target);
     } catch (error) {
       console.error('Failed to delete device:', error);
-      // TODO: Show user-friendly error message
+      createErrorNotification('delete_device', error);
     } finally {
       // Remove device from deleting set
       setDeletingDevices(prev => {
@@ -208,6 +255,26 @@ function App() {
     }
   };
 
+  // Update all offline devices handler
+  const handleUpdateAllOfflineDevices = async () => {
+    if (allOfflineDevices.length === 0) return;
+    
+    try {
+      setIsUpdatingAllOffline(true);
+      
+      // Get all offline device targets
+      const offlineTargets = allOfflineDevices.map(device => `${device.ip} ${device.eoj}`);
+      
+      // Update all offline devices with force=true
+      await echonet.updateDeviceProperties(offlineTargets, true);
+    } catch (error) {
+      console.error('Failed to update all offline devices:', error);
+      createErrorNotification('update_all_offline', error);
+    } finally {
+      setIsUpdatingAllOffline(false);
+    }
+  };
+
   // Add alias handler
   const handleAddAlias = async (alias: string, target: string) => {
     try {
@@ -215,6 +282,7 @@ function App() {
       await echonet.addAlias(alias, target);
     } catch (error) {
       console.error('Failed to add alias:', error);
+      createErrorNotification('add_alias', error);
       throw error; // Re-throw to let AliasEditor handle the error
     } finally {
       setAliasLoading(false);
@@ -228,6 +296,7 @@ function App() {
       await echonet.deleteAlias(alias);
     } catch (error) {
       console.error('Failed to delete alias:', error);
+      createErrorNotification('delete_alias', error);
       throw error; // Re-throw to let AliasEditor handle the error
     } finally {
       setAliasLoading(false);
@@ -299,6 +368,9 @@ function App() {
     return `${device.ip} ${device.eoj}`;
   });
 
+  // Get all offline devices
+  const allOfflineDevices = Object.values(echonet.devices).filter(device => device.isOffline);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto p-4">
@@ -330,6 +402,14 @@ function App() {
                 </Button>
               </div>
             )}
+            
+            {/* Refresh All Offline Button */}
+            <RefreshAllOfflineButton
+              offlineDevices={allOfflineDevices}
+              onRefreshAll={handleUpdateAllOfflineDevices}
+              isUpdating={isUpdatingAllOffline}
+              isConnected={isConnected}
+            />
             <Badge variant="outline" className={`${getConnectionColor(echonet.connectionState)} text-white text-xs`} data-testid="connection-status">
               {echonet.connectionState}
             </Badge>
