@@ -12,8 +12,8 @@ import { GroupNameEditor } from '@/components/GroupNameEditor';
 import { GroupMemberEditor } from '@/components/GroupMemberEditor';
 import { GroupManagementPanel } from '@/components/GroupManagementPanel';
 import { RefreshAllOfflineButton } from '@/components/RefreshAllOfflineButton';
+import { ConnectionStatusBadge } from '@/components/ConnectionStatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExpandIcon, ShrinkIcon, Plus } from 'lucide-react';
@@ -344,18 +344,6 @@ function App() {
     }
   };
 
-  const getConnectionColor = (state: string) => {
-    switch (state) {
-      case 'connected':
-        return 'bg-green-500';
-      case 'connecting':
-        return 'bg-yellow-500';
-      case 'error':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
 
   // Function to get devices for a specific tab ID
   const getDevicesForTab = (tabId: string) => {
@@ -410,9 +398,7 @@ function App() {
               isUpdating={isUpdatingAllOffline}
               isConnected={isConnected}
             />
-            <Badge variant="outline" className={`${getConnectionColor(echonet.connectionState)} text-white text-xs`} data-testid="connection-status">
-              {echonet.connectionState}
-            </Badge>
+            <ConnectionStatusBadge connectionState={echonet.connectionState} />
             
             {/* Notification Bell */}
             <NotificationBell
