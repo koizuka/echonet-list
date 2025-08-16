@@ -2,6 +2,11 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { RefreshAllOfflineButton } from './RefreshAllOfflineButton';
 import type { Device } from '@/hooks/types';
 
+// Mock the language helper
+vi.mock('@/libs/languageHelper', () => ({
+  getCurrentLocale: vi.fn(() => 'en')
+}));
+
 const mockOfflineDevice: Device = {
   id: '192.168.1.100 0291:1',
   ip: '192.168.1.100',
@@ -141,5 +146,48 @@ describe('RefreshAllOfflineButton', () => {
     );
 
     expect(container.firstChild).toBeNull();
+  });
+
+  it('renders Japanese text when locale is Japanese', async () => {
+    const { getCurrentLocale } = await import('@/libs/languageHelper');
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+    
+    const onRefreshAll = vi.fn();
+    
+    render(
+      <RefreshAllOfflineButton
+        offlineDevices={[mockOfflineDevice]}
+        onRefreshAll={onRefreshAll}
+        isUpdating={false}
+        isConnected={true}
+      />
+    );
+
+    expect(screen.getByText('オフライン端末を更新')).toBeInTheDocument();
+    
+    // Restore the mock
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
+  });
+
+  it('shows correct title with Japanese locale', async () => {
+    const { getCurrentLocale } = await import('@/libs/languageHelper');
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+    
+    const onRefreshAll = vi.fn();
+    
+    render(
+      <RefreshAllOfflineButton
+        offlineDevices={[mockOfflineDevice]}
+        onRefreshAll={onRefreshAll}
+        isUpdating={false}
+        isConnected={true}
+      />
+    );
+
+    const button = screen.getByRole('button');
+    expect(button).toHaveAttribute('title', '1台のオフライン端末を更新');
+    
+    // Restore the mock
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
   });
 });
