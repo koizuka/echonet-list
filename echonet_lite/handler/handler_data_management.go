@@ -47,15 +47,13 @@ func (h *DataManagementHandler) SaveDeviceInfo() {
 
 // detectAndRegisterPropertyChanges は、プロパティの変更を検出し、登録と通知を行う
 func (h *DataManagementHandler) detectAndRegisterPropertyChanges(device IPAndEOJ, properties Properties) []ChangedProperty {
-	h.propMutex.Lock()
-	defer h.propMutex.Unlock()
-
 	// 変更されたプロパティを追跡
 	var changedProperties []ChangedProperty
 
+	// 先にデバイスのロックを取得してから、propMutexをロック（ロック順序を統一）
 	// 各プロパティについて処理
 	for _, prop := range properties {
-		// 現在の値を取得
+		// 現在の値を取得（propMutexのロックなしで呼び出し）
 		currentProp, exists := h.devices.GetProperty(device, prop.EPC)
 
 		// プロパティが新規または値が変更された場合
@@ -85,10 +83,13 @@ func (h *DataManagementHandler) detectAndRegisterPropertyChanges(device IPAndEOJ
 		slog.Info("プロパティ更新", "device", h.DeviceStringWithAlias(device), "count", len(changedProperties), "changes", strings.Join(changes, ", "))
 	}
 
-	// デバイスのプロパティを登録
+	// デバイスのプロパティを登録（propMutexのロックなしで呼び出し）
 	h.devices.RegisterProperties(device, properties, time.Now())
 
 	// 変更されたプロパティについて通知を送信
+	// propMutexのロックを取得して通知処理
+	h.propMutex.Lock()
+	defer h.propMutex.Unlock()
 	for _, prop := range changedProperties {
 		h.notifier.RelayPropertyChangeEvent(device, prop.After())
 	}
