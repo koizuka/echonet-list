@@ -16,7 +16,7 @@ import { ConnectionStatusBadge } from '@/components/ConnectionStatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExpandIcon, ShrinkIcon, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { PropertyValue, LogNotification, DeviceOnline, DeviceOffline } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
@@ -350,11 +350,6 @@ function App() {
     return getDevicesForTabHelper(tabId, echonet.devices, echonet.groups);
   };
 
-  // Get all device keys for expand/collapse all functionality
-  const allDeviceKeys = Object.keys(echonet.devices).map(key => {
-    const device = echonet.devices[key];
-    return `${device.ip} ${device.eoj}`;
-  });
 
   // Get all offline devices
   const allOfflineDevices = Object.values(echonet.devices).filter(device => device.isOffline);
@@ -365,32 +360,6 @@ function App() {
         <div className="flex justify-between items-center mb-4 sm:mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold">ECHONET List</h1>
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Expand/Collapse All Controls */}
-            {Object.keys(echonet.devices).length > 0 && (
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => cardExpansion.expandAll(allDeviceKeys)}
-                  className="h-7 sm:h-8 px-2 sm:px-3"
-                  data-testid="expand-all-button"
-                >
-                  <ExpandIcon className="h-3 w-3 sm:mr-1" />
-                  <span className="hidden sm:inline ml-1">Expand All</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => cardExpansion.collapseAll()}
-                  className="h-7 sm:h-8 px-2 sm:px-3"
-                  data-testid="collapse-all-button"
-                >
-                  <ShrinkIcon className="h-3 w-3 sm:mr-1" />
-                  <span className="hidden sm:inline ml-1">Collapse All</span>
-                </Button>
-              </div>
-            )}
-            
             {/* Refresh All Offline Button */}
             <RefreshAllOfflineButton
               offlineDevices={allOfflineDevices}
