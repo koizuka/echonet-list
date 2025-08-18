@@ -130,6 +130,15 @@ func (h *CommunicationHandler) cleanupStaleActiveUpdates() {
 	}
 }
 
+// isNodeProfileOnline は、指定されたIPアドレスのNodeProfileObjectがオンラインかどうかを確認する
+func (h *CommunicationHandler) isNodeProfileOnline(ip net.IP) bool {
+	nodeProfile := IPAndEOJ{
+		IP:  ip,
+		EOJ: echonet_lite.NodeProfileObject,
+	}
+	return !h.dataAccessor.IsOffline(nodeProfile)
+}
+
 // NotifyNodeList は、自ノードのインスタンスリストを通知する
 func (h *CommunicationHandler) NotifyNodeList() error {
 	list := echonet_lite.InstanceListNotification(h.localDevices.GetInstanceList())
@@ -743,8 +752,8 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				// fmt.Printf("デバイス %v は最近更新されたためスキップします (最終更新: %v)\n", device, lastUpdateTime.Format(time.RFC3339))
 				continue // 更新をスキップ
 			}
-			if h.dataAccessor.IsOffline(device) {
-				continue // オフラインのデバイスはスキップ
+			if h.dataAccessor.IsOffline(device) && !h.isNodeProfileOnline(device.IP) {
+				continue // オフラインのデバイスはスキップ（ただし、NodeProfileがオンラインの場合は更新を試行）
 			}
 		}
 
@@ -865,8 +874,8 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 			if !lastUpdateTime.IsZero() && time.Since(lastUpdateTime) < UpdateIntervalThreshold {
 				continue // 更新をスキップ
 			}
-			if h.dataAccessor.IsOffline(device) {
-				continue // オフラインのデバイスはスキップ
+			if h.dataAccessor.IsOffline(device) && !h.isNodeProfileOnline(device.IP) {
+				continue // オフラインのデバイスはスキップ（ただし、NodeProfileがオンラインの場合は更新を試行）
 			}
 			validDevices = append(validDevices, device)
 		}
