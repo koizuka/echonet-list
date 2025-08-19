@@ -222,6 +222,30 @@ func (ws *WebSocketServer) monitorUpdateInterval() {
 					ws.activeClients.Store(actualCount)
 				}
 			}
+
+			// Check for initialStateInProgress counter leaks
+			initialStateCount := ws.initialStateInProgress.Load()
+			if initialStateCount > 0 {
+				// If initial state generation is running for more than 5 minutes, it's likely stuck
+				if time.Since(startTime) > 5*time.Minute && initialStateCount > actualCount+5 {
+					slog.Error("InitialStateInProgress counter appears to be leaked",
+						"initialStateCount", initialStateCount,
+						"activeClients", actualCount,
+						"uptime", time.Since(startTime))
+
+					// Reset the counter to prevent indefinite blocking of periodic updates
+					slog.Warn("Resetting initialStateInProgress counter due to suspected leak",
+						"oldValue", initialStateCount,
+						"newValue", 0)
+					ws.initialStateInProgress.Store(0)
+				} else if initialStateCount > actualCount {
+					// Warn if the count seems too high but not necessarily leaked
+					slog.Warn("InitialStateInProgress count is higher than expected",
+						"initialStateCount", initialStateCount,
+						"activeClients", actualCount,
+						"difference", initialStateCount-actualCount)
+				}
+			}
 		case <-ws.monitorDone:
 			return
 		case <-ws.ctx.Done():
@@ -386,7 +410,14 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 	go func() {
 		// Increment initial state generation counter
 		ws.initialStateInProgress.Add(1)
-		defer ws.initialStateInProgress.Add(-1)
+
+		// Ensure counter is decremented regardless of how this function exits
+		defer func() {
+			ws.initialStateInProgress.Add(-1)
+			if ws.handler.IsDebug() {
+				slog.Debug("Initial state generation counter decremented", "connID", connID, "currentCount", ws.initialStateInProgress.Load())
+			}
+		}()
 
 		// Add timeout to prevent indefinite blocking
 		ctx, cancel := context.WithTimeout(ws.ctx, 30*time.Second)
@@ -396,17 +427,32 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 		done := make(chan error, 1)
 
 		go func() {
+			// Nested goroutine panic recovery
 			defer func() {
 				if r := recover(); r != nil {
-					slog.Error("Panic in initial state generation", "error", r, "connID", connID)
-					done <- fmt.Errorf("panic during initial state generation: %v", r)
+					slog.Error("Panic in initial state generation goroutine", "error", r, "connID", connID)
+					// Ensure we send an error to the done channel
+					select {
+					case done <- fmt.Errorf("panic during initial state generation: %v", r):
+					default:
+						// Channel might be full, but we've already logged the error
+					}
 				}
 			}()
 
 			if err := ws.generateAndSendInitialState(connID); err != nil {
-				done <- err
+				select {
+				case done <- err:
+				default:
+					// Channel might be full, but we'll handle timeout in the main goroutine
+					slog.Warn("Failed to send error to done channel", "error", err, "connID", connID)
+				}
 			} else {
-				done <- nil
+				select {
+				case done <- nil:
+				default:
+					// Channel might be full, but success case is less critical
+				}
 			}
 		}()
 
@@ -555,30 +601,80 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 			defer func() {
 				if r := recover(); r != nil {
 					slog.Error("Panic in device list fetch goroutine", "error", r, "connID", connID)
-					errorCh <- fmt.Errorf("panic in device list fetch: %v", r)
+					select {
+					case errorCh <- fmt.Errorf("panic in device list fetch: %v", r):
+					default:
+						// Error channel might be full, but we've logged the panic
+					}
 				}
 			}()
+
 			// Log when goroutine starts - only in debug mode
 			if ws.handler.IsDebug() {
 				slog.Debug("Device list fetch goroutine started", "connID", connID)
 			}
 
-			deviceList := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: false})
-			goroutineDuration := time.Since(goroutineStartTime)
+			// Create a context for the ListDevices operation with timeout
+			listCtx, listCancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer listCancel()
 
-			// goroutine内での処理時間が異常に長い場合のみログ出力
-			if goroutineDuration > errorThreshold {
-				slog.Error("Device list fetch operation took too long", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
-			} else if goroutineDuration > warnThreshold {
-				slog.Warn("Device list fetch operation is slow", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
-			} else if ws.handler.IsDebug() {
-				slog.Debug("Device list fetch operation completed", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
+			// Create a channel to receive the result
+			resultCh := make(chan []handler.DeviceAndProperties, 1)
+
+			// Run ListDevices in another goroutine with context cancellation
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.Error("Panic in ListDevices operation", "error", r, "connID", connID)
+					}
+				}()
+
+				// Note: The actual ListDevices call doesn't yet support context,
+				// but we can still use a timeout mechanism
+				deviceList := ws.echonetClient.ListDevices(handler.FilterCriteria{ExcludeOffline: false})
+
+				select {
+				case resultCh <- deviceList:
+				case <-listCtx.Done():
+					// Context was cancelled, operation timed out
+				}
+			}()
+
+			// Wait for either the result or timeout
+			select {
+			case deviceList := <-resultCh:
+				goroutineDuration := time.Since(goroutineStartTime)
+
+				// Log performance information
+				if goroutineDuration > errorThreshold {
+					slog.Error("Device list fetch operation took too long", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
+				} else if goroutineDuration > warnThreshold {
+					slog.Warn("Device list fetch operation is slow", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
+				} else if ws.handler.IsDebug() {
+					slog.Debug("Device list fetch operation completed", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
+				}
+
+				select {
+				case devicesCh <- deviceList:
+				default:
+					// Main goroutine might have timed out, but we got the result
+					slog.Warn("Device list result ready but main goroutine timed out", "connID", connID)
+				}
+
+			case <-listCtx.Done():
+				goroutineDuration := time.Since(goroutineStartTime)
+				slog.Error("Device list fetch operation timed out", "connID", connID, "goroutineDuration", goroutineDuration)
+
+				select {
+				case errorCh <- fmt.Errorf("device list fetch timed out after %v", goroutineDuration):
+				default:
+					// Error channel might be full, but we've logged the error
+				}
 			}
-
-			devicesCh <- deviceList
 		}()
 
-		// Use a shorter timeout for device list fetching (20 seconds instead of waiting for full 30s timeout)
+		// Use a shorter timeout for device list fetching to prevent deadlocks
+		// If we don't get a response within 10 seconds, fall back to cached data
 		select {
 		case devices = <-devicesCh:
 			totalDuration := time.Since(fetchStartTime)
@@ -595,7 +691,7 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 			totalDuration := time.Since(fetchStartTime)
 			slog.Error("Error during device list fetch", "connID", connID, "error", err, "totalDuration", totalDuration)
 			return fmt.Errorf("error fetching device list: %w", err)
-		case <-time.After(20 * time.Second):
+		case <-time.After(10 * time.Second):
 			totalDuration := time.Since(fetchStartTime)
 			slog.Warn("Device list fetch timed out, using cached data if available", "connID", connID, "totalDuration", totalDuration)
 			// Try to get cached device list with minimal blocking
