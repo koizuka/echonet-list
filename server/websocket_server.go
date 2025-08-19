@@ -14,6 +14,25 @@ import (
 	"time"
 )
 
+// Timeout constants for WebSocket server operations
+const (
+	// Initial state generation timeouts
+	initialStateTimeout     = 30 * time.Second // Overall timeout for initial state generation
+	deviceListFetchTimeout  = 10 * time.Second // Timeout for device list fetch from client
+	listDevicesTimeout      = 15 * time.Second // Timeout for ListDevices operation
+	cachedDeviceListTimeout = 3 * time.Second  // Timeout for cached device list fetch
+	aliasListTimeout        = 5 * time.Second  // Timeout for alias list fetch
+	groupListTimeout        = 5 * time.Second  // Timeout for group list fetch
+
+	// Performance monitoring thresholds
+	operationWarnThreshold  = 5 * time.Second  // Warn if operation takes longer than this
+	operationErrorThreshold = 10 * time.Second // Error if operation takes longer than this
+
+	// Monitoring intervals
+	monitoringInterval   = 30 * time.Second // Interval for periodic monitoring
+	counterLeakResetTime = 5 * time.Minute  // Reset leaked counters after this time
+)
+
 // StartOptions は WebSocketServer の起動オプションを表す
 type StartOptions struct {
 	// TLS証明書ファイルのパス (TLSを使用する場合)
@@ -170,10 +189,10 @@ func (ws *WebSocketServer) monitorUpdateInterval() {
 	}()
 
 	startTime := time.Now()
-	slog.Info("Update interval monitor started", "checkInterval", 30*time.Second, "graceTime", ws.updateInterval*3)
+	slog.Info("Update interval monitor started", "checkInterval", monitoringInterval, "graceTime", ws.updateInterval*3)
 
-	// 監視用のティッカー（30秒ごとにチェック）
-	ticker := time.NewTicker(30 * time.Second)
+	// 監視用のティッカー
+	ticker := time.NewTicker(monitoringInterval)
 	defer ticker.Stop()
 
 	for {
@@ -226,8 +245,8 @@ func (ws *WebSocketServer) monitorUpdateInterval() {
 			// Check for initialStateInProgress counter leaks
 			initialStateCount := ws.initialStateInProgress.Load()
 			if initialStateCount > 0 {
-				// If initial state generation is running for more than 5 minutes, it's likely stuck
-				if time.Since(startTime) > 5*time.Minute && initialStateCount > actualCount+5 {
+				// If initial state generation is running for more than the leak reset time, it's likely stuck
+				if time.Since(startTime) > counterLeakResetTime && initialStateCount > actualCount+5 {
 					slog.Error("InitialStateInProgress counter appears to be leaked",
 						"initialStateCount", initialStateCount,
 						"activeClients", actualCount,
@@ -420,7 +439,7 @@ func (ws *WebSocketServer) sendInitialStateToClient(connID string) error {
 		}()
 
 		// Add timeout to prevent indefinite blocking
-		ctx, cancel := context.WithTimeout(ws.ctx, 30*time.Second)
+		ctx, cancel := context.WithTimeout(ws.ctx, initialStateTimeout)
 		defer cancel()
 
 		// Use channel to signal completion or timeout
@@ -564,11 +583,11 @@ func (ws *WebSocketServer) getCachedDeviceList() []handler.DeviceAndProperties {
 		}
 	}()
 
-	// Wait up to 3 seconds for cached data
+	// Wait for cached data with short timeout
 	select {
 	case devices := <-devicesCh:
 		return devices
-	case <-time.After(3 * time.Second):
+	case <-time.After(cachedDeviceListTimeout):
 		slog.Warn("Cached device list fetch also timed out, returning empty list")
 		return []handler.DeviceAndProperties{}
 	}
@@ -592,9 +611,6 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 
 		// Log before starting device fetch
 		fetchStartTime := time.Now()
-		// 処理時間の閾値
-		const warnThreshold = 5 * time.Second
-		const errorThreshold = 10 * time.Second
 
 		go func() {
 			goroutineStartTime := time.Now()
@@ -615,7 +631,8 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 			}
 
 			// Create a context for the ListDevices operation with timeout
-			listCtx, listCancel := context.WithTimeout(context.Background(), 15*time.Second)
+			// Use server context to ensure proper cancellation during shutdown
+			listCtx, listCancel := context.WithTimeout(ws.ctx, listDevicesTimeout)
 			defer listCancel()
 
 			// Create a channel to receive the result
@@ -646,9 +663,9 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 				goroutineDuration := time.Since(goroutineStartTime)
 
 				// Log performance information
-				if goroutineDuration > errorThreshold {
+				if goroutineDuration > operationErrorThreshold {
 					slog.Error("Device list fetch operation took too long", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
-				} else if goroutineDuration > warnThreshold {
+				} else if goroutineDuration > operationWarnThreshold {
 					slog.Warn("Device list fetch operation is slow", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
 				} else if ws.handler.IsDebug() {
 					slog.Debug("Device list fetch operation completed", "connID", connID, "goroutineDuration", goroutineDuration, "deviceCount", len(deviceList))
@@ -674,12 +691,12 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 		}()
 
 		// Use a shorter timeout for device list fetching to prevent deadlocks
-		// If we don't get a response within 10 seconds, fall back to cached data
+		// If we don't get a response within the configured timeout, fall back to cached data
 		select {
 		case devices = <-devicesCh:
 			totalDuration := time.Since(fetchStartTime)
 			// 正常時でも、呼び出し元の待機時間が長い場合は警告
-			if totalDuration > warnThreshold {
+			if totalDuration > operationWarnThreshold {
 				slog.Warn("Device list fetch completed but took longer than expected",
 					"connID", connID,
 					"totalDuration", totalDuration,
@@ -691,7 +708,7 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 			totalDuration := time.Since(fetchStartTime)
 			slog.Error("Error during device list fetch", "connID", connID, "error", err, "totalDuration", totalDuration)
 			return fmt.Errorf("error fetching device list: %w", err)
-		case <-time.After(10 * time.Second):
+		case <-time.After(deviceListFetchTimeout):
 			totalDuration := time.Since(fetchStartTime)
 			slog.Warn("Device list fetch timed out, using cached data if available", "connID", connID, "totalDuration", totalDuration)
 			// Try to get cached device list with minimal blocking
@@ -765,7 +782,7 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 					aliases[alias.Alias] = alias.ID
 				}
 			}
-		case <-time.After(5 * time.Second):
+		case <-time.After(aliasListTimeout):
 			slog.Warn("Alias list fetch timed out", "connID", connID)
 			// Continue with empty aliases - this is not critical for initial state
 		}
@@ -800,7 +817,7 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 					groups[group.Group] = group.Devices
 				}
 			}
-		case <-time.After(5 * time.Second):
+		case <-time.After(groupListTimeout):
 			slog.Warn("Group list fetch timed out", "connID", connID)
 			// Continue with empty groups - this is not critical for initial state
 		}
