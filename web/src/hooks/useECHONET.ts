@@ -214,6 +214,7 @@ export type ECHONETHook = {
   // Connection operations
   connect: () => void;
   disconnect: () => void;
+  checkConnection: () => Promise<boolean>;
 
   // Message handler for additional processing
   onMessage?: (message: ServerMessage) => void;
@@ -595,5 +596,6 @@ export function useECHONET(
     // Connection operations
     connect: connection.connect,
     disconnect: connection.disconnect,
+    checkConnection: connection.checkConnection,
   };
 }
