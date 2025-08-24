@@ -481,11 +481,6 @@ func (c FilterCriteria) String() string {
 // 2. All properties of matched devices are included in the result
 func (d Devices) Filter(criteria FilterCriteria) Devices {
 	filtered := NewDevices()
-	// ショートカット：フィルタ条件が無い場合は自身を返す（ExcludeOfflineがfalseの場合）
-	if (criteria.Device.IP == nil && criteria.Device.ClassCode == nil && criteria.Device.InstanceCode == nil) &&
-		len(criteria.PropertyValues) == 0 && !criteria.ExcludeOffline {
-		return d
-	}
 	deviceSpec := criteria.Device
 
 	d.mu.RLock()
