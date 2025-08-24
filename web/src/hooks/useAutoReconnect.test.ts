@@ -10,6 +10,7 @@ describe('useAutoReconnect', () => {
   let mockRemoveEventListener: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     mockConnect = vi.fn();
     mockDisconnect = vi.fn();
     mockAddEventListener = vi.fn();
@@ -43,6 +44,7 @@ describe('useAutoReconnect', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it('should set up event listeners on mount', () => {
@@ -181,7 +183,7 @@ describe('useAutoReconnect', () => {
     expect(mockConnect).toHaveBeenCalledTimes(1);
   });
 
-  it('should not attempt reconnection when window gains focus but connection is already connected', () => {
+  it('should not attempt reconnection when page is shown but connection is already connected', () => {
     renderHook(() =>
       useAutoReconnect({
         connectionState: 'connected',
@@ -190,21 +192,24 @@ describe('useAutoReconnect', () => {
       })
     );
 
-    // Get the focus handler
-    const focusHandler = mockAddEventListener.mock.calls.find(
-      (call) => call[0] === 'focus'
+    // Get the pageshow handler
+    const pageshowHandler = mockAddEventListener.mock.calls.find(
+      (call) => call[0] === 'pageshow'
     )?.[1];
 
-    expect(focusHandler).toBeDefined();
+    expect(pageshowHandler).toBeDefined();
 
-    // Simulate window gaining focus
-    focusHandler();
+    // Simulate page being shown
+    pageshowHandler({ persisted: false });
 
+    // Advance timers to complete any delayed operations
+    vi.advanceTimersByTime(200);
+    
     expect(mockConnect).not.toHaveBeenCalled();
   });
 
   it('should handle asymmetric event processing correctly', () => {
-    // Test to verify that focus triggers connection and visibility only triggers disconnection
+    // Test to verify that pageshow triggers connection and visibility only triggers disconnection
     renderHook(() =>
       useAutoReconnect({
         connectionState: 'disconnected',
@@ -214,19 +219,20 @@ describe('useAutoReconnect', () => {
     );
 
     // Get both handlers
-    const focusHandler = mockAddEventListener.mock.calls.find(
-      (call) => call[0] === 'focus'
+    const pageshowHandler = mockAddEventListener.mock.calls.find(
+      (call) => call[0] === 'pageshow'
     )?.[1];
     
     const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
       (call) => call[0] === 'visibilitychange'
     )?.[1];
 
-    expect(focusHandler).toBeDefined();
+    expect(pageshowHandler).toBeDefined();
     expect(visibilityChangeHandler).toBeDefined();
 
-    // Test 1: Focus should trigger connection when disconnected
-    focusHandler();
+    // Test 1: Pageshow should trigger connection when disconnected
+    pageshowHandler({ persisted: false });
+    vi.advanceTimersByTime(200);
     expect(mockConnect).toHaveBeenCalledTimes(1);
     expect(mockDisconnect).not.toHaveBeenCalled();
 
@@ -279,23 +285,25 @@ describe('useAutoReconnect', () => {
         })
       );
 
-      // Get the focus handler
-      const focusHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'focus'
+      // Get the pageshow handler
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'pageshow'
       )?.[1];
 
-      expect(focusHandler).toBeDefined();
+      expect(pageshowHandler).toBeDefined();
 
-      // Simulate window gaining focus (should trigger reconnection)
+      // Simulate page being shown (should trigger reconnection)
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers to complete delayed reconnection
+      vi.advanceTimersByTime(200);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Try to trigger reconnection again immediately (should be prevented)
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1); // Still only called once
@@ -307,7 +315,7 @@ describe('useAutoReconnect', () => {
 
       // Try to trigger reconnection again (should still be prevented)
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1); // Still only called once
@@ -319,9 +327,11 @@ describe('useAutoReconnect', () => {
 
       // Now reconnection should be allowed again
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers to complete the delayed operation
+      vi.advanceTimersByTime(200);
       expect(mockConnect).toHaveBeenCalledTimes(2); // Called twice now
     });
 
@@ -338,17 +348,19 @@ describe('useAutoReconnect', () => {
       );
 
       // Get the focus handler
-      const focusHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'focus'
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'pageshow'
       )?.[1];
 
-      expect(focusHandler).toBeDefined();
+      expect(pageshowHandler).toBeDefined();
 
       // Simulate window gaining focus with connected state (should not reconnect)
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers
+      vi.advanceTimersByTime(200);
       expect(mockConnect).not.toHaveBeenCalled();
 
       // Update connection state to disconnected
@@ -357,9 +369,11 @@ describe('useAutoReconnect', () => {
 
       // Now attempt reconnection (should work with updated state)
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers
+      vi.advanceTimersByTime(200);
       expect(mockConnect).toHaveBeenCalledTimes(1);
     });
 
@@ -377,11 +391,11 @@ describe('useAutoReconnect', () => {
       );
 
       // Get the focus handler
-      const focusHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'focus'
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'pageshow'
       )?.[1];
 
-      expect(focusHandler).toBeDefined();
+      expect(pageshowHandler).toBeDefined();
 
       // Update connect function
       currentConnect = newMockConnect;
@@ -389,9 +403,11 @@ describe('useAutoReconnect', () => {
 
       // Trigger reconnection (should use new connect function)
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers
+      vi.advanceTimersByTime(200);
       expect(mockConnect).not.toHaveBeenCalled();
       expect(newMockConnect).toHaveBeenCalledTimes(1);
     });
@@ -458,17 +474,19 @@ describe('useAutoReconnect', () => {
       );
 
       // Get the focus handler
-      const focusHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'focus'
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'pageshow'
       )?.[1];
 
-      expect(focusHandler).toBeDefined();
+      expect(pageshowHandler).toBeDefined();
 
       // Trigger reconnection to start timeout
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers
+      vi.advanceTimersByTime(200);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Unmount component
@@ -493,17 +511,19 @@ describe('useAutoReconnect', () => {
       );
 
       // Get the focus handler
-      const focusHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'focus'
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'pageshow'
       )?.[1];
 
-      expect(focusHandler).toBeDefined();
+      expect(pageshowHandler).toBeDefined();
 
       // Trigger reconnection to start timeout
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers
+      vi.advanceTimersByTime(200);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Advance time to allow the flag to reset
@@ -513,9 +533,11 @@ describe('useAutoReconnect', () => {
 
       // Trigger reconnection again (should clear previous timeout and set new one)
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers for the second reconnection
+      vi.advanceTimersByTime(200);
       expect(mockConnect).toHaveBeenCalledTimes(2); // Should be called again
       expect(clearTimeoutSpy).toHaveBeenCalledTimes(1); // Should have cleared the previous timeout
       
@@ -537,15 +559,17 @@ describe('useAutoReconnect', () => {
       );
 
       // Get the focus handler
-      const focusHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'focus'
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'pageshow'
       )?.[1];
 
       // Trigger reconnection
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers
+      vi.advanceTimersByTime(200);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Simulate connection becoming connected
@@ -558,7 +582,7 @@ describe('useAutoReconnect', () => {
 
       // Try to trigger reconnection again (should not reconnect as we're connected)
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
       expect(mockConnect).toHaveBeenCalledTimes(1); // Should still be 1
@@ -575,15 +599,17 @@ describe('useAutoReconnect', () => {
       );
 
       // Get the focus handler
-      const focusHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'focus'
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'pageshow'
       )?.[1];
 
       // First reconnection attempt
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers
+      vi.advanceTimersByTime(200);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Advance time past the delay period (still disconnected)
@@ -593,9 +619,11 @@ describe('useAutoReconnect', () => {
 
       // Second reconnection attempt should work
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers
+      vi.advanceTimersByTime(200);
       expect(mockConnect).toHaveBeenCalledTimes(2);
     });
 
@@ -610,22 +638,24 @@ describe('useAutoReconnect', () => {
       );
 
       // Get focus handler
-      const focusHandler = mockAddEventListener.mock.calls.find(
-        (call) => call[0] === 'focus'
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        (call) => call[0] === 'pageshow'
       )?.[1];
 
       // Simulate rapid events
       // Focus event
       act(() => {
-        focusHandler();
+        pageshowHandler({ persisted: false });
       });
 
       // Multiple focus events in quick succession
       act(() => {
-        focusHandler();
-        focusHandler();
+        pageshowHandler({ persisted: false });
+        pageshowHandler({ persisted: false });
       });
 
+      // Advance timers to complete any delayed operations
+      vi.advanceTimersByTime(200);
       // Should only connect once despite multiple events
       expect(mockConnect).toHaveBeenCalledTimes(1);
     });

@@ -31,6 +31,8 @@ export function useAutoReconnect({
   const hasReconnectedRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastVisibilityChangeRef = useRef<string | null>(null);
+  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pageshowTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Store current values in refs to avoid stale closures
   const connectionStateRef = useRef(connectionState);
@@ -86,13 +88,26 @@ export function useAutoReconnect({
             hasReconnectedRef.current = false;
           }
         }, delayMs);
-      } else if (connectionStateRef.current === 'connected' && checkConnectionRef.current) {
+      } else if (connectionStateRef.current === 'connected') {
         // Check if the connection is actually alive (zombie detection)
-        const isAlive = await checkConnectionRef.current();
-        if (!isAlive) {
-          // Connection is zombie, force disconnect and reconnect
-          disconnectRef.current();
+        // Only perform zombie detection if checkConnection function is provided
+        if (checkConnectionRef.current) {
+          try {
+            const isAlive = await checkConnectionRef.current();
+            if (!isAlive) {
+              // Connection is zombie, force disconnect and reconnect
+              disconnectRef.current();
+            }
+          } catch (error) {
+            // If connection check fails, assume connection is dead
+            if (import.meta.env.DEV) {
+              console.warn('Connection health check failed:', error);
+            }
+            disconnectRef.current();
+          }
         }
+        // If checkConnection is not provided, we trust the WebSocket's readyState
+        // No additional action needed - the WebSocket will handle its own state
       }
     };
 
@@ -105,13 +120,22 @@ export function useAutoReconnect({
         if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
           disconnectRef.current();
         }
+        // Clear any pending visibility timeout to prevent stale reconnection attempts
+        if (visibilityTimeoutRef.current) {
+          clearTimeout(visibilityTimeoutRef.current);
+          visibilityTimeoutRef.current = null;
+        }
       } else {
         // Page became visible - attempt reconnection after a short delay
         // Use timeout to avoid race conditions with pageshow event
-        setTimeout(() => {
+        if (visibilityTimeoutRef.current) {
+          clearTimeout(visibilityTimeoutRef.current);
+        }
+        visibilityTimeoutRef.current = setTimeout(() => {
           if (lastVisibilityChangeRef.current === 'visible') {
             attemptReconnection();
           }
+          visibilityTimeoutRef.current = null;
         }, 100);
       }
     };
@@ -124,17 +148,29 @@ export function useAutoReconnect({
         console.log('📱 Page show event', { persisted: event.persisted });
       }
       
+      // Clear any existing pageshow timeout to prevent duplicate reconnections
+      if (pageshowTimeoutRef.current) {
+        clearTimeout(pageshowTimeoutRef.current);
+        pageshowTimeoutRef.current = null;
+      }
+      
       // If page was restored from cache, force reconnection
       if (event.persisted) {
         // Force full reconnection for pages restored from cache
         if (connectionStateRef.current === 'connected') {
           disconnectRef.current();
         }
-        setTimeout(() => attemptReconnection(), 200);
+        pageshowTimeoutRef.current = setTimeout(() => {
+          attemptReconnection();
+          pageshowTimeoutRef.current = null;
+        }, 200);
       } else {
         // Normal page show, check connection if needed
         // Use longer delay for iOS Safari compatibility
-        setTimeout(() => attemptReconnection(), 150);
+        pageshowTimeoutRef.current = setTimeout(() => {
+          attemptReconnection();
+          pageshowTimeoutRef.current = null;
+        }, 150);
       }
     };
 
@@ -144,6 +180,13 @@ export function useAutoReconnect({
       if (import.meta.env.DEV) {
         console.log('📱 Page hide event');
       }
+      
+      // Clear any pending pageshow timeouts to prevent stale reconnection attempts
+      if (pageshowTimeoutRef.current) {
+        clearTimeout(pageshowTimeoutRef.current);
+        pageshowTimeoutRef.current = null;
+      }
+      
       if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
         // Cleanly close connection before page is hidden
         disconnectRef.current();
@@ -171,9 +214,18 @@ export function useAutoReconnect({
       window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('focus', handleWindowFocus);
-      // Clear timeout on cleanup to prevent memory leaks
+      // Clear all timeouts on cleanup to prevent memory leaks
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (visibilityTimeoutRef.current) {
+        clearTimeout(visibilityTimeoutRef.current);
+        visibilityTimeoutRef.current = null;
+      }
+      if (pageshowTimeoutRef.current) {
+        clearTimeout(pageshowTimeoutRef.current);
+        pageshowTimeoutRef.current = null;
       }
     };
   }, [delayMs]); // Only depend on delayMs, not connection state or functions
