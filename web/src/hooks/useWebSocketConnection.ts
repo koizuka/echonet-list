@@ -11,6 +11,7 @@ export type WebSocketConnectionOptions = {
   reconnectAttempts?: number;
   reconnectDelay?: number;
   maxReconnectDelay?: number;
+  heartbeatInterval?: number;
   onMessage?: (message: ServerMessage) => void;
   onConnectionStateChange?: (state: ConnectionState) => void;
   onWebSocketConnected?: () => void;
@@ -22,6 +23,7 @@ export type WebSocketConnection = {
   connect: () => void;
   disconnect: () => void;
   connectedAt: Date | null;
+  checkConnection: () => Promise<boolean>;
 };
 
 export function useWebSocketConnection(options: WebSocketConnectionOptions): WebSocketConnection {
@@ -31,6 +33,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heartbeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdCounterRef = useRef(0);
   const pendingRequestsRef = useRef<Map<string, {
     resolve: (value: unknown) => void;
@@ -42,6 +46,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const maxReconnectAttempts = options.reconnectAttempts ?? 5;
   const baseReconnectDelay = options.reconnectDelay ?? 1000;
   const maxReconnectDelay = options.maxReconnectDelay ?? 30000;
+  const heartbeatInterval = options.heartbeatInterval ?? 30000; // 30 seconds
 
   const updateConnectionState = useCallback((state: ConnectionState) => {
     setConnectionState(state);
@@ -72,6 +77,16 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       connectTimeoutRef.current = null;
     }
     
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    
+    if (heartbeatTimeoutRef.current) {
+      clearTimeout(heartbeatTimeoutRef.current);
+      heartbeatTimeoutRef.current = null;
+    }
+    
     // Reject all pending requests
     pendingRequestsRef.current.forEach(({ reject, timeout }) => {
       clearTimeout(timeout);
@@ -93,7 +108,67 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
 
   const connectRef = useRef<(() => void) | null>(null);
 
+  const checkConnection = useCallback(async (): Promise<boolean> => {
+    if (!wsRef.current) {
+      return false;
+    }
+
+    // Check WebSocket readyState
+    const state = wsRef.current.readyState;
+    if (state !== WebSocket.OPEN) {
+      if (import.meta.env.DEV) {
+        console.warn('WebSocket not in OPEN state:', state);
+      }
+      return false;
+    }
+
+    // For mobile browsers, we consider the connection alive if WebSocket state is OPEN
+    // The browser will handle the underlying TCP connection state
+    return true;
+  }, []);
+
+  const startHeartbeat = useCallback(() => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+
+    heartbeatIntervalRef.current = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        // Skip heartbeat while page is hidden
+        return;
+      }
+
+      // Check WebSocket state periodically
+      if (wsRef.current && wsRef.current.readyState !== WebSocket.OPEN) {
+        if (import.meta.env.DEV) {
+          console.warn('💔 WebSocket state changed to:', wsRef.current.readyState);
+        }
+        // WebSocket state changed, let the onclose handler deal with it
+      }
+    }, heartbeatInterval);
+  }, [heartbeatInterval]);
+
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    if (heartbeatTimeoutRef.current) {
+      clearTimeout(heartbeatTimeoutRef.current);
+      heartbeatTimeoutRef.current = null;
+    }
+  }, []);
+
+
   const scheduleReconnect = useCallback(() => {
+    // Don't reconnect while the page is in background to prevent mobile browser reconnection loops
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      if (import.meta.env.DEV) {
+        console.log('🚫 Skip reconnect - page is hidden');
+      }
+      return;
+    }
+
     if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
       const errorMessage = `Failed to reconnect after ${maxReconnectAttempts} attempts`;
       console.error(errorMessage);
@@ -183,6 +258,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         reconnectAttemptsRef.current = 0;
         setConnectedAt(new Date());
         updateConnectionState('connected');
+        // Start heartbeat to detect zombie connections
+        startHeartbeat();
         // Call the onWebSocketConnected callback to clear WebSocket error logs
         options.onWebSocketConnected?.();
       };
@@ -203,6 +280,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
           reason: event.reason,
           wasClean: event.wasClean
         });
+        // Stop heartbeat when connection closes
+        stopHeartbeat();
         setConnectedAt(null);
         updateConnectionState('disconnected');
         
@@ -268,7 +347,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       });
       updateConnectionState('error');
     }
-  }, [options, handleMessage, updateConnectionState, scheduleReconnect, maxReconnectAttempts, cleanup, sendLogNotification]);
+  }, [options, handleMessage, updateConnectionState, scheduleReconnect, maxReconnectAttempts, cleanup, sendLogNotification, startHeartbeat, stopHeartbeat]);
 
   // Debounced connect function to handle React StrictMode double mounting
   const connect = useCallback(() => {
@@ -343,5 +422,6 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     connect,
     disconnect,
     connectedAt,
+    checkConnection,
   };
 }
