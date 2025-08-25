@@ -8,6 +8,17 @@ import {
   ESSENTIAL_PROPERTIES,
   DEVICE_PRIMARY_PROPERTIES
 } from './deviceTypeHelper';
+import type { PropertyValue } from '@/hooks/types';
+
+// Test helper functions for creating properly typed property values
+const createPropertyValue = (value: Partial<PropertyValue>): PropertyValue => value as PropertyValue;
+
+const createDevice = (eoj: string, properties: Record<string, Partial<PropertyValue>>) => ({
+  eoj,
+  properties: Object.fromEntries(
+    Object.entries(properties).map(([key, value]) => [key, createPropertyValue(value)])
+  ) as Record<string, PropertyValue>
+});
 
 describe('deviceTypeHelper', () => {
   describe('getDevicePrimaryProperties', () => {
@@ -60,16 +71,13 @@ describe('deviceTypeHelper', () => {
 
   describe('getDeviceSecondaryProperties', () => {
     it('should return properties that are not primary', () => {
-      const device = {
-        eoj: '0130:1', // Home Air Conditioner
-        properties: {
-          '80': { string: 'on' },     // Primary (essential)
-          '81': { string: 'living' }, // Secondary (not essential anymore)
-          'B0': { string: 'cool' },   // Primary (device-specific)
-          '9F': { EDT: 'base64' },    // Secondary
-          'FF': { string: 'test' }    // Secondary
-        }
-      };
+      const device = createDevice('0130:1', { // Home Air Conditioner
+        '80': { string: 'on' },     // Primary (essential)
+        '81': { string: 'living' }, // Secondary (not essential anymore)
+        'B0': { string: 'cool' },   // Primary (device-specific)
+        '9F': { EDT: 'base64' },    // Secondary
+        'FF': { string: 'test' }    // Secondary
+      });
 
       const secondaryProps = getDeviceSecondaryProperties(device);
       expect(secondaryProps).toContain('9F');
@@ -79,24 +87,18 @@ describe('deviceTypeHelper', () => {
     });
 
     it('should return empty array when all properties are primary', () => {
-      const device = {
-        eoj: '0291:1', // Single Function Lighting
-        properties: {
-          '80': { string: 'on' },     // Primary (essential)
-          '81': { string: 'bedroom' }, // Secondary (not essential anymore)
-          'B0': { number: 50 }        // Primary (device-specific)
-        }
-      };
+      const device = createDevice('0291:1', { // Single Function Lighting
+        '80': { string: 'on' },     // Primary (essential)
+        '81': { string: 'bedroom' }, // Secondary (not essential anymore)
+        'B0': { number: 50 }        // Primary (device-specific)
+      });
 
       const secondaryProps = getDeviceSecondaryProperties(device);
       expect(secondaryProps).toEqual(['81']); // '81' is now secondary (not essential)
     });
 
     it('should handle devices with no properties', () => {
-      const device = {
-        eoj: '0130:1',
-        properties: {}
-      };
+      const device = createDevice('0130:1', {});
 
       const secondaryProps = getDeviceSecondaryProperties(device);
       expect(secondaryProps).toEqual([]);
@@ -117,20 +119,17 @@ describe('deviceTypeHelper', () => {
 
   describe('getSortedPrimaryProperties', () => {
     it('should maintain the order defined in primary properties', () => {
-      const device = {
-        eoj: '0130:1', // Home Air Conditioner
-        properties: {
-          'B0': { string: 'cool' },   // Operation mode
-          '81': { string: 'living' }, // Installation Location
-          '80': { string: 'on' },     // Operation Status
-          'B3': { number: 25 },       // Temperature
-          'A0': { string: 'auto' },   // Air flow rate
-          'A3': { string: 'swing' },  // Air flow direction
-          'BA': { number: 24 },       // Target temperature
-          'BB': { number: 50 },       // Target humidity
-          'BE': { string: 'auto' }    // Target flow
-        }
-      };
+      const device = createDevice('0130:1', { // Home Air Conditioner
+        'B0': { string: 'cool' },   // Operation mode
+        '81': { string: 'living' }, // Installation Location
+        '80': { string: 'on' },     // Operation Status
+        'B3': { number: 25 },       // Temperature
+        'A0': { string: 'auto' },   // Air flow rate
+        'A3': { string: 'swing' },  // Air flow direction
+        'BA': { number: 24 },       // Target temperature
+        'BB': { number: 50 },       // Target humidity
+        'BE': { string: 'auto' }    // Target flow
+      });
 
       const sortedProps = getSortedPrimaryProperties(device);
       const epcs = sortedProps.map(([epc]) => epc);
@@ -140,14 +139,11 @@ describe('deviceTypeHelper', () => {
     });
 
     it('should handle missing properties gracefully', () => {
-      const device = {
-        eoj: '0130:1',
-        properties: {
-          'B0': { string: 'cool' },
-          'B3': { number: 25 },
-          'BE': { number: 22 }
-        }
-      };
+      const device = createDevice('0130:1', {
+        'B0': { string: 'cool' },
+        'B3': { number: 25 },
+        'BE': { number: 22 }
+      });
 
       const sortedProps = getSortedPrimaryProperties(device);
       const epcs = sortedProps.map(([epc]) => epc);
@@ -157,16 +153,13 @@ describe('deviceTypeHelper', () => {
     });
 
     it('should only return primary properties', () => {
-      const device = {
-        eoj: '0130:1',
-        properties: {
-          '80': { string: 'on' },     // Primary
-          '81': { string: 'living' }, // Primary
-          'B0': { string: 'cool' },   // Primary
-          '9F': { EDT: 'base64' },    // Secondary
-          'FF': { string: 'test' }    // Secondary
-        }
-      };
+      const device = createDevice('0130:1', {
+        '80': { string: 'on' },     // Primary
+        '81': { string: 'living' }, // Primary
+        'B0': { string: 'cool' },   // Primary
+        '9F': { EDT: 'base64' },    // Secondary
+        'FF': { string: 'test' }    // Secondary
+      });
 
       const sortedProps = getSortedPrimaryProperties(device);
 
@@ -180,30 +173,24 @@ describe('deviceTypeHelper', () => {
     });
 
     it('should return empty array for device with no primary properties', () => {
-      const device = {
-        eoj: '0130:1',
-        properties: {
-          '9F': { EDT: 'base64' },    // Secondary
-          'FF': { string: 'test' }    // Secondary
-        }
-      };
+      const device = createDevice('0130:1', {
+        '9F': { EDT: 'base64' },    // Secondary
+        'FF': { string: 'test' }    // Secondary
+      });
 
       const sortedProps = getSortedPrimaryProperties(device);
       expect(sortedProps).toEqual([]);
     });
 
     it('should maintain device-specific property order', () => {
-      const device = {
-        eoj: '0130:1',
-        properties: {
-          'BE': { number: 22 },       // Target flow
-          '80': { string: 'on' },     // Operation Status (essential, should be first)
-          'B3': { number: 25 },       // Temperature
-          'BB': { number: 50 },       // Target humidity
-          'B0': { string: 'cool' },   // Operation mode
-          'BA': { number: 24 }        // Target temperature
-        }
-      };
+      const device = createDevice('0130:1', {
+        'BE': { number: 22 },       // Target flow
+        '80': { string: 'on' },     // Operation Status (essential, should be first)
+        'B3': { number: 25 },       // Temperature
+        'BB': { number: 50 },       // Target humidity
+        'B0': { string: 'cool' },   // Operation mode
+        'BA': { number: 24 }        // Target temperature
+      });
 
       const sortedProps = getSortedPrimaryProperties(device);
       const epcs = sortedProps.map(([epc]) => epc);

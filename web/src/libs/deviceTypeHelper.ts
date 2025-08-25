@@ -1,5 +1,7 @@
 // Device type specific property definitions for compact display
 
+import type { PropertyValue } from '@/hooks/types';
+
 /**
  * Essential properties that should always be shown in compact view
  * These are common across all device types
@@ -72,7 +74,7 @@ export function isPropertyPrimary(epc: string, classCode: string): boolean {
 /**
  * Gets secondary (non-primary) properties for a device
  */
-export function getDeviceSecondaryProperties(device: { properties: Record<string, unknown>; eoj: string }): string[] {
+export function getDeviceSecondaryProperties(device: { properties: Record<string, PropertyValue>; eoj: string }): string[] {
   const classCode = device.eoj.split(':')[0];
   const primaryProperties = getDevicePrimaryProperties(classCode);
 
@@ -92,12 +94,12 @@ export function isNodeProfileDevice(device: { eoj: string }): boolean {
  * Gets primary properties in the correct display order
  * Ensures properties are displayed in the order they are defined
  */
-export function getSortedPrimaryProperties(device: { properties: Record<string, unknown>; eoj: string }): [string, unknown][] {
+export function getSortedPrimaryProperties(device: { properties: Record<string, PropertyValue>; eoj: string }): [string, PropertyValue][] {
   const classCode = device.eoj.split(':')[0];
   const primaryProperties = getDevicePrimaryProperties(classCode);
 
   // Filter to only properties that exist on the device and maintain the order
   return primaryProperties
     .filter(epc => epc in device.properties)
-    .map(epc => [epc, device.properties[epc]] as [string, unknown]);
+    .map(epc => [epc, device.properties[epc]] as [string, PropertyValue]);
 }
