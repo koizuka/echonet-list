@@ -18,12 +18,28 @@ const (
 func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 	TemperatureSettingDesc := NumberDesc{Min: 0, Max: 50, Unit: "℃"}
 	MeasuredTemperatureDesc := NumberDesc{Min: -127, Max: 125, Unit: "℃"}
-	ExtraValueAlias := map[string][]byte{
+
+	// 計測温度用のエイリアス（符号付き8bit）
+	MeasuredTemperatureExtraValueAlias := map[string][]byte{
+		"N/A":       {0x7E},
+		"overflow":  {0x7F},
+		"underflow": {0x80},
+	}
+	MeasuredTemperatureExtraValueAliasTranslations := map[string]map[string]string{
+		"ja": {
+			"N/A":       "N/A",
+			"overflow":  "オーバーフロー",
+			"underflow": "アンダーフロー",
+		},
+	}
+
+	// 設定温度・湿度用のエイリアス（符号なし8bit）
+	UnsignedExtraValueAlias := map[string][]byte{
 		"unknown":   {0xFD},
 		"underflow": {0xFE},
 		"overflow":  {0xFF},
 	}
-	ExtraValueAliasTranslations := map[string]map[string]string{
+	UnsignedExtraValueAliasTranslations := map[string]map[string]string{
 		"ja": {
 			"unknown":   "不明",
 			"underflow": "アンダーフロー",
@@ -112,8 +128,8 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "温度設定値",
 				},
-				Aliases:           ExtraValueAlias,
-				AliasTranslations: ExtraValueAliasTranslations,
+				Aliases:           UnsignedExtraValueAlias,
+				AliasTranslations: UnsignedExtraValueAliasTranslations,
 				Decoder:           TemperatureSettingDesc,
 			},
 			EPC_HAC_RelativeHumiditySetting: {
@@ -121,8 +137,8 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "除湿モード時相対湿度設定値",
 				},
-				Aliases:           ExtraValueAlias,
-				AliasTranslations: ExtraValueAliasTranslations,
+				Aliases:           UnsignedExtraValueAlias,
+				AliasTranslations: UnsignedExtraValueAliasTranslations,
 				Decoder:           HumidityDesc,
 			},
 			EPC_HAC_CurrentRoomHumidity: {
@@ -130,8 +146,8 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "室内相対湿度計測値",
 				},
-				Aliases:           ExtraValueAlias,
-				AliasTranslations: ExtraValueAliasTranslations,
+				Aliases:           UnsignedExtraValueAlias,
+				AliasTranslations: UnsignedExtraValueAliasTranslations,
 				Decoder:           HumidityDesc,
 			},
 			EPC_HAC_CurrentRoomTemperature: {
@@ -139,8 +155,8 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "室内温度計測値",
 				},
-				Aliases:           ExtraValueAlias,
-				AliasTranslations: ExtraValueAliasTranslations,
+				Aliases:           MeasuredTemperatureExtraValueAlias,
+				AliasTranslations: MeasuredTemperatureExtraValueAliasTranslations,
 				Decoder:           MeasuredTemperatureDesc,
 			},
 			EPC_HAC_CurrentOutsideTemperature: {
@@ -148,8 +164,8 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "屋外温度計測値",
 				},
-				Aliases:           ExtraValueAlias,
-				AliasTranslations: ExtraValueAliasTranslations,
+				Aliases:           MeasuredTemperatureExtraValueAlias,
+				AliasTranslations: MeasuredTemperatureExtraValueAliasTranslations,
 				Decoder:           MeasuredTemperatureDesc,
 			},
 			EPC_HAC_HumidificationModeSetting: {
