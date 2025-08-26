@@ -57,13 +57,27 @@ export function getDeviceIcon(classCode: string): LucideIcon {
  * @param isOperational Whether the device is operational (ON)
  * @param isFaulty Whether the device has a fault
  * @param isOffline Whether the device is offline
+ * @param isControllable Whether the device is user-controllable
  * @returns The appropriate Tailwind CSS color class
  */
 export function getDeviceIconColor(
   isOperational: boolean,
   isFaulty: boolean,
-  isOffline: boolean
+  isOffline: boolean,
+  isControllable: boolean = true
 ): string {
+  // For non-controllable devices, only show offline and fault states
+  if (!isControllable) {
+    if (isOffline) {
+      return 'text-muted-foreground';
+    }
+    if (isFaulty) {
+      return 'text-red-500';
+    }
+    return 'text-gray-400'; // No status coloring for non-controllable devices
+  }
+  
+  // For controllable devices, show full status coloring
   if (isOffline) {
     return 'text-muted-foreground';
   }

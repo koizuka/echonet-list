@@ -1,5 +1,5 @@
 import { getDeviceIcon, getDeviceIconColor } from '@/libs/deviceIconHelper';
-import { isDeviceOperational, isDeviceFaulty } from '@/libs/propertyHelper';
+import { isDeviceOperational, isDeviceFaulty, isOperationStatusSettable } from '@/libs/propertyHelper';
 import type { Device } from '@/hooks/types';
 
 interface DeviceIconProps {
@@ -12,7 +12,8 @@ export function DeviceIcon({ device, classCode, className = '' }: DeviceIconProp
   const Icon = getDeviceIcon(classCode);
   const isOperational = isDeviceOperational(device);
   const isFaulty = isDeviceFaulty(device);
-  const iconColor = getDeviceIconColor(isOperational, isFaulty, device.isOffline || false);
+  const isControllable = isOperationStatusSettable(device);
+  const iconColor = getDeviceIconColor(isOperational, isFaulty, device.isOffline || false, isControllable);
   
   // Get device type name for tooltip
   const deviceTypeName = getDeviceTypeName(classCode);

@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
 import { deviceHasAlias, getDeviceIdentifierForAlias, getDeviceAliases } from '@/libs/deviceIdHelper';
 import { isSensorProperty } from '@/libs/sensorPropertyHelper';
+import { isDeviceOperational, isDeviceFaulty, isOperationStatusSettable } from '@/libs/propertyHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
 
 interface DeviceCardProps {
@@ -54,6 +55,26 @@ export function DeviceCard({
   const classCode = getDeviceClassCode(device);
   const deviceIdentifier = getDeviceIdentifierForAlias(device, devices);
 
+  // Device status for styling
+  const isOperational = isDeviceOperational(device);
+  const isFaulty = isDeviceFaulty(device);
+  const isOffline = device.isOffline || false;
+  const isControllable = isOperationStatusSettable(device);
+
+  // Determine border color based on device status
+  const getBorderColorClass = (): string => {
+    if (isOffline) {
+      return 'border-muted-foreground/30';
+    }
+    if (isFaulty) {
+      return 'border-red-500/60';
+    }
+    if (isOperational && isControllable) {
+      return 'border-green-500/60';
+    }
+    return 'border-border'; // Default border
+  };
+
   // Get primary properties in sorted order (Operation Status first)
   const primaryProps = getSortedPrimaryProperties(device);
   const secondaryProps = Object.entries(device.properties).filter(([epc]) => 
@@ -67,7 +88,7 @@ export function DeviceCard({
 
   return (
     <Card 
-      className={`transition-all duration-200 w-full max-w-sm flex flex-col relative ${device.isOffline ? 'after:absolute after:inset-0 after:bg-background/60 after:pointer-events-none after:rounded-lg' : ''}`} 
+      className={`transition-all duration-200 w-full max-w-sm flex flex-col relative border-2 ${getBorderColorClass()} ${device.isOffline ? 'after:absolute after:inset-0 after:bg-background/60 after:pointer-events-none after:rounded-lg' : ''}`} 
       data-testid={`device-card-${device.ip}-${device.eoj}`}
     >
       <CardHeader className="pb-2 px-3 pt-3">
