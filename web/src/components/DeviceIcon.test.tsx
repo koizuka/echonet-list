@@ -7,6 +7,7 @@ import type { Device } from '@/hooks/types';
 vi.mock('@/libs/propertyHelper', () => ({
   isDeviceOperational: vi.fn(),
   isDeviceFaulty: vi.fn(),
+  isOperationStatusSettable: vi.fn(),
 }));
 
 vi.mock('@/libs/deviceIconHelper', () => ({
@@ -19,11 +20,12 @@ function TestIcon({ className }: { className?: string }) {
   return <svg className={className} data-testid="test-icon" />;
 }
 
-import { isDeviceOperational, isDeviceFaulty } from '@/libs/propertyHelper';
+import { isDeviceOperational, isDeviceFaulty, isOperationStatusSettable } from '@/libs/propertyHelper';
 import { getDeviceIcon, getDeviceIconColor } from '@/libs/deviceIconHelper';
 
 const mockIsDeviceOperational = isDeviceOperational as ReturnType<typeof vi.fn>;
 const mockIsDeviceFaulty = isDeviceFaulty as ReturnType<typeof vi.fn>;
+const mockIsOperationStatusSettable = isOperationStatusSettable as ReturnType<typeof vi.fn>;
 const mockGetDeviceIcon = getDeviceIcon as ReturnType<typeof vi.fn>;
 const mockGetDeviceIconColor = getDeviceIconColor as ReturnType<typeof vi.fn>;
 
@@ -42,6 +44,7 @@ describe('DeviceIcon', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetDeviceIcon.mockReturnValue(TestIcon);
+    mockIsOperationStatusSettable.mockReturnValue(true); // Default to controllable
   });
 
   it('should render device icon with correct color for operational device', () => {
@@ -54,7 +57,7 @@ describe('DeviceIcon', () => {
     
     const icon = container.querySelector('svg');
     expect(icon).toHaveClass('w-4', 'h-4', 'text-green-500');
-    expect(mockGetDeviceIconColor).toHaveBeenCalledWith(true, false, false);
+    expect(mockGetDeviceIconColor).toHaveBeenCalledWith(true, false, false, true);
   });
 
   it('should render device icon with correct color for faulty device', () => {
@@ -67,7 +70,7 @@ describe('DeviceIcon', () => {
     
     const icon = container.querySelector('svg');
     expect(icon).toHaveClass('text-red-500');
-    expect(mockGetDeviceIconColor).toHaveBeenCalledWith(false, true, false);
+    expect(mockGetDeviceIconColor).toHaveBeenCalledWith(false, true, false, true);
   });
 
   it('should render device icon with correct color for offline device', () => {
@@ -80,7 +83,7 @@ describe('DeviceIcon', () => {
     
     const icon = container.querySelector('svg');
     expect(icon).toHaveClass('text-muted-foreground');
-    expect(mockGetDeviceIconColor).toHaveBeenCalledWith(false, false, true);
+    expect(mockGetDeviceIconColor).toHaveBeenCalledWith(false, false, true, true);
   });
 
   it('should show correct tooltip for air conditioner', () => {
@@ -139,5 +142,19 @@ describe('DeviceIcon', () => {
     
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper.title).toBe('Unknown Device - OFF');
+  });
+
+  it('should not show green color for operational non-controllable device', () => {
+    mockIsDeviceOperational.mockReturnValue(true);
+    mockIsDeviceFaulty.mockReturnValue(false);
+    mockIsOperationStatusSettable.mockReturnValue(false);
+    mockGetDeviceIconColor.mockReturnValue('text-gray-400');
+
+    const device = createMockDevice();
+    const { container } = render(<DeviceIcon device={device} classCode="0EF0" />);
+    
+    const icon = container.querySelector('svg');
+    expect(icon).toHaveClass('text-gray-400');
+    expect(mockGetDeviceIconColor).toHaveBeenCalledWith(true, false, false, false);
   });
 });

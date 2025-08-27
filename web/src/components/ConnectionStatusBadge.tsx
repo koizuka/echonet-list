@@ -27,15 +27,15 @@ export function ConnectionStatusBadge({ connectionState }: ConnectionStatusBadge
   const getConnectionColor = (state: ConnectionState) => {
     switch (state) {
       case 'connected':
-        return 'bg-green-500';
+        return 'bg-green-500 text-white dark:bg-green-900 dark:text-green-100';
       case 'connecting':
-        return 'bg-yellow-500';
+        return 'bg-yellow-500 text-black dark:bg-yellow-900 dark:text-yellow-100';
       case 'disconnected':
-        return 'bg-gray-500';
+        return 'bg-gray-500 text-white dark:bg-gray-800 dark:text-gray-100';
       case 'error':
-        return 'bg-red-500';
+        return 'bg-red-500 text-white dark:bg-red-900 dark:text-red-100';
       default:
-        return 'bg-gray-500';
+        return 'bg-gray-500 text-white dark:bg-gray-800 dark:text-gray-100';
     }
   };
 
@@ -57,7 +57,7 @@ export function ConnectionStatusBadge({ connectionState }: ConnectionStatusBadge
   return (
     <Badge 
       variant="outline" 
-      className={`${getConnectionColor(connectionState)} text-white text-xs flex items-center`}
+      className={`${getConnectionColor(connectionState)} text-xs flex items-center`}
       data-testid="connection-status"
     >
       {getConnectionIcon(connectionState)}
