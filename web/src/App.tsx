@@ -2,6 +2,7 @@ import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getLocationDisplayName } from '@/libs/locationHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
+import { getPropertyName } from '@/libs/propertyHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
@@ -20,6 +21,37 @@ import { Plus } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { PropertyValue, LogNotification, DeviceOnline, DeviceOffline } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
+
+// Error message templates with placeholders
+const ERROR_MESSAGE_TEMPLATES = {
+  property_change: {
+    en: 'Failed to change {propertyName} of {deviceName} to {value}',
+    ja: '{deviceName} の {propertyName} を {value} に変更できませんでした'
+  },
+  update_properties: {
+    en: 'Failed to update properties of {deviceName}',
+    ja: '{deviceName} のプロパティ更新に失敗しました'
+  },
+  update_all_offline: {
+    en: 'Failed to update all offline devices',
+    ja: 'すべてのオフラインデバイスの更新に失敗しました'
+  },
+  delete_device: {
+    en: 'Failed to delete {deviceName}',
+    ja: '{deviceName} の削除に失敗しました'
+  },
+  add_alias: {
+    en: 'Failed to add alias "{alias}" to {deviceName}',
+    ja: '{deviceName} にエイリアス「{alias}」を追加できませんでした'
+  },
+  delete_alias: {
+    en: 'Failed to delete alias "{alias}"',
+    ja: 'エイリアス「{alias}」の削除に失敗しました'
+  }
+} as const;
+
+// Type for error operations
+type ErrorOperation = keyof typeof ERROR_MESSAGE_TEMPLATES;
 
 function App() {
   // 開発環境と本番環境でWebSocket URLを切り替え
@@ -66,44 +98,76 @@ function App() {
     return aliasName || null;
   }, [echonet.devices, echonet.aliases]);
 
+  // Helper function to get device display name
+  const getDeviceDisplayName = useCallback((target: string) => {
+    const device = echonet.devices[target];
+    if (!device) return target;
+    
+    const { aliasName } = deviceHasAlias(device, echonet.devices, echonet.aliases);
+    if (aliasName) return aliasName;
+    
+    return `${device.ip} ${device.eoj}`;
+  }, [echonet.devices, echonet.aliases]);
+
+
+  // Helper function to format error message with context
+  const formatErrorMessage = useCallback((operation: ErrorOperation, context?: { target?: string; epc?: string; value?: PropertyValue; alias?: string }) => {
+    const currentLocale = getCurrentLocale();
+    const template = ERROR_MESSAGE_TEMPLATES[operation]?.[currentLocale];
+    
+    if (!template) {
+      return operation; // Fallback to operation name
+    }
+
+    let message: string = template;
+    const replacements: Record<string, string> = {};
+
+    // Collect replacement values based on context
+    if (context) {
+      if (context.target) {
+        replacements.deviceName = getDeviceDisplayName(context.target);
+      }
+      if (context.epc && context.target) {
+        const device = echonet.devices[context.target];
+        if (device) {
+          const classCode = echonet.getDeviceClassCode(device);
+          replacements.propertyName = getPropertyName(context.epc, echonet.propertyDescriptions, classCode);
+        }
+      }
+      if (context.value !== undefined) {
+        replacements.value = String(context.value);
+      }
+      if (context.alias) {
+        replacements.alias = context.alias;
+      }
+    }
+
+    // Replace placeholders in template
+    Object.entries(replacements).forEach(([key, value]) => {
+      message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+    });
+
+    return message;
+  }, [echonet, getDeviceDisplayName]);
+
   // Helper function to create error notification
-  const createErrorNotification = useCallback((operation: string, error: unknown) => {
+  const createErrorNotification = useCallback((operation: ErrorOperation, error: unknown, context?: { target?: string; epc?: string; value?: PropertyValue; alias?: string; groupName?: string }) => {
     // Get error message from error object
     const errorMessage = error instanceof Error ? error.message : String(error);
     
-    // Create localized error message
-    const currentLocale = getCurrentLocale();
-    const operationLabels = {
-      en: {
-        'property_change': 'Failed to change property',
-        'update_properties': 'Failed to update device properties',
-        'update_all_offline': 'Failed to update all offline devices',
-        'delete_device': 'Failed to delete device',
-        'add_alias': 'Failed to add alias',
-        'delete_alias': 'Failed to delete alias'
-      },
-      ja: {
-        'property_change': 'プロパティの変更に失敗しました',
-        'update_properties': 'デバイスプロパティの更新に失敗しました',
-        'update_all_offline': 'すべてのオフラインデバイスの更新に失敗しました',
-        'delete_device': 'デバイスの削除に失敗しました',
-        'add_alias': 'エイリアスの追加に失敗しました',
-        'delete_alias': 'エイリアスの削除に失敗しました'
-      }
-    };
-    
-    const localizedOperation = operationLabels[currentLocale]?.[operation as keyof typeof operationLabels['en']] || operation;
+    // Format localized error message
+    const detailedMessage = formatErrorMessage(operation, context);
     
     const errorEntry: LogEntry = {
       id: `error-${Date.now()}-${Math.random()}`,
       level: 'ERROR',
-      message: `${localizedOperation}: ${errorMessage}`,
+      message: `${detailedMessage}: ${errorMessage}`,
       time: new Date().toISOString(),
       attributes: { category: 'User Action' },
       isRead: false
     };
     setLocalErrorNotification(errorEntry);
-  }, []);
+  }, [formatErrorMessage]);
 
   // Log notification handlers
   const logManager = useLogNotifications({ 
@@ -207,7 +271,7 @@ function App() {
       await echonet.setDeviceProperties(target, { [epc]: value });
     } catch (error) {
       console.error('Failed to change property:', error);
-      createErrorNotification('property_change', error);
+      createErrorNotification('property_change', error, { target, epc, value });
     }
   };
 
@@ -224,7 +288,7 @@ function App() {
       await echonet.updateDeviceProperties([target], force);
     } catch (error) {
       console.error('Failed to update properties:', error);
-      createErrorNotification('update_properties', error);
+      createErrorNotification('update_properties', error, { target });
     } finally {
       // Remove device from updating set
       setUpdatingDevices(prev => {
@@ -245,7 +309,7 @@ function App() {
       await echonet.deleteDevice(target);
     } catch (error) {
       console.error('Failed to delete device:', error);
-      createErrorNotification('delete_device', error);
+      createErrorNotification('delete_device', error, { target });
     } finally {
       // Remove device from deleting set
       setDeletingDevices(prev => {
@@ -283,7 +347,7 @@ function App() {
       await echonet.addAlias(alias, target);
     } catch (error) {
       console.error('Failed to add alias:', error);
-      createErrorNotification('add_alias', error);
+      createErrorNotification('add_alias', error, { alias, target });
       throw error; // Re-throw to let AliasEditor handle the error
     } finally {
       setAliasLoading(false);
@@ -297,7 +361,7 @@ function App() {
       await echonet.deleteAlias(alias);
     } catch (error) {
       console.error('Failed to delete alias:', error);
-      createErrorNotification('delete_alias', error);
+      createErrorNotification('delete_alias', error, { alias });
       throw error; // Re-throw to let AliasEditor handle the error
     } finally {
       setAliasLoading(false);
