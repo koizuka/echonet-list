@@ -24,6 +24,6 @@ Please execute the following steps immediately without confirmation:
 1. Save the current branch name
 2. Switch to main branch
 3. Pull latest changes from origin/main
-4. Delete the merged branch locally (use -D if -d fails)
+4. Delete the merged branch locally (use -D since GitHub auto-deletes merged branches)
 5. Prune remote tracking branches
 6. Show a summary of what was cleaned up
