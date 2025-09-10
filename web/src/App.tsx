@@ -2,7 +2,7 @@ import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getLocationDisplayName } from '@/libs/locationHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
-import { getPropertyName } from '@/libs/propertyHelper';
+import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
@@ -135,7 +135,16 @@ function App() {
         }
       }
       if (context.value !== undefined) {
-        replacements.value = String(context.value);
+        // Get property descriptor for formatting
+        let descriptor = undefined;
+        if (context.epc && context.target) {
+          const device = echonet.devices[context.target];
+          if (device) {
+            const classCode = echonet.getDeviceClassCode(device);
+            descriptor = getPropertyDescriptor(context.epc, echonet.propertyDescriptions, classCode);
+          }
+        }
+        replacements.value = formatPropertyValue(context.value, descriptor);
       }
       if (context.alias) {
         replacements.alias = context.alias;
