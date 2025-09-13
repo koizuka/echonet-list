@@ -89,6 +89,13 @@ fi
 
 # Git pull 前の最新コミットハッシュを取得
 BEFORE_COMMIT=$(git rev-parse HEAD)
+
+# コミットハッシュの妥当性チェック
+if [[ ! "$BEFORE_COMMIT" =~ ^[a-f0-9]{40}$ ]]; then
+    print_error "無効なコミットハッシュ形式: $BEFORE_COMMIT"
+    exit 1
+fi
+
 print_info "現在のコミット: $BEFORE_COMMIT"
 
 # Git pull 実行
@@ -122,8 +129,8 @@ else
         exit 1
     }
 
-    # リモートとの差分をチェック
-    REMOTE_COMMIT=$(git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null || echo "")
+    # リモートとの差分をチェック（追跡中のブランチを使用）
+    REMOTE_COMMIT=$(git rev-parse '@{u}' 2>/dev/null || git rev-parse origin/HEAD 2>/dev/null || git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null || echo "")
 
     if [[ -z "$REMOTE_COMMIT" ]]; then
         print_error "リモートブランチが見つかりません"
@@ -154,7 +161,9 @@ if [[ -z "$CHANGED_FILES" ]]; then
 fi
 
 echo "変更されたファイル:"
-echo "$CHANGED_FILES" | sed 's/^/  /'
+while IFS= read -r file; do
+    echo "  $file"
+done <<< "$CHANGED_FILES"
 
 # 自スクリプトの更新チェック
 SCRIPT_NAME="$(basename "$0")"
@@ -182,13 +191,17 @@ fi
 HAS_GO_CHANGES=false
 HAS_WEB_CHANGES=false
 
-while IFS= read -r file; do
-    if [[ "$file" == *.go ]] || [[ "$file" == go.mod ]] || [[ "$file" == go.sum ]]; then
+if [[ -n "$CHANGED_FILES" ]]; then
+    # Go関連ファイルの変更をチェック
+    if echo "$CHANGED_FILES" | grep -E '\.go$|^go\.(mod|sum)$' >/dev/null 2>&1; then
         HAS_GO_CHANGES=true
-    elif [[ "$file" == web/* ]] && [[ "$file" != web/bundle/* ]]; then
+    fi
+
+    # Web UI関連ファイルの変更をチェック（bundle除く）
+    if echo "$CHANGED_FILES" | grep -E '^web/' | grep -v -E '^web/bundle/' >/dev/null 2>&1; then
         HAS_WEB_CHANGES=true
     fi
-done <<< "$CHANGED_FILES"
+fi
 
 # ビルド戦略の決定
 BUILD_TARGET=""
@@ -210,9 +223,7 @@ if [[ -n "$BUILD_TARGET" ]]; then
     print_info "🔨 ビルドを開始します: $BUILD_TARGET"
 
     if [[ "$DRY_RUN" == "false" ]]; then
-        "$SCRIPT_DIR/build.sh" "$BUILD_TARGET"
-
-        if [[ $? -ne 0 ]]; then
+        if ! "$SCRIPT_DIR/build.sh" "$BUILD_TARGET"; then
             print_error "❌ ビルドが失敗しました"
             exit 1
         fi
@@ -229,12 +240,12 @@ if [[ -n "$BUILD_TARGET" ]]; then
     if [[ "$DRY_RUN" == "false" ]]; then
         if [[ $EUID -ne 0 ]]; then
             print_info "root 権限が必要です。sudo で再実行します..."
-            sudo "$SCRIPT_DIR/update.sh"
+            UPDATE_CMD="sudo $SCRIPT_DIR/update.sh"
         else
-            "$SCRIPT_DIR/update.sh"
+            UPDATE_CMD="$SCRIPT_DIR/update.sh"
         fi
 
-        if [[ $? -ne 0 ]]; then
+        if ! $UPDATE_CMD; then
             print_error "❌ サービス更新が失敗しました"
             exit 1
         fi
@@ -258,7 +269,9 @@ if [[ "$BUILD_TARGET" ]]; then
     if [[ "$DRY_RUN" == "false" ]]; then
         print_info "  - サービス更新: 実行済み"
         print_info ""
-        print_info "🌐 Web UI: http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'localhost'):8080"
+        # IPv4アドレスを取得（IPv6を避ける）
+        HOST_IP=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo 'localhost')
+        print_info "🌐 Web UI: http://${HOST_IP}:8080"
         print_info "🔧 管理: sudo systemctl status echonet-list"
     else
         print_info "  - サービス更新: [DRY-RUN でスキップ]"
