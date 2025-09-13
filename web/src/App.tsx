@@ -430,33 +430,38 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="container mx-auto p-4">
-        <div className="flex justify-between items-center mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold">ECHONET List</h1>
-          <div className="flex items-center gap-1 sm:gap-2">
-            {/* Refresh All Offline Button */}
-            <RefreshAllOfflineButton
-              offlineDevices={allOfflineDevices}
-              onRefreshAll={handleUpdateAllOfflineDevices}
-              isUpdating={isUpdatingAllOffline}
-              isConnected={isConnected}
-            />
-            <ConnectionStatusBadge connectionState={echonet.connectionState} />
-            
-            {/* Notification Bell */}
-            <NotificationBell
-              logs={logs}
-              unreadCount={unreadCount}
-              onMarkAllAsRead={logManager.markAllAsRead}
-              onClearAll={logManager.clearAllLogs}
-              connectedAt={echonet.connectedAt}
-              serverStartupTime={echonet.serverStartupTime}
-              onDiscoverDevices={echonet.discoverDevices}
-            />
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-50 bg-background border-b border-border">
+        <div className="container mx-auto px-4 py-2">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl sm:text-3xl font-bold">ECHONET List</h1>
+            <div className="flex items-center gap-1 sm:gap-2">
+              {/* Refresh All Offline Button */}
+              <RefreshAllOfflineButton
+                offlineDevices={allOfflineDevices}
+                onRefreshAll={handleUpdateAllOfflineDevices}
+                isUpdating={isUpdatingAllOffline}
+                isConnected={isConnected}
+              />
+              <ConnectionStatusBadge connectionState={echonet.connectionState} />
+
+              {/* Notification Bell */}
+              <NotificationBell
+                logs={logs}
+                unreadCount={unreadCount}
+                onMarkAllAsRead={logManager.markAllAsRead}
+                onClearAll={logManager.clearAllLogs}
+                connectedAt={echonet.connectedAt}
+                serverStartupTime={echonet.serverStartupTime}
+                onDiscoverDevices={echonet.discoverDevices}
+              />
+            </div>
           </div>
         </div>
-        
+      </div>
 
+      {/* Main Content */}
+      <div className="container mx-auto p-4">
         {Object.keys(echonet.devices).length === 0 ? (
           <Card>
             <CardContent className="pt-6">
