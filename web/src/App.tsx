@@ -431,7 +431,7 @@ function App() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-background border-b border-border">
+      <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border transition-all duration-200">
         <div className="container mx-auto px-4 py-2">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl sm:text-3xl font-bold">ECHONET List</h1>
