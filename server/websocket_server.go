@@ -41,6 +41,8 @@ type StartOptions struct {
 	KeyFile string
 	// 定期的なプロパティ更新の間隔 (0以下で無効)
 	PeriodicUpdateInterval time.Duration
+	// 強制更新の間隔 (0以下で無効、通常30分程度)
+	ForcedUpdateInterval time.Duration
 	// サーバーの待ち受け完了を通知するチャネル
 	Ready chan struct{}
 	// HTTPサーバーの設定
@@ -62,7 +64,9 @@ type WebSocketServer struct {
 	monitorDone            chan bool                         // Channel to stop the monitor goroutine
 	initialStateInProgress atomic.Int32                      // Counter for ongoing initial state generations
 	lastUpdateTime         atomic.Int64                      // Unix timestamp of last periodic update (for monitoring)
+	lastForcedUpdateTime   atomic.Int64                      // Unix timestamp of last forced update
 	updateInterval         time.Duration                     // Expected update interval (for monitoring)
+	forcedUpdateInterval   time.Duration                     // Forced update interval
 	timeProvider           TimeProvider                      // Time provider for testability
 	serverStartupTime      time.Time                         // Server startup timestamp
 }
@@ -141,7 +145,14 @@ func (ws *WebSocketServer) periodicUpdater() {
 				}
 
 				// 更新実行時刻を記録（実際に更新を開始する時点で記録）
-				ws.lastUpdateTime.Store(time.Now().Unix())
+				currentTime := time.Now()
+				ws.lastUpdateTime.Store(currentTime.Unix())
+
+				// Determine if this should be a forced update
+				shouldForce := ws.shouldPerformForcedUpdate(currentTime)
+				if shouldForce {
+					ws.lastForcedUpdateTime.Store(currentTime.UnixNano())
+				}
 
 				// Run update in a separate goroutine to avoid blocking the ticker
 				go func() {
@@ -155,10 +166,16 @@ func (ws *WebSocketServer) periodicUpdater() {
 					}()
 
 					// Use an empty FilterCriteria to target all devices
-					err := ws.handler.UpdateProperties(handler.FilterCriteria{}, false)
+					err := ws.handler.UpdateProperties(handler.FilterCriteria{}, shouldForce)
 					if err != nil {
 						// Log the error but don't stop the ticker
-						slog.Info("Error during periodic property update", "err", err)
+						if shouldForce {
+							slog.Info("Error during forced property update", "err", err)
+						} else {
+							slog.Info("Error during periodic property update", "err", err)
+						}
+					} else if shouldForce {
+						slog.Info("Forced property update completed successfully")
 					}
 				}()
 			} else {
@@ -176,6 +193,28 @@ func (ws *WebSocketServer) periodicUpdater() {
 			return
 		}
 	}
+}
+
+// shouldPerformForcedUpdate determines if the current update should be forced
+func (ws *WebSocketServer) shouldPerformForcedUpdate(currentTime time.Time) bool {
+	// If forced update interval is disabled (0 or negative), never force
+	if ws.forcedUpdateInterval <= 0 {
+		return false
+	}
+
+	// Get the last forced update time
+	lastForcedUpdate := ws.lastForcedUpdateTime.Load()
+
+	// If never forced before, check if enough time has passed since server startup
+	if lastForcedUpdate == 0 {
+		timeSinceStartup := currentTime.Sub(ws.serverStartupTime)
+		return timeSinceStartup >= ws.forcedUpdateInterval
+	}
+
+	// Check if enough time has passed since the last forced update
+	lastForcedTime := time.Unix(0, lastForcedUpdate)
+	timeSinceLastForced := currentTime.Sub(lastForcedTime)
+	return timeSinceLastForced >= ws.forcedUpdateInterval
 }
 
 // monitorUpdateInterval monitors the periodic update interval in a separate goroutine
@@ -389,13 +428,18 @@ func (ws *WebSocketServer) Start(options StartOptions) error {
 	if options.PeriodicUpdateInterval > 0 {
 		// 更新間隔を保存（監視用）
 		ws.updateInterval = options.PeriodicUpdateInterval
+		ws.forcedUpdateInterval = options.ForcedUpdateInterval
 		// 初期時刻は0のまま（実際の更新が開始されるまで監視を無効にするため）
 
 		ws.updateTicker = time.NewTicker(options.PeriodicUpdateInterval)
 		go ws.periodicUpdater()
 		go ws.monitorUpdateInterval() // 監視goroutineも開始
 
-		slog.Info("Periodic property updater and monitor enabled", "interval", options.PeriodicUpdateInterval)
+		if options.ForcedUpdateInterval > 0 {
+			slog.Info("Periodic property updater and monitor enabled", "interval", options.PeriodicUpdateInterval, "forcedInterval", options.ForcedUpdateInterval)
+		} else {
+			slog.Info("Periodic property updater and monitor enabled", "interval", options.PeriodicUpdateInterval, "forcedInterval", "disabled")
+		}
 	} else {
 		if ws.handler.IsDebug() {
 			slog.Debug("Periodic property updater disabled.")

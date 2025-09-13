@@ -162,6 +162,14 @@ func main() {
 			updateInterval = 1 * time.Minute // パース失敗時はデフォルト値
 		}
 
+		// 強制更新間隔をパース
+		forcedUpdateIntervalStr := cfg.WebSocket.ForcedUpdateInterval
+		forcedUpdateInterval, err := time.ParseDuration(forcedUpdateIntervalStr)
+		if err != nil || forcedUpdateIntervalStr == "" {
+			fmt.Printf("警告: 設定ファイル 'websocket.forced_update_interval' の値 '%s' は無効です。デフォルトの30分を使用します。\n", forcedUpdateIntervalStr)
+			forcedUpdateInterval = 30 * time.Minute // パース失敗時はデフォルト値
+		}
+
 		// TLSと定期更新間隔の設定を準備
 		readyChan := make(chan struct{})
 		startOptions := server.StartOptions{
@@ -169,6 +177,7 @@ func main() {
 			CertFile:               cfg.TLS.CertFile,
 			KeyFile:                cfg.TLS.KeyFile,
 			PeriodicUpdateInterval: updateInterval,
+			ForcedUpdateInterval:   forcedUpdateInterval,
 			HTTPEnabled:            cfg.HTTPServer.Enabled,
 			HTTPWebRoot:            cfg.HTTPServer.WebRoot,
 		}
@@ -176,6 +185,11 @@ func main() {
 		// 設定された定期更新間隔を表示
 		if updateInterval > 0 {
 			fmt.Printf("WebSocketサーバーの定期更新間隔: %v\n", updateInterval)
+			if forcedUpdateInterval > 0 {
+				fmt.Printf("WebSocketサーバーの強制更新間隔: %v\n", forcedUpdateInterval)
+			} else {
+				fmt.Println("WebSocketサーバーの強制更新は無効です。")
+			}
 		} else {
 			fmt.Println("WebSocketサーバーの定期更新は無効です。")
 		}

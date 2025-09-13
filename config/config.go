@@ -63,6 +63,7 @@ type Config struct {
 	WebSocket struct {
 		Enabled                bool   `toml:"enabled"`
 		PeriodicUpdateInterval string `toml:"periodic_update_interval"` // e.g., "1m", "30s", "0" to disable
+		ForcedUpdateInterval   string `toml:"forced_update_interval"`   // e.g., "30m", "1h", "0" to disable force updates
 	} `toml:"websocket"`
 	TLS struct {
 		Enabled  bool   `toml:"enabled"`
@@ -106,6 +107,7 @@ func NewConfig() *Config {
 	}
 	cfg.Log.Filename = "echonet-list.log"
 	cfg.WebSocket.PeriodicUpdateInterval = "1m" // Default to 1 minute
+	cfg.WebSocket.ForcedUpdateInterval = "30m"  // Default to 30 minutes
 	cfg.WebSocketClient.Addr = "ws://localhost:8080/ws"
 	// Default daemon settings
 	cfg.Daemon.Enabled = false
