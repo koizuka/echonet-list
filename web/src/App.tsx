@@ -429,9 +429,9 @@ function App() {
   const allOfflineDevices = Object.values(echonet.devices).filter(device => device.isOffline);
 
   return (
-    <div className="min-h-screen bg-background text-foreground" style={{ scrollBehavior: 'smooth' }}>
+    <div className="min-h-screen bg-background text-foreground" style={{ scrollBehavior: 'smooth', scrollPaddingTop: '4rem' }}>
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border transition-all duration-200" style={{ willChange: 'transform' }}>
+      <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm backdrop-saturate-150 border-b border-border transition-all duration-200" style={{ willChange: 'transform' }}>
         <div className="container mx-auto px-4 py-2">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl sm:text-3xl font-bold">ECHONET List</h1>
