@@ -4,6 +4,55 @@
 
 ## 含まれるスクリプト
 
+### auto-update.sh
+
+Raspberry Pi での運用を想定した自動更新スクリプトです。git pull の結果に基づいて自動的にビルドとサービス更新を行います。
+
+**機能:**
+
+- git pull の実行と変更ファイル分析
+- 変更内容に応じた自動ビルド判定
+  - Go ファイル変更 → サーバービルド
+  - Web UI ファイル変更 → Web UI ビルド
+  - 両方の変更 → 全体ビルド
+- 自動サービス更新（systemd 対応）
+- ドライランモード（実際の操作なしで動作確認）
+- スクリプト自己更新の検出と再実行促進
+
+**使用方法:**
+
+```bash
+# 通常実行（自動でsudoに昇格）
+./script/auto-update.sh
+
+# ドライランモード（git pull せずに動作確認）
+./script/auto-update.sh -d
+./script/auto-update.sh --dry-run
+
+# ヘルプ表示
+./script/auto-update.sh -h
+./script/auto-update.sh --help
+```
+
+**動作フロー:**
+
+1. git pull でリモートの変更を取得
+2. 変更されたファイルを分析してビルド対象を判定
+3. 必要に応じて `./script/build.sh` を実行
+4. ビルドが行われた場合、`./script/update.sh` でサービス更新
+
+**ドライランモードの利点:**
+
+- git fetch のみ実行（リポジトリ状態を変更しない）
+- 実際のリモート差分を表示
+- 何度でも同じ結果でテスト可能
+
+**前提条件:**
+
+- Git リポジトリ内で実行
+- systemd サービスが既にインストール済み（update.sh 実行時）
+- リモートリポジトリへのアクセス権限
+
 ### build.sh
 
 サーバーとWeb UIのビルドを行います。引数により部分ビルドも可能です。
@@ -122,6 +171,18 @@ sudo systemctl status echonet-list
 ```
 
 ### アップデート
+
+**自動更新（推奨）:**
+
+```bash
+# 全自動で git pull → ビルド → サービス更新
+./script/auto-update.sh
+
+# 事前確認（ドライラン）
+./script/auto-update.sh -d
+```
+
+**手動更新（従来の方法）:**
 
 ```bash
 # 1. 新しいバージョンをビルド
