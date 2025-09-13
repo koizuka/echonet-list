@@ -13,7 +13,6 @@ SERVICE_NAME="echonet-list"
 SERVICE_USER="echonet"
 SERVICE_GROUP="echonet"
 INSTALL_DIR="/usr/local/bin"
-CONFIG_DIR="/etc/echonet-list"
 DATA_DIR="/var/lib/echonet-list"
 WEB_DIR="/usr/local/share/echonet-list/web"
 
@@ -106,7 +105,7 @@ chmod 755 "$INSTALL_DIR/echonet-list"
 # Web UI更新
 print_info "Web UIファイルを更新しています..."
 if [[ -d "$WEB_DIR" ]]; then
-    rm -rf "$WEB_DIR"/*
+    rm -rf "${WEB_DIR:?}"/*
 fi
 mkdir -p "$WEB_DIR"
 cp -r "$WEB_BUNDLE_DIR"/* "$WEB_DIR/"
@@ -164,7 +163,7 @@ if [[ "$WAS_ACTIVE" == "true" ]]; then
             cp "$BACKUP_DIR/echonet-list" "$INSTALL_DIR/"
         fi
         if [[ -d "$BACKUP_DIR/web-bundle" ]]; then
-            rm -rf "$WEB_DIR"/*
+            rm -rf "${WEB_DIR:?}"/*
             cp -r "$BACKUP_DIR/web-bundle"/* "$WEB_DIR/"
         fi
         
