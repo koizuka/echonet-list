@@ -503,7 +503,7 @@ func (ws *WebSocketServer) handleUpdatePropertiesFromClient(msg *protocol.Messag
 
 	// 処理中にエラーが発生した場合はエラー応答を返す
 	if firstError != nil {
-		return ErrorResponse(protocol.ErrorCodeEchonetCommunicationError, firstError.Error())
+		return ErrorResponse(protocol.ErrorCodeEchonetCommunicationError, "%v", firstError)
 	}
 
 	// Send the success response
