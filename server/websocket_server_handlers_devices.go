@@ -163,7 +163,7 @@ func (ws *WebSocketServer) handleDeleteDeviceFromClient(msg *protocol.Message) p
 
 		// If there were any errors, return the first one
 		if len(deleteErrors) > 0 {
-			return ErrorResponse(protocol.ErrorCodeInternalServerError, strings.Join(deleteErrors, "; "))
+			return ErrorResponse(protocol.ErrorCodeInternalServerError, "%s", strings.Join(deleteErrors, "; "))
 		}
 	} else {
 		// For non-NodeProfile devices, just remove the single device
