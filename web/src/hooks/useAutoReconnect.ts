@@ -102,11 +102,21 @@ export function useAutoReconnect({
     }
 
     disconnectTimeoutRef.current = setTimeout(() => {
-      if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
+      // Re-check visibility state before executing disconnect
+      const isCurrentlyHidden = document.hidden;
+      if (autoDisconnectRef.current && connectionStateRef.current === 'connected' && isCurrentlyHidden) {
         if (import.meta.env.DEV) {
-          console.log('📱 Executing delayed disconnect');
+          console.log('📱 Executing delayed disconnect (page still hidden)');
         }
         disconnectRef.current();
+      } else {
+        if (import.meta.env.DEV) {
+          console.log('📱 Canceling delayed disconnect - page became visible', {
+            autoDisconnect: autoDisconnectRef.current,
+            connectionState: connectionStateRef.current,
+            isHidden: isCurrentlyHidden
+          });
+        }
       }
       disconnectTimeoutRef.current = null;
     }, disconnectDelayMsRef.current);
@@ -168,6 +178,14 @@ export function useAutoReconnect({
       const currentVisibility = document.visibilityState;
       lastVisibilityChangeRef.current = currentVisibility;
 
+      if (import.meta.env.DEV) {
+        console.log('👁️ Visibility changed:', {
+          visibilityState: currentVisibility,
+          hidden: document.hidden,
+          connectionState: connectionStateRef.current
+        });
+      }
+
       if (document.hidden) {
         // Page became hidden - schedule delayed disconnect if auto-disconnect is enabled
         if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
@@ -180,6 +198,9 @@ export function useAutoReconnect({
         }
       } else {
         // Page became visible - cancel any pending disconnect and attempt reconnection
+        if (import.meta.env.DEV) {
+          console.log('👁️ Page became visible - canceling disconnect and attempting reconnection');
+        }
         cancelDelayedDisconnect();
 
         // Use timeout to avoid race conditions with pageshow event
@@ -188,6 +209,9 @@ export function useAutoReconnect({
         }
         visibilityTimeoutRef.current = setTimeout(() => {
           if (lastVisibilityChangeRef.current === 'visible') {
+            if (import.meta.env.DEV) {
+              console.log('👁️ Visibility timeout triggered, attempting reconnection');
+            }
             attemptReconnection();
           }
           visibilityTimeoutRef.current = null;

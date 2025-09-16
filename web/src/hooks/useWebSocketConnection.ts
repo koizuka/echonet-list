@@ -162,9 +162,9 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
 
   const scheduleReconnect = useCallback(() => {
     // Don't reconnect while the page is in background to prevent mobile browser reconnection loops
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    if (typeof document !== 'undefined' && document.hidden) {
       if (import.meta.env.DEV) {
-        console.log('🚫 Skip reconnect - page is hidden');
+        console.log('🚫 Skip reconnect - page is hidden (document.hidden)');
       }
       return;
     }
