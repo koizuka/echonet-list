@@ -1,6 +1,12 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { ConnectionState } from './types';
 
+// Default timeout constants for better maintainability
+const DEFAULT_DISCONNECT_DELAY_MS = 3000;
+const VISIBILITY_TIMEOUT_MS = 100;
+const PAGESHOW_TIMEOUT_MS = 150;
+const PAGESHOW_PERSISTED_TIMEOUT_MS = 200;
+
 export interface AutoReconnectOptions {
   connectionState: ConnectionState;
   connect: () => void;
@@ -8,6 +14,11 @@ export interface AutoReconnectOptions {
   checkConnection?: () => Promise<boolean>;
   delayMs?: number;
   autoDisconnect?: boolean;
+  /**
+   * Delay in milliseconds before disconnecting when page becomes hidden.
+   * Helps prevent disconnection during brief mobile app switches.
+   * @default 3000
+   */
   disconnectDelayMs?: number;
 }
 
@@ -28,7 +39,7 @@ export function useAutoReconnect({
   checkConnection,
   delayMs = 2000,
   autoDisconnect = true,
-  disconnectDelayMs = 3000
+  disconnectDelayMs = DEFAULT_DISCONNECT_DELAY_MS
 }: AutoReconnectOptions) {
   const hasReconnectedRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -180,7 +191,7 @@ export function useAutoReconnect({
             attemptReconnection();
           }
           visibilityTimeoutRef.current = null;
-        }, 100);
+        }, VISIBILITY_TIMEOUT_MS);
       }
     };
 
@@ -210,14 +221,14 @@ export function useAutoReconnect({
         pageshowTimeoutRef.current = setTimeout(() => {
           attemptReconnection();
           pageshowTimeoutRef.current = null;
-        }, 200);
+        }, PAGESHOW_PERSISTED_TIMEOUT_MS);
       } else {
         // Normal page show, check connection if needed
         // Use longer delay for iOS Safari compatibility
         pageshowTimeoutRef.current = setTimeout(() => {
           attemptReconnection();
           pageshowTimeoutRef.current = null;
-        }, 150);
+        }, PAGESHOW_TIMEOUT_MS);
       }
     };
 
