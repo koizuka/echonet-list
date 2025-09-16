@@ -1,5 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import type { ConnectionState } from './types';
+
+// Default timeout constants for better maintainability
+const DEFAULT_DISCONNECT_DELAY_MS = 3000;
+const VISIBILITY_TIMEOUT_MS = 100;
+const PAGESHOW_TIMEOUT_MS = 150;
+const PAGESHOW_PERSISTED_TIMEOUT_MS = 200;
 
 export interface AutoReconnectOptions {
   connectionState: ConnectionState;
@@ -8,6 +14,12 @@ export interface AutoReconnectOptions {
   checkConnection?: () => Promise<boolean>;
   delayMs?: number;
   autoDisconnect?: boolean;
+  /**
+   * Delay in milliseconds before disconnecting when page becomes hidden.
+   * Helps prevent disconnection during brief mobile app switches.
+   * @default 3000
+   */
+  disconnectDelayMs?: number;
 }
 
 /**
@@ -20,19 +32,21 @@ export interface AutoReconnectOptions {
  * - visibilitychange hidden/pagehide events trigger disconnection
  * - Includes zombie connection detection for mobile browser background/foreground transitions
  */
-export function useAutoReconnect({ 
-  connectionState, 
-  connect, 
+export function useAutoReconnect({
+  connectionState,
+  connect,
   disconnect,
   checkConnection,
   delayMs = 2000,
-  autoDisconnect = true
+  autoDisconnect = true,
+  disconnectDelayMs = DEFAULT_DISCONNECT_DELAY_MS
 }: AutoReconnectOptions) {
   const hasReconnectedRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastVisibilityChangeRef = useRef<string | null>(null);
   const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pageshowTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const disconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Store current values in refs to avoid stale closures
   const connectionStateRef = useRef(connectionState);
@@ -40,6 +54,7 @@ export function useAutoReconnect({
   const disconnectRef = useRef(disconnect);
   const checkConnectionRef = useRef(checkConnection);
   const autoDisconnectRef = useRef(autoDisconnect);
+  const disconnectDelayMsRef = useRef(disconnectDelayMs);
   
   // Update refs when values change
   useEffect(() => {
@@ -69,7 +84,45 @@ export function useAutoReconnect({
   useEffect(() => {
     autoDisconnectRef.current = autoDisconnect;
   }, [autoDisconnect]);
+
+  useEffect(() => {
+    disconnectDelayMsRef.current = disconnectDelayMs;
+  }, [disconnectDelayMs]);
   
+  // Helper function to schedule delayed disconnect
+  const scheduleDelayedDisconnect = useCallback(() => {
+    // Clear any existing disconnect timeout
+    if (disconnectTimeoutRef.current) {
+      clearTimeout(disconnectTimeoutRef.current);
+      disconnectTimeoutRef.current = null;
+    }
+
+    if (import.meta.env.DEV) {
+      console.log(`📱 Scheduling disconnect in ${disconnectDelayMsRef.current}ms`);
+    }
+
+    disconnectTimeoutRef.current = setTimeout(() => {
+      if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
+        if (import.meta.env.DEV) {
+          console.log('📱 Executing delayed disconnect');
+        }
+        disconnectRef.current();
+      }
+      disconnectTimeoutRef.current = null;
+    }, disconnectDelayMsRef.current);
+  }, []);
+
+  // Helper function to cancel delayed disconnect
+  const cancelDelayedDisconnect = useCallback(() => {
+    if (disconnectTimeoutRef.current) {
+      if (import.meta.env.DEV) {
+        console.log('📱 Canceling delayed disconnect');
+      }
+      clearTimeout(disconnectTimeoutRef.current);
+      disconnectTimeoutRef.current = null;
+    }
+  }, []);
+
   // Main effect - only runs once on mount
   useEffect(() => {
     const attemptReconnection = async () => {
@@ -114,11 +167,11 @@ export function useAutoReconnect({
     const handleVisibilityChange = () => {
       const currentVisibility = document.visibilityState;
       lastVisibilityChangeRef.current = currentVisibility;
-      
+
       if (document.hidden) {
-        // Page became hidden - disconnect if auto-disconnect is enabled
+        // Page became hidden - schedule delayed disconnect if auto-disconnect is enabled
         if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
-          disconnectRef.current();
+          scheduleDelayedDisconnect();
         }
         // Clear any pending visibility timeout to prevent stale reconnection attempts
         if (visibilityTimeoutRef.current) {
@@ -126,7 +179,9 @@ export function useAutoReconnect({
           visibilityTimeoutRef.current = null;
         }
       } else {
-        // Page became visible - attempt reconnection after a short delay
+        // Page became visible - cancel any pending disconnect and attempt reconnection
+        cancelDelayedDisconnect();
+
         // Use timeout to avoid race conditions with pageshow event
         if (visibilityTimeoutRef.current) {
           clearTimeout(visibilityTimeoutRef.current);
@@ -136,24 +191,27 @@ export function useAutoReconnect({
             attemptReconnection();
           }
           visibilityTimeoutRef.current = null;
-        }, 100);
+        }, VISIBILITY_TIMEOUT_MS);
       }
     };
 
     const handlePageShow = (event: PageTransitionEvent) => {
       // Page was shown (includes cache restoration on iOS/Safari)
       lastVisibilityChangeRef.current = 'visible';
-      
+
       if (import.meta.env.DEV) {
         console.log('📱 Page show event', { persisted: event.persisted });
       }
-      
-      // Clear any existing pageshow timeout to prevent duplicate reconnections
+
+      // Cancel any pending disconnect since the page is now visible
+      cancelDelayedDisconnect();
+
+      // Clear any existing pageshow timeout to prevent duplicate reconnection attempts
       if (pageshowTimeoutRef.current) {
         clearTimeout(pageshowTimeoutRef.current);
         pageshowTimeoutRef.current = null;
       }
-      
+
       // If page was restored from cache, force reconnection
       if (event.persisted) {
         // Force full reconnection for pages restored from cache
@@ -163,14 +221,14 @@ export function useAutoReconnect({
         pageshowTimeoutRef.current = setTimeout(() => {
           attemptReconnection();
           pageshowTimeoutRef.current = null;
-        }, 200);
+        }, PAGESHOW_PERSISTED_TIMEOUT_MS);
       } else {
         // Normal page show, check connection if needed
         // Use longer delay for iOS Safari compatibility
         pageshowTimeoutRef.current = setTimeout(() => {
           attemptReconnection();
           pageshowTimeoutRef.current = null;
-        }, 150);
+        }, PAGESHOW_TIMEOUT_MS);
       }
     };
 
@@ -180,16 +238,16 @@ export function useAutoReconnect({
       if (import.meta.env.DEV) {
         console.log('📱 Page hide event');
       }
-      
+
       // Clear any pending pageshow timeouts to prevent stale reconnection attempts
       if (pageshowTimeoutRef.current) {
         clearTimeout(pageshowTimeoutRef.current);
         pageshowTimeoutRef.current = null;
       }
-      
+
       if (autoDisconnectRef.current && connectionStateRef.current === 'connected') {
-        // Cleanly close connection before page is hidden
-        disconnectRef.current();
+        // Schedule delayed disconnect instead of immediate disconnect
+        scheduleDelayedDisconnect();
       }
     };
 
@@ -200,6 +258,10 @@ export function useAutoReconnect({
       if (import.meta.env.DEV) {
         console.log('📱 Window focus fallback triggered');
       }
+
+      // Cancel any pending disconnect since the window is now focused
+      cancelDelayedDisconnect();
+
       setTimeout(() => attemptReconnection(), 100);
     };
 
@@ -227,6 +289,10 @@ export function useAutoReconnect({
         clearTimeout(pageshowTimeoutRef.current);
         pageshowTimeoutRef.current = null;
       }
+      if (disconnectTimeoutRef.current) {
+        clearTimeout(disconnectTimeoutRef.current);
+        disconnectTimeoutRef.current = null;
+      }
     };
-  }, [delayMs]); // Only depend on delayMs, not connection state or functions
+  }, [delayMs, scheduleDelayedDisconnect, cancelDelayedDisconnect]); // Include helper functions in dependencies
 }

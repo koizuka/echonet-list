@@ -84,6 +84,11 @@ describe('useAutoReconnect', () => {
     Object.defineProperty(document, 'hidden', { value: true, writable: true });
     visibilityChangeHandler();
 
+    // Should not disconnect immediately (due to guard time)
+    expect(mockDisconnect).not.toHaveBeenCalled();
+
+    // Should disconnect after default guard time (3000ms)
+    vi.advanceTimersByTime(3000);
     expect(mockDisconnect).toHaveBeenCalledTimes(1);
   });
 
@@ -452,9 +457,18 @@ describe('useAutoReconnect', () => {
       currentAutoDisconnect = true;
       rerender();
 
-      // Trigger disconnect (should use new disconnect function)
+      // Trigger disconnect (should schedule delayed disconnect with new function)
       act(() => {
         visibilityChangeHandler();
+      });
+
+      // Should not disconnect immediately
+      expect(mockDisconnect).not.toHaveBeenCalled();
+      expect(newMockDisconnect).not.toHaveBeenCalled();
+
+      // Advance timers to trigger delayed disconnect (using default 3000ms)
+      act(() => {
+        vi.advanceTimersByTime(3000);
       });
 
       expect(mockDisconnect).not.toHaveBeenCalled();
@@ -658,6 +672,305 @@ describe('useAutoReconnect', () => {
       vi.advanceTimersByTime(200);
       // Should only connect once despite multiple events
       expect(mockConnect).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('delayed disconnect guard time', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should delay disconnect when page becomes hidden', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          autoDisconnect: true,
+          disconnectDelayMs: 2000,
+        })
+      );
+
+      // Simulate page becoming hidden
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: true, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true });
+        const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'visibilitychange'
+        )?.[1];
+        visibilityChangeHandler?.();
+      });
+
+      // Should not disconnect immediately
+      expect(mockDisconnect).not.toHaveBeenCalled();
+
+      // Should disconnect after delay
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(mockDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should cancel delayed disconnect when page becomes visible before timeout', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          autoDisconnect: true,
+          disconnectDelayMs: 2000,
+        })
+      );
+
+      // Simulate page becoming hidden
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: true, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true });
+        const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'visibilitychange'
+        )?.[1];
+        visibilityChangeHandler?.();
+      });
+
+      // Advance time partially
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      // Page becomes visible again before timeout
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: false, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
+        const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'visibilitychange'
+        )?.[1];
+        visibilityChangeHandler?.();
+      });
+
+      // Advance remaining time
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Should not have disconnected
+      expect(mockDisconnect).not.toHaveBeenCalled();
+    });
+
+    it('should cancel delayed disconnect on pageshow event', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          autoDisconnect: true,
+          disconnectDelayMs: 2000,
+        })
+      );
+
+      // Simulate page hide to trigger delayed disconnect
+      act(() => {
+        const pageHideHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'pagehide'
+        )?.[1];
+        pageHideHandler?.();
+      });
+
+      // Advance time partially
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      // Simulate pageshow event
+      act(() => {
+        const pageShowHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'pageshow'
+        )?.[1];
+        pageShowHandler?.({ persisted: false });
+      });
+
+      // Advance remaining time
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Should not have disconnected
+      expect(mockDisconnect).not.toHaveBeenCalled();
+    });
+
+    it('should cancel delayed disconnect on window focus event', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          autoDisconnect: true,
+          disconnectDelayMs: 2000,
+        })
+      );
+
+      // Simulate page hide to trigger delayed disconnect
+      act(() => {
+        const pageHideHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'pagehide'
+        )?.[1];
+        pageHideHandler?.();
+      });
+
+      // Advance time partially
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      // Simulate window focus event
+      act(() => {
+        const focusHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'focus'
+        )?.[1];
+        focusHandler?.();
+      });
+
+      // Advance remaining time
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Should not have disconnected
+      expect(mockDisconnect).not.toHaveBeenCalled();
+    });
+
+    it('should use custom disconnect delay time', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          autoDisconnect: true,
+          disconnectDelayMs: 5000, // Custom 5 second delay
+        })
+      );
+
+      // Simulate page becoming hidden
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: true, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true });
+        const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'visibilitychange'
+        )?.[1];
+        visibilityChangeHandler?.();
+      });
+
+      // Should not disconnect before custom delay
+      act(() => {
+        vi.advanceTimersByTime(4999);
+      });
+      expect(mockDisconnect).not.toHaveBeenCalled();
+
+      // Should disconnect after custom delay
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(mockDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should use default 3000ms disconnect delay when not specified', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          autoDisconnect: true,
+          // disconnectDelayMs not specified, should use default 3000ms
+        })
+      );
+
+      // Simulate page becoming hidden
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: true, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true });
+        const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'visibilitychange'
+        )?.[1];
+        visibilityChangeHandler?.();
+      });
+
+      // Should not disconnect before default delay
+      act(() => {
+        vi.advanceTimersByTime(2999);
+      });
+      expect(mockDisconnect).not.toHaveBeenCalled();
+
+      // Should disconnect after default delay
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(mockDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle multiple rapid visibility changes correctly', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          autoDisconnect: true,
+          disconnectDelayMs: 2000,
+        })
+      );
+
+      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'visibilitychange'
+      )?.[1];
+
+      // Simulate page becoming hidden
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: true, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true });
+        visibilityChangeHandler?.();
+      });
+
+      // Advance time partially
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+
+      // Page becomes visible (should cancel disconnect)
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: false, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
+        visibilityChangeHandler?.();
+      });
+
+      // Page becomes hidden again quickly
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: true, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true });
+        visibilityChangeHandler?.();
+      });
+
+      // Advance time partially
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      // Page becomes visible again (should cancel second disconnect)
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: false, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
+        visibilityChangeHandler?.();
+      });
+
+      // Advance remaining time
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Should not have disconnected at all
+      expect(mockDisconnect).not.toHaveBeenCalled();
     });
   });
 });
