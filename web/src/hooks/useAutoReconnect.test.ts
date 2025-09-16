@@ -972,5 +972,47 @@ describe('useAutoReconnect', () => {
       // Should not have disconnected at all
       expect(mockDisconnect).not.toHaveBeenCalled();
     });
+
+    it('should not disconnect if page becomes visible before delayed disconnect executes (Safari fix)', () => {
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          autoDisconnect: true,
+          disconnectDelayMs: 3000,
+        })
+      );
+
+      // Simulate page becoming hidden
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: true, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true });
+        const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+          call => call[0] === 'visibilitychange'
+        )?.[1];
+        visibilityChangeHandler?.();
+      });
+
+      // Advance time - but before the disconnect timeout fires
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Page becomes visible again (Safari coming back from background)
+      act(() => {
+        Object.defineProperty(document, 'hidden', { value: false, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
+      });
+
+      // Now advance time to when the delayed disconnect timer would fire
+      // This simulates Safari's behavior where timers fire after returning from background
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      // Should NOT have disconnected because the timeout callback re-checks visibility
+      expect(mockDisconnect).not.toHaveBeenCalled();
+    });
   });
 });
