@@ -170,16 +170,16 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 			edtBytes = decoded
 		}
 		switch {
-		case propData.String != "" && propData.Number != 0:
+		case propData.String != "" && propData.Number != nil:
 			// StringとNumberの両方があったらエラー
 			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Conflicting string and number for EPC: %s", epcStr)
-		case propData.Number != 0:
+		case propData.Number != nil:
 			converter, ok := desc.Decoder.(echonet_lite.PropertyIntConverter)
 			if !ok {
 				// 数値に対応していないEPCに数値が与えられたエラー
 				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid number field for EPC %s", epcStr)
 			}
-			converted, ok := converter.FromInt(propData.Number)
+			converted, ok := converter.FromInt(*propData.Number)
 			if !ok {
 				// 装置が範囲外
 				return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid number value for EPC %s", epcStr)

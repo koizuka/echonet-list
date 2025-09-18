@@ -9,6 +9,11 @@ import (
 	"echonet-list/protocol"
 )
 
+// Helper function to create int pointers
+func intPtr(i int) *int {
+	return &i
+}
+
 // TestHandleSetPropertiesFromClient covers four scenarios:
 // 1. EDT only
 // 2. String only
@@ -59,7 +64,17 @@ func TestHandleSetPropertiesFromClient(t *testing.T) {
 			payload: protocol.SetPropertiesPayload{
 				Target: "192.168.1.10 0130:1",
 				Properties: protocol.PropertyMap{
-					"B3": {Number: 25}, // Set temperature to 25 using Number
+					"B3": {Number: intPtr(25)}, // Set temperature to 25 using Number
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "Number with zero value",
+			payload: protocol.SetPropertiesPayload{
+				Target: "192.168.1.10 0130:1",
+				Properties: protocol.PropertyMap{
+					"B3": {Number: intPtr(0)}, // Set temperature to 0 using Number
 				},
 			},
 			wantError: false,
@@ -96,7 +111,7 @@ func TestHandleSetPropertiesFromClient(t *testing.T) {
 				Properties: protocol.PropertyMap{
 					"B3": {
 						String: "25",
-						Number: 20, // Conflicting values
+						Number: intPtr(20), // Conflicting values
 					},
 				},
 			},
