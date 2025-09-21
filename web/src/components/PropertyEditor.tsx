@@ -226,8 +226,9 @@ export function PropertyEditor({
 
       case 'select':
         return (
-          <div className="flex flex-col gap-1 min-w-0">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Show alias dropdown only when not editing numeric input */}
+            {!isInputEditing && (
               <PropertySelectControl
                 value={currentValue.string || ''}
                 aliases={descriptor?.aliases || {}}
@@ -236,35 +237,29 @@ export function PropertyEditor({
                 disabled={isLoading || !isConnectionActive}
                 testId={`alias-select-trigger-${epc}`}
               />
-              {!isInputEditing && !currentValue.string && hasNumberDesc && (
-                <span className="text-sm font-medium flex-shrink-0">
-                  {formatPropertyValue(currentValue, descriptor, currentLang)}
-                </span>
-              )}
-              {!hasNumberDesc && (
-                <HexViewer
-                  canShowHexViewer={canShowHexViewer}
-                  currentValue={currentValue}
-                />
-              )}
-            </div>
+            )}
+            {/* Show current numeric value when not editing and no string alias is set */}
+            {!isInputEditing && !currentValue.string && hasNumberDesc && (
+              <span className="text-sm font-medium flex-shrink-0">
+                {formatPropertyValue(currentValue, descriptor, currentLang)}
+              </span>
+            )}
             {/* Show input control for properties with both aliases and numberDesc */}
             {hasNumberDesc && (
-              <div className="flex items-center justify-end gap-2 min-w-0">
-                <PropertyInputControl
-                  currentValue={currentValue}
-                  descriptor={descriptor}
-                  onSave={handleInputSave}
-                  disabled={isLoading || !isConnectionActive}
-                  testId={epc}
-                  onEditModeChange={setIsInputEditing}
-                />
-                <HexViewer
-                  canShowHexViewer={canShowHexViewer}
-                  currentValue={currentValue}
-                />
-              </div>
+              <PropertyInputControl
+                currentValue={currentValue}
+                descriptor={descriptor}
+                onSave={handleInputSave}
+                disabled={isLoading || !isConnectionActive}
+                testId={epc}
+                onEditModeChange={setIsInputEditing}
+                hideEditButton={isInputEditing}
+              />
             )}
+            <HexViewer
+              canShowHexViewer={canShowHexViewer}
+              currentValue={currentValue}
+            />
           </div>
         );
 
