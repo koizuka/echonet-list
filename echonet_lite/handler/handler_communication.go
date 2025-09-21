@@ -858,18 +858,28 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 		errMutex.Unlock()
 	}
 
-	// 最初のデバイスのプロパティマップを取得（グループ内の全デバイスは同じクラスコードなので共通）
-	propMap, ok := h.tryGetPropertyMap(firstDevice)
-	if !ok {
-		// プロパティマップの取得に失敗した場合は、グループ内の全デバイスをオフライン状態に設定
-		for _, device := range devices {
-			if !h.dataAccessor.IsOffline(device) {
-				slog.Info("GetPropertyMap取得に失敗したため、デバイスをオフライン状態に設定", "device", device.Specifier())
-				h.dataAccessor.SetOffline(device, true)
+	// グループ内の各デバイスのプロパティマップを確認し、有効なデバイスのみでブロードキャスト
+	validDevicesWithMaps := make([]IPAndEOJ, 0, len(devices))
+	var sharedPropMap PropertyMap
+
+	for _, device := range devices {
+		propMap, ok := h.tryGetPropertyMap(device)
+		if ok {
+			validDevicesWithMaps = append(validDevicesWithMaps, device)
+			if sharedPropMap == nil {
+				sharedPropMap = propMap // 最初の有効なプロパティマップを使用
 			}
 		}
-		return
+		// 失敗した場合は tryGetPropertyMap 内でオフライン設定済み
 	}
+
+	if len(validDevicesWithMaps) == 0 {
+		return // 有効なデバイスが無い場合は処理終了
+	}
+
+	// 有効なデバイスのみでブロードキャスト処理を継続
+	devices = validDevicesWithMaps
+	propMap := sharedPropMap
 
 	// forceがfalseの場合の事前チェック
 	if !force {

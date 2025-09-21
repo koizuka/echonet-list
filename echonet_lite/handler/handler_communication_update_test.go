@@ -257,3 +257,35 @@ func TestUpdateProperties_OnlineDevice_ShouldUpdate(t *testing.T) {
 	// This should be false (device should be processed)
 	assert.False(t, shouldSkip, "Online device should always be processed")
 }
+
+// TestTryGetPropertyMap_Success tests successful property map retrieval from cache
+func TestTryGetPropertyMap_Success(t *testing.T) {
+	// Setup
+	device := IPAndEOJ{
+		IP:  net.ParseIP("192.168.1.100"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 1),
+	}
+
+	// Create mock property map
+	mockPropMap := make(PropertyMap)
+	mockPropMap[0x80] = struct{}{}
+	mockPropMap[0x81] = struct{}{}
+
+	mockDataAccessor := &MockDataAccessorForUpdate{
+		propertyMaps: map[string]PropertyMap{
+			device.Key(): mockPropMap,
+		},
+	}
+
+	handler := &CommunicationHandler{
+		dataAccessor: mockDataAccessor,
+	}
+
+	// Execute
+	propMap, ok := handler.tryGetPropertyMap(device)
+
+	// Verify
+	assert.True(t, ok, "tryGetPropertyMap should succeed when property map exists")
+	assert.NotNil(t, propMap, "Property map should not be nil")
+	assert.Equal(t, mockPropMap, propMap, "Should return the correct property map")
+}
