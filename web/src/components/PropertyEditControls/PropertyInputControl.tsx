@@ -113,8 +113,8 @@ export function PropertyInputControl({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-end gap-2">
+    <div className="flex flex-col gap-2 min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
         <Input
           ref={inputRef}
           type={hasNumberDesc ? "number" : "text"}
@@ -137,21 +137,21 @@ export function PropertyInputControl({
             }
           }}
           placeholder={
-            hasNumberDesc 
-              ? `${descriptor?.numberDesc!.min}-${descriptor?.numberDesc!.max}${descriptor?.numberDesc!.unit}` 
+            hasNumberDesc
+              ? `${descriptor?.numberDesc!.min}-${descriptor?.numberDesc!.max}${descriptor?.numberDesc!.unit}`
               : 'Enter value'
           }
           min={hasNumberDesc ? descriptor?.numberDesc!.min : undefined}
           max={hasNumberDesc ? descriptor?.numberDesc!.max : undefined}
           step={1}
-          className="h-7 text-xs w-24 relative z-0"
+          className="h-7 text-xs w-20 flex-shrink-0"
           disabled={isLoading}
           data-testid={testId ? `edit-input-${testId}` : undefined}
         />
-        <div className="flex items-center gap-1">
-          <Button 
-            variant="outline" 
-            size="sm" 
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={saveEdit}
             disabled={isLoading || !editValue.trim()}
             className="h-7 px-1"
@@ -159,9 +159,9 @@ export function PropertyInputControl({
           >
             <Check className="h-3 w-3" />
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={cancelEditing}
             disabled={isLoading}
             className="h-7 px-1"
@@ -171,23 +171,23 @@ export function PropertyInputControl({
           </Button>
         </div>
       </div>
-      
+
       {/* Slider for number properties */}
       {hasNumberDesc && descriptor?.numberDesc && (
-        <div className="w-48 px-1">
+        <div className="w-full max-w-48 px-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs text-muted-foreground">{descriptor.numberDesc.min}</span>
+            <span className="text-xs text-muted-foreground flex-shrink-0">{descriptor.numberDesc.min}</span>
             <Slider
               value={sliderValue}
               onValueChange={handleSliderChange}
               min={descriptor.numberDesc.min}
               max={descriptor.numberDesc.max}
               step={1}
-              className="flex-1"
+              className="flex-1 min-w-0"
               disabled={isLoading}
               data-testid={testId ? `slider-${testId}` : undefined}
             />
-            <span className="text-xs text-muted-foreground">{descriptor.numberDesc.max}</span>
+            <span className="text-xs text-muted-foreground flex-shrink-0">{descriptor.numberDesc.max}</span>
           </div>
           <div className="text-center text-xs text-muted-foreground">
             {sliderValue[0]}{descriptor.numberDesc.unit}

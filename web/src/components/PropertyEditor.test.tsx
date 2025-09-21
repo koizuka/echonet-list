@@ -503,14 +503,16 @@ describe('PropertyEditor', () => {
       // So it should show as a select dropdown instead
       expect(screen.getByTestId('alias-select-trigger-CF')).toBeInTheDocument();
 
-      // Should show current value
+      // Should show current value only in select (not duplicated since string value exists)
       expect(screen.getByText('auto')).toBeInTheDocument();
 
-      // Properties with aliases should use 'select' control type in the new architecture
-      // The edit button and slider are not shown for alias properties
-      expect(screen.queryByTestId('edit-button-CF')).not.toBeInTheDocument();
+      // Properties with both aliases and numberDesc should show both controls
+      // Select dropdown for aliases
+      expect(screen.getByTestId('alias-select-trigger-CF')).toBeInTheDocument();
+      // Edit button for numeric input (since it has numberDesc)
+      expect(screen.getByTestId('edit-button-CF')).toBeInTheDocument();
+      // Should not show slider (not configured for immediate slider)
       expect(screen.queryByTestId('slider-CF')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('edit-input-CF')).not.toBeInTheDocument();
     });
 
     it('should handle numeric property without aliases correctly', () => {
@@ -605,14 +607,14 @@ describe('PropertyEditor', () => {
         />
       );
 
-      // Should display current value (the key assertion to prevent regression)
+      // Should display current value only in select (not duplicated since string value exists)
       expect(screen.getByText('25℃')).toBeInTheDocument();
 
-      // Should have edit button for numeric input (B3 gets special treatment)
+      // Should have both controls for properties with aliases and numberDesc
+      // Edit button for numeric input
       expect(screen.getByTestId('edit-button-B3')).toBeInTheDocument();
-
-      // Should not show alias select (since B3 is configured to use input control)
-      expect(screen.queryByTestId('alias-select-trigger-B3')).not.toBeInTheDocument();
+      // Alias select for alias selection (B3 now also shows both controls)
+      expect(screen.getByTestId('alias-select-trigger-B3')).toBeInTheDocument();
 
       // Should not show switch
       expect(screen.queryByTestId('operation-status-switch-B3')).not.toBeInTheDocument();
@@ -668,6 +670,105 @@ describe('PropertyEditor', () => {
       // In edit mode, the main current value display should be hidden
       // Only the input field should show the value
       expect(currentValueSpans.length).toBeLessThanOrEqual(1);
+    });
+
+    it('should handle floor heating temperature setting (E1) with both aliases and numberDesc', () => {
+      // Floor heating temperature setting descriptor similar to the real implementation
+      const floorHeatingTempDescriptor: PropertyDescriptor = {
+        description: 'Temperature setting(level)',
+        aliases: {
+          'auto': 'QQ==' // Base64 for 0x41
+        },
+        aliasTranslations: {
+          'auto': '自動'
+        },
+        numberDesc: {
+          min: 1,
+          max: 15,
+          offset: 0x30, // Values 1-15 map to bytes 0x31-0x3F
+          unit: '',
+          edtLen: 1
+        }
+      };
+
+      const deviceWithFloorHeating = {
+        ...mockDevice,
+        eoj: '027B:1', // Floor Heating class code
+        properties: {
+          ...mockDevice.properties,
+          'E1': { number: 5, string: 'auto' }, // Currently set to level 5 but showing as auto
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xE1)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithFloorHeating}
+          epc="E1"
+          currentValue={{ number: 5, string: 'auto' }}
+          descriptor={floorHeatingTempDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={true}
+        />
+      );
+
+      // Should show both alias select dropdown and edit button for numeric input
+      expect(screen.getByTestId('alias-select-trigger-E1')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-button-E1')).toBeInTheDocument();
+
+      // Should show current value only in select (not duplicated since string value exists)
+      expect(screen.getByText('auto')).toBeInTheDocument();
+
+      // Should not show switch or immediate slider
+      expect(screen.queryByTestId('operation-status-switch-E1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('immediate-slider-E1')).not.toBeInTheDocument();
+    });
+
+    it('should show current value when no alias string is set for combined alias+number properties', () => {
+      // Test case where property has both aliases and numberDesc but current value is numeric only
+      const floorHeatingTempDescriptor: PropertyDescriptor = {
+        description: 'Temperature setting(level)',
+        aliases: {
+          'auto': 'QQ==' // Base64 for 0x41
+        },
+        numberDesc: {
+          min: 1,
+          max: 15,
+          offset: 0x30,
+          unit: '',
+          edtLen: 1
+        }
+      };
+
+      const deviceWithNumericValue = {
+        ...mockDevice,
+        eoj: '027B:1',
+        properties: {
+          ...mockDevice.properties,
+          'E1': { number: 5 }, // Only numeric value, no string alias
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xE1)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithNumericValue}
+          epc="E1"
+          currentValue={{ number: 5 }} // No string value
+          descriptor={floorHeatingTempDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={true}
+        />
+      );
+
+      // Should show both controls
+      expect(screen.getByTestId('alias-select-trigger-E1')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-button-E1')).toBeInTheDocument();
+
+      // Should show numeric value display (since no string alias is set)
+      expect(screen.getByText('5')).toBeInTheDocument();
     });
   });
 
