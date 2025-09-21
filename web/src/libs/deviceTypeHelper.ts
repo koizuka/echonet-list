@@ -82,6 +82,33 @@ export function getDeviceSecondaryProperties(device: { properties: Record<string
 }
 
 /**
+ * Device type and property combinations that should use immediate slider control
+ * Key: Device class code
+ * Value: Array of EPC codes that should use immediate slider
+ */
+export const IMMEDIATE_SLIDER_PROPERTIES: Record<string, string[]> = {
+  // Single Function Lighting (0291)
+  '0291': ['B0'], // Illuminance level
+};
+
+/**
+ * Checks if a property should use immediate slider control
+ *
+ * Determines whether a specific property for a given device class should
+ * display an immediate slider interface instead of the traditional edit button.
+ *
+ * @param epc - The property EPC code (e.g., 'B0' for illuminance)
+ * @param classCode - The device class code (e.g., '0291' for Single Function Lighting)
+ * @returns true if the property should show a slider without edit mode
+ */
+export function shouldUseImmediateSlider(epc: string, classCode: string): boolean {
+  const immediateSliderEPCs = IMMEDIATE_SLIDER_PROPERTIES[classCode] || [];
+  // Normalize EPC to uppercase for comparison
+  const normalizedEPC = epc.toUpperCase();
+  return immediateSliderEPCs.includes(normalizedEPC);
+}
+
+/**
  * Checks if a device is a Node Profile device
  * Node Profile devices have class code 0EF0
  */

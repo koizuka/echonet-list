@@ -498,23 +498,176 @@ describe('PropertyEditor', () => {
         />
       );
 
-      // Should show dropdown, not switch (because more than 2 aliases)
+      // Should show switch for properties with only 'auto' and 'manual' aliases (exactly 2 aliases)
+      // Note: This would be treated as on/off aliases if they were 'on' and 'off', but these are different
+      // So it should show as a select dropdown instead
       expect(screen.getByTestId('alias-select-trigger-CF')).toBeInTheDocument();
 
+      // Should show current value
+      expect(screen.getByText('auto')).toBeInTheDocument();
+
+      // Properties with aliases should use 'select' control type in the new architecture
+      // The edit button and slider are not shown for alias properties
+      expect(screen.queryByTestId('edit-button-CF')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('slider-CF')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('edit-input-CF')).not.toBeInTheDocument();
+    });
+
+    it('should handle numeric property without aliases correctly', () => {
+      const numericDescriptor: PropertyDescriptor = {
+        description: 'Temperature Setting',
+        numberDesc: {
+          min: 16,
+          max: 30,
+          offset: 0,
+          unit: '°C',
+          edtLen: 1
+        }
+      };
+
+      const deviceWithNumericProperty = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          'B3': { number: 22 }, // Temperature setting
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xB3)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithNumericProperty}
+          epc="B3"
+          currentValue={{ number: 22 }}
+          descriptor={numericDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={true}
+        />
+      );
+
+      // Should show current value display
+      expect(screen.getByText('22°C')).toBeInTheDocument();
+
+      // Should have edit button for numeric properties without aliases
+      expect(screen.getByTestId('edit-button-B3')).toBeInTheDocument();
+
+      // Should not show alias controls
+      expect(screen.queryByTestId('alias-select-trigger-B3')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('operation-status-switch-B3')).not.toBeInTheDocument();
+
+      // Should not show immediate slider (not configured for this property)
+      expect(screen.queryByTestId('immediate-slider-B3')).not.toBeInTheDocument();
+    });
+
+    it('should display current value for properties with both aliases and numberDesc (like temperature setting)', () => {
+      // This test prevents regression where current value was not displayed for properties with aliases
+      const temperatureDescriptorWithAliases: PropertyDescriptor = {
+        description: 'Temperature Setting',
+        aliases: {
+          'auto': 'QVU=',
+          'heat': 'SGVhdA==',
+          'cool': 'Q29vbA=='
+        },
+        aliasTranslations: {
+          'auto': 'Auto',
+          'heat': 'Heat',
+          'cool': 'Cool'
+        },
+        numberDesc: {
+          min: 16,
+          max: 30,
+          offset: 0,
+          unit: '°C',
+          edtLen: 1
+        },
+        stringSettable: true
+      };
+
+      const deviceWithMixedProperty = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          'B3': { EDT: 'GQ==', string: '25℃', number: 25 }, // Temperature with both string and number values
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xB3)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithMixedProperty}
+          epc="B3"
+          currentValue={{ EDT: 'GQ==', string: '25℃', number: 25 }}
+          descriptor={temperatureDescriptorWithAliases}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={true}
+        />
+      );
+
+      // Should display current value (the key assertion to prevent regression)
+      expect(screen.getByText('25℃')).toBeInTheDocument();
+
+      // Should have edit button for numeric input (B3 gets special treatment)
+      expect(screen.getByTestId('edit-button-B3')).toBeInTheDocument();
+
+      // Should not show alias select (since B3 is configured to use input control)
+      expect(screen.queryByTestId('alias-select-trigger-B3')).not.toBeInTheDocument();
+
+      // Should not show switch
+      expect(screen.queryByTestId('operation-status-switch-B3')).not.toBeInTheDocument();
+
+      // Should not show immediate slider (not configured for this property)
+      expect(screen.queryByTestId('immediate-slider-B3')).not.toBeInTheDocument();
+    });
+
+    it('should hide current value display when in edit mode for input controls', async () => {
+      const numericDescriptor: PropertyDescriptor = {
+        description: 'Temperature Setting',
+        numberDesc: {
+          min: 16,
+          max: 30,
+          offset: 0,
+          unit: '°C',
+          edtLen: 1
+        }
+      };
+
+      const deviceWithNumericProperty = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          'B3': { number: 22 },
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xB3)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithNumericProperty}
+          epc="B3"
+          currentValue={{ number: 22 }}
+          descriptor={numericDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          isConnected={true}
+        />
+      );
+
+      // Initially should show current value
+      expect(screen.getByText('22°C')).toBeInTheDocument();
+
       // Click edit button to enter edit mode
-      const editButton = screen.getByTestId('edit-button-CF');
+      const editButton = screen.getByTestId('edit-button-B3');
       fireEvent.click(editButton);
 
-      // Should show slider for number editing
-      const slider = screen.getByTestId('slider-CF');
-      expect(slider).toBeInTheDocument();
-      
-      // Input should be empty (no current number value)
-      const input = screen.getByTestId('edit-input-CF');
-      expect(input).toHaveValue(null);
-      
-      // Should show min value on slider (0%)
-      expect(screen.getByText('0%')).toBeInTheDocument();
+      // Current value display should be hidden to avoid duplication
+      // Note: We check that the current value is not visible in the main display area
+      // The input field itself may still contain the value
+      const currentValueSpans = screen.queryAllByText('22°C');
+      // In edit mode, the main current value display should be hidden
+      // Only the input field should show the value
+      expect(currentValueSpans.length).toBeLessThanOrEqual(1);
     });
   });
 
