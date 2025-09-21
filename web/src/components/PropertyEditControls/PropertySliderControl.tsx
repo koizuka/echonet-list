@@ -136,16 +136,6 @@ export function PropertySliderControl({
 
   return (
     <div className="flex flex-col gap-2 w-48">
-      {/* Current value display */}
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">
-          {formatPropertyValue(currentValue, descriptor, currentLang)}
-        </span>
-        {showLoading && (
-          <span className="text-xs text-muted-foreground">Updating...</span>
-        )}
-      </div>
-
       {/* Slider with min/max labels */}
       <div className="px-1">
         <div className="flex items-center gap-2 mb-1">
@@ -163,8 +153,11 @@ export function PropertySliderControl({
           />
           <span className="text-xs text-muted-foreground">{numberDesc.max}</span>
         </div>
-        <div className="text-center text-xs text-muted-foreground">
-          {sliderValue[0]}{numberDesc.unit}
+        <div className="flex items-center justify-center gap-2 text-center">
+          <span className="text-sm font-medium">{sliderValue[0]}{numberDesc.unit}</span>
+          {showLoading && (
+            <span className="text-xs text-muted-foreground">Updating...</span>
+          )}
         </div>
       </div>
     </div>
