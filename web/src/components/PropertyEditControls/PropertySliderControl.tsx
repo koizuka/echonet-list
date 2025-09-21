@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { formatPropertyValue } from '@/libs/propertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
+import { generateLogEntryId } from '@/libs/idHelper';
 import type { PropertyValue, PropertyDescriptor } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
 
@@ -38,7 +39,9 @@ export function PropertySliderControl({
 }: PropertySliderControlProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [sliderValue, setSliderValue] = useState<number[]>([0]);
+  const [showLoading, setShowLoading] = useState(false);
   const currentLang = getCurrentLocale();
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
 
   // Extract number description for slider configuration
@@ -57,6 +60,16 @@ export function PropertySliderControl({
     setSliderValue(values);
   }, []);
 
+  // Cleanup loading timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+
   const handleValueCommit = useCallback(async (values: number[]) => {
     const newValue = values[0];
 
@@ -66,7 +79,7 @@ export function PropertySliderControl({
     // Range validation (only validate if numberDesc exists)
     if (numberDesc && (newValue < numberDesc.min || newValue > numberDesc.max)) {
       const errorLog: LogEntry = {
-        id: `slider-error-${Date.now()}`,
+        id: generateLogEntryId('slider-error'),
         level: 'ERROR',
         message: `Slider value ${newValue} is outside valid range ${numberDesc.min}-${numberDesc.max}`,
         time: new Date().toISOString(),
@@ -78,6 +91,15 @@ export function PropertySliderControl({
     }
 
     setIsLoading(true);
+
+    // Show loading indicator after a short delay to prevent flicker
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+    loadingTimeoutRef.current = setTimeout(() => {
+      setShowLoading(true);
+    }, 200); // Show loading after 200ms
+
     try {
       await onSave({ number: newValue });
     } catch (error) {
@@ -85,7 +107,7 @@ export function PropertySliderControl({
 
       // Send error notification
       const errorLog: LogEntry = {
-        id: `slider-error-${Date.now()}`,
+        id: generateLogEntryId('slider-error'),
         level: 'ERROR',
         message: `Failed to set ${descriptor?.description || 'property'}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         time: new Date().toISOString(),
@@ -95,6 +117,11 @@ export function PropertySliderControl({
       onError?.(errorLog);
     } finally {
       setIsLoading(false);
+      setShowLoading(false);
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
     }
   }, [currentNum, numberDesc, onSave, onError, descriptor?.description]);
 
@@ -114,7 +141,7 @@ export function PropertySliderControl({
         <span className="text-sm font-medium">
           {formatPropertyValue(currentValue, descriptor, currentLang)}
         </span>
-        {isLoading && (
+        {showLoading && (
           <span className="text-xs text-muted-foreground">Updating...</span>
         )}
       </div>

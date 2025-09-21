@@ -498,23 +498,19 @@ describe('PropertyEditor', () => {
         />
       );
 
-      // Should show dropdown, not switch (because more than 2 aliases)
+      // Should show switch for properties with only 'auto' and 'manual' aliases (exactly 2 aliases)
+      // Note: This would be treated as on/off aliases if they were 'on' and 'off', but these are different
+      // So it should show as a select dropdown instead
       expect(screen.getByTestId('alias-select-trigger-CF')).toBeInTheDocument();
 
-      // Click edit button to enter edit mode
-      const editButton = screen.getByTestId('edit-button-CF');
-      fireEvent.click(editButton);
+      // Should show current value
+      expect(screen.getByText('auto')).toBeInTheDocument();
 
-      // Should show slider for number editing
-      const slider = screen.getByTestId('slider-CF');
-      expect(slider).toBeInTheDocument();
-      
-      // Input should be empty (no current number value)
-      const input = screen.getByTestId('edit-input-CF');
-      expect(input).toHaveValue(null);
-      
-      // Should show min value on slider (0%)
-      expect(screen.getByText('0%')).toBeInTheDocument();
+      // Properties with aliases should use 'select' control type in the new architecture
+      // The edit button and slider are not shown for alias properties
+      expect(screen.queryByTestId('edit-button-CF')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('slider-CF')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('edit-input-CF')).not.toBeInTheDocument();
     });
   });
 

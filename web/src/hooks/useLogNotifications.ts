@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { generateLogEntryId } from '@/libs/idHelper';
 import type { LogNotification, DeviceOnline, DeviceOffline } from './types';
 
 export interface LogEntry {
@@ -68,7 +69,7 @@ export function useLogNotifications({
     const level = type === 'online' ? 'INFO' : 'WARN';
     
     return {
-      id: `${type}-${Date.now()}-${Math.random()}`,
+      id: generateLogEntryId(type),
       level: level as 'INFO' | 'WARN',
       message: `Device ${deviceId} ${action}`,
       time: new Date().toISOString(),
@@ -95,7 +96,7 @@ export function useLogNotifications({
     if (!notification) return;
 
     const newLog: LogEntry = {
-      id: `${Date.now()}-${Math.random()}`,
+      id: generateLogEntryId('log'),
       ...notification.payload,
       isRead: false
     };

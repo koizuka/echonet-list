@@ -3,6 +3,7 @@ import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperation
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
+import { generateLogEntryId } from '@/libs/idHelper';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
@@ -168,7 +169,7 @@ function App() {
     const detailedMessage = formatErrorMessage(operation, context);
     
     const errorEntry: LogEntry = {
-      id: `error-${Date.now()}-${Math.random()}`,
+      id: generateLogEntryId('error'),
       level: 'ERROR',
       message: `${detailedMessage}: ${errorMessage}`,
       time: new Date().toISOString(),

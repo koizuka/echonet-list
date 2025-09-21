@@ -12,6 +12,52 @@ import type { PropertyDescriptor, PropertyValue, Device, PropertyDescriptionData
 import type { LogEntry } from '@/hooks/useLogNotifications';
 
 /**
+ * Determines the appropriate control type for a property
+ */
+type PropertyControlType = 'switch' | 'select' | 'slider' | 'input' | 'display';
+
+/**
+ * Gets the appropriate control type for a property based on its characteristics
+ */
+function getPropertyControlType({
+  hasOnOffAliases,
+  hasAliases,
+  useImmediateSlider,
+  hasStringDesc,
+  hasNumberDesc,
+  isSettable
+}: {
+  hasOnOffAliases: boolean;
+  hasAliases: boolean;
+  useImmediateSlider: boolean;
+  hasStringDesc: boolean;
+  hasNumberDesc: boolean;
+  isSettable: boolean;
+}): PropertyControlType {
+  if (!isSettable && !useImmediateSlider) {
+    return 'display';
+  }
+
+  if (hasOnOffAliases) {
+    return 'switch';
+  }
+
+  if (hasAliases && !hasOnOffAliases) {
+    return 'select';
+  }
+
+  if (useImmediateSlider) {
+    return 'slider';
+  }
+
+  if ((hasStringDesc || hasNumberDesc) && !useImmediateSlider) {
+    return 'input';
+  }
+
+  return 'display';
+}
+
+/**
  * Determines if a property is settable based on various conditions
  *
  * @param params - Object containing all the necessary parameters for settability check
@@ -112,10 +158,20 @@ export function PropertyEditor({
   const hasOnOffAliases = hasAliases && descriptor?.aliases &&
     Object.keys(descriptor.aliases).length === 2 &&
     'on' in descriptor.aliases && 'off' in descriptor.aliases;
-  
+
+  // Determine the appropriate control type
+  const controlType = getPropertyControlType({
+    hasOnOffAliases: !!hasOnOffAliases,
+    hasAliases: !!hasAliases,
+    useImmediateSlider: !!useImmediateSlider,
+    hasStringDesc: !!hasStringDesc,
+    hasNumberDesc: !!hasNumberDesc,
+    isSettable
+  });
+
   const handleAliasSelect = async (aliasName: string) => {
     if (!descriptor?.aliases) return;
-    
+
     setIsLoading(true);
     try {
       await onPropertyChange(deviceId, epc, { string: aliasName });
@@ -130,92 +186,104 @@ export function PropertyEditor({
     await onPropertyChange(deviceId, epc, value);
   };
 
-  // For read-only properties, use PropertyDisplay component
-  // Exception: immediate slider properties should always be editable regardless of Set Property Map
-  if (!isSettable && !useImmediateSlider) {
-    return (
-      <PropertyDisplay
-        currentValue={currentValue}
-        descriptor={descriptor}
-        epc={epc}
-        propertyDescriptions={propertyDescriptions}
-        device={device}
-        allDevices={allDevices}
-        aliases={aliases}
-        getDeviceClassCode={getDeviceClassCode}
-        isCompact={isCompact}
-      />
-    );
+  // Render appropriate control based on type
+  const renderPropertyControl = () => {
+    switch (controlType) {
+      case 'display':
+        return (
+          <PropertyDisplay
+            currentValue={currentValue}
+            descriptor={descriptor}
+            epc={epc}
+            propertyDescriptions={propertyDescriptions}
+            device={device}
+            allDevices={allDevices}
+            aliases={aliases}
+            getDeviceClassCode={getDeviceClassCode}
+            isCompact={isCompact}
+          />
+        );
+
+      case 'switch':
+        return (
+          <PropertySwitchControl
+            value={currentValue.string || 'off'}
+            onChange={handleAliasSelect}
+            disabled={isLoading || !isConnectionActive}
+            testId={`operation-status-switch-${epc}`}
+          />
+        );
+
+      case 'select':
+        return (
+          <PropertySelectControl
+            value={currentValue.string || ''}
+            aliases={descriptor?.aliases || {}}
+            aliasTranslations={descriptor?.aliasTranslations}
+            onChange={handleAliasSelect}
+            disabled={isLoading || !isConnectionActive}
+            testId={`alias-select-trigger-${epc}`}
+          />
+        );
+
+      case 'slider':
+        return (
+          <div className="relative">
+            <div className="flex items-center gap-2">
+              <PropertySliderControl
+                currentValue={currentValue}
+                descriptor={descriptor}
+                onSave={handleInputSave}
+                disabled={isLoading || !isConnectionActive}
+                testId={epc}
+                onError={onError}
+              />
+              <HexViewer
+                canShowHexViewer={canShowHexViewer}
+                currentValue={currentValue}
+              />
+            </div>
+          </div>
+        );
+
+      case 'input':
+        return (
+          <div className="relative">
+            <div className="flex items-center gap-2">
+              {!hasAliases && !isInputEditing && (
+                <span className="text-sm font-medium">
+                  {formatPropertyValue(currentValue, descriptor, currentLang)}
+                </span>
+              )}
+              <PropertyInputControl
+                currentValue={currentValue}
+                descriptor={descriptor}
+                onSave={handleInputSave}
+                disabled={isLoading || !isConnectionActive}
+                testId={epc}
+                onEditModeChange={setIsInputEditing}
+              />
+              <HexViewer
+                canShowHexViewer={canShowHexViewer}
+                currentValue={currentValue}
+              />
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // For display-only, return the control directly
+  if (controlType === 'display') {
+    return renderPropertyControl();
   }
 
   return (
     <div className="flex items-center gap-2">
-      {/* Switch for properties with only on/off aliases */}
-      {hasOnOffAliases && (
-        <PropertySwitchControl
-          value={currentValue.string || 'off'}
-          onChange={handleAliasSelect}
-          disabled={isLoading || !isConnectionActive}
-          testId={`operation-status-switch-${epc}`}
-        />
-      )}
-      
-      {/* Alias select - not for on/off properties */}
-      {hasAliases && !hasOnOffAliases && (
-        <PropertySelectControl
-          value={currentValue.string || ''}
-          aliases={descriptor.aliases!}
-          aliasTranslations={descriptor.aliasTranslations}
-          onChange={handleAliasSelect}
-          disabled={isLoading || !isConnectionActive}
-          testId={`alias-select-trigger-${epc}`}
-        />
-      )}
-
-      {/* Immediate Slider for specific properties */}
-      {useImmediateSlider && (
-        <div className="relative">
-          <div className="flex items-center gap-2">
-            <PropertySliderControl
-              currentValue={currentValue}
-              descriptor={descriptor}
-              onSave={handleInputSave}
-              disabled={isLoading || !isConnectionActive}
-              testId={epc}
-              onError={onError}
-            />
-            <HexViewer
-              canShowHexViewer={canShowHexViewer}
-              currentValue={currentValue}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* String/Number editing (traditional mode) */}
-      {(hasStringDesc || hasNumberDesc) && !useImmediateSlider && (
-        <div className="relative">
-          <div className="flex items-center gap-2">
-            {!hasAliases && !isInputEditing && (
-              <span className="text-sm font-medium">
-                {formatPropertyValue(currentValue, descriptor, currentLang)}
-              </span>
-            )}
-            <PropertyInputControl
-              currentValue={currentValue}
-              descriptor={descriptor}
-              onSave={handleInputSave}
-              disabled={isLoading || !isConnectionActive}
-              testId={epc}
-              onEditModeChange={setIsInputEditing}
-            />
-            <HexViewer
-              canShowHexViewer={canShowHexViewer}
-              currentValue={currentValue}
-            />
-          </div>
-        </div>
-      )}
+      {renderPropertyControl()}
     </div>
   );
 }
