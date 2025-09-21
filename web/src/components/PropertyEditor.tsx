@@ -25,8 +25,7 @@ function getPropertyControlType({
   useImmediateSlider,
   hasStringDesc,
   hasNumberDesc,
-  isSettable,
-  epc
+  isSettable
 }: {
   hasOnOffAliases: boolean;
   hasAliases: boolean;
@@ -34,7 +33,6 @@ function getPropertyControlType({
   hasStringDesc: boolean;
   hasNumberDesc: boolean;
   isSettable: boolean;
-  epc?: string;
 }): PropertyControlType {
   if (!isSettable && !useImmediateSlider) {
     return 'display';
@@ -50,14 +48,9 @@ function getPropertyControlType({
     return 'switch';
   }
 
-  // For numeric properties with both aliases and numberDesc, prefer input for temperature-like controls
+  // For numeric properties with both aliases and numberDesc, show both controls
   if (hasNumberDesc && hasAliases && !hasOnOffAliases) {
-    // Temperature setting (B3) should use input for numeric entry
-    if (epc === 'B3') {
-      return 'input';
-    }
-    // Other properties with aliases use select
-    return 'select';
+    return 'select'; // Will also show input control in render logic
   }
 
   // Select for properties with aliases only (and no number descriptor)
@@ -182,8 +175,7 @@ export function PropertyEditor({
     useImmediateSlider: !!useImmediateSlider,
     hasStringDesc: !!hasStringDesc,
     hasNumberDesc: !!hasNumberDesc,
-    isSettable,
-    epc
+    isSettable
   });
 
 
@@ -234,14 +226,46 @@ export function PropertyEditor({
 
       case 'select':
         return (
-          <PropertySelectControl
-            value={currentValue.string || ''}
-            aliases={descriptor?.aliases || {}}
-            aliasTranslations={descriptor?.aliasTranslations}
-            onChange={handleAliasSelect}
-            disabled={isLoading || !isConnectionActive}
-            testId={`alias-select-trigger-${epc}`}
-          />
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <PropertySelectControl
+                value={currentValue.string || ''}
+                aliases={descriptor?.aliases || {}}
+                aliasTranslations={descriptor?.aliasTranslations}
+                onChange={handleAliasSelect}
+                disabled={isLoading || !isConnectionActive}
+                testId={`alias-select-trigger-${epc}`}
+              />
+              {!isInputEditing && !currentValue.string && hasNumberDesc && (
+                <span className="text-sm font-medium flex-shrink-0">
+                  {formatPropertyValue(currentValue, descriptor, currentLang)}
+                </span>
+              )}
+              {!hasNumberDesc && (
+                <HexViewer
+                  canShowHexViewer={canShowHexViewer}
+                  currentValue={currentValue}
+                />
+              )}
+            </div>
+            {/* Show input control for properties with both aliases and numberDesc */}
+            {hasNumberDesc && (
+              <div className="flex items-center justify-end gap-2 min-w-0">
+                <PropertyInputControl
+                  currentValue={currentValue}
+                  descriptor={descriptor}
+                  onSave={handleInputSave}
+                  disabled={isLoading || !isConnectionActive}
+                  testId={epc}
+                  onEditModeChange={setIsInputEditing}
+                />
+                <HexViewer
+                  canShowHexViewer={canShowHexViewer}
+                  currentValue={currentValue}
+                />
+              </div>
+            )}
+          </div>
         );
 
       case 'slider':
