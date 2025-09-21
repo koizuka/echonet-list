@@ -12,15 +12,17 @@ interface PropertyInputControlProps {
   disabled: boolean;
   testId?: string;
   onEditModeChange?: (isEditing: boolean) => void;
+  hideEditButton?: boolean;
 }
 
-export function PropertyInputControl({ 
-  currentValue, 
-  descriptor, 
-  onSave, 
+export function PropertyInputControl({
+  currentValue,
+  descriptor,
+  onSave,
   disabled,
   testId,
-  onEditModeChange
+  onEditModeChange,
+  hideEditButton = false
 }: PropertyInputControlProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -98,10 +100,15 @@ export function PropertyInputControl({
 
 
   if (!isEditing) {
+    // Return null if hideEditButton is true
+    if (hideEditButton) {
+      return null;
+    }
+
     return (
-      <Button 
-        variant="outline" 
-        size="sm" 
+      <Button
+        variant="outline"
+        size="sm"
         onClick={startEditing}
         disabled={disabled || isLoading}
         className="h-7 px-2"

@@ -515,6 +515,160 @@ describe('PropertyEditor', () => {
       expect(screen.queryByTestId('slider-CF')).not.toBeInTheDocument();
     });
 
+    it('should layout alias dropdown and edit button on same line for alias+number properties', () => {
+      const mixedDescriptor: PropertyDescriptor = {
+        description: 'Mixed property',
+        aliases: {
+          'auto': 'QVU=',
+          'manual': 'TUFOVA=='
+        },
+        numberDesc: {
+          min: 0,
+          max: 100,
+          offset: 0,
+          unit: '%',
+          edtLen: 1
+        }
+      };
+
+      const deviceWithMixedProperty = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          'CF': { string: 'auto' },
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xCF)) }
+        }
+      };
+
+      const { container } = render(
+        <PropertyEditor
+          device={deviceWithMixedProperty}
+          epc="CF"
+          currentValue={{ string: 'auto' }}
+          descriptor={mixedDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+        />
+      );
+
+      // Both dropdown and edit button should be present
+      const aliasSelect = screen.getByTestId('alias-select-trigger-CF');
+      const editButton = screen.getByTestId('edit-button-CF');
+
+      expect(aliasSelect).toBeInTheDocument();
+      expect(editButton).toBeInTheDocument();
+
+      // Check that both elements are in the same row by verifying they share a common ancestor with horizontal layout
+      const sharedContainer = container.querySelector('.flex.items-center.gap-2');
+      expect(sharedContainer).toContain(aliasSelect);
+      expect(sharedContainer).toContain(editButton);
+    });
+
+    it('should hide alias dropdown when in edit mode for alias+number properties', async () => {
+      const mixedDescriptor: PropertyDescriptor = {
+        description: 'Mixed property',
+        aliases: {
+          'auto': 'QVU=',
+          'manual': 'TUFOVA=='
+        },
+        numberDesc: {
+          min: 0,
+          max: 100,
+          offset: 0,
+          unit: '%',
+          edtLen: 1
+        }
+      };
+
+      const deviceWithMixedProperty = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          'CF': { number: 50 }, // Currently showing numeric value
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xCF)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithMixedProperty}
+          epc="CF"
+          currentValue={{ number: 50 }}
+          descriptor={mixedDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+        />
+      );
+
+      // Initially should show both alias dropdown and edit button
+      expect(screen.getByTestId('alias-select-trigger-CF')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-button-CF')).toBeInTheDocument();
+
+      // Click edit button to enter edit mode
+      const editButton = screen.getByTestId('edit-button-CF');
+      fireEvent.click(editButton);
+
+      // In edit mode, alias dropdown should be hidden
+      expect(screen.queryByTestId('alias-select-trigger-CF')).not.toBeInTheDocument();
+
+      // Edit controls should be visible
+      expect(screen.getByTestId('edit-input-CF')).toBeInTheDocument();
+      expect(screen.getByTestId('save-button-CF')).toBeInTheDocument();
+      expect(screen.getByTestId('cancel-button-CF')).toBeInTheDocument();
+    });
+
+    it('should align cancel button position with original edit button position', async () => {
+      const mixedDescriptor: PropertyDescriptor = {
+        description: 'Mixed property',
+        aliases: {
+          'auto': 'QVU=',
+          'manual': 'TUFOVA=='
+        },
+        numberDesc: {
+          min: 0,
+          max: 100,
+          offset: 0,
+          unit: '%',
+          edtLen: 1
+        }
+      };
+
+      const deviceWithMixedProperty = {
+        ...mockDevice,
+        properties: {
+          ...mockDevice.properties,
+          'CF': { number: 50 },
+          '9E': { EDT: btoa(String.fromCharCode(0x02, 0x80, 0xCF)) }
+        }
+      };
+
+      render(
+        <PropertyEditor
+          device={deviceWithMixedProperty}
+          epc="CF"
+          currentValue={{ number: 50 }}
+          descriptor={mixedDescriptor}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+        />
+      );
+
+      // Get initial edit button position/container structure
+      const editButton = screen.getByTestId('edit-button-CF');
+      const editButtonContainer = editButton.closest('.flex.items-center');
+
+      // Click edit button to enter edit mode
+      fireEvent.click(editButton);
+
+      // In edit mode, cancel button should be in similar position structure
+      const cancelButton = screen.getByTestId('cancel-button-CF');
+      const cancelButtonContainer = cancelButton.closest('.flex.items-center');
+
+      // Both should be in horizontal flex containers at the same level
+      expect(editButtonContainer).toHaveClass('flex', 'items-center');
+      expect(cancelButtonContainer).toHaveClass('flex', 'items-center');
+    });
+
     it('should handle numeric property without aliases correctly', () => {
       const numericDescriptor: PropertyDescriptor = {
         description: 'Temperature Setting',
