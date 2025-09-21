@@ -25,7 +25,8 @@ function getPropertyControlType({
   useImmediateSlider,
   hasStringDesc,
   hasNumberDesc,
-  isSettable
+  isSettable,
+  epc
 }: {
   hasOnOffAliases: boolean;
   hasAliases: boolean;
@@ -33,24 +34,39 @@ function getPropertyControlType({
   hasStringDesc: boolean;
   hasNumberDesc: boolean;
   isSettable: boolean;
+  epc?: string;
 }): PropertyControlType {
   if (!isSettable && !useImmediateSlider) {
     return 'display';
   }
 
-  if (hasOnOffAliases) {
-    return 'switch';
-  }
-
-  if (hasAliases && !hasOnOffAliases) {
-    return 'select';
-  }
-
+  // Check for immediate slider first (takes priority)
   if (useImmediateSlider) {
     return 'slider';
   }
 
-  if ((hasStringDesc || hasNumberDesc) && !useImmediateSlider) {
+  // Switch for properties with exactly on/off aliases
+  if (hasOnOffAliases) {
+    return 'switch';
+  }
+
+  // For numeric properties with both aliases and numberDesc, prefer input for temperature-like controls
+  if (hasNumberDesc && hasAliases && !hasOnOffAliases) {
+    // Temperature setting (B3) should use input for numeric entry
+    if (epc === 'B3') {
+      return 'input';
+    }
+    // Other properties with aliases use select
+    return 'select';
+  }
+
+  // Select for properties with aliases only (and no number descriptor)
+  if (hasAliases && !hasOnOffAliases && !hasNumberDesc) {
+    return 'select';
+  }
+
+  // Input for properties with string or number descriptors
+  if (hasStringDesc || hasNumberDesc) {
     return 'input';
   }
 
@@ -166,8 +182,10 @@ export function PropertyEditor({
     useImmediateSlider: !!useImmediateSlider,
     hasStringDesc: !!hasStringDesc,
     hasNumberDesc: !!hasNumberDesc,
-    isSettable
+    isSettable,
+    epc
   });
+
 
   const handleAliasSelect = async (aliasName: string) => {
     if (!descriptor?.aliases) return;
@@ -250,7 +268,7 @@ export function PropertyEditor({
         return (
           <div className="relative">
             <div className="flex items-center gap-2">
-              {!hasAliases && !isInputEditing && (
+              {!isInputEditing && (
                 <span className="text-sm font-medium">
                   {formatPropertyValue(currentValue, descriptor, currentLang)}
                 </span>
