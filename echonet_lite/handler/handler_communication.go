@@ -757,9 +757,8 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 			}
 		}
 
-		propMap := h.dataAccessor.GetPropertyMap(device, GetPropertyMap)
-		if propMap == nil {
-			storeError(fmt.Errorf("プロパティマップが見つかりません: %v", device))
+		propMap, ok := h.tryGetPropertyMap(device)
+		if !ok {
 			continue
 		}
 
@@ -859,12 +858,28 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 		errMutex.Unlock()
 	}
 
-	// 最初のデバイスのプロパティマップを取得（グループ内の全デバイスは同じクラスコードなので共通）
-	propMap := h.dataAccessor.GetPropertyMap(firstDevice, GetPropertyMap)
-	if propMap == nil {
-		storeError(fmt.Errorf("プロパティマップが見つかりません: %v", firstDevice))
-		return
+	// グループ内の各デバイスのプロパティマップを確認し、有効なデバイスのみでブロードキャスト
+	validDevicesWithMaps := make([]IPAndEOJ, 0, len(devices))
+	var sharedPropMap PropertyMap
+
+	for _, device := range devices {
+		propMap, ok := h.tryGetPropertyMap(device)
+		if ok {
+			validDevicesWithMaps = append(validDevicesWithMaps, device)
+			if sharedPropMap == nil {
+				sharedPropMap = propMap // 最初の有効なプロパティマップを使用
+			}
+		}
+		// 失敗した場合は tryGetPropertyMap 内でオフライン設定済み
 	}
+
+	if len(validDevicesWithMaps) == 0 {
+		return // 有効なデバイスが無い場合は処理終了
+	}
+
+	// 有効なデバイスのみでブロードキャスト処理を継続
+	devices = validDevicesWithMaps
+	propMap := sharedPropMap
 
 	// forceがfalseの場合の事前チェック
 	if !force {
@@ -927,6 +942,45 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 	if h.Debug {
 		slog.Info("Broadcast group processed", "device_count", len(devices), "first_device", firstDevice.Specifier())
 	}
+}
+
+// tryGetPropertyMap は指定されたデバイスのプロパティマップを取得し、見つからない場合はGetPropertyMapリクエストを送信します
+func (h *CommunicationHandler) tryGetPropertyMap(device IPAndEOJ) (PropertyMap, bool) {
+	propMap := h.dataAccessor.GetPropertyMap(device, GetPropertyMap)
+	if propMap != nil {
+		return propMap, true
+	}
+
+	// プロパティマップが見つからない場合は、まずGetPropertyMapリクエストを送信
+	slog.Debug("プロパティマップが見つからないため、GetPropertyMapを取得", "device", device.Specifier())
+
+	success, properties, _, err := h.session.GetProperties(
+		h.ctx,
+		device,
+		[]echonet_lite.EPCType{echonet_lite.EPCGetPropertyMap},
+	)
+
+	if err != nil || !success || len(properties) == 0 {
+		// GetPropertyMapの取得に失敗した場合は、デバイスをオフライン状態に設定
+		if !h.dataAccessor.IsOffline(device) {
+			slog.Info("GetPropertyMap取得に失敗したため、デバイスをオフライン状態に設定", "device", device.Specifier())
+			h.dataAccessor.SetOffline(device, true)
+		}
+		return nil, false
+	}
+
+	// 取得したプロパティを登録
+	h.dataAccessor.RegisterProperties(device, properties)
+	h.dataAccessor.SaveDeviceInfo()
+
+	// 再度プロパティマップを取得
+	propMap = h.dataAccessor.GetPropertyMap(device, GetPropertyMap)
+	if propMap == nil {
+		slog.Warn("GetPropertyMapを取得したがプロパティマップの生成に失敗", "device", device.Specifier())
+		return nil, false
+	}
+
+	return propMap, true
 }
 
 // processIndividualDevice は個別デバイスを処理する
