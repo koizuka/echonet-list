@@ -34,8 +34,8 @@ describe('PropertySliderControl', () => {
       />
     );
 
-    // Check if current value is displayed (using getAllByText to handle multiple instances)
-    expect(screen.getAllByText('50%')).toHaveLength(2); // One in main display, one in slider value
+    // Check if current value is displayed (should only appear once, below the slider)
+    expect(screen.getByText('50%')).toBeInTheDocument();
 
     // Check if min/max labels are displayed
     expect(screen.getByText('0')).toBeInTheDocument();
@@ -78,8 +78,8 @@ describe('PropertySliderControl', () => {
     );
 
     // Should show min value when current is undefined
-    // The component shows "Raw data" when there's no valid number
-    expect(screen.getByText('Raw data')).toBeInTheDocument();
+    // The component shows the minimum value (0%) when there's no valid number
+    expect(screen.getByText('0%')).toBeInTheDocument();
     // Check that min value is used for slider (min=0)
     expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '0');
   });
@@ -165,7 +165,7 @@ describe('PropertySliderControl', () => {
       />
     );
 
-    expect(screen.getAllByText('25°C')).toHaveLength(2);
+    expect(screen.getByText('25°C')).toBeInTheDocument();
     expect(screen.getByText('10')).toBeInTheDocument();
     expect(screen.getByText('50')).toBeInTheDocument();
   });
@@ -189,7 +189,7 @@ describe('PropertySliderControl', () => {
 
     // Error handling would be tested at integration level
     // For now, just ensure component renders without crashing
-    expect(screen.getAllByText('50%')).toHaveLength(2);
+    expect(screen.getByText('50%')).toBeInTheDocument();
 
     consoleErrorSpy.mockRestore();
   });
@@ -211,5 +211,26 @@ describe('PropertySliderControl', () => {
     // Test range validation by directly calling handleValueCommit with out-of-range value
     // This would be integration tested with actual slider interaction
     expect(component).toBeTruthy();
+  });
+
+  it('should display current value only once (regression test)', () => {
+    const currentValue: PropertyValue = { number: 75 };
+
+    render(
+      <PropertySliderControl
+        currentValue={currentValue}
+        descriptor={mockDescriptor}
+        onSave={mockOnSave}
+        disabled={false}
+        testId="illuminance"
+      />
+    );
+
+    // Should have exactly one instance of the formatted value
+    const valueElements = screen.getAllByText('75%');
+    expect(valueElements).toHaveLength(1);
+
+    // Should not have duplicate value displays
+    expect(screen.queryAllByText('75%')).toHaveLength(1);
   });
 });
