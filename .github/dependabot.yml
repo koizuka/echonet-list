@@ -33,7 +33,7 @@ updates:
       interval: "daily" # Check for updates once a day
     open-pull-requests-limit: 10 # Limit number of open PRs
     cooldown:
- .    default-days: 7
+      default-days: 7
     labels:
       - "dependencies"
       - "npm"
