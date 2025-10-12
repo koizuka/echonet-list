@@ -43,6 +43,11 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
 - **プロパティ表示改善**: EPCコードを人間可読な名前で表示
 - **インタラクティブ編集**: プロパティ種類に応じたUIコントロール（ドロップダウン、数値入力）
 - **デバイスエイリアス表示**: エイリアス名での分かりやすいデバイス識別
+- **デバイス履歴表示**: 各デバイスのプロパティ変更履歴を表示
+  - デバイスカードから履歴ボタン（時計アイコン）でダイアログを開く
+  - 時刻、プロパティ名、値、発生源（操作/通知）を時系列表示
+  - settableOnlyフィルターで操作可能プロパティのみ/全プロパティを切り替え
+  - リロードボタンで履歴の再取得
 - **レスポンシブデザイン**: モバイル・デスクトップ対応
 - **リアルタイム更新**: WebSocketによるプロパティ変更のリアルタイム反映
 - **国際化対応**: 日本語・英語対応のプロパティ表示（`get_property_description` API の `lang` パラメータ）
@@ -69,8 +74,10 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
   - `src/App.tsx`: メインアプリケーション
   - `src/components/PropertyEditor.tsx`: プロパティ編集コンポーネント
   - `src/components/DeviceStatusIndicators.tsx`: デバイス状態インジケータ
+  - `src/components/DeviceHistoryDialog.tsx`: デバイス履歴ダイアログ
   - `src/hooks/useWebSocketConnection.ts`: WebSocket接続管理
   - `src/hooks/useECHONET.ts`: ECHONETプロトコル状態管理
+  - `src/hooks/useDeviceHistory.ts`: デバイス履歴取得
   - `src/hooks/useAutoReconnect.ts`: 自動再接続機能
   - `src/hooks/useLogNotifications.ts`: ログ通知機能
   - `src/hooks/usePersistedTab.ts`: タブ状態永続化
