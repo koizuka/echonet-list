@@ -148,6 +148,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 	}
 
 	// Parse properties
+	requestedValues := make(map[echonet_lite.EPCType]protocol.PropertyData, len(payload.Properties))
 	properties := make(echonet_lite.Properties, 0, len(payload.Properties))
 	for epcStr, propData := range payload.Properties {
 		epc, err := handler.ParseEPCString(epcStr)
@@ -209,6 +210,7 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 			EPC: epc,
 			EDT: edtBytes,
 		})
+		requestedValues[epc] = propData
 	}
 
 	// Set properties
@@ -280,6 +282,14 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 		lastSeen,
 		isOffline,
 	)
+
+	if len(deviceAndProps.Properties) > 0 {
+		for _, prop := range deviceAndProps.Properties {
+			if value, ok := requestedValues[prop.EPC]; ok {
+				ws.recordSetResult(deviceAndProps.Device, prop.EPC, value)
+			}
+		}
+	}
 
 	// Marshal the device data
 	deviceDataJSON, err := json.Marshal(deviceData)

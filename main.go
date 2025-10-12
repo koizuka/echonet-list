@@ -136,7 +136,14 @@ func main() {
 		httpAddr := fmt.Sprintf("%s:%d", cfg.HTTPServer.Host, cfg.HTTPServer.Port)
 
 		// WebSocketサーバーの作成と起動
-		wsServer, err := server.NewWebSocketServer(ctx, httpAddr, client.NewECHONETListClientProxy(s.GetHandler()), s.GetHandler(), serverStartupTime)
+		wsServer, err := server.NewWebSocketServer(
+			ctx,
+			httpAddr,
+			client.NewECHONETListClientProxy(s.GetHandler()),
+			s.GetHandler(),
+			serverStartupTime,
+			server.HistoryOptions{PerDeviceLimit: cfg.History.PerDeviceLimit},
+		)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WebSocketサーバーの作成に失敗しました: %v\n", err)
 			os.Exit(1)

@@ -7,6 +7,11 @@ debug = false
 [log]
 filename = "echonet-list.log"
 
+# 履歴設定
+[history]
+# デバイスごとに保持する履歴件数の上限
+per_device_limit = 500
+
 # WebSocketサーバー設定
 [websocket]
 enabled = true

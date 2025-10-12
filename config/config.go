@@ -60,6 +60,9 @@ type Config struct {
 	Log   struct {
 		Filename string `toml:"filename"`
 	} `toml:"log"`
+	History struct {
+		PerDeviceLimit int `toml:"per_device_limit"`
+	} `toml:"history"`
 	WebSocket struct {
 		Enabled                bool   `toml:"enabled"`
 		PeriodicUpdateInterval string `toml:"periodic_update_interval"` // e.g., "1m", "30s", "0" to disable
@@ -106,6 +109,7 @@ func NewConfig() *Config {
 		Debug: false,
 	}
 	cfg.Log.Filename = "echonet-list.log"
+	cfg.History.PerDeviceLimit = 500
 	cfg.WebSocket.PeriodicUpdateInterval = "1m" // Default to 1 minute
 	cfg.WebSocket.ForcedUpdateInterval = "30m"  // Default to 30 minutes
 	cfg.WebSocketClient.Addr = "ws://localhost:8080/ws"

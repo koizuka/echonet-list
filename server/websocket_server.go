@@ -69,14 +69,20 @@ type WebSocketServer struct {
 	forcedUpdateInterval   time.Duration                     // Forced update interval
 	timeProvider           TimeProvider                      // Time provider for testability
 	serverStartupTime      time.Time                         // Server startup timestamp
+	historyStore           DeviceHistoryStore                // In-memory history storage
 }
 
 // NewWebSocketServer creates a new WebSocket server
-func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.ECHONETListClient, handler *handler.ECHONETLiteHandler, startupTime time.Time) (*WebSocketServer, error) {
+func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.ECHONETListClient, handler *handler.ECHONETLiteHandler, startupTime time.Time, historyOpts ...HistoryOptions) (*WebSocketServer, error) {
 	serverCtx, cancel := context.WithCancel(ctx)
 
 	// Create the transport
 	transport := NewDefaultWebSocketTransport(serverCtx, addr)
+
+	options := DefaultHistoryOptions()
+	if len(historyOpts) > 0 && historyOpts[0].PerDeviceLimit > 0 {
+		options.PerDeviceLimit = historyOpts[0].PerDeviceLimit
+	}
 
 	// WebSocketServer用の通知チャンネルを取得
 	notificationCh := handler.GetCore().SubscribeNotifications(100)
@@ -93,6 +99,7 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 		monitorDone:       make(chan bool),     // Initialize the monitor done channel
 		timeProvider:      &RealTimeProvider{}, // Use real time by default
 		serverStartupTime: startupTime,
+		historyStore:      newMemoryDeviceHistoryStore(options),
 	}
 
 	// Set up the transport handlers
@@ -106,6 +113,56 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 // GetTransport returns the WebSocket transport
 func (ws *WebSocketServer) GetTransport() WebSocketTransport {
 	return ws.transport
+}
+
+// GetHistoryStore exposes the history store, primarily for testing and API handlers.
+func (ws *WebSocketServer) GetHistoryStore() DeviceHistoryStore {
+	return ws.historyStore
+}
+
+// recordHistory stores a history entry if the store is available.
+func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, origin HistoryOrigin) {
+	if ws.historyStore == nil {
+		return
+	}
+
+	entry := DeviceHistoryEntry{
+		Timestamp: time.Now().UTC(),
+		Device:    device,
+		EPC:       epc,
+		Value:     value,
+		Origin:    origin,
+		Settable:  ws.isPropertySettable(device, epc),
+	}
+
+	ws.historyStore.Record(entry)
+}
+
+func (ws *WebSocketServer) recordPropertyChange(change handler.PropertyChangeNotification) {
+	value := protocol.MakePropertyData(change.Device.EOJ.ClassCode(), change.Property)
+	ws.recordHistory(change.Device, change.Property.EPC, value, HistoryOriginNotification)
+}
+
+func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData) {
+	ws.recordHistory(device, epc, value, HistoryOriginSet)
+}
+
+func (ws *WebSocketServer) clearHistoryForDevice(device handler.IPAndEOJ) {
+	if ws.historyStore == nil {
+		return
+	}
+	ws.historyStore.Clear(device)
+}
+
+func (ws *WebSocketServer) isPropertySettable(device handler.IPAndEOJ, epc echonet_lite.EPCType) bool {
+	if ws.handler == nil {
+		return false
+	}
+	dataHandler := ws.handler.GetDataManagementHandler()
+	if dataHandler == nil {
+		return false
+	}
+	return dataHandler.HasEPCInPropertyMap(device, handler.SetPropertyMap, epc)
 }
 
 // periodicUpdater runs in a goroutine, triggering property updates at the configured interval
@@ -983,6 +1040,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 				if ws.handler.IsDebug() {
 					slog.Debug("Device removed", "device", notification.Device.Specifier())
 				}
+				ws.clearHistoryForDevice(notification.Device)
 
 				// Create device removed payload
 				device := notification.Device
@@ -1053,6 +1111,8 @@ func (ws *WebSocketServer) listenForNotifications() {
 			if ws.handler.IsDebug() {
 				slog.Debug("Property changed", "device", propertyChange.Device.Specifier(), "epc", fmt.Sprintf("%02X", byte(propertyChange.Property.EPC)))
 			}
+
+			ws.recordPropertyChange(propertyChange)
 
 			// プロパティ変化通知ペイロードを作成
 			payload := protocol.PropertyChangedPayload{
