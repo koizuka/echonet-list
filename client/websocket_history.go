@@ -61,6 +61,10 @@ func (c *WebSocketClient) GetDeviceHistory(device IPAndEOJ, opts DeviceHistoryOp
 			return nil, fmt.Errorf("invalid EPC value in response: %v", err)
 		}
 
+		if len(entry.EPC) != 2 {
+			return nil, fmt.Errorf("invalid EPC format in response: %s", entry.EPC)
+		}
+
 		entries = append(entries, DeviceHistoryEntry{
 			Timestamp: entry.Timestamp,
 			EPC:       EPCType(epcValue),

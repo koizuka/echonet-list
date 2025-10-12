@@ -26,6 +26,8 @@ type CommandDefinition struct {
 
 // CommandTable はコマンドの定義を格納するテーブル
 // コマンドの使用法に変化があったときは、README.md も更新すること
+const defaultHistoryLimit = 50
+
 var CommandTable = []CommandDefinition{
 	{
 		Name:    "discover",
@@ -188,7 +190,7 @@ var CommandTable = []CommandDefinition{
 		Description: []string{
 			"デバイスの操作履歴を新しい順に表示します。",
 			"ipAddress/classCode[:instanceCode]: 対象デバイスの指定（エイリアス指定も可）",
-			"-limit N: 取得する履歴件数の上限（既定 50）",
+			fmt.Sprintf("-limit N: 取得する履歴件数の上限（既定 %d）", defaultHistoryLimit),
 			"-since RFC3339: 指定した時刻以降の履歴のみ表示（例: 2024-05-01T12:00:00Z）",
 			"-all: Set Property Map に含まれない通知も表示（既定では書き込み可能なプロパティのみ）",
 		},
@@ -252,6 +254,9 @@ var CommandTable = []CommandDefinition{
 				}
 			}
 
+			if cmd.HistoryOptions.Limit == 0 {
+				cmd.HistoryOptions.Limit = defaultHistoryLimit
+			}
 			return cmd, nil
 		},
 	},

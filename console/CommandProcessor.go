@@ -479,6 +479,8 @@ func (p *CommandProcessor) processDebugCommand(cmd *Command) error {
 	return nil
 }
 
+const historyDisplayLanguage = ""
+
 func (p *CommandProcessor) processHistoryCommand(cmd *Command) error {
 	device, err := p.getSingleDevice(cmd.DeviceSpec)
 	if err != nil {
@@ -500,7 +502,7 @@ func (p *CommandProcessor) processHistoryCommand(cmd *Command) error {
 	for _, entry := range entries {
 		propLabel := fmt.Sprintf("EPC 0x%02X", byte(entry.EPC))
 		if desc, ok := p.handler.GetPropertyDesc(classCode, entry.EPC); ok && desc != nil {
-			propLabel = fmt.Sprintf("%s (0x%02X)", desc.GetName(""), byte(entry.EPC))
+			propLabel = fmt.Sprintf("%s (0x%02X)", desc.GetName(historyDisplayLanguage), byte(entry.EPC))
 		}
 
 		valueStr := entry.Value.String
