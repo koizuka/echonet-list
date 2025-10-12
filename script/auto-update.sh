@@ -101,13 +101,17 @@ print_info "現在のコミット: $BEFORE_COMMIT"
 # Git pull 実行
 if [[ "$DRY_RUN" == "false" ]]; then
     print_info "git pull を実行中..."
-    GIT_PULL_OUTPUT=$(git pull 2>&1)
-    GIT_PULL_EXIT_CODE=$?
+    # set -e の影響を避けるため、明示的にエラーハンドリングを行う
+    GIT_PULL_OUTPUT=$(git pull 2>&1) || GIT_PULL_EXIT_CODE=$?
+    GIT_PULL_EXIT_CODE=${GIT_PULL_EXIT_CODE:-0}
 
+    # git pull の出力を常に表示
     echo "$GIT_PULL_OUTPUT"
 
     if [[ $GIT_PULL_EXIT_CODE -ne 0 ]]; then
-        print_error "git pull が失敗しました"
+        print_error "git pull が失敗しました (終了コード: $GIT_PULL_EXIT_CODE)"
+        print_error "上記の git のエラーメッセージを確認してください"
+        print_info "コンフリクトが発生した場合は、手動で解決してから再度実行してください"
         exit 1
     fi
 
