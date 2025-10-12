@@ -70,6 +70,7 @@ type WebSocketServer struct {
 	timeProvider           TimeProvider                      // Time provider for testability
 	serverStartupTime      time.Time                         // Server startup timestamp
 	historyStore           DeviceHistoryStore                // In-memory history storage
+	deviceResolver         func(echonet_lite.IPAndEOJ) bool  // Resolves whether a device is known
 }
 
 // NewWebSocketServer creates a new WebSocket server
@@ -100,6 +101,17 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 		timeProvider:      &RealTimeProvider{}, // Use real time by default
 		serverStartupTime: startupTime,
 		historyStore:      newMemoryDeviceHistoryStore(options),
+	}
+
+	ws.deviceResolver = func(device echonet_lite.IPAndEOJ) bool {
+		if handler == nil {
+			return false
+		}
+		dataHandler := handler.GetDataManagementHandler()
+		if dataHandler == nil {
+			return false
+		}
+		return dataHandler.IsKnownDevice(device)
 	}
 
 	// Set up the transport handlers
@@ -443,6 +455,8 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 		return handle(ws.handleDeleteDeviceFromClient)
 	case protocol.MessageTypeDebugSetOffline:
 		return handle(ws.handleDebugSetOfflineFromClient)
+	case protocol.MessageTypeGetDeviceHistory:
+		return handle(ws.handleGetDeviceHistoryFromClient)
 
 	default:
 		slog.Error("Unknown message type", "type", msg.Type)
