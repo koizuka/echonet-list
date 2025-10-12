@@ -649,6 +649,7 @@ function App() {
                         isConnected={isConnected}
                         onDeleteDevice={handleDeleteDevice}
                         isDeletingDevice={deletingDevices.has(deviceKey)}
+                        connection={echonet.connection}
                       />
                     );
                   })}

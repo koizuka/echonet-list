@@ -1,9 +1,10 @@
-import { ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw, Trash2, History } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PropertyRow } from '@/components/PropertyRow';
 import { AliasEditor } from '@/components/AliasEditor';
 import { DeviceDeleteConfirmDialog } from '@/components/DeviceDeleteConfirmDialog';
+import { DeviceHistoryDialog } from '@/components/DeviceHistoryDialog';
 import { DeviceIcon } from '@/components/DeviceIcon';
 import { useState } from 'react';
 import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
@@ -11,6 +12,7 @@ import { deviceHasAlias, getDeviceIdentifierForAlias, getDeviceAliases } from '@
 import { isSensorProperty } from '@/libs/sensorPropertyHelper';
 import { isDeviceOperational, isDeviceFaulty, isOperationStatusSettable } from '@/libs/propertyHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
+import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 
 interface DeviceCardProps {
   device: Device;
@@ -29,6 +31,7 @@ interface DeviceCardProps {
   isConnected?: boolean;
   onDeleteDevice?: (target: string) => Promise<void>;
   isDeletingDevice?: boolean;
+  connection?: WebSocketConnection;
 }
 
 export function DeviceCard({
@@ -47,9 +50,11 @@ export function DeviceCard({
   isAliasLoading = false,
   isConnected = true,
   onDeleteDevice,
-  isDeletingDevice = false
+  isDeletingDevice = false,
+  connection
 }: DeviceCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const deviceAliasesInfo = getDeviceAliases(device, devices, aliases);
   const classCode = getDeviceClassCode(device);
@@ -118,6 +123,19 @@ export function DeviceCard({
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0 relative z-10">
+            {connection && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsHistoryDialogOpen(true)}
+                className="h-6 w-6 p-0"
+                title="View device history"
+                disabled={!isConnected || device.isOffline}
+                data-testid="history-button"
+              >
+                <History className="h-3 w-3" />
+              </Button>
+            )}
             {onUpdateProperties && (
               <Button
                 variant="ghost"
@@ -295,6 +313,19 @@ export function DeviceCard({
           </div>
         )}
       </CardContent>
+
+      {/* Device History Dialog */}
+      {connection && (
+        <DeviceHistoryDialog
+          device={device}
+          connection={connection}
+          isOpen={isHistoryDialogOpen}
+          onOpenChange={setIsHistoryDialogOpen}
+          propertyDescriptions={propertyDescriptions}
+          classCode={classCode}
+          isConnected={isConnected}
+        />
+      )}
     </Card>
   );
 }
