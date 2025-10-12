@@ -4,10 +4,13 @@ import (
 	"context"
 	"echonet-list/client"
 	"echonet-list/echonet_lite/handler"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"golang.org/x/exp/slices"
 )
@@ -143,6 +146,8 @@ func (p *CommandProcessor) processCommands() {
 			}
 		case CmdGroupList:
 			cmd.Error = p.processGroupListCommand(cmd)
+		case CmdHistory:
+			cmd.Error = p.processHistoryCommand(cmd)
 		default:
 			panic("unhandled default case")
 		}
@@ -471,6 +476,61 @@ func (p *CommandProcessor) processDebugCommand(cmd *Command) error {
 			fmt.Println("現在のデバッグモード: 無効")
 		}
 	}
+	return nil
+}
+
+const historyDisplayLanguage = ""
+
+func (p *CommandProcessor) processHistoryCommand(cmd *Command) error {
+	device, err := p.getSingleDevice(cmd.DeviceSpec)
+	if err != nil {
+		return err
+	}
+
+	entries, err := p.handler.GetDeviceHistory(*device, cmd.HistoryOptions)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("History for %v\n", *device)
+	if len(entries) == 0 {
+		fmt.Println("履歴は見つかりませんでした。")
+		return nil
+	}
+
+	classCode := device.EOJ.ClassCode()
+	for _, entry := range entries {
+		propLabel := fmt.Sprintf("EPC 0x%02X", byte(entry.EPC))
+		if desc, ok := p.handler.GetPropertyDesc(classCode, entry.EPC); ok && desc != nil {
+			propLabel = fmt.Sprintf("%s (0x%02X)", desc.GetName(historyDisplayLanguage), byte(entry.EPC))
+		}
+
+		valueStr := entry.Value.String
+		if valueStr == "" && entry.Value.Number != nil {
+			valueStr = fmt.Sprintf("%d", *entry.Value.Number)
+		}
+		if valueStr == "" && entry.Value.EDT != "" {
+			if decoded, err := base64.StdEncoding.DecodeString(entry.Value.EDT); err == nil {
+				valueStr = strings.ToUpper(hex.EncodeToString(decoded))
+			} else {
+				valueStr = entry.Value.EDT
+			}
+		}
+		if valueStr == "" {
+			valueStr = "-"
+		}
+
+		timestamp := entry.Timestamp.Local().Format(time.RFC3339)
+		settableLabel := "readonly"
+		if entry.Settable {
+			settableLabel = "settable"
+		}
+
+		fmt.Printf("%s | %s | value=%s | origin=%s | %s\n",
+			timestamp, propLabel, valueStr, entry.Origin, settableLabel)
+	}
+
+	fmt.Printf("(%d entries)\n", len(entries))
 	return nil
 }
 

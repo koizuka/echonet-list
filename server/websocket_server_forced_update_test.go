@@ -60,6 +60,10 @@ func (m *MockECHONETClientWithForceTracking) SetProperties(device client.IPAndEO
 	return client.DeviceAndProperties{Device: device, Properties: properties}, nil
 }
 
+func (m *MockECHONETClientWithForceTracking) GetDeviceHistory(device client.IPAndEOJ, opts client.DeviceHistoryOptions) ([]client.DeviceHistoryEntry, error) {
+	return []client.DeviceHistoryEntry{}, nil
+}
+
 func (m *MockECHONETClientWithForceTracking) DeleteDevice(criteria handler.FilterCriteria) error {
 	return nil
 }

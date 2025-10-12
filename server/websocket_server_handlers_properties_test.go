@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"echonet-list/client"
 	"echonet-list/echonet_lite"
 	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
@@ -72,6 +73,10 @@ func (m *mockECHONETListClient) GetProperties(_ echonet_lite.IPAndEOJ, _ []echon
 
 func (m *mockECHONETListClient) SetProperties(_ echonet_lite.IPAndEOJ, _ echonet_lite.Properties) (handler.DeviceAndProperties, error) {
 	return handler.DeviceAndProperties{}, nil
+}
+
+func (m *mockECHONETListClient) GetDeviceHistory(device echonet_lite.IPAndEOJ, opts client.DeviceHistoryOptions) ([]client.DeviceHistoryEntry, error) {
+	return []client.DeviceHistoryEntry{}, nil
 }
 
 func (m *mockECHONETListClient) GetAllPropertyAliases() map[string]PropertyDescription {

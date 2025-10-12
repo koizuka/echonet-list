@@ -3,6 +3,7 @@ package client
 import (
 	"echonet-list/echonet_lite"
 	"echonet-list/echonet_lite/handler"
+	"fmt"
 )
 
 // ECHONETListClientProxy は、ECHONETListClientのlocal proxy
@@ -86,6 +87,10 @@ func (c *ECHONETListClientProxy) GetProperties(device IPAndEOJ, EPCs []EPCType, 
 
 func (c *ECHONETListClientProxy) SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error) {
 	return c.handler.SetProperties(device, properties)
+}
+
+func (c *ECHONETListClientProxy) GetDeviceHistory(device IPAndEOJ, opts DeviceHistoryOptions) ([]DeviceHistoryEntry, error) {
+	return nil, fmt.Errorf("device history is not available in standalone mode")
 }
 
 func (c *ECHONETListClientProxy) GetAllPropertyAliases() map[string]PropertyDescription {
