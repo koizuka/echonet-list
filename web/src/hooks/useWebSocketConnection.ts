@@ -409,11 +409,10 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     // 初回接続時は再接続カウンターをリセット
     reconnectAttemptsRef.current = 0;
     connect();
-    
+
     return () => {
       cleanup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options.url]); // URLが変更された場合のみ再接続、connectとcleanupは安定化済み
 
   return {

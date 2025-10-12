@@ -403,7 +403,6 @@ export function useECHONET(
       default:
         console.log('Unhandled server message:', message);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onMessage, state.devices]);
 
   const handleConnectionStateChange = useCallback((connectionState: ConnectionState) => {
