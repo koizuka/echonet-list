@@ -1,5 +1,5 @@
 import { useCallback, useReducer, useRef, useEffect } from 'react';
-import { useWebSocketConnection } from './useWebSocketConnection';
+import { useWebSocketConnection, type WebSocketConnection } from './useWebSocketConnection';
 import { getCurrentLocale } from '../libs/languageHelper';
 import type {
   ECHONETState,
@@ -189,6 +189,7 @@ export type ECHONETHook = {
   initialStateReceived: boolean;
   connectedAt: Date | null;
   serverStartupTime: Date | null;
+  connection: WebSocketConnection;
 
   // Device operations
   listDevices: (targets: string[]) => Promise<unknown>;
@@ -570,6 +571,7 @@ export function useECHONET(
     initialStateReceived: state.initialStateReceived,
     connectedAt: connection.connectedAt,
     serverStartupTime: state.serverStartupTime,
+    connection,
 
     // Device operations
     listDevices,
