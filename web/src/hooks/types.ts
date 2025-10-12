@@ -16,6 +16,16 @@ export type PropertyValue = {
   number?: number; // Numeric representation (if NumberDesc exists)
 };
 
+export type HistoryOrigin = 'notification' | 'set';
+
+export type DeviceHistoryEntry = {
+  timestamp: string;
+  epc: string;
+  value: PropertyValue;
+  origin: HistoryOrigin;
+  settable: boolean;
+};
+
 export type DeviceAlias = Record<string, string>; // alias -> device ID string
 export type DeviceGroup = Record<string, string[]>; // group name -> device ID strings
 
@@ -176,6 +186,13 @@ export type DeleteDeviceRequest = BaseRequest<{
   target: string; // device ID string (IP EOJ format)
 }>;
 
+export type GetDeviceHistoryRequest = BaseRequest<{
+  target: string;
+  limit?: number;
+  since?: string;
+  settableOnly?: boolean;
+}>;
+
 export type ClientMessage = 
   | GetPropertiesRequest
   | SetPropertiesRequest
@@ -184,7 +201,8 @@ export type ClientMessage =
   | ManageGroupRequest
   | DiscoverDevicesRequest
   | GetPropertyDescriptionRequest
-  | DeleteDeviceRequest;
+  | DeleteDeviceRequest
+  | GetDeviceHistoryRequest;
 
 // Command Result Response
 export type CommandResult = {

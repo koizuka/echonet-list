@@ -16,6 +16,30 @@ type PropertyData struct {
 	Number *int   `json:"number,omitempty"` // Numeric value, omitted if nil. Only usable when PropertyDesc has NumberDesc.
 }
 
+// HistoryOrigin identifies the source of a history entry.
+type HistoryOrigin string
+
+const (
+	// HistoryOriginNotification indicates that the entry originated from a property change notification.
+	HistoryOriginNotification HistoryOrigin = "notification"
+	// HistoryOriginSet indicates that the entry originated from a set_properties command.
+	HistoryOriginSet HistoryOrigin = "set"
+)
+
+// HistoryEntry represents a single history record for a device.
+type HistoryEntry struct {
+	Timestamp time.Time     `json:"timestamp"`
+	EPC       string        `json:"epc"`
+	Value     PropertyData  `json:"value"`
+	Origin    HistoryOrigin `json:"origin"`
+	Settable  bool          `json:"settable"`
+}
+
+// DeviceHistoryResponse is the payload returned for get_device_history.
+type DeviceHistoryResponse struct {
+	Entries []HistoryEntry `json:"entries"`
+}
+
 // MessageType defines the type of message being sent between client and server
 type MessageType string
 
@@ -44,6 +68,7 @@ const (
 	MessageTypeGetPropertyDescription MessageType = "get_property_description"
 	MessageTypeDeleteDevice           MessageType = "delete_device"
 	MessageTypeDebugSetOffline        MessageType = "debug_set_offline"
+	MessageTypeGetDeviceHistory       MessageType = "get_device_history"
 )
 
 // AliasChangeType defines the type of alias change
@@ -192,6 +217,14 @@ type SetPropertiesPayload struct {
 type UpdatePropertiesPayload struct {
 	Targets []string `json:"targets"`
 	Force   bool     `json:"force,omitempty"`
+}
+
+// GetDeviceHistoryPayload is the payload for the get_device_history message
+type GetDeviceHistoryPayload struct {
+	Target       string `json:"target"`
+	Limit        *int   `json:"limit,omitempty"`
+	Since        string `json:"since,omitempty"`
+	SettableOnly *bool  `json:"settableOnly,omitempty"`
 }
 
 // ManageAliasPayload is the payload for the manage_alias message
