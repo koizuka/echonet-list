@@ -58,6 +58,21 @@ Gets property values from a specific device:
 - `epc`: Property code to get (2 hexadecimal digits, e.g., 80)
 - `-skip-validation`: Skip device existence validation (useful for testing timeout behavior)
 
+### Show Device History
+
+```bash
+> history [ipAddress] classCode[:instanceCode] [-limit N] [-since RFC3339] [-all]
+```
+
+Displays recent history for a specific device (newest first):
+
+- `ipAddress` / `classCode[:instanceCode]`: Target device (aliases are also accepted)
+- `-limit N`: Maximum number of entries to retrieve (default 50; capped by server retention)
+- `-since RFC3339`: Only show entries recorded after the given timestamp (e.g., `2024-05-01T12:00:00Z`)
+- `-all`: Include sensor notifications and other read-only changes (by default only writable properties are shown)
+
+Each entry shows the timestamp (local time), property name/EPC, value, origin (`set` or `notification`), and whether the property is writable.
+
 ### Set Property Values
 
 ```bash

@@ -5,7 +5,9 @@ import (
 	"echonet-list/echonet_lite/handler"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/c-bata/go-prompt"
 	"golang.org/x/exp/slices"
@@ -174,6 +176,80 @@ var CommandTable = []CommandDefinition{
 					return nil, err
 				}
 				cmd.EPCs = append(cmd.EPCs, epc)
+			}
+
+			return cmd, nil
+		},
+	},
+	{
+		Name:    "history",
+		Summary: "デバイスの履歴を表示",
+		Syntax:  "history [ipAddress] classCode[:instanceCode] [-limit N] [-since RFC3339] [-all]",
+		Description: []string{
+			"デバイスの操作履歴を新しい順に表示します。",
+			"ipAddress/classCode[:instanceCode]: 対象デバイスの指定（エイリアス指定も可）",
+			"-limit N: 取得する履歴件数の上限（既定 50）",
+			"-since RFC3339: 指定した時刻以降の履歴のみ表示（例: 2024-05-01T12:00:00Z）",
+			"-all: Set Property Map に含まれない通知も表示（既定では書き込み可能なプロパティのみ）",
+		},
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			suggestions := []prompt.Suggest{
+				{Text: "-limit", Description: "取得件数の上限を指定"},
+				{Text: "-since", Description: "この時刻以降の履歴を取得"},
+				{Text: "-all", Description: "すべての履歴（センサー値など）を含める"},
+			}
+			suggestions = append(suggestions, getDeviceCandidates(c)...)
+			return suggestions
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			cmd := newCommand(CmdHistory)
+
+			deviceSpec, groupName, argIndex, err := p.parseDeviceSpecifierOrGroup(parts, 1, false)
+			if err != nil {
+				return nil, err
+			}
+			if groupName != nil {
+				return nil, fmt.Errorf("history コマンドはグループ指定に対応していません")
+			}
+			cmd.DeviceSpec = deviceSpec
+
+			if deviceSpec.IP == nil && deviceSpec.ClassCode == nil {
+				return nil, fmt.Errorf("history コマンドにはデバイスの指定が必要です")
+			}
+
+			for argIndex < len(parts) {
+				switch parts[argIndex] {
+				case "-limit":
+					if argIndex+1 >= len(parts) {
+						return nil, fmt.Errorf("-limit オプションには数値が必要です")
+					}
+					value, err := strconv.Atoi(parts[argIndex+1])
+					if err != nil || value <= 0 {
+						return nil, fmt.Errorf("-limit には1以上の整数を指定してください")
+					}
+					cmd.HistoryOptions.Limit = value
+					argIndex += 2
+				case "-since":
+					if argIndex+1 >= len(parts) {
+						return nil, fmt.Errorf("-since オプションには時刻が必要です")
+					}
+					sinceStr := parts[argIndex+1]
+					timestamp, err := time.Parse(time.RFC3339Nano, sinceStr)
+					if err != nil {
+						timestamp, err = time.Parse(time.RFC3339, sinceStr)
+					}
+					if err != nil {
+						return nil, fmt.Errorf("-since の形式が不正です (RFC3339): %v", err)
+					}
+					cmd.HistoryOptions.Since = &timestamp
+					argIndex += 2
+				case "-all":
+					settable := false
+					cmd.HistoryOptions.SettableOnly = &settable
+					argIndex++
+				default:
+					return nil, &InvalidArgument{Argument: parts[argIndex]}
+				}
 			}
 
 			return cmd, nil

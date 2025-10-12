@@ -3,6 +3,8 @@ package client
 import (
 	"echonet-list/echonet_lite"
 	"echonet-list/echonet_lite/handler"
+	"echonet-list/protocol"
+	"time"
 )
 
 type IPAndEOJ = echonet_lite.IPAndEOJ
@@ -26,6 +28,20 @@ type DeviceAndProperties = handler.DeviceAndProperties
 
 type PropertyDesc = echonet_lite.PropertyDesc
 type PropertyDescription = echonet_lite.PropertyDescription
+
+type DeviceHistoryOptions struct {
+	Limit        int
+	Since        *time.Time
+	SettableOnly *bool
+}
+
+type DeviceHistoryEntry struct {
+	Timestamp time.Time
+	EPC       EPCType
+	Value     protocol.PropertyData
+	Origin    protocol.HistoryOrigin
+	Settable  bool
+}
 
 type ECHONETListClient interface {
 	Debugger

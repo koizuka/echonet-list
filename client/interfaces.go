@@ -23,6 +23,7 @@ type DeviceManager interface {
 	ListDevices(criteria FilterCriteria) []DeviceAndProperties
 	GetProperties(device IPAndEOJ, EPCs []EPCType, skipValidation bool) (DeviceAndProperties, error)
 	SetProperties(device IPAndEOJ, properties Properties) (DeviceAndProperties, error)
+	GetDeviceHistory(device IPAndEOJ, opts DeviceHistoryOptions) ([]DeviceHistoryEntry, error)
 	FindDeviceByIDString(id IDString) *IPAndEOJ
 	GetIDString(device IPAndEOJ) IDString
 }
