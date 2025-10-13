@@ -57,8 +57,8 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			},
 			AliasTranslations: map[string]map[string]string{
 				"ja": {
-					"on":  "動作中",
-					"off": "停止中",
+					"on":  "on",
+					"off": "off",
 				},
 			},
 			Decoder: nil,

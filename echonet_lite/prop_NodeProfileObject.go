@@ -16,8 +16,8 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 				Aliases: map[string][]byte{"on": {0x30}, "off": {0x31}},
 				AliasTranslations: map[string]map[string]string{
 					"ja": {
-						"on":  "動作中",
-						"off": "停止中",
+						"on":  "on",
+						"off": "off",
 					},
 				},
 				Decoder: nil,

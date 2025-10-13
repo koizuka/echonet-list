@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { 
-  isPropertySettable, 
-  isDeviceOperational, 
-  isDeviceFaulty, 
+import {
+  isPropertySettable,
+  isDeviceOperational,
+  isDeviceFaulty,
   decodePropertyMap,
   decodeInstanceList,
   getPropertyName,
   getPropertyDescriptor,
-  formatPropertyValue 
+  formatPropertyValue
 } from './propertyHelper';
 import type { Device, PropertyDescriptionData, PropertyDescriptor } from '@/hooks/types';
 
@@ -18,7 +18,7 @@ describe('propertyHelper', () => {
       // Property map: 2 properties (0x80 and 0xB3)
       // Encoded as: count(2) + 0x80 + 0xB3
       const setPropertyMapEDT = btoa('\x02\x80\xB3');
-      
+
       const device: Device = {
         id: 'test',
         ip: '192.168.1.100',
@@ -33,7 +33,7 @@ describe('propertyHelper', () => {
       // Should return true for properties in the map
       expect(isPropertySettable('80', device)).toBe(true);
       expect(isPropertySettable('B3', device)).toBe(true);
-      
+
       // Should return false for properties not in the map
       expect(isPropertySettable('81', device)).toBe(false);
       expect(isPropertySettable('9D', device)).toBe(false);
@@ -45,7 +45,7 @@ describe('propertyHelper', () => {
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-    lastSeen: new Date().toISOString(),
+        lastSeen: new Date().toISOString(),
         properties: {}
       };
 
@@ -56,26 +56,26 @@ describe('propertyHelper', () => {
       // Suppress console warnings for this test
       const originalWarn = console.warn;
       console.warn = vi.fn();
-      
+
       const device: Device = {
         id: 'test',
         ip: '192.168.1.100',
         eoj: '0130:1',
         name: 'Test Device',
-    lastSeen: new Date().toISOString(),
+        lastSeen: new Date().toISOString(),
         properties: {
           '9E': { EDT: 'invalid-base64' }
         }
       };
 
       expect(isPropertySettable('80', device)).toBe(false);
-      
+
       // Verify console.warn was called with the error
       expect(console.warn).toHaveBeenCalledWith(
         'Failed to parse Set Property Map for device 192.168.1.100 0130:1:',
         expect.any(Error)
       );
-      
+
       // Restore console.warn
       console.warn = originalWarn;
     });
@@ -83,7 +83,7 @@ describe('propertyHelper', () => {
     it('should handle empty Set Property Map', () => {
       // Empty property map: count(0)
       const setPropertyMapEDT = btoa('\x00');
-      
+
       const device: Device = {
         id: 'test',
         ip: '192.168.1.100',
@@ -101,7 +101,7 @@ describe('propertyHelper', () => {
     it('should handle hex EPC codes correctly', () => {
       // Property map with hex codes: 0xB0, 0xB3, 0xFF
       const setPropertyMapEDT = btoa('\x03\xB0\xB3\xFF');
-      
+
       const device: Device = {
         id: 'test',
         ip: '192.168.1.100',
@@ -155,7 +155,7 @@ describe('propertyHelper', () => {
 
     it('should return true when operation status is on (EDT 0x30)', () => {
       const operationStatusEDT = btoa('\x30'); // 0x30 = on
-      
+
       const device: Device = {
         id: 'test',
         ip: '192.168.1.100',
@@ -172,7 +172,7 @@ describe('propertyHelper', () => {
 
     it('should return false when operation status is off (EDT 0x31)', () => {
       const operationStatusEDT = btoa('\x31'); // 0x31 = off
-      
+
       const device: Device = {
         id: 'test',
         ip: '192.168.1.100',
@@ -234,7 +234,7 @@ describe('propertyHelper', () => {
 
     it('should return false when fault status is no_fault (EDT 0x42)', () => {
       const faultStatusEDT = btoa('\x42'); // 0x42 = no_fault
-      
+
       const device: Device = {
         id: 'test',
         ip: '192.168.1.100',
@@ -251,7 +251,7 @@ describe('propertyHelper', () => {
 
     it('should return true when fault status indicates fault (EDT not 0x42)', () => {
       const faultStatusEDT = btoa('\x41'); // 0x41 = fault
-      
+
       const device: Device = {
         id: 'test',
         ip: '192.168.1.100',
@@ -287,9 +287,9 @@ describe('decodePropertyMap', () => {
     const epcs = [0x80, 0x81, 0xB0];
     const data = [epcs.length, ...epcs];
     const edt = btoa(String.fromCharCode(...data));
-    
+
     const result = decodePropertyMap(edt);
-    
+
     expect(result).toEqual(['80', '81', 'B0']);
   });
 
@@ -319,7 +319,7 @@ describe('decodePropertyMap', () => {
 
     const edt = btoa(String.fromCharCode(...bitmapData));
     const result = decodePropertyMap(edt);
-    
+
     expect(result).toEqual(['80', '81', '88', '9E', 'A0', 'B0']);
   });
 
@@ -328,35 +328,35 @@ describe('decodePropertyMap', () => {
     const epcs = [0xB0, 0x80, 0x9F, 0x81]; // Unsorted
     const data = [epcs.length, ...epcs];
     const edt = btoa(String.fromCharCode(...data));
-    
+
     const result = decodePropertyMap(edt);
-    
+
     expect(result).toEqual(['80', '81', '9F', 'B0']); // Sorted
   });
 
   it('should handle empty property map', () => {
     const data = [0]; // Count = 0
     const edt = btoa(String.fromCharCode(...data));
-    
+
     const result = decodePropertyMap(edt);
-    
+
     expect(result).toEqual([]);
   });
 
   it('should handle invalid Base64 input', () => {
     // Mock console.warn to suppress expected error output
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
+
     const result = decodePropertyMap('invalid-base64!');
-    
+
     expect(result).toBeNull();
-    
+
     consoleSpy.mockRestore();
   });
 
   it('should handle empty EDT', () => {
     const result = decodePropertyMap('');
-    
+
     expect(result).toBeNull();
   });
 
@@ -364,9 +364,9 @@ describe('decodePropertyMap', () => {
     // Property count >= 16 but insufficient bitmap data
     const data = [16, 0x80]; // Count = 16 but only 2 bytes total
     const edt = btoa(String.fromCharCode(...data));
-    
+
     const result = decodePropertyMap(edt);
-    
+
     expect(result).toBeNull();
   });
 
@@ -392,7 +392,7 @@ describe('decodePropertyMap', () => {
 
     const edt = btoa(String.fromCharCode(...bitmapData));
     const result = decodePropertyMap(edt);
-    
+
     // Should return all EPCs in sorted order
     expect(result).toEqual([
       '80', '81', '88', '8A', '8B', '8C', '8D', '8E', '8F',
@@ -406,9 +406,9 @@ describe('decodePropertyMap', () => {
     const epcs = [0x01, 0x0A, 0x80]; // Should become '01', '0A', '80'
     const data = [epcs.length, ...epcs];
     const edt = btoa(String.fromCharCode(...data));
-    
+
     const result = decodePropertyMap(edt);
-    
+
     expect(result).toEqual(['01', '0A', '80']);
   });
 });
@@ -552,8 +552,8 @@ describe('Internationalization (i18n)', () => {
         'off': 'MQ=='
       },
       aliasTranslations: {
-        'on': '動作中',
-        'off': '停止中'
+        'on': 'on',
+        'off': 'off'
       }
     };
 
@@ -570,12 +570,12 @@ describe('Internationalization (i18n)', () => {
           'off': 'MQ=='
         },
         aliasTranslations: {
-          'on': '動作中',
-          'off': '停止中'
+          'on': 'on',
+          'off': 'off'
         }
       };
-      expect(formatPropertyValue({ string: 'on' }, descriptorWithTranslations, 'ja')).toBe('動作中');
-      expect(formatPropertyValue({ string: 'off' }, descriptorWithTranslations, 'ja')).toBe('停止中');
+      expect(formatPropertyValue({ string: 'on' }, descriptorWithTranslations, 'ja')).toBe('on');
+      expect(formatPropertyValue({ string: 'off' }, descriptorWithTranslations, 'ja')).toBe('off');
     });
 
     it('should fallback to original string when translation is not available', () => {
@@ -598,9 +598,9 @@ describe('Internationalization (i18n)', () => {
       // Single instance: count(1) + classCode(0x0291) + instanceCode(0x01)
       const data = [1, 0x02, 0x91, 0x01];
       const edt = btoa(String.fromCharCode(...data));
-      
+
       const result = decodeInstanceList(edt);
-      
+
       expect(result).toEqual([
         { classCode: '0291', instanceCode: '01' }
       ]);
@@ -615,9 +615,9 @@ describe('Internationalization (i18n)', () => {
         0x0E, 0xF0, 0x01      // 0EF0:1
       ];
       const edt = btoa(String.fromCharCode(...data));
-      
+
       const result = decodeInstanceList(edt);
-      
+
       expect(result).toEqual([
         { classCode: '0291', instanceCode: '01' },
         { classCode: '0130', instanceCode: '01' },
@@ -629,9 +629,9 @@ describe('Internationalization (i18n)', () => {
       // NodeProfile: count(1) + 0EF0:1
       const data = [1, 0x0E, 0xF0, 0x01];
       const edt = btoa(String.fromCharCode(...data));
-      
+
       const result = decodeInstanceList(edt);
-      
+
       expect(result).toEqual([
         { classCode: '0EF0', instanceCode: '01' }
       ]);
@@ -639,7 +639,7 @@ describe('Internationalization (i18n)', () => {
 
     it('should handle empty EDT', () => {
       const result = decodeInstanceList('');
-      
+
       expect(result).toBeNull();
     });
 
@@ -649,13 +649,13 @@ describe('Internationalization (i18n)', () => {
     });
 
     it('should handle malformed base64', () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
       const result = decodeInstanceList('invalid-base64!!!');
-      
+
       expect(result).toBeNull();
       expect(consoleSpy).toHaveBeenCalledWith('Failed to decode instance list:', expect.any(Error));
-      
+
       consoleSpy.mockRestore();
     });
 
@@ -663,9 +663,9 @@ describe('Internationalization (i18n)', () => {
       // Count says 2 instances but only 1 instance worth of data
       const data = [2, 0x02, 0x91, 0x01]; // Missing second instance
       const edt = btoa(String.fromCharCode(...data));
-      
+
       const result = decodeInstanceList(edt);
-      
+
       expect(result).toBeNull();
     });
 
@@ -673,9 +673,9 @@ describe('Internationalization (i18n)', () => {
       // Count = 0, no instances
       const data = [0];
       const edt = btoa(String.fromCharCode(...data));
-      
+
       const result = decodeInstanceList(edt);
-      
+
       expect(result).toEqual([]);
     });
 
@@ -683,16 +683,16 @@ describe('Internationalization (i18n)', () => {
       // Test with 5 instances
       const instanceCount = 5;
       const data = [instanceCount];
-      
+
       // Add 5 instances with different class codes
       for (let i = 0; i < instanceCount; i++) {
         data.push(0x02, 0x90 + i, 0x01); // Class codes: 0290, 0291, 0292, 0293, 0294
       }
-      
+
       const edt = btoa(String.fromCharCode(...data));
-      
+
       const result = decodeInstanceList(edt);
-      
+
       expect(result).toHaveLength(5);
       expect(result).toEqual([
         { classCode: '0290', instanceCode: '01' },
@@ -707,9 +707,9 @@ describe('Internationalization (i18n)', () => {
       // Test with small values that need padding
       const data = [1, 0x00, 0x05, 0x0A]; // Class: 0005, Instance: 0A
       const edt = btoa(String.fromCharCode(...data));
-      
+
       const result = decodeInstanceList(edt);
-      
+
       expect(result).toEqual([
         { classCode: '0005', instanceCode: '0A' }
       ]);
