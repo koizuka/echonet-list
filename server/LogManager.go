@@ -14,10 +14,14 @@ type LogManager struct {
 	file        *os.File
 	mu          sync.Mutex
 	transport   WebSocketTransport
+	debug       bool
 }
 
-func NewLogManager(logFilename string) (*LogManager, error) {
-	lm := &LogManager{logFilename: logFilename}
+func NewLogManager(logFilename string, debug bool) (*LogManager, error) {
+	lm := &LogManager{
+		logFilename: logFilename,
+		debug:       debug,
+	}
 	if err := lm.openAndSetLogger(); err != nil {
 		return nil, err
 	}
@@ -37,7 +41,11 @@ func (lm *LogManager) openAndSetLogger() error {
 	}
 
 	// Create text handler for file logging
-	textHandler := slog.NewTextHandler(file, &slog.HandlerOptions{Level: slog.LevelInfo})
+	logLevel := slog.LevelInfo
+	if lm.debug {
+		logLevel = slog.LevelDebug
+	}
+	textHandler := slog.NewTextHandler(file, &slog.HandlerOptions{Level: logLevel})
 
 	// Wrap with broadcast handler if transport is available
 	var handler slog.Handler = textHandler

@@ -150,12 +150,40 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 	ws.historyStore.Record(entry)
 }
 
+const (
+	// duplicateNotificationWindow is the time window to check for duplicate notifications after a Set operation
+	duplicateNotificationWindow = 2 * time.Second
+)
+
 func (ws *WebSocketServer) recordPropertyChange(change handler.PropertyChangeNotification) {
 	value := protocol.MakePropertyData(change.Device.EOJ.ClassCode(), change.Property)
+
+	// Check if this notification is a duplicate of a recent Set operation
+	if ws.historyStore != nil {
+		isDup := ws.historyStore.IsDuplicateNotification(change.Device, change.Property.EPC, value, duplicateNotificationWindow)
+		if ws.handler != nil && ws.handler.IsDebug() {
+			slog.Debug("Notification duplicate check",
+				"device", change.Device.Specifier(),
+				"epc", fmt.Sprintf("0x%02X", change.Property.EPC),
+				"value", value,
+				"isDuplicate", isDup)
+		}
+		if isDup {
+			// Skip recording this notification as it's a duplicate of a recent Set operation
+			return
+		}
+	}
+
 	ws.recordHistory(change.Device, change.Property.EPC, value, HistoryOriginNotification)
 }
 
 func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData) {
+	if ws.handler != nil && ws.handler.IsDebug() {
+		slog.Debug("Recording Set operation",
+			"device", device.Specifier(),
+			"epc", fmt.Sprintf("0x%02X", epc),
+			"value", value)
+	}
 	ws.recordHistory(device, epc, value, HistoryOriginSet)
 }
 

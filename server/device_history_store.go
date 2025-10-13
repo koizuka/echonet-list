@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -42,6 +44,7 @@ type DeviceHistoryStore interface {
 	Query(device handler.IPAndEOJ, query HistoryQuery) []DeviceHistoryEntry
 	Clear(device handler.IPAndEOJ)
 	PerDeviceLimit() int
+	IsDuplicateNotification(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, within time.Duration) bool
 }
 
 // HistoryOptions configures the behaviour of the history store.
@@ -143,6 +146,75 @@ func (s *memoryDeviceHistoryStore) Clear(device handler.IPAndEOJ) {
 
 func (s *memoryDeviceHistoryStore) PerDeviceLimit() int {
 	return s.perDeviceLimit
+}
+
+// IsDuplicateNotification checks if there's a recent Set operation for the same device, EPC, and value.
+// This is used to avoid recording duplicate history entries when a notification follows a set operation.
+func (s *memoryDeviceHistoryStore) IsDuplicateNotification(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, within time.Duration) bool {
+	key := device.Key()
+
+	s.mu.RLock()
+	entries, ok := s.data[key]
+	s.mu.RUnlock()
+
+	if !ok || len(entries) == 0 {
+		return false
+	}
+
+	now := time.Now().UTC()
+	cutoff := now.Add(-within)
+
+	// Check recent entries from newest to oldest
+	for i := len(entries) - 1; i >= 0; i-- {
+		entry := entries[i]
+
+		// Stop checking if we've gone past the time window
+		if entry.Timestamp.Before(cutoff) {
+			break
+		}
+
+		// Check if this is a Set operation for the same EPC
+		if entry.Origin == HistoryOriginSet && entry.EPC == epc {
+			// Check if the values match
+			equal := propertyDataEqual(entry.Value, value)
+			// Debug logging
+			if !equal {
+				slog.Debug("PropertyData comparison mismatch",
+					"epc", fmt.Sprintf("0x%02X", epc),
+					"setEDT", entry.Value.EDT,
+					"notifEDT", value.EDT,
+					"setString", entry.Value.String,
+					"notifString", value.String,
+					"setNumber", entry.Value.Number,
+					"notifNumber", value.Number)
+			}
+			if equal {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// propertyDataEqual compares two PropertyData values for equality
+func propertyDataEqual(a, b protocol.PropertyData) bool {
+	// Compare EDT (base64 encoded bytes)
+	if a.EDT != b.EDT {
+		return false
+	}
+	// Compare String (for alias-based properties)
+	if a.String != b.String {
+		return false
+	}
+	// Compare Number (for numeric properties)
+	if (a.Number == nil) != (b.Number == nil) {
+		return false
+	}
+	if a.Number != nil && b.Number != nil && *a.Number != *b.Number {
+		return false
+	}
+	return true
 }
 
 func min(a, b int) int {

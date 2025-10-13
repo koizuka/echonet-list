@@ -75,6 +75,7 @@ func main() {
 
 	// 設定値を取得
 	logFilename := cfg.Log.Filename
+	debug := cfg.Debug
 	websocket := cfg.WebSocket.Enabled
 	wsClient := cfg.WebSocketClient.Enabled
 	if cfg.Daemon.Enabled {
@@ -83,7 +84,7 @@ func main() {
 	wsClientAddr := cfg.WebSocketClient.Addr
 
 	// ロガーのセットアップ
-	logManager, err := server.NewLogManager(logFilename)
+	logManager, err := server.NewLogManager(logFilename, debug)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ログ設定エラー: %v\n", err)
 		os.Exit(1)
