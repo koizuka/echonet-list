@@ -89,7 +89,7 @@ func (ts *TestServer) Start() error {
 	}
 
 	// ログマネージャーを作成
-	logManager, err := server.NewLogManager(ts.Config.Log.Filename)
+	logManager, err := server.NewLogManager(ts.Config.Log.Filename, ts.Config.Debug)
 	if err != nil {
 		return fmt.Errorf("ログマネージャーの作成に失敗: %v", err)
 	}

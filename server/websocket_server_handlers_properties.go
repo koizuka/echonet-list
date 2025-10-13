@@ -213,6 +213,14 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 		requestedValues[epc] = propData
 	}
 
+	// Record Set operations BEFORE sending to device to ensure they are recorded before any notifications arrive
+	// We need to use the actual EDT bytes from the properties slice, not the original request data
+	for _, prop := range properties {
+		// Create PropertyData from the actual EDT bytes that will be sent
+		value := protocol.MakePropertyData(ipAndEOJ.EOJ.ClassCode(), prop)
+		ws.recordSetResult(ipAndEOJ, prop.EPC, value)
+	}
+
 	// Set properties
 	deviceAndProps, err := ws.echonetClient.SetProperties(ipAndEOJ, properties)
 	if err != nil {
@@ -282,14 +290,6 @@ func (ws *WebSocketServer) handleSetPropertiesFromClient(msg *protocol.Message) 
 		lastSeen,
 		isOffline,
 	)
-
-	if len(deviceAndProps.Properties) > 0 {
-		for _, prop := range deviceAndProps.Properties {
-			if value, ok := requestedValues[prop.EPC]; ok {
-				ws.recordSetResult(deviceAndProps.Device, prop.EPC, value)
-			}
-		}
-	}
 
 	// Marshal the device data
 	deviceDataJSON, err := json.Marshal(deviceData)
