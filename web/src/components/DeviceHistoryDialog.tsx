@@ -11,9 +11,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { HexViewer } from '@/components/HexViewer';
 import { useDeviceHistory } from '@/hooks/useDeviceHistory';
 import { isJapanese } from '@/libs/languageHelper';
-import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
+import { getPropertyName, formatPropertyValue, getPropertyDescriptor, shouldShowHexViewer } from '@/libs/propertyHelper';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 
@@ -177,6 +178,10 @@ export function DeviceHistoryDialog({
                   entry.value,
                   descriptor
                 );
+                const canShowHexViewer = shouldShowHexViewer(
+                  entry.value,
+                  descriptor
+                );
 
                 return (
                   <div
@@ -190,11 +195,16 @@ export function DeviceHistoryDialog({
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 relative">
                         <span className="text-muted-foreground">
                           {texts.value}:
                         </span>
                         <span className="font-medium">{formattedValue}</span>
+                        <HexViewer
+                          canShowHexViewer={canShowHexViewer}
+                          currentValue={entry.value}
+                          size="sm"
+                        />
                       </div>
                       <span className="text-xs px-2 py-1 rounded bg-muted">
                         {getOriginText(entry.origin)}
