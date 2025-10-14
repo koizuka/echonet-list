@@ -1,8 +1,11 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -49,13 +52,15 @@ type DeviceHistoryStore interface {
 
 // HistoryOptions configures the behaviour of the history store.
 type HistoryOptions struct {
-	PerDeviceLimit int
+	PerDeviceLimit  int
+	HistoryFilePath string // Path to history file for persistence (empty = disabled)
 }
 
 // DefaultHistoryOptions returns the default options used when none are provided.
 func DefaultHistoryOptions() HistoryOptions {
 	return HistoryOptions{
-		PerDeviceLimit: 500,
+		PerDeviceLimit:  500,
+		HistoryFilePath: "", // Disabled by default
 	}
 }
 
@@ -222,4 +227,219 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// HistoryLoadFilter specifies filters applied when loading history from file
+type HistoryLoadFilter struct {
+	Since          time.Duration // Load entries from this duration ago (e.g., 7 * 24 * time.Hour for 1 week)
+	PerDeviceLimit int           // Maximum number of entries per device to load
+}
+
+// DefaultHistoryLoadFilter returns the default filter settings for loading history
+func DefaultHistoryLoadFilter() HistoryLoadFilter {
+	return HistoryLoadFilter{
+		Since:          7 * 24 * time.Hour, // 1 week
+		PerDeviceLimit: 100,                // 100 entries per device
+	}
+}
+
+// historyFileFormat represents the JSON structure for persisting history data
+type historyFileFormat struct {
+	Version int                                 `json:"version"`
+	Data    map[string][]jsonDeviceHistoryEntry `json:"data"`
+}
+
+// jsonDeviceHistoryEntry is used for JSON marshaling/unmarshaling of DeviceHistoryEntry
+type jsonDeviceHistoryEntry struct {
+	Timestamp time.Time             `json:"timestamp"`
+	Device    jsonIPAndEOJ          `json:"device"`
+	EPC       string                `json:"epc"`
+	Value     protocol.PropertyData `json:"value"`
+	Origin    HistoryOrigin         `json:"origin"`
+	Settable  bool                  `json:"settable"`
+}
+
+// jsonIPAndEOJ is used for JSON marshaling/unmarshaling of handler.IPAndEOJ
+type jsonIPAndEOJ struct {
+	IP  string `json:"ip"`
+	EOJ string `json:"eoj"`
+}
+
+const currentHistoryFileVersion = 1
+
+// SaveToFile saves the history data to a JSON file
+func (s *memoryDeviceHistoryStore) SaveToFile(filename string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Convert data to JSON-serializable format
+	jsonData := make(map[string][]jsonDeviceHistoryEntry)
+	for deviceKey, entries := range s.data {
+		jsonEntries := make([]jsonDeviceHistoryEntry, 0, len(entries))
+		for _, entry := range entries {
+			jsonEntries = append(jsonEntries, jsonDeviceHistoryEntry{
+				Timestamp: entry.Timestamp,
+				Device: jsonIPAndEOJ{
+					IP:  entry.Device.IP.String(),
+					EOJ: entry.Device.EOJ.Specifier(),
+				},
+				EPC:      fmt.Sprintf("0x%02X", byte(entry.EPC)),
+				Value:    entry.Value,
+				Origin:   entry.Origin,
+				Settable: entry.Settable,
+			})
+		}
+		jsonData[deviceKey] = jsonEntries
+	}
+
+	fileData := historyFileFormat{
+		Version: currentHistoryFileVersion,
+		Data:    jsonData,
+	}
+
+	// Marshal to JSON
+	data, err := json.Marshal(fileData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal history data: %w", err)
+	}
+
+	// Write to temporary file
+	tempFilename := filename + ".tmp"
+	if err := os.WriteFile(tempFilename, data, 0644); err != nil {
+		return fmt.Errorf("failed to write to temporary file %s: %w", tempFilename, err)
+	}
+
+	// Rename temporary file to actual file (atomic operation)
+	if err := os.Rename(tempFilename, filename); err != nil {
+		// Clean up temporary file on error
+		_ = os.Remove(tempFilename)
+		return fmt.Errorf("failed to rename temporary file %s to %s: %w", tempFilename, filename, err)
+	}
+
+	slog.Info("History data saved successfully", "filename", filename, "deviceCount", len(jsonData))
+	return nil
+}
+
+// LoadFromFile loads the history data from a JSON file with filtering
+func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryLoadFilter) error {
+	// Check if file exists
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		slog.Info("History file does not exist, starting with empty history", "filename", filename)
+		return nil
+	}
+
+	// Read file
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("failed to read history file %s: %w", filename, err)
+	}
+
+	// Parse JSON
+	var fileData historyFileFormat
+	if err := json.Unmarshal(data, &fileData); err != nil {
+		return fmt.Errorf("failed to unmarshal history file %s: %w", filename, err)
+	}
+
+	// Check version
+	if fileData.Version != currentHistoryFileVersion {
+		slog.Warn("History file version mismatch, attempting to load anyway",
+			"filename", filename,
+			"fileVersion", fileData.Version,
+			"expectedVersion", currentHistoryFileVersion)
+	}
+
+	// Calculate cutoff time for filtering
+	cutoffTime := time.Now().Add(-filter.Since)
+
+	// Load and filter data
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Clear existing data
+	s.data = make(map[string][]DeviceHistoryEntry)
+
+	totalLoaded := 0
+	totalFiltered := 0
+
+	for deviceKey, jsonEntries := range fileData.Data {
+		// Convert JSON entries back to DeviceHistoryEntry
+		// Filter by time and limit per device
+		filtered := make([]DeviceHistoryEntry, 0, min(len(jsonEntries), filter.PerDeviceLimit))
+
+		// Process entries from newest to oldest
+		for i := len(jsonEntries) - 1; i >= 0 && len(filtered) < filter.PerDeviceLimit; i-- {
+			jsonEntry := jsonEntries[i]
+
+			// Skip entries older than cutoff time
+			if jsonEntry.Timestamp.Before(cutoffTime) {
+				totalFiltered++
+				continue
+			}
+
+			// Parse IP address
+			ip := net.ParseIP(jsonEntry.Device.IP)
+			if ip == nil {
+				slog.Warn("Invalid IP address in history entry, skipping",
+					"deviceKey", deviceKey,
+					"ip", jsonEntry.Device.IP)
+				totalFiltered++
+				continue
+			}
+
+			// Parse EOJ
+			eoj, err := handler.ParseEOJString(jsonEntry.Device.EOJ)
+			if err != nil {
+				slog.Warn("Invalid EOJ in history entry, skipping",
+					"deviceKey", deviceKey,
+					"eoj", jsonEntry.Device.EOJ,
+					"error", err)
+				totalFiltered++
+				continue
+			}
+
+			// Parse EPC
+			var epc echonet_lite.EPCType
+			if _, err := fmt.Sscanf(jsonEntry.EPC, "0x%02X", (*byte)(&epc)); err != nil {
+				slog.Warn("Invalid EPC in history entry, skipping",
+					"deviceKey", deviceKey,
+					"epc", jsonEntry.EPC,
+					"error", err)
+				totalFiltered++
+				continue
+			}
+
+			// Create entry
+			entry := DeviceHistoryEntry{
+				Timestamp: jsonEntry.Timestamp,
+				Device: handler.IPAndEOJ{
+					IP:  ip,
+					EOJ: eoj,
+				},
+				EPC:      epc,
+				Value:    jsonEntry.Value,
+				Origin:   jsonEntry.Origin,
+				Settable: jsonEntry.Settable,
+			}
+
+			filtered = append(filtered, entry)
+			totalLoaded++
+		}
+
+		// Reverse filtered entries to restore chronological order (oldest first)
+		for i, j := 0, len(filtered)-1; i < j; i, j = i+1, j-1 {
+			filtered[i], filtered[j] = filtered[j], filtered[i]
+		}
+
+		if len(filtered) > 0 {
+			s.data[deviceKey] = filtered
+		}
+	}
+
+	slog.Info("History data loaded successfully",
+		"filename", filename,
+		"totalLoaded", totalLoaded,
+		"totalFiltered", totalFiltered,
+		"deviceCount", len(s.data))
+
+	return nil
 }

@@ -143,7 +143,10 @@ func main() {
 			client.NewECHONETListClientProxy(s.GetHandler()),
 			s.GetHandler(),
 			serverStartupTime,
-			server.HistoryOptions{PerDeviceLimit: cfg.History.PerDeviceLimit},
+			server.HistoryOptions{
+				PerDeviceLimit:  cfg.History.PerDeviceLimit,
+				HistoryFilePath: cfg.DataFiles.HistoryFile,
+			},
 		)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WebSocketサーバーの作成に失敗しました: %v\n", err)

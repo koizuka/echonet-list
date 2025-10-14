@@ -3,6 +3,7 @@ devices.json
 devices.json.*
 aliases.json
 groups.json
+history.json
 echonet-list
 echonet-list.exe
 echonet-list.log
