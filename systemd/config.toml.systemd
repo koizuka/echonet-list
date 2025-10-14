@@ -39,3 +39,16 @@ enabled = true
 [websocket_client]
 enabled = false
 # addr = "ws://remote-server:8080/ws"
+
+# データファイル設定
+[data_files]
+# デバイス履歴ファイル（デフォルト: history.json）
+# WorkingDirectory が /var/lib/echonet-list のため、
+# 実際のパスは /var/lib/echonet-list/history.json になります
+# 空文字列で履歴の永続化を無効にできます
+history_file = "history.json"
+
+# 他のデータファイルも明示的に指定できます:
+# devices_file = "devices.json"
+# aliases_file = "aliases.json"
+# groups_file = "groups.json"

@@ -70,6 +70,7 @@ type WebSocketServer struct {
 	timeProvider           TimeProvider                      // Time provider for testability
 	serverStartupTime      time.Time                         // Server startup timestamp
 	historyStore           DeviceHistoryStore                // In-memory history storage
+	historyFilePath        string                            // Path to history file for persistence (empty = disabled)
 	deviceResolver         func(echonet_lite.IPAndEOJ) bool  // Resolves whether a device is known
 }
 
@@ -81,12 +82,29 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 	transport := NewDefaultWebSocketTransport(serverCtx, addr)
 
 	options := DefaultHistoryOptions()
-	if len(historyOpts) > 0 && historyOpts[0].PerDeviceLimit > 0 {
-		options.PerDeviceLimit = historyOpts[0].PerDeviceLimit
+	if len(historyOpts) > 0 {
+		if historyOpts[0].PerDeviceLimit > 0 {
+			options.PerDeviceLimit = historyOpts[0].PerDeviceLimit
+		}
+		if historyOpts[0].HistoryFilePath != "" {
+			options.HistoryFilePath = historyOpts[0].HistoryFilePath
+		}
 	}
 
 	// WebSocketServer用の通知チャンネルを取得
 	notificationCh := handler.GetCore().SubscribeNotifications(100)
+
+	// Create history store
+	historyStore := newMemoryDeviceHistoryStore(options)
+
+	// Load history from file if path is specified
+	if options.HistoryFilePath != "" {
+		filter := DefaultHistoryLoadFilter()
+		if err := historyStore.LoadFromFile(options.HistoryFilePath, filter); err != nil {
+			slog.Error("Failed to load history from file", "path", options.HistoryFilePath, "error", err)
+			// Continue with empty history - this is not a fatal error
+		}
+	}
 
 	// Create the WebSocket server
 	ws := &WebSocketServer{
@@ -100,7 +118,8 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 		monitorDone:       make(chan bool),     // Initialize the monitor done channel
 		timeProvider:      &RealTimeProvider{}, // Use real time by default
 		serverStartupTime: startupTime,
-		historyStore:      newMemoryDeviceHistoryStore(options),
+		historyStore:      historyStore,
+		historyFilePath:   options.HistoryFilePath,
 	}
 
 	ws.deviceResolver = func(device echonet_lite.IPAndEOJ) bool {
@@ -556,6 +575,16 @@ func (ws *WebSocketServer) Stop() error {
 	}
 	if ws.monitorDone != nil {
 		close(ws.monitorDone)
+	}
+
+	// Save history to file if path is configured
+	if ws.historyFilePath != "" && ws.historyStore != nil {
+		if store, ok := ws.historyStore.(*memoryDeviceHistoryStore); ok {
+			if err := store.SaveToFile(ws.historyFilePath); err != nil {
+				slog.Error("Failed to save history to file", "path", ws.historyFilePath, "error", err)
+				// Continue with shutdown even if save fails
+			}
+		}
 	}
 
 	ws.cancel() // Cancel the server context

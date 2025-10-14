@@ -100,6 +100,7 @@ type Config struct {
 		DevicesFile string `toml:"devices_file"`
 		AliasesFile string `toml:"aliases_file"`
 		GroupsFile  string `toml:"groups_file"`
+		HistoryFile string `toml:"history_file"`
 	} `toml:"data_files"`
 }
 
@@ -129,6 +130,7 @@ func NewConfig() *Config {
 	cfg.DataFiles.DevicesFile = ""
 	cfg.DataFiles.AliasesFile = ""
 	cfg.DataFiles.GroupsFile = ""
+	cfg.DataFiles.HistoryFile = "history.json" // Default history file (set to empty string to disable)
 
 	return cfg
 }
