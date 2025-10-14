@@ -16,6 +16,7 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 - **Modern Web UI**: React-based interface with real-time updates
 - **Device Organization**: Tab-based navigation by location and device groups
 - **Visual Controls**: Property-specific UI controls (dropdowns, sliders, toggles)
+- **Device History**: View device property change history with timeline, hex viewer for raw data, and filtering options
 - **Status Indicators**: Visual feedback for device operation and fault states
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 - **Internationalization**: Multi-language support (English, Japanese) for property descriptions and UI
