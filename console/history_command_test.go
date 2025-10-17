@@ -200,6 +200,119 @@ func TestProcessHistoryCommand(t *testing.T) {
 	}
 }
 
+func TestProcessHistoryCommandWithOnlineOfflineEvents(t *testing.T) {
+	device := client.IPAndEOJ{
+		IP:  parseIP(t, "192.168.1.20"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 0x01),
+	}
+
+	stub := &historyClientStub{
+		devices: []client.IPAndEOJ{device},
+		historyEntries: []client.DeviceHistoryEntry{
+			{
+				Timestamp: time.Date(2024, 5, 1, 10, 0, 0, 0, time.UTC),
+				EPC:       0, // No EPC for event entries
+				Value:     protocol.PropertyData{},
+				Origin:    protocol.HistoryOriginOnline,
+				Settable:  false,
+			},
+			{
+				Timestamp: time.Date(2024, 5, 1, 12, 0, 0, 0, time.UTC),
+				EPC:       0x80,
+				Value:     protocol.PropertyData{String: "on"},
+				Origin:    protocol.HistoryOriginSet,
+				Settable:  true,
+			},
+			{
+				Timestamp: time.Date(2024, 5, 1, 14, 0, 0, 0, time.UTC),
+				EPC:       0, // No EPC for event entries
+				Value:     protocol.PropertyData{},
+				Origin:    protocol.HistoryOriginOffline,
+				Settable:  false,
+			},
+		},
+	}
+
+	processor := &CommandProcessor{handler: stub}
+
+	class := client.EOJClassCode(0x0130)
+	instance := client.EOJInstanceCode(0x01)
+	spec := client.DeviceSpecifier{
+		IP:           &device.IP,
+		ClassCode:    &class,
+		InstanceCode: &instance,
+	}
+
+	cmd := &Command{
+		Type:           CmdHistory,
+		DeviceSpec:     spec,
+		HistoryOptions: client.DeviceHistoryOptions{},
+	}
+
+	output := captureOutput(func() {
+		if err := processor.processHistoryCommand(cmd); err != nil {
+			t.Fatalf("processHistoryCommand returned error: %v", err)
+		}
+	})
+
+	if stub.lastDevice == nil || !stub.lastDevice.IP.Equal(device.IP) {
+		t.Fatalf("expected history request for device %v", device)
+	}
+
+	// Verify output contains all entries
+	if !strings.Contains(output, "History for") {
+		t.Fatalf("expected output to contain history header, got: %s", output)
+	}
+
+	// Verify online event is displayed
+	if !strings.Contains(output, "Device came online") && !strings.Contains(output, "デバイスがオンラインになりました") {
+		t.Fatalf("expected output to contain online event, got: %s", output)
+	}
+
+	// Verify offline event is displayed
+	if !strings.Contains(output, "Device went offline") && !strings.Contains(output, "デバイスがオフラインになりました") {
+		t.Fatalf("expected output to contain offline event, got: %s", output)
+	}
+
+	// Verify property change entry is still displayed correctly
+	if !strings.Contains(output, "value=on") {
+		t.Fatalf("expected output to contain property value, got: %s", output)
+	}
+
+	// Verify event entries do not show "value=" field
+	lines := strings.Split(output, "\n")
+	onlineEventFound := false
+	offlineEventFound := false
+	for _, line := range lines {
+		if strings.Contains(line, "online") && strings.Contains(line, "origin=online") {
+			onlineEventFound = true
+			// Event entries should not display "value=" field
+			if strings.Contains(line, "value=") {
+				t.Fatalf("online event should not display value field, got: %s", line)
+			}
+		}
+		if strings.Contains(line, "offline") && strings.Contains(line, "origin=offline") {
+			offlineEventFound = true
+			// Event entries should not display "value=" field
+			if strings.Contains(line, "value=") {
+				t.Fatalf("offline event should not display value field, got: %s", line)
+			}
+		}
+	}
+
+	if !onlineEventFound {
+		t.Fatalf("expected to find online event entry in output")
+	}
+	if !offlineEventFound {
+		t.Fatalf("expected to find offline event entry in output")
+	}
+
+	// Verify total entry count
+	if !strings.Contains(output, "(3 entries)") {
+		t.Fatalf("expected output to contain correct entry count, got: %s", output)
+	}
+}
+
 func parseIP(t *testing.T, addr string) net.IP {
 	t.Helper()
 	ip := net.ParseIP(addr)

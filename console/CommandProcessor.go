@@ -500,34 +500,60 @@ func (p *CommandProcessor) processHistoryCommand(cmd *Command) error {
 
 	classCode := device.EOJ.ClassCode()
 	for _, entry := range entries {
-		propLabel := fmt.Sprintf("EPC 0x%02X", byte(entry.EPC))
-		if desc, ok := p.handler.GetPropertyDesc(classCode, entry.EPC); ok && desc != nil {
-			propLabel = fmt.Sprintf("%s (0x%02X)", desc.GetName(historyDisplayLanguage), byte(entry.EPC))
-		}
-
-		valueStr := entry.Value.String
-		if valueStr == "" && entry.Value.Number != nil {
-			valueStr = fmt.Sprintf("%d", *entry.Value.Number)
-		}
-		if valueStr == "" && entry.Value.EDT != "" {
-			if decoded, err := base64.StdEncoding.DecodeString(entry.Value.EDT); err == nil {
-				valueStr = strings.ToUpper(hex.EncodeToString(decoded))
-			} else {
-				valueStr = entry.Value.EDT
-			}
-		}
-		if valueStr == "" {
-			valueStr = "-"
-		}
-
 		timestamp := entry.Timestamp.Local().Format(time.RFC3339)
-		settableLabel := "readonly"
-		if entry.Settable {
-			settableLabel = "settable"
-		}
 
-		fmt.Printf("%s | %s | value=%s | origin=%s | %s\n",
-			timestamp, propLabel, valueStr, entry.Origin, settableLabel)
+		// Check if this is an event entry (online/offline)
+		isEvent := entry.EPC == 0 && (entry.Origin == "online" || entry.Origin == "offline")
+
+		if isEvent {
+			// Display event entries differently
+			eventDescription := "Event"
+			if entry.Origin == "online" {
+				if historyDisplayLanguage == "ja" {
+					eventDescription = "デバイスがオンラインになりました"
+				} else {
+					eventDescription = "Device came online"
+				}
+			} else if entry.Origin == "offline" {
+				if historyDisplayLanguage == "ja" {
+					eventDescription = "デバイスがオフラインになりました"
+				} else {
+					eventDescription = "Device went offline"
+				}
+			}
+
+			fmt.Printf("%s | %s | origin=%s\n",
+				timestamp, eventDescription, entry.Origin)
+		} else {
+			// Display property change entries
+			propLabel := fmt.Sprintf("EPC 0x%02X", byte(entry.EPC))
+			if desc, ok := p.handler.GetPropertyDesc(classCode, entry.EPC); ok && desc != nil {
+				propLabel = fmt.Sprintf("%s (0x%02X)", desc.GetName(historyDisplayLanguage), byte(entry.EPC))
+			}
+
+			valueStr := entry.Value.String
+			if valueStr == "" && entry.Value.Number != nil {
+				valueStr = fmt.Sprintf("%d", *entry.Value.Number)
+			}
+			if valueStr == "" && entry.Value.EDT != "" {
+				if decoded, err := base64.StdEncoding.DecodeString(entry.Value.EDT); err == nil {
+					valueStr = strings.ToUpper(hex.EncodeToString(decoded))
+				} else {
+					valueStr = entry.Value.EDT
+				}
+			}
+			if valueStr == "" {
+				valueStr = "-"
+			}
+
+			settableLabel := "readonly"
+			if entry.Settable {
+				settableLabel = "settable"
+			}
+
+			fmt.Printf("%s | %s | value=%s | origin=%s | %s\n",
+				timestamp, propLabel, valueStr, entry.Origin, settableLabel)
+		}
 	}
 
 	fmt.Printf("(%d entries)\n", len(entries))
