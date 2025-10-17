@@ -33,8 +33,6 @@ export default tseslint.config(
       'react-refresh/only-export-components': 'off',
       'react/prop-types': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      // Temporarily disable new strict rules that require large refactoring
-      'react-hooks/set-state-in-effect': 'off',
     },
     settings: {
       react: {

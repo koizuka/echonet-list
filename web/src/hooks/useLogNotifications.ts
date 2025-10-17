@@ -12,20 +12,12 @@ export interface LogEntry {
 }
 
 interface LogNotificationsProps {
-  notification?: LogNotification;
-  deviceOnlineNotification?: DeviceOnline;
-  deviceOfflineNotification?: DeviceOffline;
-  localErrorNotification?: LogEntry;
   resolveAlias?: (ip: string, eoj: string) => string | null;
   maxLogs?: number;
   onLogsChange?: (logs: LogEntry[], unreadCount: number) => void;
 }
 
-export function useLogNotifications({ 
-  notification, 
-  deviceOnlineNotification,
-  deviceOfflineNotification,
-  localErrorNotification,
+export function useLogNotifications({
   resolveAlias,
   maxLogs = 50,
   onLogsChange
@@ -87,7 +79,6 @@ export function useLogNotifications({
     };
   }, [formatDeviceIdentification]);
 
-  // Helper function to add log entry to the list
   const addLogEntry = useCallback((newLog: LogEntry) => {
     setLogs(prev => {
       const updated = [newLog, ...prev];
@@ -95,41 +86,25 @@ export function useLogNotifications({
     });
   }, [maxLogs]);
 
-  // Add new log entry when notification is received
-  useEffect(() => {
-    if (!notification) return;
-
+  const handleLogNotification = useCallback((incomingNotification: LogNotification) => {
     const newLog: LogEntry = {
       id: generateLogEntryId('log'),
-      ...notification.payload,
+      ...incomingNotification.payload,
       isRead: false
     };
 
     addLogEntry(newLog);
-  }, [notification, addLogEntry]);
+  }, [addLogEntry]);
 
-  // Add device online notification
-  useEffect(() => {
-    if (!deviceOnlineNotification) return;
-
-    const newLog = createDeviceStatusLogEntry('online', deviceOnlineNotification);
+  const handleDeviceOnlineNotification = useCallback((incomingNotification: DeviceOnline) => {
+    const newLog = createDeviceStatusLogEntry('online', incomingNotification);
     addLogEntry(newLog);
-  }, [deviceOnlineNotification, addLogEntry, createDeviceStatusLogEntry]);
+  }, [addLogEntry, createDeviceStatusLogEntry]);
 
-  // Add device offline notification
-  useEffect(() => {
-    if (!deviceOfflineNotification) return;
-
-    const newLog = createDeviceStatusLogEntry('offline', deviceOfflineNotification);
+  const handleDeviceOfflineNotification = useCallback((incomingNotification: DeviceOffline) => {
+    const newLog = createDeviceStatusLogEntry('offline', incomingNotification);
     addLogEntry(newLog);
-  }, [deviceOfflineNotification, addLogEntry, createDeviceStatusLogEntry]);
-
-  // Handle local error notifications
-  useEffect(() => {
-    if (localErrorNotification) {
-      addLogEntry(localErrorNotification);
-    }
-  }, [localErrorNotification, addLogEntry]);
+  }, [addLogEntry, createDeviceStatusLogEntry]);
 
   // Notify parent component about logs changes
   useEffect(() => {
@@ -155,6 +130,10 @@ export function useLogNotifications({
   // Return functions for parent component to use
   return {
     logs,
+    addLogEntry,
+    handleLogNotification,
+    handleDeviceOnlineNotification,
+    handleDeviceOfflineNotification,
     markAllAsRead,
     clearAllLogs,
     clearByCategory

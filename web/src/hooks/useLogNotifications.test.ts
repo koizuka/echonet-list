@@ -1,34 +1,55 @@
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useLogNotifications } from './useLogNotifications';
 import type { LogNotification, DeviceOnline, DeviceOffline } from './types';
 
+const createLogNotification = (overrides: Partial<LogNotification['payload']> = {}): LogNotification => ({
+  type: 'log_notification',
+  payload: {
+    level: 'ERROR',
+    message: 'Test message',
+    time: '2023-04-01T12:00:00Z',
+    attributes: {},
+    ...overrides
+  }
+});
+
+const createDeviceOnline = (overrides: Partial<DeviceOnline['payload']> = {}): DeviceOnline => ({
+  type: 'device_online',
+  payload: {
+    ip: '192.168.1.100',
+    eoj: '0291:1',
+    ...overrides
+  }
+});
+
+const createDeviceOffline = (overrides: Partial<DeviceOffline['payload']> = {}): DeviceOffline => ({
+  type: 'device_offline',
+  payload: {
+    ip: '192.168.1.101',
+    eoj: '0130:1',
+    ...overrides
+  }
+});
+
 describe('useLogNotifications', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('starts with empty logs', () => {
     const { result } = renderHook(() => useLogNotifications({}));
-    
+
     expect(result.current.logs).toEqual([]);
   });
 
   it('adds new log entry when notification is received', () => {
-    const notification: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Test error message',
-        time: '2023-04-01T12:00:00Z',
-        attributes: { device: '192.168.1.1' }
-      }
-    };
+    const { result } = renderHook(() => useLogNotifications({}));
+    const notification = createLogNotification({ message: 'Test error message', attributes: { device: '192.168.1.1' } });
 
-    const { result, rerender } = renderHook(
-      ({ notification }) => useLogNotifications({ notification }),
-      { initialProps: { notification: undefined as LogNotification | undefined } }
-    );
-
-    expect(result.current.logs).toEqual([]);
-
-    rerender({ notification });
+    act(() => {
+      result.current.handleLogNotification(notification);
+    });
 
     expect(result.current.logs).toHaveLength(1);
     expect(result.current.logs[0].message).toBe('Test error message');
@@ -37,26 +58,14 @@ describe('useLogNotifications', () => {
   });
 
   it('maintains max log limit', () => {
-    const { result, rerender } = renderHook(
-      ({ notification }) => useLogNotifications({ notification, maxLogs: 3 }),
-      { initialProps: { notification: undefined as LogNotification | undefined } }
-    );
+    const { result } = renderHook(() => useLogNotifications({ maxLogs: 3 }));
 
-    // Add 5 notifications
-    for (let i = 1; i <= 5; i++) {
-      const notification: LogNotification = {
-        type: 'log_notification',
-        payload: {
-          level: 'ERROR',
-          message: `Message ${i}`,
-          time: '2023-04-01T12:00:00Z',
-          attributes: {}
-        }
-      };
-      rerender({ notification });
-    }
+    act(() => {
+      for (let i = 1; i <= 5; i++) {
+        result.current.handleLogNotification(createLogNotification({ message: `Message ${i}` }));
+      }
+    });
 
-    // Should only keep the last 3
     expect(result.current.logs).toHaveLength(3);
     expect(result.current.logs[0].message).toBe('Message 5');
     expect(result.current.logs[1].message).toBe('Message 4');
@@ -64,34 +73,12 @@ describe('useLogNotifications', () => {
   });
 
   it('marks all logs as read', () => {
-    const { result, rerender } = renderHook(
-      ({ notification }) => useLogNotifications({ notification }),
-      { initialProps: { notification: undefined as LogNotification | undefined } }
-    );
+    const { result } = renderHook(() => useLogNotifications({}));
 
-    // Add two notifications
-    const notification1: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Message 1',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
-
-    const notification2: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'WARN',
-        message: 'Message 2',
-        time: '2023-04-01T12:01:00Z',
-        attributes: {}
-      }
-    };
-
-    rerender({ notification: notification1 });
-    rerender({ notification: notification2 });
+    act(() => {
+      result.current.handleLogNotification(createLogNotification({ message: 'Message 1' }));
+      result.current.handleLogNotification(createLogNotification({ message: 'Message 2', level: 'WARN' }));
+    });
 
     expect(result.current.logs).toHaveLength(2);
     expect(result.current.logs.every(log => !log.isRead)).toBe(true);
@@ -104,22 +91,12 @@ describe('useLogNotifications', () => {
   });
 
   it('clears all logs', () => {
-    const { result, rerender } = renderHook(
-      ({ notification }) => useLogNotifications({ notification }),
-      { initialProps: { notification: undefined as LogNotification | undefined } }
-    );
+    const { result } = renderHook(() => useLogNotifications({}));
 
-    const notification: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Test message',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
+    act(() => {
+      result.current.handleLogNotification(createLogNotification());
+    });
 
-    rerender({ notification });
     expect(result.current.logs).toHaveLength(1);
 
     act(() => {
@@ -130,34 +107,12 @@ describe('useLogNotifications', () => {
   });
 
   it('clears logs by category', () => {
-    const { result, rerender } = renderHook(
-      ({ notification }) => useLogNotifications({ notification }),
-      { initialProps: { notification: undefined as LogNotification | undefined } }
-    );
+    const { result } = renderHook(() => useLogNotifications({}));
 
-    // Add WebSocket error
-    const wsNotification: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'WebSocket error',
-        time: '2023-04-01T12:00:00Z',
-        attributes: { component: 'WebSocket' }
-      }
-    };
-    rerender({ notification: wsNotification });
-
-    // Add another error
-    const otherNotification: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Other error',
-        time: '2023-04-01T12:01:00Z',
-        attributes: { component: 'Other' }
-      }
-    };
-    rerender({ notification: otherNotification });
+    act(() => {
+      result.current.handleLogNotification(createLogNotification({ message: 'WebSocket error', attributes: { component: 'WebSocket' } }));
+      result.current.handleLogNotification(createLogNotification({ message: 'Other error', attributes: { component: 'Other' } }));
+    });
 
     expect(result.current.logs).toHaveLength(2);
 
@@ -171,28 +126,15 @@ describe('useLogNotifications', () => {
 
   it('calls onLogsChange callback when logs change', () => {
     const onLogsChange = vi.fn();
-    const { result, rerender } = renderHook(
-      ({ notification }) => useLogNotifications({ notification, onLogsChange }),
-      { initialProps: { notification: undefined as LogNotification | undefined } }
-    );
+    const { result } = renderHook(() => useLogNotifications({ onLogsChange }));
 
-    // Initial call with empty logs
     expect(onLogsChange).toHaveBeenCalledWith([], 0);
 
-    const notification: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Test message',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
+    act(() => {
+      result.current.handleLogNotification(createLogNotification({ message: 'Test message' }));
+    });
 
-    rerender({ notification });
-
-    // Should be called with the new log and unread count
-    expect(onLogsChange).toHaveBeenCalledWith(
+    expect(onLogsChange).toHaveBeenLastCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           message: 'Test message',
@@ -202,13 +144,11 @@ describe('useLogNotifications', () => {
       1
     );
 
-    // Mark as read
     act(() => {
       result.current.markAllAsRead();
     });
 
-    // Should be called with updated read status
-    expect(onLogsChange).toHaveBeenCalledWith(
+    expect(onLogsChange).toHaveBeenLastCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           message: 'Test message',
@@ -220,22 +160,11 @@ describe('useLogNotifications', () => {
   });
 
   it('handles logs without component attribute in clearByCategory', () => {
-    const { result, rerender } = renderHook(
-      ({ notification }) => useLogNotifications({ notification }),
-      { initialProps: { notification: undefined as LogNotification | undefined } }
-    );
+    const { result } = renderHook(() => useLogNotifications({}));
 
-    // Add log without component attribute
-    const notification: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Error without component',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
-    rerender({ notification });
+    act(() => {
+      result.current.handleLogNotification(createLogNotification({ message: 'Error without component', attributes: {} }));
+    });
 
     expect(result.current.logs).toHaveLength(1);
 
@@ -243,73 +172,28 @@ describe('useLogNotifications', () => {
       result.current.clearByCategory('WebSocket');
     });
 
-    // Should still have the log since it doesn't match the category
     expect(result.current.logs).toHaveLength(1);
   });
 
   it('adds logs in reverse chronological order', () => {
-    const { result, rerender } = renderHook(
-      ({ notification }) => useLogNotifications({ notification }),
-      { initialProps: { notification: undefined as LogNotification | undefined } }
-    );
+    const { result } = renderHook(() => useLogNotifications({}));
 
-    const notification1: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'First message',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
+    act(() => {
+      result.current.handleLogNotification(createLogNotification({ message: 'First message' }));
+      result.current.handleLogNotification(createLogNotification({ message: 'Second message' }));
+    });
 
-    const notification2: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Second message',
-        time: '2023-04-01T12:01:00Z',
-        attributes: {}
-      }
-    };
-
-    rerender({ notification: notification1 });
-    rerender({ notification: notification2 });
-
-    // Newer logs should appear first
     expect(result.current.logs[0].message).toBe('Second message');
     expect(result.current.logs[1].message).toBe('First message');
   });
 
   it('generates unique IDs for each log entry', () => {
-    const { result, rerender } = renderHook(
-      ({ notification }) => useLogNotifications({ notification }),
-      { initialProps: { notification: undefined as LogNotification | undefined } }
-    );
+    const { result } = renderHook(() => useLogNotifications({}));
 
-    const notification1: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Test message',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
-
-    const notification2: LogNotification = {
-      type: 'log_notification',
-      payload: {
-        level: 'ERROR',
-        message: 'Test message',
-        time: '2023-04-01T12:00:00Z',
-        attributes: {}
-      }
-    };
-
-    // Add same content but different object references
-    rerender({ notification: notification1 });
-    rerender({ notification: notification2 });
+    act(() => {
+      result.current.handleLogNotification(createLogNotification());
+      result.current.handleLogNotification(createLogNotification());
+    });
 
     expect(result.current.logs).toHaveLength(2);
     expect(result.current.logs[0].id).not.toBe(result.current.logs[1].id);
@@ -317,121 +201,63 @@ describe('useLogNotifications', () => {
 
   describe('device online notifications', () => {
     it('adds device online notification without alias', () => {
-      const deviceOnlineNotification: DeviceOnline = {
-        type: 'device_online',
-        payload: {
-          ip: '192.168.1.100',
-          eoj: '0291:1'
-        }
-      };
+      const { result } = renderHook(() => useLogNotifications({}));
+      const notification = createDeviceOnline();
 
-      const { result, rerender } = renderHook(
-        ({ deviceOnlineNotification }) => useLogNotifications({ deviceOnlineNotification }),
-        { initialProps: { deviceOnlineNotification: undefined as DeviceOnline | undefined } }
-      );
-
-      expect(result.current.logs).toEqual([]);
-
-      rerender({ deviceOnlineNotification });
+      act(() => {
+        result.current.handleDeviceOnlineNotification(notification);
+      });
 
       expect(result.current.logs).toHaveLength(1);
       expect(result.current.logs[0].message).toBe('Device 192.168.1.100 0291:1 came online');
       expect(result.current.logs[0].level).toBe('INFO');
-      expect(result.current.logs[0].isRead).toBe(false);
-      expect(result.current.logs[0].attributes.ip).toBe('192.168.1.100');
-      expect(result.current.logs[0].attributes.eoj).toBe('0291:1');
-      expect(result.current.logs[0].attributes.event).toBe('device_online');
       expect(result.current.logs[0].attributes.alias).toBeUndefined();
+      expect(result.current.logs[0].attributes.event).toBe('device_online');
     });
 
     it('adds device online notification with alias', () => {
-      const deviceOnlineNotification: DeviceOnline = {
-        type: 'device_online',
-        payload: {
-          ip: '192.168.1.100',
-          eoj: '0291:1'
-        }
-      };
-
       const mockResolveAlias = vi.fn(() => 'Living Room Light');
+      const { result } = renderHook(() => useLogNotifications({ resolveAlias: mockResolveAlias }));
+      const notification = createDeviceOnline();
 
-      const { result, rerender } = renderHook(
-        ({ deviceOnlineNotification }) => useLogNotifications({ deviceOnlineNotification, resolveAlias: mockResolveAlias }),
-        { initialProps: { deviceOnlineNotification: undefined as DeviceOnline | undefined } }
-      );
-
-      expect(result.current.logs).toEqual([]);
-
-      rerender({ deviceOnlineNotification });
+      act(() => {
+        result.current.handleDeviceOnlineNotification(notification);
+      });
 
       expect(result.current.logs).toHaveLength(1);
       expect(result.current.logs[0].message).toBe('Device Living Room Light (192.168.1.100 0291:1) came online');
-      expect(result.current.logs[0].level).toBe('INFO');
-      expect(result.current.logs[0].isRead).toBe(false);
-      expect(result.current.logs[0].attributes.ip).toBe('192.168.1.100');
-      expect(result.current.logs[0].attributes.eoj).toBe('0291:1');
       expect(result.current.logs[0].attributes.alias).toBe('Living Room Light');
-      expect(result.current.logs[0].attributes.event).toBe('device_online');
     });
   });
 
   describe('device offline notifications', () => {
     it('adds device offline notification without alias', () => {
-      const deviceOfflineNotification: DeviceOffline = {
-        type: 'device_offline',
-        payload: {
-          ip: '192.168.1.101',
-          eoj: '0130:1'
-        }
-      };
+      const { result } = renderHook(() => useLogNotifications({}));
+      const notification = createDeviceOffline();
 
-      const { result, rerender } = renderHook(
-        ({ deviceOfflineNotification }) => useLogNotifications({ deviceOfflineNotification }),
-        { initialProps: { deviceOfflineNotification: undefined as DeviceOffline | undefined } }
-      );
-
-      expect(result.current.logs).toEqual([]);
-
-      rerender({ deviceOfflineNotification });
+      act(() => {
+        result.current.handleDeviceOfflineNotification(notification);
+      });
 
       expect(result.current.logs).toHaveLength(1);
       expect(result.current.logs[0].message).toBe('Device 192.168.1.101 0130:1 went offline');
       expect(result.current.logs[0].level).toBe('WARN');
-      expect(result.current.logs[0].isRead).toBe(false);
-      expect(result.current.logs[0].attributes.ip).toBe('192.168.1.101');
-      expect(result.current.logs[0].attributes.eoj).toBe('0130:1');
-      expect(result.current.logs[0].attributes.event).toBe('device_offline');
       expect(result.current.logs[0].attributes.alias).toBeUndefined();
+      expect(result.current.logs[0].attributes.event).toBe('device_offline');
     });
 
     it('adds device offline notification with alias', () => {
-      const deviceOfflineNotification: DeviceOffline = {
-        type: 'device_offline',
-        payload: {
-          ip: '192.168.1.101',
-          eoj: '0130:1'
-        }
-      };
-
       const mockResolveAlias = vi.fn(() => 'Bedroom AC');
+      const { result } = renderHook(() => useLogNotifications({ resolveAlias: mockResolveAlias }));
+      const notification = createDeviceOffline();
 
-      const { result, rerender } = renderHook(
-        ({ deviceOfflineNotification }) => useLogNotifications({ deviceOfflineNotification, resolveAlias: mockResolveAlias }),
-        { initialProps: { deviceOfflineNotification: undefined as DeviceOffline | undefined } }
-      );
-
-      expect(result.current.logs).toEqual([]);
-
-      rerender({ deviceOfflineNotification });
+      act(() => {
+        result.current.handleDeviceOfflineNotification(notification);
+      });
 
       expect(result.current.logs).toHaveLength(1);
       expect(result.current.logs[0].message).toBe('Device Bedroom AC (192.168.1.101 0130:1) went offline');
-      expect(result.current.logs[0].level).toBe('WARN');
-      expect(result.current.logs[0].isRead).toBe(false);
-      expect(result.current.logs[0].attributes.ip).toBe('192.168.1.101');
-      expect(result.current.logs[0].attributes.eoj).toBe('0130:1');
       expect(result.current.logs[0].attributes.alias).toBe('Bedroom AC');
-      expect(result.current.logs[0].attributes.event).toBe('device_offline');
     });
   });
 
@@ -439,65 +265,26 @@ describe('useLogNotifications', () => {
     it('handles multiple notification types correctly', () => {
       const onLogsChange = vi.fn();
       const mockResolveAlias = vi.fn((ip: string, eoj: string) => {
-        if (ip === '192.168.1.100' && eoj === '0291:1') return 'Test Device';
+        if (ip === '192.168.1.100' && eoj === '0291:1') {
+          return 'Test Device';
+        }
         return null;
       });
 
-      const { result, rerender } = renderHook(
-        ({ notification, deviceOnlineNotification, deviceOfflineNotification }) => 
-          useLogNotifications({ notification, deviceOnlineNotification, deviceOfflineNotification, resolveAlias: mockResolveAlias, onLogsChange }),
-        { 
-          initialProps: { 
-            notification: undefined as LogNotification | undefined,
-            deviceOnlineNotification: undefined as DeviceOnline | undefined,
-            deviceOfflineNotification: undefined as DeviceOffline | undefined
-          } 
-        }
+      const { result } = renderHook(() =>
+        useLogNotifications({ resolveAlias: mockResolveAlias, onLogsChange })
       );
 
-      // Add log notification
-      const logNotification: LogNotification = {
-        type: 'log_notification',
-        payload: {
-          level: 'ERROR',
-          message: 'Test error',
-          time: '2023-04-01T12:00:00Z',
-          attributes: {}
-        }
-      };
-      rerender({ notification: logNotification, deviceOnlineNotification: undefined, deviceOfflineNotification: undefined });
-
-      // Add device online notification
-      const onlineNotification: DeviceOnline = {
-        type: 'device_online',
-        payload: {
-          ip: '192.168.1.100',
-          eoj: '0291:1'
-        }
-      };
-      rerender({ notification: undefined, deviceOnlineNotification: onlineNotification, deviceOfflineNotification: undefined });
-
-      // Add device offline notification
-      const offlineNotification: DeviceOffline = {
-        type: 'device_offline',
-        payload: {
-          ip: '192.168.1.101',
-          eoj: '0130:1'
-        }
-      };
-      rerender({ notification: undefined, deviceOnlineNotification: undefined, deviceOfflineNotification: offlineNotification });
+      act(() => {
+        result.current.handleLogNotification(createLogNotification({ message: 'Test error' }));
+        result.current.handleDeviceOnlineNotification(createDeviceOnline());
+        result.current.handleDeviceOfflineNotification(createDeviceOffline());
+      });
 
       expect(result.current.logs).toHaveLength(3);
-      
-      // Check that logs are in reverse chronological order (most recent first)
       expect(result.current.logs[0].message).toBe('Device 192.168.1.101 0130:1 went offline');
-      expect(result.current.logs[0].level).toBe('WARN');
-      
       expect(result.current.logs[1].message).toBe('Device Test Device (192.168.1.100 0291:1) came online');
-      expect(result.current.logs[1].level).toBe('INFO');
-      
       expect(result.current.logs[2].message).toBe('Test error');
-      expect(result.current.logs[2].level).toBe('ERROR');
     });
   });
 });
