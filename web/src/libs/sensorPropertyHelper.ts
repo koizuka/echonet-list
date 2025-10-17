@@ -10,7 +10,7 @@ import {
 import type { PropertyValue } from '@/hooks/types';
 
 // Sensor property EPCs and their corresponding icons using classCode:EPC format
-const SENSOR_PROPERTY_ICONS: Record<string, LucideIcon> = {
+export const SENSOR_PROPERTY_ICONS: Record<string, LucideIcon> = {
   // Air Conditioner (0130) sensors
   '0130:BB': Thermometer,  // Room temperature
   '0130:BE': CloudSun,     // Outside temperature

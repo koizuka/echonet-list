@@ -10,23 +10,29 @@ vi.mock('@/libs/propertyHelper', () => ({
   isOperationStatusSettable: vi.fn(),
 }));
 
-vi.mock('@/libs/deviceIconHelper', () => ({
-  getDeviceIcon: vi.fn(() => TestIcon),
-  getDeviceIconColor: vi.fn(),
-}));
-
-// Test icon component
+// Test icon component needs to be defined before mock
 function TestIcon({ className }: { className?: string }) {
   return <svg className={className} data-testid="test-icon" />;
 }
 
+vi.mock('@/libs/deviceIconHelper', () => ({
+  DEVICE_CLASS_ICONS: {
+    '0130': TestIcon,
+    '0291': TestIcon,
+    '03B7': TestIcon,
+    '0EF0': TestIcon,
+  },
+  DEFAULT_DEVICE_ICON: TestIcon,
+  getDeviceIcon: vi.fn(() => TestIcon),
+  getDeviceIconColor: vi.fn(),
+}));
+
 import { isDeviceOperational, isDeviceFaulty, isOperationStatusSettable } from '@/libs/propertyHelper';
-import { getDeviceIcon, getDeviceIconColor } from '@/libs/deviceIconHelper';
+import { getDeviceIconColor } from '@/libs/deviceIconHelper';
 
 const mockIsDeviceOperational = isDeviceOperational as ReturnType<typeof vi.fn>;
 const mockIsDeviceFaulty = isDeviceFaulty as ReturnType<typeof vi.fn>;
 const mockIsOperationStatusSettable = isOperationStatusSettable as ReturnType<typeof vi.fn>;
-const mockGetDeviceIcon = getDeviceIcon as ReturnType<typeof vi.fn>;
 const mockGetDeviceIconColor = getDeviceIconColor as ReturnType<typeof vi.fn>;
 
 describe('DeviceIcon', () => {
@@ -43,7 +49,6 @@ describe('DeviceIcon', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetDeviceIcon.mockReturnValue(TestIcon);
     mockIsOperationStatusSettable.mockReturnValue(true); // Default to controllable
   });
 
