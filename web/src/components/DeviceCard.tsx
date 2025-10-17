@@ -130,7 +130,7 @@ export function DeviceCard({
                 onClick={() => setIsHistoryDialogOpen(true)}
                 className="h-6 w-6 p-0"
                 title="View device history"
-                disabled={!isConnected || device.isOffline}
+                disabled={!isConnected}
                 data-testid="history-button"
               >
                 <History className="h-3 w-3" />

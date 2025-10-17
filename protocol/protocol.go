@@ -24,12 +24,16 @@ const (
 	HistoryOriginNotification HistoryOrigin = "notification"
 	// HistoryOriginSet indicates that the entry originated from a set_properties command.
 	HistoryOriginSet HistoryOrigin = "set"
+	// HistoryOriginOnline indicates that the entry originated from a device online event.
+	HistoryOriginOnline HistoryOrigin = "online"
+	// HistoryOriginOffline indicates that the entry originated from a device offline event.
+	HistoryOriginOffline HistoryOrigin = "offline"
 )
 
 // HistoryEntry represents a single history record for a device.
 type HistoryEntry struct {
 	Timestamp time.Time     `json:"timestamp"`
-	EPC       string        `json:"epc"`
+	EPC       string        `json:"epc,omitempty"` // EPC is omitted for event entries (online/offline)
 	Value     PropertyData  `json:"value"`
 	Origin    HistoryOrigin `json:"origin"`
 	Settable  bool          `json:"settable"`

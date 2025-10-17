@@ -88,9 +88,15 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 	resultEntries := make([]protocol.HistoryEntry, 0, len(history))
 
 	for _, entry := range history {
+		// For event entries (online/offline), EPC is 0 and should be omitted from the response
+		epcStr := ""
+		if entry.EPC != 0 {
+			epcStr = fmt.Sprintf("%02X", byte(entry.EPC))
+		}
+
 		resultEntries = append(resultEntries, protocol.HistoryEntry{
 			Timestamp: entry.Timestamp,
-			EPC:       fmt.Sprintf("%02X", byte(entry.EPC)),
+			EPC:       epcStr, // Empty string for events, will be omitted in JSON
 			Value:     entry.Value,
 			Origin:    protocol.HistoryOrigin(entry.Origin),
 			Settable:  entry.Settable,

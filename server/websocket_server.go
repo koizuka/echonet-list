@@ -1146,6 +1146,9 @@ func (ws *WebSocketServer) listenForNotifications() {
 				_ = ws.broadcastMessageToClients(protocol.MessageTypeTimeoutNotification, payload)
 
 			case handler.DeviceOffline:
+				// Record offline event in history
+				ws.recordHistory(notification.Device, echonet_lite.EPCType(0), protocol.PropertyData{}, HistoryOriginOffline)
+
 				// Create device offline payload
 				device := notification.Device
 				payload := protocol.DeviceOfflinePayload{
@@ -1162,6 +1165,9 @@ func (ws *WebSocketServer) listenForNotifications() {
 				}
 
 			case handler.DeviceOnline:
+				// Record online event in history
+				ws.recordHistory(notification.Device, echonet_lite.EPCType(0), protocol.PropertyData{}, HistoryOriginOnline)
+
 				// Create device online payload
 				device := notification.Device
 				payload := protocol.DeviceOnlinePayload{

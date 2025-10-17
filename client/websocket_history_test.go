@@ -178,6 +178,111 @@ func TestGetDeviceHistoryError(t *testing.T) {
 	}
 }
 
+func TestGetDeviceHistoryWithEvents(t *testing.T) {
+	ctx := context.Background()
+	client := &WebSocketClient{
+		ctx:        ctx,
+		responseCh: make(map[string]chan *protocol.Message),
+	}
+
+	mock := &mockHistoryTransport{t: t, client: client}
+	client.transport = mock
+
+	device := IPAndEOJ{
+		IP:  netParseIP(t, "192.168.1.10"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 0x01),
+	}
+
+	baseTime := time.Date(2024, 5, 1, 12, 0, 0, 0, time.UTC)
+
+	mock.handler = func(msg *protocol.Message) (*protocol.Message, error) {
+		if msg.Type != protocol.MessageTypeGetDeviceHistory {
+			t.Fatalf("unexpected message type: %s", msg.Type)
+		}
+
+		entries := []protocol.HistoryEntry{
+			{
+				Timestamp: baseTime,
+				EPC:       "", // Empty EPC for event entries
+				Value:     protocol.PropertyData{},
+				Origin:    protocol.HistoryOriginOnline,
+				Settable:  false,
+			},
+			{
+				Timestamp: baseTime.Add(10 * time.Minute),
+				EPC:       "80",
+				Value:     protocol.PropertyData{String: "on"},
+				Origin:    protocol.HistoryOriginSet,
+				Settable:  true,
+			},
+			{
+				Timestamp: baseTime.Add(20 * time.Minute),
+				EPC:       "", // Empty EPC for event entries
+				Value:     protocol.PropertyData{},
+				Origin:    protocol.HistoryOriginOffline,
+				Settable:  false,
+			},
+		}
+
+		history := protocol.DeviceHistoryResponse{
+			Entries: entries,
+		}
+		historyData, _ := json.Marshal(history)
+		resultPayload := protocol.CommandResultPayload{
+			Success: true,
+			Data:    historyData,
+		}
+		resultData, _ := json.Marshal(resultPayload)
+		return &protocol.Message{
+			Type:      protocol.MessageTypeCommandResult,
+			RequestID: msg.RequestID,
+			Payload:   resultData,
+		}, nil
+	}
+
+	entries, err := client.GetDeviceHistory(device, DeviceHistoryOptions{})
+	if err != nil {
+		t.Fatalf("GetDeviceHistory returned error: %v", err)
+	}
+
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
+	}
+
+	// Verify online event
+	if entries[0].EPC != 0 {
+		t.Fatalf("expected EPC 0 for online event, got 0x%02X", entries[0].EPC)
+	}
+	if entries[0].Origin != protocol.HistoryOriginOnline {
+		t.Fatalf("unexpected origin: %s", entries[0].Origin)
+	}
+	if entries[0].Settable {
+		t.Fatal("event entries should not be settable")
+	}
+
+	// Verify property change
+	if entries[1].EPC != 0x80 {
+		t.Fatalf("expected EPC 0x80, got 0x%02X", entries[1].EPC)
+	}
+	if entries[1].Value.String != "on" {
+		t.Fatalf("unexpected value: %s", entries[1].Value.String)
+	}
+	if entries[1].Origin != protocol.HistoryOriginSet {
+		t.Fatalf("unexpected origin: %s", entries[1].Origin)
+	}
+
+	// Verify offline event
+	if entries[2].EPC != 0 {
+		t.Fatalf("expected EPC 0 for offline event, got 0x%02X", entries[2].EPC)
+	}
+	if entries[2].Origin != protocol.HistoryOriginOffline {
+		t.Fatalf("unexpected origin: %s", entries[2].Origin)
+	}
+	if entries[2].Settable {
+		t.Fatal("event entries should not be settable")
+	}
+}
+
 func netParseIP(t *testing.T, addr string) net.IP {
 	t.Helper()
 	ip := net.ParseIP(addr)
