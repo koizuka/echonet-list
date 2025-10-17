@@ -56,14 +56,20 @@ func (c *WebSocketClient) GetDeviceHistory(device IPAndEOJ, opts DeviceHistoryOp
 
 	entries := make([]DeviceHistoryEntry, 0, len(history.Entries))
 	for _, entry := range history.Entries {
-		epcValue, err := strconv.ParseUint(entry.EPC, 16, 8)
-		if err != nil {
-			return nil, fmt.Errorf("invalid EPC value in response: %v", err)
-		}
+		// For event entries (online/offline), EPC is empty/omitted
+		var epcValue uint64
+		if entry.EPC != "" {
+			var err error
+			epcValue, err = strconv.ParseUint(entry.EPC, 16, 8)
+			if err != nil {
+				return nil, fmt.Errorf("invalid EPC value in response: %v", err)
+			}
 
-		if len(entry.EPC) != 2 {
-			return nil, fmt.Errorf("invalid EPC format in response: %s", entry.EPC)
+			if len(entry.EPC) != 2 {
+				return nil, fmt.Errorf("invalid EPC format in response: %s", entry.EPC)
+			}
 		}
+		// If EPC is empty, epcValue remains 0 (for event entries)
 
 		entries = append(entries, DeviceHistoryEntry{
 			Timestamp: entry.Timestamp,

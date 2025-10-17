@@ -4,6 +4,7 @@ import (
 	"context"
 	"echonet-list/client"
 	"echonet-list/echonet_lite/handler"
+	"echonet-list/protocol"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -503,18 +504,18 @@ func (p *CommandProcessor) processHistoryCommand(cmd *Command) error {
 		timestamp := entry.Timestamp.Local().Format(time.RFC3339)
 
 		// Check if this is an event entry (online/offline)
-		isEvent := entry.EPC == 0 && (entry.Origin == "online" || entry.Origin == "offline")
+		isEvent := entry.EPC == 0 && (entry.Origin == protocol.HistoryOriginOnline || entry.Origin == protocol.HistoryOriginOffline)
 
 		if isEvent {
 			// Display event entries differently
 			eventDescription := "Event"
-			if entry.Origin == "online" {
+			if entry.Origin == protocol.HistoryOriginOnline {
 				if historyDisplayLanguage == "ja" {
 					eventDescription = "デバイスがオンラインになりました"
 				} else {
 					eventDescription = "Device came online"
 				}
-			} else if entry.Origin == "offline" {
+			} else if entry.Origin == protocol.HistoryOriginOffline {
 				if historyDisplayLanguage == "ja" {
 					eventDescription = "デバイスがオフラインになりました"
 				} else {
