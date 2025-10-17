@@ -22,6 +22,10 @@ const (
 	HistoryOriginNotification HistoryOrigin = "notification"
 	// HistoryOriginSet indicates that the entry came from a successful set_properties operation.
 	HistoryOriginSet HistoryOrigin = "set"
+	// HistoryOriginOnline indicates that the entry came from a device online event.
+	HistoryOriginOnline HistoryOrigin = "online"
+	// HistoryOriginOffline indicates that the entry came from a device offline event.
+	HistoryOriginOffline HistoryOrigin = "offline"
 )
 
 // DeviceHistoryEntry represents a single history item for a device.

@@ -659,3 +659,183 @@ func findSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+// TestMemoryDeviceHistoryStore_RecordEventHistory tests recording of online/offline events
+func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	device := testDevice(1)
+	now := time.Now().UTC()
+
+	// Record an offline event (EPC should be 0 for events)
+	store.Record(DeviceHistoryEntry{
+		Timestamp: now,
+		Device:    device,
+		EPC:       echonet_lite.EPCType(0), // No EPC for event entries
+		Value:     protocol.PropertyData{}, // Empty value for events
+		Origin:    HistoryOriginOffline,
+		Settable:  false, // Events are not settable
+	})
+
+	// Record an online event
+	store.Record(DeviceHistoryEntry{
+		Timestamp: now.Add(1 * time.Minute),
+		Device:    device,
+		EPC:       echonet_lite.EPCType(0), // No EPC for event entries
+		Value:     protocol.PropertyData{}, // Empty value for events
+		Origin:    HistoryOriginOnline,
+		Settable:  false, // Events are not settable
+	})
+
+	// Query all entries (including events)
+	entries := store.Query(device, HistoryQuery{SettableOnly: false})
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+
+	// Verify newest first: online, offline
+	if entries[0].Origin != HistoryOriginOnline {
+		t.Errorf("expected first entry to be online event, got %s", entries[0].Origin)
+	}
+	if entries[1].Origin != HistoryOriginOffline {
+		t.Errorf("expected second entry to be offline event, got %s", entries[1].Origin)
+	}
+
+	// Verify EPC is 0 for events
+	for i, entry := range entries {
+		if entry.EPC != echonet_lite.EPCType(0) {
+			t.Errorf("entry %d: expected EPC to be 0 for event, got 0x%02X", i, entry.EPC)
+		}
+	}
+}
+
+// TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory tests mixed property changes and events
+func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	device := testDevice(1)
+	now := time.Now().UTC()
+
+	// Record a property change
+	store.Record(DeviceHistoryEntry{
+		Timestamp: now,
+		Device:    device,
+		EPC:       echonet_lite.EPCType(0x80),
+		Value:     protocol.PropertyData{String: "on"},
+		Origin:    HistoryOriginSet,
+		Settable:  true,
+	})
+
+	// Record an offline event
+	store.Record(DeviceHistoryEntry{
+		Timestamp: now.Add(1 * time.Minute),
+		Device:    device,
+		EPC:       echonet_lite.EPCType(0),
+		Value:     protocol.PropertyData{},
+		Origin:    HistoryOriginOffline,
+		Settable:  false,
+	})
+
+	// Record an online event
+	store.Record(DeviceHistoryEntry{
+		Timestamp: now.Add(2 * time.Minute),
+		Device:    device,
+		EPC:       echonet_lite.EPCType(0),
+		Value:     protocol.PropertyData{},
+		Origin:    HistoryOriginOnline,
+		Settable:  false,
+	})
+
+	// Record another property change
+	store.Record(DeviceHistoryEntry{
+		Timestamp: now.Add(3 * time.Minute),
+		Device:    device,
+		EPC:       echonet_lite.EPCType(0x80),
+		Value:     protocol.PropertyData{String: "off"},
+		Origin:    HistoryOriginNotification,
+		Settable:  true,
+	})
+
+	// Query all entries
+	allEntries := store.Query(device, HistoryQuery{SettableOnly: false})
+	if len(allEntries) != 4 {
+		t.Fatalf("expected 4 entries total, got %d", len(allEntries))
+	}
+
+	// Query settable only (should exclude events)
+	settableEntries := store.Query(device, HistoryQuery{SettableOnly: true})
+	if len(settableEntries) != 2 {
+		t.Fatalf("expected 2 settable entries, got %d", len(settableEntries))
+	}
+
+	// Verify settable entries are property changes only
+	for i, entry := range settableEntries {
+		if entry.Origin == HistoryOriginOnline || entry.Origin == HistoryOriginOffline {
+			t.Errorf("settable entry %d: should not include event, got origin %s", i, entry.Origin)
+		}
+		if entry.EPC == echonet_lite.EPCType(0) {
+			t.Errorf("settable entry %d: should have valid EPC, got 0", i)
+		}
+	}
+}
+
+// TestMemoryDeviceHistoryStore_EventHistorySaveLoad tests saving and loading event history
+func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
+	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	device := testDevice(1)
+	now := time.Now().UTC()
+
+	// Add event history
+	store1.Record(DeviceHistoryEntry{
+		Timestamp: now,
+		Device:    device,
+		EPC:       echonet_lite.EPCType(0),
+		Value:     protocol.PropertyData{},
+		Origin:    HistoryOriginOffline,
+		Settable:  false,
+	})
+	store1.Record(DeviceHistoryEntry{
+		Timestamp: now.Add(1 * time.Minute),
+		Device:    device,
+		EPC:       echonet_lite.EPCType(0),
+		Value:     protocol.PropertyData{},
+		Origin:    HistoryOriginOnline,
+		Settable:  false,
+	})
+
+	// Save to file
+	tmpFile := t.TempDir() + "/event_history_test.json"
+	if err := store1.SaveToFile(tmpFile); err != nil {
+		t.Fatalf("SaveToFile failed: %v", err)
+	}
+
+	// Load into new store
+	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	filter := HistoryLoadFilter{
+		Since:          24 * time.Hour,
+		PerDeviceLimit: 100,
+	}
+	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
+		t.Fatalf("LoadFromFile failed: %v", err)
+	}
+
+	// Verify loaded event history
+	entries := store2.Query(device, HistoryQuery{})
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 event entries after load, got %d", len(entries))
+	}
+
+	// Verify online event (newest first)
+	if entries[0].Origin != HistoryOriginOnline {
+		t.Errorf("expected online event, got %s", entries[0].Origin)
+	}
+	if entries[0].EPC != echonet_lite.EPCType(0) {
+		t.Errorf("expected EPC 0 for online event, got 0x%02X", entries[0].EPC)
+	}
+
+	// Verify offline event
+	if entries[1].Origin != HistoryOriginOffline {
+		t.Errorf("expected offline event, got %s", entries[1].Origin)
+	}
+	if entries[1].EPC != echonet_lite.EPCType(0) {
+		t.Errorf("expected EPC 0 for offline event, got 0x%02X", entries[1].EPC)
+	}
+}

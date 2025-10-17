@@ -31,6 +31,10 @@ type DialogMessages = {
   origin: string;
   originSet: string;
   originNotification: string;
+  originOnline: string;
+  originOffline: string;
+  eventOnline: string;
+  eventOffline: string;
 };
 
 interface DeviceHistoryDialogProps {
@@ -76,6 +80,10 @@ export function DeviceHistoryDialog({
       origin: 'Origin',
       originSet: 'Operation',
       originNotification: 'Notification',
+      originOnline: 'Online',
+      originOffline: 'Offline',
+      eventOnline: 'Device came online',
+      eventOffline: 'Device went offline',
     },
     ja: {
       title: 'デバイス履歴',
@@ -90,6 +98,10 @@ export function DeviceHistoryDialog({
       origin: '発生源',
       originSet: '操作',
       originNotification: '通知',
+      originOnline: 'オンライン',
+      originOffline: 'オフライン',
+      eventOnline: 'デバイスがオンラインになりました',
+      eventOffline: 'デバイスがオフラインになりました',
     },
   };
 
@@ -100,8 +112,28 @@ export function DeviceHistoryDialog({
     return date.toLocaleString();
   };
 
-  const getOriginText = (origin: 'set' | 'notification'): string => {
-    return origin === 'set' ? texts.originSet : texts.originNotification;
+  const getOriginText = (origin: 'set' | 'notification' | 'online' | 'offline'): string => {
+    switch (origin) {
+      case 'set':
+        return texts.originSet;
+      case 'notification':
+        return texts.originNotification;
+      case 'online':
+        return texts.originOnline;
+      case 'offline':
+        return texts.originOffline;
+    }
+  };
+
+  const getEventDescription = (origin: 'set' | 'notification' | 'online' | 'offline'): string | null => {
+    switch (origin) {
+      case 'online':
+        return texts.eventOnline;
+      case 'offline':
+        return texts.eventOffline;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -164,48 +196,47 @@ export function DeviceHistoryDialog({
           {!isLoading && !error && entries.length > 0 && (
             <div className="space-y-2">
               {entries.map((entry, index) => {
-                const propertyName = getPropertyName(
-                  entry.epc,
-                  propertyDescriptions,
-                  classCode
-                );
-                const descriptor = getPropertyDescriptor(
-                  entry.epc,
-                  propertyDescriptions,
-                  classCode
-                );
-                const formattedValue = formatPropertyValue(
-                  entry.value,
-                  descriptor
-                );
-                const canShowHexViewer = shouldShowHexViewer(
-                  entry.value,
-                  descriptor
-                );
+                // Check if this is an event entry (online/offline)
+                const isEvent = entry.origin === 'online' || entry.origin === 'offline';
+                const eventDescription = getEventDescription(entry.origin);
+
+                // For property changes
+                const propertyName = entry.epc
+                  ? getPropertyName(entry.epc, propertyDescriptions, classCode)
+                  : '';
+                const descriptor = entry.epc
+                  ? getPropertyDescriptor(entry.epc, propertyDescriptions, classCode)
+                  : undefined;
+                const formattedValue = !isEvent
+                  ? formatPropertyValue(entry.value, descriptor)
+                  : '';
+                const canShowHexViewer = !isEvent && shouldShowHexViewer(entry.value, descriptor);
 
                 return (
                   <div
-                    key={`${entry.timestamp}-${entry.epc}-${index}`}
+                    key={`${entry.timestamp}-${entry.epc || entry.origin}-${index}`}
                     className="border rounded-lg p-3 text-sm"
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="font-semibold">{propertyName}</span>
+                      <span className="font-semibold">
+                        {isEvent ? eventDescription : propertyName}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         {formatTimestamp(entry.timestamp)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 relative">
-                        <span className="text-muted-foreground">
-                          {texts.value}:
-                        </span>
-                        <span className="font-medium">{formattedValue}</span>
-                        <HexViewer
-                          canShowHexViewer={canShowHexViewer}
-                          currentValue={entry.value}
-                          size="sm"
-                        />
-                      </div>
+                      {!isEvent && (
+                        <div className="flex items-center gap-2 relative">
+                          <span className="text-muted-foreground">{texts.value}:</span>
+                          <span className="font-medium">{formattedValue}</span>
+                          <HexViewer
+                            canShowHexViewer={canShowHexViewer}
+                            currentValue={entry.value}
+                            size="sm"
+                          />
+                        </div>
+                      )}
                       <span className="text-xs px-2 py-1 rounded bg-muted">
                         {getOriginText(entry.origin)}
                       </span>

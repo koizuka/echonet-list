@@ -16,11 +16,11 @@ export type PropertyValue = {
   number?: number; // Numeric representation (if NumberDesc exists)
 };
 
-export type HistoryOrigin = 'notification' | 'set';
+export type HistoryOrigin = 'notification' | 'set' | 'online' | 'offline';
 
 export type DeviceHistoryEntry = {
   timestamp: string;
-  epc: string;
+  epc?: string; // Optional for event entries (online/offline)
   value: PropertyValue;
   origin: HistoryOrigin;
   settable: boolean;
