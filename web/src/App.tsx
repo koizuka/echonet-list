@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import type { PropertyValue, LogNotification, DeviceOnline, DeviceOffline } from '@/hooks/types';
+import type { PropertyValue } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
 
 // Error message templates with placeholders
@@ -60,29 +60,21 @@ function App() {
     ? (import.meta.env.VITE_WS_URL || 'wss://localhost:8080/ws')  // 開発時は環境変数またはデフォルト値
     : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`; // 本番時は現在のホストを使用
   
-  // Track the latest log notification
-  const [latestLogNotification, setLatestLogNotification] = useState<LogNotification | undefined>();
-  const [latestDeviceOnlineNotification, setLatestDeviceOnlineNotification] = useState<DeviceOnline | undefined>();
-  const [latestDeviceOfflineNotification, setLatestDeviceOfflineNotification] = useState<DeviceOffline | undefined>();
-  
   // Log notification state
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  
-  // Local error notification state for user actions
-  const [localErrorNotification, setLocalErrorNotification] = useState<LogEntry | undefined>();
 
   // Use a ref to store the logManager methods to avoid circular dependency
-  const logManagerRef = useRef<{ clearByCategory: (category: string) => void } | null>(null);
+  const logManagerRef = useRef<ReturnType<typeof useLogNotifications> | null>(null);
 
   const echonet = usePropertyDescriptions(wsUrl, (message) => {
     // Handle log notifications
     if (message.type === 'log_notification') {
-      setLatestLogNotification(message);
+      logManagerRef.current?.handleLogNotification(message);
     } else if (message.type === 'device_online') {
-      setLatestDeviceOnlineNotification(message);
+      logManagerRef.current?.handleDeviceOnlineNotification(message);
     } else if (message.type === 'device_offline') {
-      setLatestDeviceOfflineNotification(message);
+      logManagerRef.current?.handleDeviceOfflineNotification(message);
     }
   }, () => {
     // Clear WebSocket connection errors when successfully connected
@@ -176,15 +168,11 @@ function App() {
       attributes: { category: 'User Action' },
       isRead: false
     };
-    setLocalErrorNotification(errorEntry);
+    logManagerRef.current?.addLogEntry(errorEntry);
   }, [formatErrorMessage]);
 
   // Log notification handlers
   const logManager = useLogNotifications({ 
-    notification: latestLogNotification,
-    deviceOnlineNotification: latestDeviceOnlineNotification,
-    deviceOfflineNotification: latestDeviceOfflineNotification,
-    localErrorNotification: localErrorNotification,
     resolveAlias: resolveDeviceAlias,
     onLogsChange: (newLogs, newUnreadCount) => {
       setLogs(newLogs);
