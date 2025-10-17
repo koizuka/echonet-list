@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { PropertyEditor } from './PropertyEditor';
 import { PropertyDisplay } from './PropertyDisplay';
 import { getPropertyName, getPropertyDescriptor, isPropertySettable } from '@/libs/propertyHelper';
@@ -46,7 +47,7 @@ export function PropertyRow({
 
   // Check if this is a sensor property for special compact display
   const isSensor = isSensorProperty(classCode, epc);
-  const SensorIcon = getSensorIcon(classCode, epc);
+  const SensorIcon = useMemo(() => getSensorIcon(classCode, epc), [classCode, epc]);
   const sensorIconColor = getSensorIconColor(classCode, epc, value);
 
   if (isCompact && isSensor && SensorIcon) {

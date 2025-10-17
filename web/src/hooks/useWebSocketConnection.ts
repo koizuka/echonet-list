@@ -356,7 +356,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       clearTimeout(connectTimeoutRef.current);
       connectTimeoutRef.current = null;
     }
-    
+
     // In development mode (but not test), add a small delay to handle StrictMode double mounting
     if (import.meta.env.DEV && !import.meta.env.MODE?.includes('test')) {
       connectTimeoutRef.current = setTimeout(() => {
@@ -368,7 +368,9 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   }, [actualConnect]);
 
   // Assign connect function to ref for use in scheduleReconnect
-  connectRef.current = connect;
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const disconnect = useCallback(() => {
     cleanup();
@@ -413,7 +415,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     return () => {
       cleanup();
     };
-  }, [options.url]); // URLが変更された場合のみ再接続、connectとcleanupは安定化済み
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.url]); // URLが変更された場合のみ再接続、connectとcleanupは安定化済みだが依存に入れると無限ループの可能性
 
   return {
     connectionState,
