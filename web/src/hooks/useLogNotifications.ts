@@ -31,10 +31,14 @@ export function useLogNotifications({
   onLogsChange
 }: LogNotificationsProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  
+
   // Use ref to store the latest resolveAlias function to avoid useEffect dependency issues
   const resolveAliasRef = useRef(resolveAlias);
-  resolveAliasRef.current = resolveAlias;
+
+  // Update ref when resolveAlias changes
+  useEffect(() => {
+    resolveAliasRef.current = resolveAlias;
+  }, [resolveAlias]);
 
   // Helper function to format device identification for messages
   const formatDeviceIdentification = useCallback((ip: string, eoj: string, alias?: string): string => {

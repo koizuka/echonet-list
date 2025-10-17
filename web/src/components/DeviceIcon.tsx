@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { getDeviceIcon, getDeviceIconColor } from '@/libs/deviceIconHelper';
 import { isDeviceOperational, isDeviceFaulty, isOperationStatusSettable } from '@/libs/propertyHelper';
 import type { Device } from '@/hooks/types';
@@ -9,7 +10,7 @@ interface DeviceIconProps {
 }
 
 export function DeviceIcon({ device, classCode, className = '' }: DeviceIconProps) {
-  const Icon = getDeviceIcon(classCode);
+  const Icon = useMemo(() => getDeviceIcon(classCode), [classCode]);
   const isOperational = isDeviceOperational(device);
   const isFaulty = isDeviceFaulty(device);
   const isControllable = isOperationStatusSettable(device);

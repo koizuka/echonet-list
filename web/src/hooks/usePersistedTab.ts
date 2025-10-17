@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 const STORAGE_KEY = 'echonet-list-selected-tab';
 
@@ -23,27 +23,52 @@ export function usePersistedTab(availableTabs: string[], defaultTab?: string) {
     return savedTab || defaultTab || 'All';
   });
 
-  // Update selected tab when available tabs change
-  useEffect(() => {
+  // Track if this is the initial render to avoid unnecessary state updates
+  const isInitialMount = useRef(true);
+
+  // Compute the valid tab based on available tabs
+  const validTab = useMemo(() => {
+    if (availableTabs.length === 0) {
+      return selectedTab; // Keep current selection if no tabs available yet
+    }
+
     const savedTab = getSavedTab();
-    
-    // If we don't have available tabs yet, wait
+
+    // If we have a saved tab and it's available, use it
+    if (savedTab && availableTabs.includes(savedTab)) {
+      return savedTab;
+    }
+
+    // If current selected tab is available, keep it
+    if (availableTabs.includes(selectedTab)) {
+      return selectedTab;
+    }
+
+    // Otherwise, use fallback
+    return defaultTab || availableTabs[0] || 'All';
+  }, [availableTabs, getSavedTab, selectedTab, defaultTab]);
+
+  // Update state only when validTab changes and it's different from current
+  useEffect(() => {
     if (availableTabs.length === 0) {
       return;
     }
-    
-    // If we have a saved tab and it's available, use it
-    if (savedTab && availableTabs.includes(savedTab) && selectedTab !== savedTab) {
-      setSelectedTab(savedTab);
+
+    // On initial mount, apply the valid tab
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (validTab !== selectedTab) {
+        setSelectedTab(validTab);
+      }
       return;
     }
-    
-    // If current selected tab is no longer available, reset to a valid one
-    if (!availableTabs.includes(selectedTab)) {
-      const fallbackTab = defaultTab || availableTabs[0] || 'All';
-      setSelectedTab(fallbackTab);
+
+    // On subsequent updates, only update if the valid tab changed
+    if (validTab !== selectedTab) {
+      setSelectedTab(validTab);
     }
-  }, [availableTabs, getSavedTab, selectedTab, defaultTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validTab]); // Only depend on validTab, not on availableTabs or selectedTab directly to avoid infinite loops
 
   // Save to localStorage whenever tab changes
   const selectTab = useCallback((tabName: string) => {

@@ -227,9 +227,10 @@ export function useECHONET(
   onWebSocketConnected?: () => void
 ): ECHONETHook {
   const [state, dispatch] = useReducer(echonetReducer, initialState);
-  
-  // useRef to avoid circular dependency between handleServerMessage and listDevices
+
+  // useRef to avoid circular dependency between handleServerMessage and functions defined later
   const listDevicesRef = useRef<((targets: string[]) => Promise<unknown>) | null>(null);
+  const updateDevicePropertiesRef = useRef<((targets?: string[], force?: boolean) => Promise<unknown>) | null>(null);
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     // Call external handler if provided
@@ -283,7 +284,9 @@ export function useECHONET(
                   if (propertyCount === 0) {
                     // フォールバック: update_propertiesで再試行
                     try {
-                      await updateDeviceProperties([deviceId], true);
+                      if (updateDevicePropertiesRef.current) {
+                        await updateDevicePropertiesRef.current([deviceId], true);
+                      }
                     } catch {
                       // フォールバックも失敗した場合は静かに処理終了
                     }
@@ -315,7 +318,8 @@ export function useECHONET(
         const deviceKey = `${message.payload.ip} ${message.payload.eoj}`;
         (async () => {
           try {
-            const deviceListResponse = await listDevices([deviceKey]);
+            if (!listDevicesRef.current) return;
+            const deviceListResponse = await listDevicesRef.current([deviceKey]);
             if (deviceListResponse && typeof deviceListResponse === 'object' && 'devices' in deviceListResponse) {
               const devices = deviceListResponse.devices as Record<string, Device>;
               const deviceData = devices[deviceKey];
@@ -404,7 +408,7 @@ export function useECHONET(
       default:
         console.log('Unhandled server message:', message);
     }
-  }, [onMessage, state.devices]);
+  }, [onMessage]);
 
   const handleConnectionStateChange = useCallback((connectionState: ConnectionState) => {
     if (import.meta.env.DEV) {
@@ -451,10 +455,11 @@ export function useECHONET(
     });
   }, [connection]);
 
-  // Set the ref to avoid circular dependency
+  // Set the refs to avoid circular dependency
   useEffect(() => {
     listDevicesRef.current = listDevices;
-  }, [listDevices]);
+    updateDevicePropertiesRef.current = updateDeviceProperties;
+  }, [listDevices, updateDeviceProperties]);
 
   const discoverDevices = useCallback(async () => {
     return connection.sendMessage({
