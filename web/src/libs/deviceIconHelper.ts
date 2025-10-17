@@ -12,6 +12,11 @@ import {
 } from 'lucide-react';
 
 /**
+ * Default icon for unknown device types
+ */
+export const DEFAULT_DEVICE_ICON = CircleHelp;
+
+/**
  * Mapping of ECHONET Lite device class codes to Lucide icons
  */
 export const DEVICE_CLASS_ICONS: Record<string, LucideIcon> = {

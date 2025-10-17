@@ -24,21 +24,32 @@ vi.mock('@/libs/propertyHelper', () => ({
 }));
 
 // Mock sensor property helper
-vi.mock('@/libs/sensorPropertyHelper', () => ({
-  isSensorProperty: (_classCode: string, epc: string) => ['BB', 'BA', 'BE'].includes(epc),
-  getSensorIcon: (_classCode: string, epc: string) => {
-    const iconMap: Record<string, any> = {
-      'BB': ({ className }: { className?: string }) => 
-        <svg data-testid="thermometer-icon" className={className}>Thermometer</svg>,
-      'BA': ({ className }: { className?: string }) => 
-        <svg data-testid="droplets-icon" className={className}>Droplets</svg>,
-      'BE': ({ className }: { className?: string }) => 
-        <svg data-testid="cloudsun-icon" className={className}>CloudSun</svg>
-    };
-    return iconMap[epc];
-  },
-  getSensorIconColor: (_classCode: string, _epc: string, _value: any) => 'text-muted-foreground'
-}));
+vi.mock('@/libs/sensorPropertyHelper', () => {
+  const ThermometerIcon = ({ className }: { className?: string }) =>
+    <svg data-testid="thermometer-icon" className={className}>Thermometer</svg>;
+  const DropletsIcon = ({ className }: { className?: string }) =>
+    <svg data-testid="droplets-icon" className={className}>Droplets</svg>;
+  const CloudSunIcon = ({ className }: { className?: string }) =>
+    <svg data-testid="cloudsun-icon" className={className}>CloudSun</svg>;
+
+  return {
+    isSensorProperty: (_classCode: string, epc: string) => ['BB', 'BA', 'BE'].includes(epc),
+    SENSOR_PROPERTY_ICONS: {
+      '0130:BB': ThermometerIcon,
+      '0130:BA': DropletsIcon,
+      '0130:BE': CloudSunIcon
+    },
+    getSensorIcon: (_classCode: string, epc: string) => {
+      const iconMap: Record<string, any> = {
+        'BB': ThermometerIcon,
+        'BA': DropletsIcon,
+        'BE': CloudSunIcon
+      };
+      return iconMap[epc];
+    },
+    getSensorIconColor: (_classCode: string, _epc: string, _value: any) => 'text-muted-foreground'
+  };
+});
 
 describe('PropertyRow', () => {
   const mockDevice: Device = {

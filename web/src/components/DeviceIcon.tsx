@@ -1,5 +1,4 @@
-import { useMemo } from 'react';
-import { getDeviceIcon, getDeviceIconColor } from '@/libs/deviceIconHelper';
+import { DEVICE_CLASS_ICONS, DEFAULT_DEVICE_ICON, getDeviceIconColor } from '@/libs/deviceIconHelper';
 import { isDeviceOperational, isDeviceFaulty, isOperationStatusSettable } from '@/libs/propertyHelper';
 import type { Device } from '@/hooks/types';
 
@@ -10,7 +9,7 @@ interface DeviceIconProps {
 }
 
 export function DeviceIcon({ device, classCode, className = '' }: DeviceIconProps) {
-  const Icon = useMemo(() => getDeviceIcon(classCode), [classCode]);
+  const IconComponent = DEVICE_CLASS_ICONS[classCode] ?? DEFAULT_DEVICE_ICON;
   const isOperational = isDeviceOperational(device);
   const isFaulty = isDeviceFaulty(device);
   const isControllable = isOperationStatusSettable(device);
@@ -28,7 +27,7 @@ export function DeviceIcon({ device, classCode, className = '' }: DeviceIconProp
   
   return (
     <div title={`${deviceTypeName} - ${statusText}`}>
-      <Icon className={`w-4 h-4 ${iconColor} ${className}`} />
+      <IconComponent className={`w-4 h-4 ${iconColor} ${className}`} />
     </div>
   );
 }
