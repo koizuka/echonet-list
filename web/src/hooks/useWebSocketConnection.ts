@@ -43,6 +43,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   }>>(new Map());
   
   const reconnectAttemptsRef = useRef(0);
+  const intentionalCloseRef = useRef(false);
   const maxReconnectAttempts = options.reconnectAttempts ?? 5;
   const baseReconnectDelay = options.reconnectDelay ?? 1000;
   const maxReconnectDelay = options.maxReconnectDelay ?? 30000;
@@ -95,13 +96,24 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     pendingRequestsRef.current.clear();
     
     if (wsRef.current) {
+      const currentWs = wsRef.current;
+      const { readyState } = currentWs;
+
       // React StrictMode対策：CONNECTING状態でのcloseは静かに処理
-      if (wsRef.current.readyState === WebSocket.CONNECTING) {
+      if (readyState === WebSocket.CONNECTING) {
         // エラーハンドラを無効化してからclose
-        wsRef.current.onerror = null;
-        wsRef.current.onclose = null;
+        currentWs.onerror = null;
+        currentWs.onclose = null;
+        intentionalCloseRef.current = false;
+        currentWs.close();
+      } else if (readyState === WebSocket.CLOSED) {
+        // Already closed, no need to call close()
+        intentionalCloseRef.current = false;
+      } else {
+        intentionalCloseRef.current = true;
+        currentWs.close(1000, 'client cleanup');
       }
-      wsRef.current.close();
+
       wsRef.current = null;
     }
   }, []); // cleanupは外部の状態に依存しない
@@ -282,6 +294,19 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         });
         // Stop heartbeat when connection closes
         stopHeartbeat();
+        const wasIntentionalClose = intentionalCloseRef.current;
+        intentionalCloseRef.current = false;
+
+        if (wasIntentionalClose) {
+          if (import.meta.env.DEV) {
+            console.log('🔌 Intentional WebSocket close - skipping auto reconnect', {
+              closeCode: event.code,
+              reason: event.reason || 'No reason provided'
+            });
+          }
+          return;
+        }
+
         setConnectedAt(null);
         updateConnectionState('disconnected');
         
@@ -351,6 +376,20 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
 
   // Debounced connect function to handle React StrictMode double mounting
   const connect = useCallback(() => {
+    if (wsRef.current) {
+      const readyState = wsRef.current.readyState;
+      const isSameUrl = wsRef.current.url === options.url;
+
+      if (isSameUrl && (readyState === WebSocket.OPEN || readyState === WebSocket.CONNECTING)) {
+        if (import.meta.env.DEV) {
+          console.log('🔁 WebSocket already connected or connecting - skipping duplicate connect', {
+            readyState
+          });
+        }
+        return;
+      }
+    }
+
     // Clear any pending connection attempt
     if (connectTimeoutRef.current) {
       clearTimeout(connectTimeoutRef.current);
@@ -365,7 +404,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     } else {
       actualConnect();
     }
-  }, [actualConnect]);
+  }, [actualConnect, options.url]);
 
   // Assign connect function to ref for use in scheduleReconnect
   useEffect(() => {
