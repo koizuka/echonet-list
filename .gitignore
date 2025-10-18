@@ -45,6 +45,7 @@ web/node_modules/
 web/bundle/
 web/tsconfig.build.tsbuildinfo
 web/tsconfig.tsbuildinfo
+web/.npm-install.stamp
 web/.env
 web/.env.local
 web/.env.development.local

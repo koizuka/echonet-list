@@ -6,7 +6,12 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: 'bundle'
+    outDir: 'bundle',
+    // Raspberry Pi向けビルド最適化
+    minify: 'esbuild',              // Terserより高速
+    target: 'esnext',                // 最新ブラウザ向けでトランスパイル削減
+    sourcemap: false,                // プロダクションビルドでsourcemap生成をスキップ
+    reportCompressedSize: false,     // gzip圧縮サイズ計算をスキップして高速化
   },
   resolve: {
     alias: {
