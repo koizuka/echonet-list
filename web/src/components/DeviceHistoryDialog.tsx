@@ -56,7 +56,7 @@ export function DeviceHistoryDialog({
   classCode,
   isConnected,
 }: DeviceHistoryDialogProps) {
-  const [settableOnly, setSettableOnly] = useState(true);
+  const [settableOnly, setSettableOnly] = useState(false);
   const deviceTarget = `${device.ip} ${device.eoj}`;
 
   const { entries, isLoading, error, refetch } = useDeviceHistory({

@@ -225,20 +225,20 @@ describe('DeviceHistoryDialog', () => {
 
     const toggle = screen.getByRole('switch');
     expect(toggle).toBeInTheDocument();
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
 
     await user.click(toggle);
 
-    // After clicking, the toggle should be unchecked
+    // After clicking, the toggle should be checked
     await waitFor(() => {
-      expect(toggle).toHaveAttribute('aria-checked', 'false');
+      expect(toggle).toHaveAttribute('aria-checked', 'true');
     });
 
-    // The component should call useDeviceHistory with settableOnly=false
+    // The component should call useDeviceHistory with settableOnly=true
     // (This will trigger a re-render and new hook call)
     expect(useDeviceHistory).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        settableOnly: false,
+        settableOnly: true,
       })
     );
   });
