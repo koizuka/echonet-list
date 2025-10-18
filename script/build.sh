@@ -43,19 +43,7 @@ fi
 if [[ "$TARGET" == "web" || "$TARGET" == "web-ui" || "$TARGET" == "all" ]]; then
     echo -e "\n${GREEN}Building Web UI...${NC}"
     cd web
-
-    # 条件付き npm install: package.json または package-lock.json が変更された場合のみ実行
-    STAMP_FILE=".npm-install.stamp"
-    if [[ ! -f "$STAMP_FILE" ]] || \
-       [[ "package.json" -nt "$STAMP_FILE" ]] || \
-       [[ "package-lock.json" -nt "$STAMP_FILE" ]]; then
-        echo -e "${YELLOW}Dependencies changed, running npm install...${NC}"
-        npm install
-        touch "$STAMP_FILE"
-    else
-        echo -e "${YELLOW}Dependencies up to date, skipping npm install${NC}"
-    fi
-
+    npm install
     npm run build
     echo -e "Web UI bundle: ${PROJECT_ROOT}/web/bundle/"
 fi
