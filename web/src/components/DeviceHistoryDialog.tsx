@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
@@ -66,6 +66,14 @@ export function DeviceHistoryDialog({
     settableOnly,
   });
 
+  // Refetch history when settableOnly changes
+  const handleSettableOnlyChange = (checked: boolean) => {
+    setSettableOnly(checked);
+    // Trigger refetch with the new settableOnly value
+    // Use setTimeout to ensure state is updated before refetch
+    setTimeout(() => refetch(), 0);
+  };
+
   const messages: Record<'en' | 'ja', DialogMessages> = {
     en: {
       title: 'Device History',
@@ -125,16 +133,41 @@ export function DeviceHistoryDialog({
     }
   };
 
-  const getEventDescription = (origin: 'set' | 'notification' | 'online' | 'offline'): string | null => {
-    switch (origin) {
-      case 'online':
-        return texts.eventOnline;
-      case 'offline':
-        return texts.eventOffline;
-      default:
-        return null;
-    }
-  };
+  // Memoize processed entries to prevent re-rendering on propertyDescriptions updates
+  /* eslint-disable react-hooks/preserve-manual-memoization */
+  const processedEntries = useMemo(() => {
+    return entries.map((entry, index) => {
+      const isEvent = entry.origin === 'online' || entry.origin === 'offline';
+      const eventDescription = entry.origin === 'online'
+        ? texts.eventOnline
+        : entry.origin === 'offline'
+        ? texts.eventOffline
+        : null;
+
+      // For property changes
+      const propertyName = entry.epc
+        ? getPropertyName(entry.epc, propertyDescriptions, classCode)
+        : '';
+      const descriptor = entry.epc
+        ? getPropertyDescriptor(entry.epc, propertyDescriptions, classCode)
+        : undefined;
+      const formattedValue = !isEvent
+        ? formatPropertyValue(entry.value, descriptor)
+        : '';
+      const canShowHexViewer = !isEvent && shouldShowHexViewer(entry.value, descriptor);
+
+      return {
+        ...entry,
+        index,
+        isEvent,
+        eventDescription,
+        propertyName,
+        formattedValue,
+        canShowHexViewer,
+      };
+    });
+  }, [entries, propertyDescriptions, classCode, texts.eventOnline, texts.eventOffline]);
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
@@ -151,7 +184,7 @@ export function DeviceHistoryDialog({
           <div className="flex items-center gap-2">
             <Switch
               checked={settableOnly}
-              onCheckedChange={setSettableOnly}
+              onCheckedChange={handleSettableOnlyChange}
               disabled={isLoading || !isConnected}
             />
             <label className="text-sm">{texts.settableOnlyLabel}</label>
@@ -193,56 +226,40 @@ export function DeviceHistoryDialog({
             </div>
           )}
 
-          {!isLoading && !error && entries.length > 0 && (
+          {!isLoading && !error && processedEntries.length > 0 && (
             <div className="space-y-2">
-              {entries.map((entry, index) => {
-                // Check if this is an event entry (online/offline)
-                const isEvent = entry.origin === 'online' || entry.origin === 'offline';
-                const eventDescription = getEventDescription(entry.origin);
-
-                // For property changes
-                const propertyName = entry.epc
-                  ? getPropertyName(entry.epc, propertyDescriptions, classCode)
-                  : '';
-                const descriptor = entry.epc
-                  ? getPropertyDescriptor(entry.epc, propertyDescriptions, classCode)
-                  : undefined;
-                const formattedValue = !isEvent
-                  ? formatPropertyValue(entry.value, descriptor)
-                  : '';
-                const canShowHexViewer = !isEvent && shouldShowHexViewer(entry.value, descriptor);
-
+              {processedEntries.map((entry) => {
                 // Determine color scheme based on event type
-                const eventColorClass = isEvent
+                const eventColorClass = entry.isEvent
                   ? entry.origin === 'online'
                     ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
                     : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950'
                   : '';
 
                 // Generate testid for event entries
-                const testId = isEvent ? `history-event-${entry.origin}` : undefined;
+                const testId = entry.isEvent ? `history-event-${entry.origin}` : undefined;
 
                 return (
                   <div
-                    key={`${entry.timestamp}-${entry.epc || entry.origin}-${index}`}
+                    key={`${entry.timestamp}-${entry.epc || entry.origin}-${entry.index}`}
                     className={`border rounded-lg p-3 text-sm ${eventColorClass}`}
                     data-testid={testId}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <span className="font-semibold">
-                        {isEvent ? eventDescription : propertyName}
+                        {entry.isEvent ? entry.eventDescription : entry.propertyName}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {formatTimestamp(entry.timestamp)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      {!isEvent && (
+                      {!entry.isEvent && (
                         <div className="flex items-center gap-2 relative">
                           <span className="text-muted-foreground">{texts.value}:</span>
-                          <span className="font-medium">{formattedValue}</span>
+                          <span className="font-medium">{entry.formattedValue}</span>
                           <HexViewer
-                            canShowHexViewer={canShowHexViewer}
+                            canShowHexViewer={entry.canShowHexViewer}
                             currentValue={entry.value}
                             size="sm"
                           />

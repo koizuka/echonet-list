@@ -158,7 +158,49 @@ describe('useDeviceHistory', () => {
     });
   });
 
-  it('should update when settableOnly changes', async () => {
+  it('should NOT automatically refetch when settableOnly changes', async () => {
+    const mockSendMessage = vi.fn().mockResolvedValue({
+      entries: [],
+    });
+    mockConnection.sendMessage = mockSendMessage;
+
+    const { result, rerender } = renderHook(
+      ({ settableOnly }) =>
+        useDeviceHistory({
+          connection: mockConnection,
+          target: '192.168.1.10 0130:1',
+          settableOnly,
+        }),
+      {
+        initialProps: { settableOnly: true },
+      }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          settableOnly: true,
+        }),
+      })
+    );
+
+    const initialCallCount = mockSendMessage.mock.calls.length;
+
+    // Change settableOnly - should NOT trigger refetch automatically
+    rerender({ settableOnly: false });
+
+    // Wait a bit to ensure no refetch happens
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Should NOT have made additional calls
+    expect(mockSendMessage).toHaveBeenCalledTimes(initialCallCount);
+  });
+
+  it('should use updated settableOnly value when refetch is called', async () => {
     const mockSendMessage = vi.fn().mockResolvedValue({
       entries: [],
     });
@@ -192,6 +234,9 @@ describe('useDeviceHistory', () => {
 
     // Change settableOnly
     rerender({ settableOnly: false });
+
+    // Manually call refetch - should use the new settableOnly value
+    result.current.refetch();
 
     await waitFor(() => {
       expect(mockSendMessage).toHaveBeenCalledWith(
@@ -253,5 +298,44 @@ describe('useDeviceHistory', () => {
         })
       );
     });
+  });
+
+  it('should NOT refetch when connection object reference changes but sendMessage stays the same', async () => {
+    const mockSendMessage = vi.fn().mockResolvedValue({
+      entries: [],
+    });
+    mockConnection.sendMessage = mockSendMessage;
+
+    const { result, rerender } = renderHook(
+      ({ connection }) =>
+        useDeviceHistory({
+          connection,
+          target: '192.168.1.10 0130:1',
+        }),
+      {
+        initialProps: { connection: mockConnection },
+      }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    const initialCallCount = mockSendMessage.mock.calls.length;
+
+    // Create a new connection object with the same sendMessage function
+    const newConnection = {
+      ...mockConnection,
+      connectedAt: new Date(), // Different value to ensure object reference is different
+    };
+
+    // Rerender with new connection object
+    rerender({ connection: newConnection });
+
+    // Wait a bit to ensure no refetch happens
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Should NOT have made additional calls because sendMessage is the same
+    expect(mockSendMessage).toHaveBeenCalledTimes(initialCallCount);
   });
 });
