@@ -69,9 +69,8 @@ export function DeviceHistoryDialog({
   // Refetch history when settableOnly changes
   const handleSettableOnlyChange = (checked: boolean) => {
     setSettableOnly(checked);
-    // Trigger refetch with the new settableOnly value
-    // Use setTimeout to ensure state is updated before refetch
-    setTimeout(() => refetch(), 0);
+    // Refs are updated synchronously in useDeviceHistory, so we can refetch immediately
+    refetch();
   };
 
   const messages: Record<'en' | 'ja', DialogMessages> = {
