@@ -219,10 +219,14 @@ export function DeviceHistoryDialog({
                     : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950'
                   : '';
 
+                // Generate testid for event entries
+                const testId = isEvent ? `history-event-${entry.origin}` : undefined;
+
                 return (
                   <div
                     key={`${entry.timestamp}-${entry.epc || entry.origin}-${index}`}
                     className={`border rounded-lg p-3 text-sm ${eventColorClass}`}
+                    data-testid={testId}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <span className="font-semibold">

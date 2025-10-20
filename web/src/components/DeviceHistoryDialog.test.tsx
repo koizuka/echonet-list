@@ -382,4 +382,176 @@ describe('DeviceHistoryDialog', () => {
     expect(container.textContent).toContain('Operation');
     expect(container.textContent).toContain('Notification');
   });
+
+  it('should apply green styling for online events', () => {
+    const mockEntries: DeviceHistoryEntry[] = [
+      {
+        timestamp: '2024-05-01T12:00:00Z',
+        origin: 'online',
+        settable: false,
+        value: { EDT: '' }, // Empty value for event entries
+      },
+    ];
+
+    vi.mocked(useDeviceHistory).mockReturnValue({
+      entries: mockEntries,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <DeviceHistoryDialog
+        device={mockDevice}
+        connection={mockConnection}
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+        isConnected={true}
+      />
+    );
+
+    // Find the online event card by data-testid
+    const eventCard = screen.getByTestId('history-event-online');
+    expect(eventCard).toBeInTheDocument();
+
+    // Verify green color classes are applied
+    expect(eventCard.className).toMatch(/border-green-200/);
+    expect(eventCard.className).toMatch(/bg-green-50/);
+    expect(eventCard.className).toMatch(/dark:border-green-800/);
+    expect(eventCard.className).toMatch(/dark:bg-green-950/);
+
+    // Verify event description is displayed
+    expect(eventCard.textContent).toMatch(/Device came online/i);
+  });
+
+  it('should apply red styling for offline events', () => {
+    const mockEntries: DeviceHistoryEntry[] = [
+      {
+        timestamp: '2024-05-01T12:00:00Z',
+        origin: 'offline',
+        settable: false,
+        value: { EDT: '' }, // Empty value for event entries
+      },
+    ];
+
+    vi.mocked(useDeviceHistory).mockReturnValue({
+      entries: mockEntries,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <DeviceHistoryDialog
+        device={mockDevice}
+        connection={mockConnection}
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+        isConnected={true}
+      />
+    );
+
+    // Find the offline event card by data-testid
+    const eventCard = screen.getByTestId('history-event-offline');
+    expect(eventCard).toBeInTheDocument();
+
+    // Verify red color classes are applied
+    expect(eventCard.className).toMatch(/border-red-200/);
+    expect(eventCard.className).toMatch(/bg-red-50/);
+    expect(eventCard.className).toMatch(/dark:border-red-800/);
+    expect(eventCard.className).toMatch(/dark:bg-red-950/);
+
+    // Verify event description is displayed
+    expect(eventCard.textContent).toMatch(/Device went offline/i);
+  });
+
+  it('should not apply event colors for property changes', () => {
+    const mockEntries: DeviceHistoryEntry[] = [
+      {
+        timestamp: '2024-05-01T12:00:00Z',
+        epc: '80',
+        value: { string: 'on', EDT: 'MzA=' },
+        origin: 'set',
+        settable: true,
+      },
+      {
+        timestamp: '2024-05-01T12:01:00Z',
+        epc: 'B3',
+        value: { number: 25, EDT: 'MjU=' },
+        origin: 'notification',
+        settable: true,
+      },
+    ];
+
+    vi.mocked(useDeviceHistory).mockReturnValue({
+      entries: mockEntries,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    const { container } = render(
+      <DeviceHistoryDialog
+        device={mockDevice}
+        connection={mockConnection}
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+        isConnected={true}
+      />
+    );
+
+    // Property change entries should not have event colors
+    const greenCards = container.querySelectorAll('.border-green-200');
+    const redCards = container.querySelectorAll('.border-red-200');
+    expect(greenCards.length).toBe(0);
+    expect(redCards.length).toBe(0);
+  });
+
+  it('should display event description for online/offline events', () => {
+    const mockEntries: DeviceHistoryEntry[] = [
+      {
+        timestamp: '2024-05-01T12:00:00Z',
+        origin: 'online',
+        settable: false,
+        value: { EDT: '' }, // Empty value for event entries
+      },
+      {
+        timestamp: '2024-05-01T12:01:00Z',
+        origin: 'offline',
+        settable: false,
+        value: { EDT: '' }, // Empty value for event entries
+      },
+    ];
+
+    vi.mocked(useDeviceHistory).mockReturnValue({
+      entries: mockEntries,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <DeviceHistoryDialog
+        device={mockDevice}
+        connection={mockConnection}
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+        isConnected={true}
+      />
+    );
+
+    // Should display event descriptions (language-dependent)
+    const container = screen.getByRole('alertdialog');
+    // The actual text depends on the language, but events should be displayed
+    expect(container.textContent).toContain('online');
+    expect(container.textContent).toContain('offline');
+  });
 });
