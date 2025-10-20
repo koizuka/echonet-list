@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useDeviceHistory } from './useDeviceHistory';
 import type { WebSocketConnection } from './useWebSocketConnection';
 
@@ -9,7 +9,9 @@ describe('useDeviceHistory', () => {
   beforeEach(() => {
     mockConnection = {
       connectionState: 'connected',
-      sendMessage: vi.fn(),
+      sendMessage: vi.fn().mockResolvedValue({
+        entries: [],
+      }),
       connect: vi.fn(),
       disconnect: vi.fn(),
       connectedAt: new Date(),
@@ -17,7 +19,7 @@ describe('useDeviceHistory', () => {
     };
   });
 
-  it('should initialize with loading state', () => {
+  it('should initialize with loading state', async () => {
     const { result } = renderHook(() =>
       useDeviceHistory({
         connection: mockConnection,
@@ -28,6 +30,10 @@ describe('useDeviceHistory', () => {
     expect(result.current.isLoading).toBe(true);
     expect(result.current.entries).toEqual([]);
     expect(result.current.error).toBeNull();
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
   });
 
   it('should fetch history successfully', async () => {
@@ -151,7 +157,9 @@ describe('useDeviceHistory', () => {
     mockSendMessage.mockClear();
 
     // Call refetch
-    result.current.refetch();
+    await act(async () => {
+      result.current.refetch();
+    });
 
     await waitFor(() => {
       expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -256,7 +264,9 @@ describe('useDeviceHistory', () => {
     mockSendMessage.mockClear();
 
     // Manually call refetch - should use the new settableOnly value
-    result.current.refetch();
+    await act(async () => {
+      result.current.refetch();
+    });
 
     await waitFor(() => {
       expect(mockSendMessage).toHaveBeenCalledWith(
