@@ -29,18 +29,7 @@ export function useDeviceHistory({
   const [error, setError] = useState<Error | null>(null);
   const requestIdRef = useRef(0);
 
-  // Store current parameters in refs to avoid recreating fetchHistory unnecessarily
-  const settableOnlyRef = useRef(settableOnly);
-  const limitRef = useRef(limit);
-  const sinceRef = useRef(since);
-
-  // Update refs when parameters change
-  settableOnlyRef.current = settableOnly;
-  limitRef.current = limit;
-  sinceRef.current = since;
-
-  // Extract sendMessage to narrow dependency and avoid refetch on connection object reference changes
-  const sendMessage = connection.sendMessage;
+  const { sendMessage } = connection;
 
   const fetchHistory = useCallback(async () => {
     setIsLoading(true);
@@ -56,12 +45,12 @@ export function useDeviceHistory({
         settableOnly: boolean;
       } = {
         target,
-        limit: limitRef.current,
-        settableOnly: settableOnlyRef.current,
+        limit,
+        settableOnly,
       };
 
-      if (sinceRef.current) {
-        payload.since = sinceRef.current;
+      if (since) {
+        payload.since = since;
       }
 
       const response = await sendMessage({
@@ -77,7 +66,7 @@ export function useDeviceHistory({
     } finally {
       setIsLoading(false);
     }
-  }, [sendMessage, target]);
+  }, [sendMessage, target, limit, since, settableOnly]);
 
   useEffect(() => {
     fetchHistory();

@@ -158,7 +158,7 @@ describe('useDeviceHistory', () => {
     });
   });
 
-  it('should NOT automatically refetch when settableOnly changes', async () => {
+  it('should refetch when settableOnly changes', async () => {
     const mockSendMessage = vi.fn().mockResolvedValue({
       entries: [],
     });
@@ -188,16 +188,22 @@ describe('useDeviceHistory', () => {
       })
     );
 
-    const initialCallCount = mockSendMessage.mock.calls.length;
-
-    // Change settableOnly - should NOT trigger refetch automatically
+    // Change settableOnly - should trigger refetch automatically
     rerender({ settableOnly: false });
 
-    // Wait a bit to ensure no refetch happens
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            settableOnly: false,
+          }),
+        })
+      );
+    });
 
-    // Should NOT have made additional calls
-    expect(mockSendMessage).toHaveBeenCalledTimes(initialCallCount);
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('should use updated settableOnly value when refetch is called', async () => {
@@ -230,10 +236,24 @@ describe('useDeviceHistory', () => {
       })
     );
 
-    mockSendMessage.mockClear();
-
     // Change settableOnly
     rerender({ settableOnly: false });
+
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            settableOnly: false,
+          }),
+        })
+      );
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    mockSendMessage.mockClear();
 
     // Manually call refetch - should use the new settableOnly value
     result.current.refetch();

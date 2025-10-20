@@ -66,13 +66,6 @@ export function DeviceHistoryDialog({
     settableOnly,
   });
 
-  // Refetch history when settableOnly changes
-  const handleSettableOnlyChange = (checked: boolean) => {
-    setSettableOnly(checked);
-    // Refs are updated synchronously in useDeviceHistory, so we can refetch immediately
-    refetch();
-  };
-
   const messages: Record<'en' | 'ja', DialogMessages> = {
     en: {
       title: 'Device History',
@@ -183,7 +176,7 @@ export function DeviceHistoryDialog({
           <div className="flex items-center gap-2">
             <Switch
               checked={settableOnly}
-              onCheckedChange={handleSettableOnlyChange}
+              onCheckedChange={setSettableOnly}
               disabled={isLoading || !isConnected}
             />
             <label className="text-sm">{texts.settableOnlyLabel}</label>
