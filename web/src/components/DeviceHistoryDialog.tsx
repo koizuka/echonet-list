@@ -212,14 +212,17 @@ export function DeviceHistoryDialog({
                   : '';
                 const canShowHexViewer = !isEvent && shouldShowHexViewer(entry.value, descriptor);
 
+                // Determine color scheme based on event type
+                const eventColorClass = isEvent
+                  ? entry.origin === 'online'
+                    ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
+                    : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950'
+                  : '';
+
                 return (
                   <div
                     key={`${entry.timestamp}-${entry.epc || entry.origin}-${index}`}
-                    className={`border rounded-lg p-3 text-sm ${
-                      isEvent
-                        ? 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950'
-                        : ''
-                    }`}
+                    className={`border rounded-lg p-3 text-sm ${eventColorClass}`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <span className="font-semibold">
