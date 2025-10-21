@@ -368,4 +368,98 @@ describe('useDeviceHistory', () => {
     // Should NOT have made additional calls because sendMessage is the same
     expect(mockSendMessage).toHaveBeenCalledTimes(initialCallCount);
   });
+
+  it('should ignore stale responses when newer request completes first (race condition fix)', async () => {
+    const oldEntries = [
+      {
+        timestamp: '2024-05-01T12:00:00.000Z',
+        epc: '80',
+        value: { string: 'off', EDT: 'MzE=' },
+        origin: 'set' as const,
+        settable: true,
+      },
+    ];
+
+    const newEntries = [
+      {
+        timestamp: '2024-05-01T12:35:00.000Z',
+        epc: '80',
+        value: { string: 'on', EDT: 'MzA=' },
+        origin: 'set' as const,
+        settable: true,
+      },
+    ];
+
+    let firstRequestResolve: (value: { entries: typeof oldEntries }) => void;
+    let secondRequestResolve: (value: { entries: typeof newEntries }) => void;
+
+    const firstRequestPromise = new Promise<{ entries: typeof oldEntries }>(
+      resolve => {
+        firstRequestResolve = resolve;
+      }
+    );
+
+    const secondRequestPromise = new Promise<{ entries: typeof newEntries }>(
+      resolve => {
+        secondRequestResolve = resolve;
+      }
+    );
+
+    let callCount = 0;
+    const mockSendMessage = vi.fn().mockImplementation(() => {
+      callCount++;
+      // First call returns a slow promise
+      if (callCount === 1) {
+        return firstRequestPromise;
+      }
+      // Second call returns a fast promise
+      return secondRequestPromise;
+    });
+
+    mockConnection.sendMessage = mockSendMessage;
+
+    const { result } = renderHook(() =>
+      useDeviceHistory({
+        connection: mockConnection,
+        target: '192.168.1.10 0130:1',
+      })
+    );
+
+    // Wait for first request to be initiated
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    // Trigger second request (manual refetch)
+    await act(async () => {
+      result.current.refetch();
+    });
+
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    });
+
+    // Resolve second (newer) request first
+    await act(async () => {
+      secondRequestResolve!({ entries: newEntries });
+    });
+
+    // Wait for state to update with new entries
+    await waitFor(() => {
+      expect(result.current.entries).toEqual(newEntries);
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Now resolve first (older) request - this should be ignored
+    await act(async () => {
+      firstRequestResolve!({ entries: oldEntries });
+    });
+
+    // Wait a bit to ensure no state change happens
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // State should still contain new entries, not old entries
+    expect(result.current.entries).toEqual(newEntries);
+    expect(result.current.isLoading).toBe(false);
+  });
 });
