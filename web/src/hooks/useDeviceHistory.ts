@@ -28,15 +28,18 @@ export function useDeviceHistory({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const requestIdRef = useRef(0);
+  const latestRequestRef = useRef<number | null>(null);
 
   const { sendMessage } = connection;
 
   const fetchHistory = useCallback(async () => {
+    const requestIndex = requestIdRef.current++;
+    latestRequestRef.current = requestIndex;
     setIsLoading(true);
     setError(null);
 
     try {
-      const requestId = `history-${target}-${requestIdRef.current++}`;
+      const requestId = `history-${target}-${requestIndex}`;
 
       const payload: {
         target: string;
@@ -59,12 +62,18 @@ export function useDeviceHistory({
         requestId,
       }) as { entries: DeviceHistoryEntry[] };
 
-      setEntries(response.entries || []);
+      if (latestRequestRef.current === requestIndex) {
+        setEntries(response.entries || []);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-      setEntries([]);
+      if (latestRequestRef.current === requestIndex) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+        setEntries([]);
+      }
     } finally {
-      setIsLoading(false);
+      if (latestRequestRef.current === requestIndex) {
+        setIsLoading(false);
+      }
     }
   }, [sendMessage, target, limit, since, settableOnly]);
 
