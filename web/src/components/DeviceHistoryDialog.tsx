@@ -221,11 +221,16 @@ export function DeviceHistoryDialog({
           {!isLoading && !error && processedEntries.length > 0 && (
             <div className="space-y-2">
               {processedEntries.map((entry) => {
-                // Determine color scheme based on event type
+                // Determine color scheme based on entry type
+                // Events (online/offline) get their own colors
+                // Settable properties get blue background
+                // Other entries have no background color
                 const eventColorClass = entry.isEvent
                   ? entry.origin === 'online'
                     ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
                     : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950'
+                  : entry.settable
+                  ? 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950'
                   : '';
 
                 // Generate testid for event entries

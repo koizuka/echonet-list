@@ -469,7 +469,96 @@ describe('DeviceHistoryDialog', () => {
     expect(eventCard.textContent).toMatch(/Device went offline/i);
   });
 
-  it('should not apply event colors for property changes', () => {
+  it('should apply blue styling for settable property entries', () => {
+    const mockEntries: DeviceHistoryEntry[] = [
+      {
+        timestamp: '2024-05-01T12:00:00Z',
+        epc: '80',
+        value: { string: 'on', EDT: 'MzA=' },
+        origin: 'notification',
+        settable: true,
+      },
+    ];
+
+    vi.mocked(useDeviceHistory).mockReturnValue({
+      entries: mockEntries,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <DeviceHistoryDialog
+        device={mockDevice}
+        connection={mockConnection}
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+        isConnected={true}
+      />
+    );
+
+    // Settable property entries should have blue background
+    // Use document.querySelectorAll since AlertDialog uses portal
+    const blueCards = document.querySelectorAll('.border-blue-200');
+    expect(blueCards.length).toBe(1);
+    expect(blueCards[0].className).toMatch(/bg-blue-50/);
+    expect(blueCards[0].className).toMatch(/dark:border-blue-800/);
+    expect(blueCards[0].className).toMatch(/dark:bg-blue-950/);
+  });
+
+  it('should not apply background colors for non-settable entries', () => {
+    const mockEntries: DeviceHistoryEntry[] = [
+      {
+        timestamp: '2024-05-01T12:01:00Z',
+        epc: 'B3',
+        value: { number: 25, EDT: 'MjU=' },
+        origin: 'notification',
+        settable: false,
+      },
+    ];
+
+    vi.mocked(useDeviceHistory).mockReturnValue({
+      entries: mockEntries,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <DeviceHistoryDialog
+        device={mockDevice}
+        connection={mockConnection}
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        propertyDescriptions={mockPropertyDescriptions}
+        classCode="0130"
+        isConnected={true}
+      />
+    );
+
+    // Non-settable entries should not have colored backgrounds
+    // Since this dialog only shows one entry, we need to verify no colored backgrounds exist
+    const dialog = screen.getByRole('alertdialog');
+    const allCards = dialog.querySelectorAll('.border');
+
+    // Check that none of the cards have event colors
+    let hasColoredBackground = false;
+    allCards.forEach((card) => {
+      if (
+        card.className.includes('border-green-200') ||
+        card.className.includes('border-red-200') ||
+        card.className.includes('border-blue-200')
+      ) {
+        hasColoredBackground = true;
+      }
+    });
+
+    expect(hasColoredBackground).toBe(false);
+  });
+
+  it('should apply different colors for different entry types', () => {
     const mockEntries: DeviceHistoryEntry[] = [
       {
         timestamp: '2024-05-01T12:00:00Z',
@@ -483,7 +572,19 @@ describe('DeviceHistoryDialog', () => {
         epc: 'B3',
         value: { number: 25, EDT: 'MjU=' },
         origin: 'notification',
-        settable: true,
+        settable: false,
+      },
+      {
+        timestamp: '2024-05-01T12:02:00Z',
+        origin: 'online',
+        settable: false,
+        value: { EDT: '' },
+      },
+      {
+        timestamp: '2024-05-01T12:03:00Z',
+        origin: 'offline',
+        settable: false,
+        value: { EDT: '' },
       },
     ];
 
@@ -494,7 +595,7 @@ describe('DeviceHistoryDialog', () => {
       refetch: vi.fn(),
     });
 
-    const { container } = render(
+    render(
       <DeviceHistoryDialog
         device={mockDevice}
         connection={mockConnection}
@@ -506,11 +607,16 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Property change entries should not have event colors
-    const greenCards = container.querySelectorAll('.border-green-200');
-    const redCards = container.querySelectorAll('.border-red-200');
-    expect(greenCards.length).toBe(0);
-    expect(redCards.length).toBe(0);
+    // Verify each type has correct colors
+    // Use document.querySelectorAll since AlertDialog uses portal
+    const blueCards = document.querySelectorAll('.border-blue-200');
+    const greenCards = document.querySelectorAll('.border-green-200');
+    const redCards = document.querySelectorAll('.border-red-200');
+
+    // settable -> blue, online -> green, offline -> red, non-settable -> no color
+    expect(blueCards.length).toBe(1);
+    expect(greenCards.length).toBe(1);
+    expect(redCards.length).toBe(1);
   });
 
   it('should display event description for online/offline events', () => {
