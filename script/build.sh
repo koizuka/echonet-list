@@ -43,7 +43,7 @@ fi
 if [[ "$TARGET" == "web" || "$TARGET" == "web-ui" || "$TARGET" == "all" ]]; then
     echo -e "\n${GREEN}Building Web UI...${NC}"
     cd web
-    npm install
+    npm install --no-save
     npm run build
     echo -e "Web UI bundle: ${PROJECT_ROOT}/web/bundle/"
 fi
