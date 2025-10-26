@@ -5,10 +5,11 @@ import {
   getDeviceSecondaryProperties,
   getSortedPrimaryProperties,
   isNodeProfileDevice,
+  shouldShowPropertyInCompactMode,
   ESSENTIAL_PROPERTIES,
   DEVICE_PRIMARY_PROPERTIES
 } from './deviceTypeHelper';
-import type { PropertyValue } from '@/hooks/types';
+import type { PropertyValue, Device } from '@/hooks/types';
 
 // Test helper functions for creating properly typed property values
 const createPropertyValue = (value: Partial<PropertyValue>): PropertyValue => value as PropertyValue;
@@ -218,6 +219,136 @@ describe('deviceTypeHelper', () => {
       const nodeProfileSimple = { eoj: '0EF0' };
       expect(isNodeProfileDevice(nodeProfileWithInstance)).toBe(true);
       expect(isNodeProfileDevice(nodeProfileSimple)).toBe(true);
+    });
+  });
+
+  describe('shouldShowPropertyInCompactMode', () => {
+    describe('Home Air Conditioner (0130)', () => {
+      it('should hide temperature setting (B3) when operation mode is auto (0x41)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { number: 0x41 }, // auto mode
+          'B3': { number: 25 }    // temperature setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(false);
+      });
+
+      it('should hide temperature setting (B3) when operation mode is fan (0x45)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { number: 0x45 }, // fan mode
+          'B3': { number: 25 }    // temperature setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(false);
+      });
+
+      it('should show temperature setting (B3) when operation mode is cooling (0x42)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { number: 0x42 }, // cooling mode
+          'B3': { number: 25 }    // temperature setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
+
+      it('should show temperature setting (B3) when operation mode is heating (0x43)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { number: 0x43 }, // heating mode
+          'B3': { number: 25 }    // temperature setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
+
+      it('should show relative humidity setting (B4) when operation mode is dry (0x44)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { number: 0x44 }, // dry mode
+          'B4': { number: 60 }    // relative humidity setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B4', device, '0130')).toBe(true);
+      });
+
+      it('should hide relative humidity setting (B4) when operation mode is cooling (0x42)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { number: 0x42 }, // cooling mode
+          'B4': { number: 60 }    // relative humidity setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B4', device, '0130')).toBe(false);
+      });
+
+      it('should hide relative humidity setting (B4) when operation mode is heating (0x43)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { number: 0x43 }, // heating mode
+          'B4': { number: 60 }    // relative humidity setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B4', device, '0130')).toBe(false);
+      });
+
+      it('should hide relative humidity setting (B4) when operation mode is fan (0x45)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { number: 0x45 }, // fan mode
+          'B4': { number: 60 }    // relative humidity setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B4', device, '0130')).toBe(false);
+      });
+
+      it('should show property when condition property does not exist', () => {
+        const device = createDevice('0130:1', {
+          'B3': { number: 25 }    // temperature setting without operation mode
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
+
+      it('should show other properties unconditionally', () => {
+        const device = createDevice('0130:1', {
+          'B0': { number: 0x41 }, // auto mode
+          '80': { number: 0x30 }  // operation status
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('80', device, '0130')).toBe(true);
+        expect(shouldShowPropertyInCompactMode('BB', device, '0130')).toBe(true); // room temperature
+      });
+    });
+
+    describe('other device types', () => {
+      it('should show all properties for devices without visibility conditions', () => {
+        const device = createDevice('0291:1', { // Single Function Lighting
+          'B0': { number: 50 }    // illuminance level
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B0', device, '0291')).toBe(true);
+      });
+
+      it('should show all properties for unknown device types', () => {
+        const device = createDevice('9999:1', {
+          'B0': { number: 42 }
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B0', device, '9999')).toBe(true);
+      });
+    });
+
+    describe('edge cases', () => {
+      it('should handle device with no properties', () => {
+        const device = createDevice('0130:1', {}) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
+
+      it('should handle condition property with non-number value', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'auto' }, // string instead of number
+          'B3': { number: 25 }
+        }) as unknown as Device;
+
+        // Should show the property if condition value is not a number
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
     });
   });
 });

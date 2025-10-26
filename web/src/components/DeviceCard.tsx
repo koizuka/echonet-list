@@ -7,7 +7,7 @@ import { DeviceDeleteConfirmDialog } from '@/components/DeviceDeleteConfirmDialo
 import { DeviceHistoryDialog } from '@/components/DeviceHistoryDialog';
 import { DeviceIcon } from '@/components/DeviceIcon';
 import { useState } from 'react';
-import { isPropertyPrimary, getSortedPrimaryProperties } from '@/libs/deviceTypeHelper';
+import { isPropertyPrimary, getSortedPrimaryProperties, shouldShowPropertyInCompactMode } from '@/libs/deviceTypeHelper';
 import { deviceHasAlias, getDeviceIdentifierForAlias, getDeviceAliases } from '@/libs/deviceIdHelper';
 import { isSensorProperty } from '@/libs/sensorPropertyHelper';
 import { isDeviceOperational, isDeviceFaulty, isOperationStatusSettable } from '@/libs/propertyHelper';
@@ -230,23 +230,25 @@ export function DeviceCard({
                   />
                 ))
               ) : (
-                // Compact mode: show only non-sensor properties here
-                primaryNonSensorProps.map(([epc, value]) => (
-                  <PropertyRow 
-                    key={epc} 
-                    device={device}
-                    epc={epc} 
-                    value={value} 
-                    isCompact={true}
-                    onPropertyChange={onPropertyChange}
-                    propertyDescriptions={propertyDescriptions}
-                    classCode={classCode}
-                    isConnected={isConnected && !device.isOffline}
-                    allDevices={devices}
-                    aliases={aliases}
-                    getDeviceClassCode={getDeviceClassCode}
-                  />
-                ))
+                // Compact mode: show only non-sensor properties here, filtered by visibility conditions
+                primaryNonSensorProps
+                  .filter(([epc]) => shouldShowPropertyInCompactMode(epc, device, classCode))
+                  .map(([epc, value]) => (
+                    <PropertyRow
+                      key={epc}
+                      device={device}
+                      epc={epc}
+                      value={value}
+                      isCompact={true}
+                      onPropertyChange={onPropertyChange}
+                      propertyDescriptions={propertyDescriptions}
+                      classCode={classCode}
+                      isConnected={isConnected && !device.isOffline}
+                      allDevices={devices}
+                      aliases={aliases}
+                      getDeviceClassCode={getDeviceClassCode}
+                    />
+                  ))
               )}
             </div>
           )}
@@ -284,22 +286,24 @@ export function DeviceCard({
         {!isExpanded && primarySensorProps.length > 0 && (
           <div className="border-t pt-2 mt-2">
             <div className="flex flex-wrap items-center">
-              {primarySensorProps.map(([epc, value]) => (
-                <PropertyRow 
-                  key={epc} 
-                  device={device}
-                  epc={epc} 
-                  value={value as PropertyValue} 
-                  isCompact={true}
-                  onPropertyChange={onPropertyChange}
-                  propertyDescriptions={propertyDescriptions}
-                  classCode={classCode}
-                  isConnected={isConnected}
-                  allDevices={devices}
-                  aliases={aliases}
-                  getDeviceClassCode={getDeviceClassCode}
-                />
-              ))}
+              {primarySensorProps
+                .filter(([epc]) => shouldShowPropertyInCompactMode(epc, device, classCode))
+                .map(([epc, value]) => (
+                  <PropertyRow
+                    key={epc}
+                    device={device}
+                    epc={epc}
+                    value={value as PropertyValue}
+                    isCompact={true}
+                    onPropertyChange={onPropertyChange}
+                    propertyDescriptions={propertyDescriptions}
+                    classCode={classCode}
+                    isConnected={isConnected}
+                    allDevices={devices}
+                    aliases={aliases}
+                    getDeviceClassCode={getDeviceClassCode}
+                  />
+                ))}
             </div>
           </div>
         )}

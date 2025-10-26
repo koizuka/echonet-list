@@ -1,6 +1,18 @@
 // Device type specific property definitions for compact display
 
-import type { PropertyValue } from '@/hooks/types';
+import type { PropertyValue, Device } from '@/hooks/types';
+
+/**
+ * Visibility condition for properties in compact mode
+ */
+export type PropertyVisibilityCondition = {
+  epc: string;           // EPC of the property to potentially hide
+  hideWhen: {
+    epc: string;         // EPC of the condition property
+    values?: number[];   // Hide when condition property equals any of these values
+    notValues?: number[]; // Hide when condition property does not equal any of these values
+  };
+};
 
 /**
  * Essential properties that should always be shown in compact view
@@ -109,6 +121,32 @@ export function shouldUseImmediateSlider(epc: string, classCode: string): boolea
 }
 
 /**
+ * Property visibility conditions for compact mode
+ * Defines when certain properties should be hidden based on other property values
+ * Key: Device class code
+ * Value: Array of visibility conditions
+ */
+export const PROPERTY_VISIBILITY_CONDITIONS: Record<string, PropertyVisibilityCondition[]> = {
+  // Home Air Conditioner (0130)
+  '0130': [
+    {
+      epc: 'B3', // Temperature setting
+      hideWhen: {
+        epc: 'B0', // Operation mode setting
+        values: [0x41, 0x45] // Hide when mode is auto (0x41) or fan (0x45)
+      }
+    },
+    {
+      epc: 'B4', // Relative humidity setting for dehumidification mode
+      hideWhen: {
+        epc: 'B0', // Operation mode setting
+        notValues: [0x44] // Hide when mode is NOT dry (0x44)
+      }
+    }
+  ]
+};
+
+/**
  * Checks if a device is a Node Profile device
  * Node Profile devices have class code 0EF0
  */
@@ -129,4 +167,95 @@ export function getSortedPrimaryProperties(device: { properties: Record<string, 
   return primaryProperties
     .filter(epc => epc in device.properties)
     .map(epc => [epc, device.properties[epc]] as [string, PropertyValue]);
+}
+
+/**
+ * Extracts numeric value from a property
+ * Tries to get the number from EDT field (Base64 decoded) or number field
+ *
+ * @param property - The property value object
+ * @returns The numeric value or undefined if not available
+ */
+function getPropertyNumericValue(property: PropertyValue): number | undefined {
+  // First try the number field (for numeric properties like temperature)
+  if (typeof property.number === 'number') {
+    return property.number;
+  }
+
+  // Try to decode EDT field (for properties with aliases like operation mode)
+  if (property.EDT && typeof property.EDT === 'string') {
+    try {
+      // Decode Base64 to get raw bytes
+      const decoded = atob(property.EDT);
+      // Get the first byte as the numeric value
+      if (decoded.length > 0) {
+        return decoded.charCodeAt(0);
+      }
+    } catch {
+      // If decoding fails, continue
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Determines if a property should be shown in compact mode
+ * Checks visibility conditions for the device class and property
+ *
+ * @param epc - The property EPC code to check
+ * @param device - The device object containing all properties
+ * @param classCode - The device class code
+ * @returns true if the property should be displayed in compact mode
+ */
+export function shouldShowPropertyInCompactMode(epc: string, device: Device, classCode: string): boolean {
+  // Get visibility conditions for this device class
+  const conditions = PROPERTY_VISIBILITY_CONDITIONS[classCode];
+
+  // If no conditions defined for this device class, always show
+  if (!conditions) {
+    return true;
+  }
+
+  // Find conditions for this specific property
+  const propertyConditions = conditions.filter(condition => condition.epc === epc);
+
+  // If no conditions for this property, always show
+  if (propertyConditions.length === 0) {
+    return true;
+  }
+
+  // Check each condition - if ANY condition says to hide, then hide
+  for (const condition of propertyConditions) {
+    const conditionProperty = device.properties[condition.hideWhen.epc];
+
+    // If condition property doesn't exist, show the property
+    if (!conditionProperty) {
+      continue;
+    }
+
+    // Get the condition property value (from number field or EDT field)
+    const conditionValue = getPropertyNumericValue(conditionProperty);
+
+    // If condition value is not available, show the property
+    if (conditionValue === undefined) {
+      continue;
+    }
+
+    // Check condition types
+    const { values, notValues } = condition.hideWhen;
+
+    // Check 'values' condition (hide if condition property equals any of these values)
+    if (values !== undefined && values.includes(conditionValue)) {
+      return false;
+    }
+
+    // Check 'notValues' condition (hide if condition property does NOT equal any of these values)
+    if (notValues !== undefined && !notValues.includes(conditionValue)) {
+      return false;
+    }
+  }
+
+  // If no conditions matched to hide, show the property
+  return true;
 }
