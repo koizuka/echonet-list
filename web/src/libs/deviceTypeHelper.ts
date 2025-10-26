@@ -1,6 +1,18 @@
 // Device type specific property definitions for compact display
 
-import type { PropertyValue } from '@/hooks/types';
+import type { PropertyValue, Device } from '@/hooks/types';
+
+/**
+ * Visibility condition for properties in compact mode
+ */
+export type PropertyVisibilityCondition = {
+  epc: string;           // EPC of the property to potentially hide
+  hideWhen: {
+    epc: string;         // EPC of the condition property
+    values?: (string | number)[];   // Hide when condition property equals any of these values (string alias preferred)
+    notValues?: (string | number)[]; // Hide when condition property does not equal any of these values (string alias preferred)
+  };
+};
 
 /**
  * Essential properties that should always be shown in compact view
@@ -109,6 +121,32 @@ export function shouldUseImmediateSlider(epc: string, classCode: string): boolea
 }
 
 /**
+ * Property visibility conditions for compact mode
+ * Defines when certain properties should be hidden based on other property values
+ * Key: Device class code
+ * Value: Array of visibility conditions
+ */
+export const PROPERTY_VISIBILITY_CONDITIONS: Record<string, PropertyVisibilityCondition[]> = {
+  // Home Air Conditioner (0130)
+  '0130': [
+    {
+      epc: 'B3', // Temperature setting
+      hideWhen: {
+        epc: 'B0', // Operation mode setting
+        values: ['auto', 'fan'] // Hide when mode is auto or fan
+      }
+    },
+    {
+      epc: 'B4', // Relative humidity setting for dehumidification mode
+      hideWhen: {
+        epc: 'B0', // Operation mode setting
+        notValues: ['dry'] // Hide when mode is NOT dry
+      }
+    }
+  ]
+};
+
+/**
  * Checks if a device is a Node Profile device
  * Node Profile devices have class code 0EF0
  */
@@ -129,4 +167,119 @@ export function getSortedPrimaryProperties(device: { properties: Record<string, 
   return primaryProperties
     .filter(epc => epc in device.properties)
     .map(epc => [epc, device.properties[epc]] as [string, PropertyValue]);
+}
+
+/**
+ * Extracts comparable value from a property for visibility condition matching
+ * Prioritizes string alias over numeric value
+ *
+ * @param property - The property value object
+ * @returns The string alias, numeric value, or undefined if not available
+ */
+function getPropertyComparableValue(property: PropertyValue): string | number | undefined {
+  // First priority: string alias (for properties like operation mode)
+  if (typeof property.string === 'string') {
+    return property.string;
+  }
+
+  // Second priority: number field (for numeric properties like temperature)
+  if (typeof property.number === 'number') {
+    return property.number;
+  }
+
+  // Last resort: decode EDT field to get numeric value
+  if (property.EDT && typeof property.EDT === 'string') {
+    try {
+      // Decode Base64 to get raw bytes
+      const decoded = atob(property.EDT);
+      // Get the first byte as the numeric value
+      if (decoded.length > 0) {
+        return decoded.charCodeAt(0);
+      }
+    } catch {
+      // If decoding fails, continue
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Checks if a property value matches any of the condition values
+ * Supports both string alias and numeric comparisons
+ *
+ * @param propertyValue - The value to check (from getPropertyComparableValue)
+ * @param conditionValues - Array of values to match against
+ * @returns true if propertyValue matches any of the conditionValues
+ */
+function matchesAnyValue(propertyValue: string | number | undefined, conditionValues: (string | number)[]): boolean {
+  if (propertyValue === undefined) {
+    return false;
+  }
+
+  return conditionValues.some(conditionValue => {
+    // Direct comparison (handles both string and number)
+    return propertyValue === conditionValue;
+  });
+}
+
+/**
+ * Determines if a property should be shown in compact mode
+ * Checks visibility conditions for the device class and property
+ *
+ * @param epc - The property EPC code to check
+ * @param device - The device object containing all properties
+ * @param classCode - The device class code
+ * @returns true if the property should be displayed in compact mode
+ */
+export function shouldShowPropertyInCompactMode(epc: string, device: Device, classCode: string): boolean {
+  // Get visibility conditions for this device class
+  const conditions = PROPERTY_VISIBILITY_CONDITIONS[classCode];
+
+  // If no conditions defined for this device class, always show
+  if (!conditions) {
+    return true;
+  }
+
+  // Find conditions for this specific property
+  const propertyConditions = conditions.filter(condition => condition.epc === epc);
+
+  // If no conditions for this property, always show
+  if (propertyConditions.length === 0) {
+    return true;
+  }
+
+  // Check each condition - if ANY condition says to hide, then hide
+  for (const condition of propertyConditions) {
+    const conditionProperty = device.properties[condition.hideWhen.epc];
+
+    // If condition property doesn't exist, show the property
+    if (!conditionProperty) {
+      continue;
+    }
+
+    // Get the condition property value (prioritizes string alias)
+    const conditionValue = getPropertyComparableValue(conditionProperty);
+
+    // If condition value is not available, show the property
+    if (conditionValue === undefined) {
+      continue;
+    }
+
+    // Check condition types
+    const { values, notValues } = condition.hideWhen;
+
+    // Check 'values' condition (hide if condition property equals any of these values)
+    if (values !== undefined && matchesAnyValue(conditionValue, values)) {
+      return false;
+    }
+
+    // Check 'notValues' condition (hide if condition property does NOT equal any of these values)
+    if (notValues !== undefined && !matchesAnyValue(conditionValue, notValues)) {
+      return false;
+    }
+  }
+
+  // If no conditions matched to hide, show the property
+  return true;
 }

@@ -5,10 +5,11 @@ import {
   getDeviceSecondaryProperties,
   getSortedPrimaryProperties,
   isNodeProfileDevice,
+  shouldShowPropertyInCompactMode,
   ESSENTIAL_PROPERTIES,
   DEVICE_PRIMARY_PROPERTIES
 } from './deviceTypeHelper';
-import type { PropertyValue } from '@/hooks/types';
+import type { PropertyValue, Device } from '@/hooks/types';
 
 // Test helper functions for creating properly typed property values
 const createPropertyValue = (value: Partial<PropertyValue>): PropertyValue => value as PropertyValue;
@@ -218,6 +219,157 @@ describe('deviceTypeHelper', () => {
       const nodeProfileSimple = { eoj: '0EF0' };
       expect(isNodeProfileDevice(nodeProfileWithInstance)).toBe(true);
       expect(isNodeProfileDevice(nodeProfileSimple)).toBe(true);
+    });
+  });
+
+  describe('shouldShowPropertyInCompactMode', () => {
+    describe('Home Air Conditioner (0130)', () => {
+      it('should hide temperature setting (B3) when operation mode is auto (string alias)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'auto' }, // auto mode
+          'B3': { number: 25 }      // temperature setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(false);
+      });
+
+      it('should hide temperature setting (B3) when operation mode is fan (string alias)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'fan' }, // fan mode
+          'B3': { number: 25 }     // temperature setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(false);
+      });
+
+      it('should show temperature setting (B3) when operation mode is cooling (string alias)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'cooling' }, // cooling mode
+          'B3': { number: 25 }         // temperature setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
+
+      it('should show temperature setting (B3) when operation mode is heating (string alias)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'heating' }, // heating mode
+          'B3': { number: 25 }         // temperature setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
+
+      it('should show relative humidity setting (B4) when operation mode is dry (string alias)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'dry' }, // dry mode
+          'B4': { number: 60 }     // relative humidity setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B4', device, '0130')).toBe(true);
+      });
+
+      it('should hide relative humidity setting (B4) when operation mode is cooling (string alias)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'cooling' }, // cooling mode
+          'B4': { number: 60 }         // relative humidity setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B4', device, '0130')).toBe(false);
+      });
+
+      it('should hide relative humidity setting (B4) when operation mode is heating (string alias)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'heating' }, // heating mode
+          'B4': { number: 60 }         // relative humidity setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B4', device, '0130')).toBe(false);
+      });
+
+      it('should hide relative humidity setting (B4) when operation mode is fan (string alias)', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'fan' }, // fan mode
+          'B4': { number: 60 }     // relative humidity setting
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B4', device, '0130')).toBe(false);
+      });
+
+      it('should show property when condition property does not exist', () => {
+        const device = createDevice('0130:1', {
+          'B3': { number: 25 }    // temperature setting without operation mode
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
+
+      it('should show other properties unconditionally', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'auto' }, // auto mode
+          '80': { number: 0x30 }    // operation status
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('80', device, '0130')).toBe(true);
+        expect(shouldShowPropertyInCompactMode('BB', device, '0130')).toBe(true); // room temperature
+      });
+    });
+
+    describe('other device types', () => {
+      it('should show all properties for devices without visibility conditions', () => {
+        const device = createDevice('0291:1', { // Single Function Lighting
+          'B0': { number: 50 }    // illuminance level
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B0', device, '0291')).toBe(true);
+      });
+
+      it('should show all properties for unknown device types', () => {
+        const device = createDevice('9999:1', {
+          'B0': { number: 42 }
+        }) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B0', device, '9999')).toBe(true);
+      });
+    });
+
+    describe('edge cases', () => {
+      it('should handle device with no properties', () => {
+        const device = createDevice('0130:1', {}) as unknown as Device;
+
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
+
+      it('should prioritize string alias over numeric value', () => {
+        const device = createDevice('0130:1', {
+          'B0': { string: 'auto', number: 0x42 }, // string says auto, but number would be cooling
+          'B3': { number: 25 }
+        }) as unknown as Device;
+
+        // Should use string alias (auto) and hide the property
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(false);
+      });
+
+      it('should fall back to EDT-decoded number when string alias is not available', () => {
+        const device = createDevice('0130:1', {
+          'B0': { EDT: 'QQ==' }, // Base64 for 0x41 (auto)
+          'B3': { number: 25 }
+        }) as unknown as Device;
+
+        // EDT decodes to 0x41, but condition uses string 'auto', so won't match
+        // Property should be shown since EDT numeric value doesn't match string condition
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
+
+      it('should handle property with no comparable value', () => {
+        const device = createDevice('0130:1', {
+          'B0': {}, // No string, number, or EDT
+          'B3': { number: 25 }
+        }) as unknown as Device;
+
+        // Should show the property if condition value cannot be determined
+        expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
+      });
     });
   });
 });
