@@ -9,8 +9,8 @@ export type PropertyVisibilityCondition = {
   epc: string;           // EPC of the property to potentially hide
   hideWhen: {
     epc: string;         // EPC of the condition property
-    values?: number[];   // Hide when condition property equals any of these values
-    notValues?: number[]; // Hide when condition property does not equal any of these values
+    values?: (string | number)[];   // Hide when condition property equals any of these values (string alias preferred)
+    notValues?: (string | number)[]; // Hide when condition property does not equal any of these values (string alias preferred)
   };
 };
 
@@ -133,14 +133,14 @@ export const PROPERTY_VISIBILITY_CONDITIONS: Record<string, PropertyVisibilityCo
       epc: 'B3', // Temperature setting
       hideWhen: {
         epc: 'B0', // Operation mode setting
-        values: [0x41, 0x45] // Hide when mode is auto (0x41) or fan (0x45)
+        values: ['auto', 'fan'] // Hide when mode is auto or fan
       }
     },
     {
       epc: 'B4', // Relative humidity setting for dehumidification mode
       hideWhen: {
         epc: 'B0', // Operation mode setting
-        notValues: [0x44] // Hide when mode is NOT dry (0x44)
+        notValues: ['dry'] // Hide when mode is NOT dry
       }
     }
   ]
@@ -170,19 +170,24 @@ export function getSortedPrimaryProperties(device: { properties: Record<string, 
 }
 
 /**
- * Extracts numeric value from a property
- * Tries to get the number from EDT field (Base64 decoded) or number field
+ * Extracts comparable value from a property for visibility condition matching
+ * Prioritizes string alias over numeric value
  *
  * @param property - The property value object
- * @returns The numeric value or undefined if not available
+ * @returns The string alias, numeric value, or undefined if not available
  */
-function getPropertyNumericValue(property: PropertyValue): number | undefined {
-  // First try the number field (for numeric properties like temperature)
+function getPropertyComparableValue(property: PropertyValue): string | number | undefined {
+  // First priority: string alias (for properties like operation mode)
+  if (typeof property.string === 'string') {
+    return property.string;
+  }
+
+  // Second priority: number field (for numeric properties like temperature)
   if (typeof property.number === 'number') {
     return property.number;
   }
 
-  // Try to decode EDT field (for properties with aliases like operation mode)
+  // Last resort: decode EDT field to get numeric value
   if (property.EDT && typeof property.EDT === 'string') {
     try {
       // Decode Base64 to get raw bytes
@@ -197,6 +202,25 @@ function getPropertyNumericValue(property: PropertyValue): number | undefined {
   }
 
   return undefined;
+}
+
+/**
+ * Checks if a property value matches any of the condition values
+ * Supports both string alias and numeric comparisons
+ *
+ * @param propertyValue - The value to check (from getPropertyComparableValue)
+ * @param conditionValues - Array of values to match against
+ * @returns true if propertyValue matches any of the conditionValues
+ */
+function matchesAnyValue(propertyValue: string | number | undefined, conditionValues: (string | number)[]): boolean {
+  if (propertyValue === undefined) {
+    return false;
+  }
+
+  return conditionValues.some(conditionValue => {
+    // Direct comparison (handles both string and number)
+    return propertyValue === conditionValue;
+  });
 }
 
 /**
@@ -234,8 +258,8 @@ export function shouldShowPropertyInCompactMode(epc: string, device: Device, cla
       continue;
     }
 
-    // Get the condition property value (from number field or EDT field)
-    const conditionValue = getPropertyNumericValue(conditionProperty);
+    // Get the condition property value (prioritizes string alias)
+    const conditionValue = getPropertyComparableValue(conditionProperty);
 
     // If condition value is not available, show the property
     if (conditionValue === undefined) {
@@ -246,12 +270,12 @@ export function shouldShowPropertyInCompactMode(epc: string, device: Device, cla
     const { values, notValues } = condition.hideWhen;
 
     // Check 'values' condition (hide if condition property equals any of these values)
-    if (values !== undefined && values.includes(conditionValue)) {
+    if (values !== undefined && matchesAnyValue(conditionValue, values)) {
       return false;
     }
 
     // Check 'notValues' condition (hide if condition property does NOT equal any of these values)
-    if (notValues !== undefined && !notValues.includes(conditionValue)) {
+    if (notValues !== undefined && !matchesAnyValue(conditionValue, notValues)) {
       return false;
     }
   }
