@@ -109,7 +109,12 @@ export function DeviceHistoryDialog({
 
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);
-    return date.toLocaleString();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${month}/${day} ${hours}:${minutes}:${seconds}`;
   };
 
   const getOriginText = (origin: 'set' | 'notification' | 'online' | 'offline'): string => {
@@ -194,7 +199,7 @@ export function DeviceHistoryDialog({
         </div>
 
         {/* History Content */}
-        <div className="flex-1 overflow-y-auto min-h-[200px]">
+        <div className="flex-1 overflow-y-scroll min-h-[200px] scrollbar-visible">
           {isLoading && (
             <div className="flex items-center justify-center h-full">
               <div className="flex flex-col items-center gap-2">
@@ -219,7 +224,7 @@ export function DeviceHistoryDialog({
           )}
 
           {!isLoading && !error && processedEntries.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-0.5 font-mono text-xs">
               {processedEntries.map((entry) => {
                 // Determine color scheme based on entry type
                 // Events (online/offline) get their own colors
@@ -227,10 +232,10 @@ export function DeviceHistoryDialog({
                 // Other entries have no background color
                 const eventColorClass = entry.isEvent
                   ? entry.origin === 'online'
-                    ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
-                    : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950'
+                    ? 'bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 font-semibold border-l-4 border-green-600 dark:border-green-400'
+                    : 'bg-red-200 dark:bg-red-800 text-red-900 dark:text-red-100 font-semibold border-l-4 border-red-600 dark:border-red-400'
                   : entry.settable
-                  ? 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950'
+                  ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 border-l-4 border-blue-600 dark:border-blue-400'
                   : '';
 
                 // Generate testid for event entries
@@ -239,33 +244,36 @@ export function DeviceHistoryDialog({
                 return (
                   <div
                     key={`${entry.timestamp}-${entry.epc || entry.origin}-${entry.index}`}
-                    className={`border rounded-lg p-3 text-sm ${eventColorClass}`}
+                    className={`flex items-center gap-2 px-2 py-1 hover:bg-muted/50 ${eventColorClass}`}
                     data-testid={testId}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="font-semibold">
-                        {entry.isEvent ? entry.eventDescription : entry.propertyName}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatTimestamp(entry.timestamp)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      {!entry.isEvent && (
-                        <div className="flex items-center gap-2 relative">
-                          <span className="text-muted-foreground">{texts.value}:</span>
-                          <span className="font-medium">{entry.formattedValue}</span>
-                          <HexViewer
-                            canShowHexViewer={entry.canShowHexViewer}
-                            currentValue={entry.value}
-                            size="sm"
-                          />
-                        </div>
-                      )}
-                      <span className="text-xs px-2 py-1 rounded bg-muted">
-                        {getOriginText(entry.origin)}
-                      </span>
-                    </div>
+                    {/* Timestamp */}
+                    <span className="text-muted-foreground shrink-0">
+                      {formatTimestamp(entry.timestamp)}
+                    </span>
+
+                    {/* Origin badge */}
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-muted/70 shrink-0">
+                      {getOriginText(entry.origin)}
+                    </span>
+
+                    {/* Property/Event name */}
+                    <span className="font-medium truncate">
+                      {entry.isEvent ? entry.eventDescription : entry.propertyName}
+                    </span>
+
+                    {/* Value (for property changes only) */}
+                    {!entry.isEvent && (
+                      <>
+                        <span className="text-muted-foreground">:</span>
+                        <span className="font-medium">{entry.formattedValue}</span>
+                        <HexViewer
+                          canShowHexViewer={entry.canShowHexViewer}
+                          currentValue={entry.value}
+                          size="sm"
+                        />
+                      </>
+                    )}
                   </div>
                 );
               })}

@@ -301,7 +301,7 @@ describe('DeviceHistoryDialog', () => {
     expect(mockOnOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('should format timestamp in local time', () => {
+  it('should format timestamp in MM/DD HH:MM:SS format', () => {
     const mockEntries: DeviceHistoryEntry[] = [
       {
         timestamp: '2024-05-01T03:34:56Z', // UTC
@@ -331,9 +331,9 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Should display timestamp (exact format depends on locale)
-    // Just verify it's rendered
-    const timestampElements = screen.getAllByText(/2024/);
+    // Should display timestamp in MM/DD HH:MM:SS format
+    // Format: 05/01 03:34:56 or similar depending on timezone
+    const timestampElements = screen.getAllByText(/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}/);
     expect(timestampElements.length).toBeGreaterThan(0);
   });
 
@@ -416,11 +416,12 @@ describe('DeviceHistoryDialog', () => {
     const eventCard = screen.getByTestId('history-event-online');
     expect(eventCard).toBeInTheDocument();
 
-    // Verify green color classes are applied
-    expect(eventCard.className).toMatch(/border-green-200/);
-    expect(eventCard.className).toMatch(/bg-green-50/);
-    expect(eventCard.className).toMatch(/dark:border-green-800/);
-    expect(eventCard.className).toMatch(/dark:bg-green-950/);
+    // Verify green color classes are applied (updated for new log-style formatting)
+    expect(eventCard.className).toMatch(/bg-green-200/);
+    expect(eventCard.className).toMatch(/dark:bg-green-800/);
+    expect(eventCard.className).toMatch(/border-l-4/);
+    expect(eventCard.className).toMatch(/border-green-600/);
+    expect(eventCard.className).toMatch(/font-semibold/);
 
     // Verify event description is displayed
     expect(eventCard.textContent).toMatch(/Device came online/i);
@@ -459,11 +460,12 @@ describe('DeviceHistoryDialog', () => {
     const eventCard = screen.getByTestId('history-event-offline');
     expect(eventCard).toBeInTheDocument();
 
-    // Verify red color classes are applied
-    expect(eventCard.className).toMatch(/border-red-200/);
-    expect(eventCard.className).toMatch(/bg-red-50/);
-    expect(eventCard.className).toMatch(/dark:border-red-800/);
-    expect(eventCard.className).toMatch(/dark:bg-red-950/);
+    // Verify red color classes are applied (updated for new log-style formatting)
+    expect(eventCard.className).toMatch(/bg-red-200/);
+    expect(eventCard.className).toMatch(/dark:bg-red-800/);
+    expect(eventCard.className).toMatch(/border-l-4/);
+    expect(eventCard.className).toMatch(/border-red-600/);
+    expect(eventCard.className).toMatch(/font-semibold/);
 
     // Verify event description is displayed
     expect(eventCard.textContent).toMatch(/Device went offline/i);
@@ -499,13 +501,13 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Settable property entries should have blue background
+    // Settable property entries should have blue background (updated for new log-style formatting)
     // Use document.querySelectorAll since AlertDialog uses portal
-    const blueCards = document.querySelectorAll('.border-blue-200');
+    const blueCards = document.querySelectorAll('.bg-blue-200');
     expect(blueCards.length).toBe(1);
-    expect(blueCards[0].className).toMatch(/bg-blue-50/);
-    expect(blueCards[0].className).toMatch(/dark:border-blue-800/);
-    expect(blueCards[0].className).toMatch(/dark:bg-blue-950/);
+    expect(blueCards[0].className).toMatch(/dark:bg-blue-800/);
+    expect(blueCards[0].className).toMatch(/border-l-4/);
+    expect(blueCards[0].className).toMatch(/border-blue-600/);
   });
 
   it('should not apply background colors for non-settable entries', () => {
@@ -538,18 +540,18 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Non-settable entries should not have colored backgrounds
+    // Non-settable entries should not have colored backgrounds (updated for new log-style)
     // Since this dialog only shows one entry, we need to verify no colored backgrounds exist
     const dialog = screen.getByRole('alertdialog');
-    const allCards = dialog.querySelectorAll('.border');
+    const allCards = dialog.querySelectorAll('[class*="bg-"]');
 
     // Check that none of the cards have event colors
     let hasColoredBackground = false;
     allCards.forEach((card) => {
       if (
-        card.className.includes('border-green-200') ||
-        card.className.includes('border-red-200') ||
-        card.className.includes('border-blue-200')
+        card.className.includes('bg-green-200') ||
+        card.className.includes('bg-red-200') ||
+        card.className.includes('bg-blue-200')
       ) {
         hasColoredBackground = true;
       }
@@ -607,11 +609,11 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Verify each type has correct colors
+    // Verify each type has correct colors (updated for new log-style formatting)
     // Use document.querySelectorAll since AlertDialog uses portal
-    const blueCards = document.querySelectorAll('.border-blue-200');
-    const greenCards = document.querySelectorAll('.border-green-200');
-    const redCards = document.querySelectorAll('.border-red-200');
+    const blueCards = document.querySelectorAll('.bg-blue-200');
+    const greenCards = document.querySelectorAll('.bg-green-200');
+    const redCards = document.querySelectorAll('.bg-red-200');
 
     // settable -> blue, online -> green, offline -> red, non-settable -> no color
     expect(blueCards.length).toBe(1);
