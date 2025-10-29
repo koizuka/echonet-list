@@ -133,8 +133,13 @@ else
         exit 1
     }
 
-    # リモートとの差分をチェック（追跡中のブランチを使用）
-    REMOTE_COMMIT=$(git rev-parse '@{u}' 2>/dev/null || git rev-parse origin/HEAD 2>/dev/null || git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null || echo "")
+    # リモートとの差分をチェック（複数の候補を効率的に検索）
+    REMOTE_COMMIT=""
+    for ref in '@{u}' 'origin/HEAD' 'origin/main' 'origin/master'; do
+        if REMOTE_COMMIT=$(git rev-parse "$ref" 2>/dev/null); then
+            break
+        fi
+    done
 
     if [[ -z "$REMOTE_COMMIT" ]]; then
         print_error "リモートブランチが見つかりません"
@@ -209,15 +214,19 @@ fi
 
 # ビルド戦略の決定
 BUILD_TARGET=""
+NEEDS_SERVER_RESTART=false
 if [[ "$HAS_GO_CHANGES" == "true" && "$HAS_WEB_CHANGES" == "true" ]]; then
     BUILD_TARGET="all"
-    print_info "🔧 判定: Go と Web UI の両方に変更があります → 全体ビルド"
+    NEEDS_SERVER_RESTART=true
+    print_info "🔧 判定: Go と Web UI の両方に変更があります → 全体ビルド + サーバー再起動"
 elif [[ "$HAS_GO_CHANGES" == "true" ]]; then
     BUILD_TARGET="server"
-    print_info "🔧 判定: Go ファイルに変更があります → サーバービルド"
+    NEEDS_SERVER_RESTART=true
+    print_info "🔧 判定: Go ファイルに変更があります → サーバービルド + サーバー再起動"
 elif [[ "$HAS_WEB_CHANGES" == "true" ]]; then
     BUILD_TARGET="web"
-    print_info "🔧 判定: Web UI ファイルに変更があります → Web UI ビルド"
+    NEEDS_SERVER_RESTART=false
+    print_info "🔧 判定: Web UI ファイルに変更があります → Web UI ビルド（再起動不要）"
 else
     print_info "ℹ️  判定: ビルド対象の変更がありません → ビルドをスキップ"
 fi
@@ -238,25 +247,48 @@ if [[ -n "$BUILD_TARGET" ]]; then
     fi
 
     # サービス更新の実行
-    print_info "🔄 サービス更新を開始します..."
+    if [[ "$NEEDS_SERVER_RESTART" == "true" ]]; then
+        print_info "🔄 サービス更新を開始します（サーバー再起動あり）..."
 
-    # update.sh は root 権限が必要なため、sudo で実行
-    if [[ "$DRY_RUN" == "false" ]]; then
-        if [[ $EUID -ne 0 ]]; then
-            print_info "root 権限が必要です。sudo で再実行します..."
-            UPDATE_CMD="sudo $SCRIPT_DIR/update.sh"
+        # update.sh は root 権限が必要なため、sudo で実行
+        if [[ "$DRY_RUN" == "false" ]]; then
+            if [[ $EUID -ne 0 ]]; then
+                print_info "root 権限が必要です。sudo で再実行します..."
+                UPDATE_CMD="sudo $SCRIPT_DIR/update.sh"
+            else
+                UPDATE_CMD="$SCRIPT_DIR/update.sh"
+            fi
+
+            if ! $UPDATE_CMD; then
+                print_error "❌ サービス更新が失敗しました"
+                exit 1
+            fi
+
+            print_success "✅ サービス更新が完了しました"
         else
-            UPDATE_CMD="$SCRIPT_DIR/update.sh"
+            print_info "[DRY-RUN] ./script/update.sh をスキップ"
         fi
-
-        if ! $UPDATE_CMD; then
-            print_error "❌ サービス更新が失敗しました"
-            exit 1
-        fi
-
-        print_success "✅ サービス更新が完了しました"
     else
-        print_info "[DRY-RUN] ./script/update.sh をスキップ"
+        # Web UIのみの更新（サーバー再起動不要）
+        print_info "🔄 Web UI ファイルを配置します（サーバー再起動なし）..."
+
+        if [[ "$DRY_RUN" == "false" ]]; then
+            if [[ $EUID -ne 0 ]]; then
+                print_info "root 権限が必要です。sudo で再実行します..."
+                UPDATE_CMD="sudo $SCRIPT_DIR/update.sh --web-only"
+            else
+                UPDATE_CMD="$SCRIPT_DIR/update.sh --web-only"
+            fi
+
+            if ! $UPDATE_CMD; then
+                print_error "❌ Web UI ファイルの配置が失敗しました"
+                exit 1
+            fi
+
+            print_success "✅ Web UI ファイルの配置が完了しました（ダウンタイムなし）"
+        else
+            print_info "[DRY-RUN] ./script/update.sh --web-only をスキップ"
+        fi
     fi
 
 else
@@ -271,13 +303,21 @@ if [[ "$BUILD_TARGET" ]]; then
     print_info "  - git pull: 実行済み"
     print_info "  - ビルド: $BUILD_TARGET"
     if [[ "$DRY_RUN" == "false" ]]; then
-        print_info "  - サービス更新: 実行済み"
+        if [[ "$NEEDS_SERVER_RESTART" == "true" ]]; then
+            print_info "  - サービス更新: 実行済み（サーバー再起動あり）"
+        else
+            print_info "  - ファイル配置: 実行済み（Web UIのみ、再起動なし）"
+        fi
         print_info ""
         # IPv4アドレスを取得（IPv6を避ける）
         HOST_IP=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo 'localhost')
         print_info "🌐 Web UI: http://${HOST_IP}:8080"
         print_info "🔧 管理: sudo systemctl status echonet-list"
     else
-        print_info "  - サービス更新: [DRY-RUN でスキップ]"
+        if [[ "$NEEDS_SERVER_RESTART" == "true" ]]; then
+            print_info "  - サービス更新: [DRY-RUN でスキップ]"
+        else
+            print_info "  - ファイル配置: [DRY-RUN でスキップ（Web UIのみ）]"
+        fi
     fi
 fi
