@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { RefreshCw, Loader2 } from 'lucide-react';
+import { RefreshCw, Loader2, CheckCircle, XCircle, Edit, Eye } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -109,12 +109,17 @@ export function DeviceHistoryDialog({
 
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    return `${month}/${day} ${hours}:${minutes}:${seconds}`;
+    // Use Intl.DateTimeFormat for better localization support
+    const formatted = new Intl.DateTimeFormat('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(date);
+    // Format: "MM/DD, HH:MM:SS" -> "MM/DD HH:MM:SS"
+    return formatted.replace(',', '');
   };
 
   const getOriginText = (origin: 'set' | 'notification' | 'online' | 'offline'): string => {
@@ -241,12 +246,24 @@ export function DeviceHistoryDialog({
                 // Generate testid for event entries
                 const testId = entry.isEvent ? `history-event-${entry.origin}` : undefined;
 
+                // Determine icon based on entry type
+                const EntryIcon = entry.isEvent
+                  ? entry.origin === 'online'
+                    ? CheckCircle
+                    : XCircle
+                  : entry.settable
+                  ? Edit
+                  : Eye;
+
                 return (
                   <div
-                    key={`${entry.timestamp}-${entry.epc || entry.origin}-${entry.index}`}
+                    key={entry.index}
                     className={`flex items-center gap-2 px-2 py-1 hover:bg-muted/50 ${eventColorClass}`}
                     data-testid={testId}
                   >
+                    {/* Icon for accessibility */}
+                    <EntryIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+
                     {/* Timestamp */}
                     <span className="text-muted-foreground shrink-0">
                       {formatTimestamp(entry.timestamp)}
