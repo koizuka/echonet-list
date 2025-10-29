@@ -151,17 +151,29 @@ if [[ "$WEB_ONLY" == "false" ]]; then
     chmod 755 "$INSTALL_DIR/echonet-list"
 fi
 
-# Web UI更新
+# Web UI更新（アトミックな置換でレースコンディションを回避）
 print_info "Web UIファイルを更新しています..."
-if [[ -d "$WEB_DIR" ]]; then
-    rm -rf "${WEB_DIR:?}"/*
-fi
-mkdir -p "$WEB_DIR"
-cp -r "$WEB_BUNDLE_DIR"/* "$WEB_DIR/"
+WEB_DIR_NEW="${WEB_DIR}.new"
+WEB_DIR_OLD="${WEB_DIR}.old"
 
-# 権限再設定
-print_info "ファイル権限を設定しています..."
-chown -R root:root "$WEB_DIR"
+# クリーンアップ（以前の失敗時の残骸があれば削除）
+rm -rf "$WEB_DIR_NEW" "$WEB_DIR_OLD" 2>/dev/null || true
+
+# 新しいディレクトリにファイルをコピー
+mkdir -p "$WEB_DIR_NEW"
+cp -r "$WEB_BUNDLE_DIR"/* "$WEB_DIR_NEW/"
+
+# 権限設定（移動前に実行）
+chown -R root:root "$WEB_DIR_NEW"
+
+# アトミックな置換: 既存 → .old、新規 → 正式な場所
+if [[ -d "$WEB_DIR" ]]; then
+    mv "$WEB_DIR" "$WEB_DIR_OLD" 2>/dev/null || true
+fi
+mv "$WEB_DIR_NEW" "$WEB_DIR"
+
+# 古いディレクトリを削除
+rm -rf "$WEB_DIR_OLD" 2>/dev/null || true
 
 # Web-onlyモード以外では、その他の更新とサービス開始を実行
 if [[ "$WEB_ONLY" == "false" ]]; then

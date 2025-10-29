@@ -133,8 +133,13 @@ else
         exit 1
     }
 
-    # リモートとの差分をチェック（追跡中のブランチを使用）
-    REMOTE_COMMIT=$(git rev-parse '@{u}' 2>/dev/null || git rev-parse origin/HEAD 2>/dev/null || git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null || echo "")
+    # リモートとの差分をチェック（複数の候補を効率的に検索）
+    REMOTE_COMMIT=""
+    for ref in '@{u}' 'origin/HEAD' 'origin/main' 'origin/master'; do
+        if REMOTE_COMMIT=$(git rev-parse "$ref" 2>/dev/null); then
+            break
+        fi
+    done
 
     if [[ -z "$REMOTE_COMMIT" ]]; then
         print_error "リモートブランチが見つかりません"
