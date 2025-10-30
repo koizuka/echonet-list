@@ -38,6 +38,7 @@ jobs:
               - 'protocol/**'
               - 'server/**'
               - 'integration/**'
+              - '.github/workflows/ci.yml'
             web:
               - 'web/src/**'
               - 'web/package*.json'
@@ -49,6 +50,7 @@ jobs:
               - 'web/eslint.config.ts'
               - 'web/index.html'
               - 'web/public/**'
+              - '.github/workflows/ci.yml'
             docs:
               - '**.md'
               - 'docs/**'
@@ -57,6 +59,7 @@ jobs:
               - '.github/**'
             scripts:
               - 'script/**/*.sh'
+              - '.github/workflows/ci.yml'
   go-server:
     name: Go Server Tests
     runs-on: ubuntu-latest
