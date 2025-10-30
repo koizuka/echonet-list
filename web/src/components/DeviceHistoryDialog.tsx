@@ -4,7 +4,6 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -15,6 +14,7 @@ import { HexViewer } from '@/components/HexViewer';
 import { useDeviceHistory } from '@/hooks/useDeviceHistory';
 import { isJapanese } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor, shouldShowHexViewer } from '@/libs/propertyHelper';
+import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 
@@ -45,6 +45,8 @@ interface DeviceHistoryDialogProps {
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   classCode: string;
   isConnected: boolean;
+  aliases?: Record<string, string>;
+  allDevices?: Record<string, Device>;
 }
 
 export function DeviceHistoryDialog({
@@ -55,9 +57,15 @@ export function DeviceHistoryDialog({
   propertyDescriptions,
   classCode,
   isConnected,
+  aliases = {},
+  allDevices = {},
 }: DeviceHistoryDialogProps) {
   const [settableOnly, setSettableOnly] = useState(false);
   const deviceTarget = `${device.ip} ${device.eoj}`;
+
+  // Get device alias information
+  const aliasInfo = deviceHasAlias(device, allDevices, aliases);
+  const displayName = aliasInfo.aliasName || device.name;
 
   const { entries, isLoading, error, refetch } = useDeviceHistory({
     connection,
@@ -106,6 +114,11 @@ export function DeviceHistoryDialog({
   };
 
   const texts = isJapanese() ? messages.ja : messages.en;
+
+  // Generate dialog title with device name
+  const dialogTitle = isJapanese()
+    ? `${displayName}のデバイス履歴`
+    : `${displayName} - Device History`;
 
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);
@@ -175,10 +188,11 @@ export function DeviceHistoryDialog({
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <AlertDialogHeader>
-          <AlertDialogTitle>{texts.title}</AlertDialogTitle>
-          <AlertDialogDescription className="text-xs text-muted-foreground">
-            {device.name} ({device.ip} - {device.eoj})
-          </AlertDialogDescription>
+          <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            {aliasInfo.hasAlias && <div>Device: {device.name}</div>}
+            <div>{device.ip} - {device.eoj}</div>
+          </div>
         </AlertDialogHeader>
 
         {/* Filter Controls */}
