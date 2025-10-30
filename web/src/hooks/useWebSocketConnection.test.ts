@@ -76,24 +76,25 @@ describe('useWebSocketConnection', () => {
   });
 
   const createMockWebSocket = (initialReadyState = 0): MockWebSocketConstructor => {
-    const MockWebSocketFn = vi.fn().mockImplementation((url: string): MockWebSocketInstance => ({
-      readyState: initialReadyState,
-      url,
-      onopen: null,
-      onclose: null,
-      onmessage: null,
-      onerror: null,
-      send: vi.fn(),
-      close: vi.fn(),
-    }));
-    
+    // Vitest 4.0 requires 'function' or 'class' for constructors, not arrow functions
+    const MockWebSocketFn = vi.fn(function(this: MockWebSocketInstance, url: string) {
+      this.readyState = initialReadyState;
+      this.url = url;
+      this.onopen = null;
+      this.onclose = null;
+      this.onmessage = null;
+      this.onerror = null;
+      this.send = vi.fn();
+      this.close = vi.fn();
+    });
+
     // Create typed constructor with constants
     const MockWebSocket = MockWebSocketFn as unknown as MockWebSocketConstructor;
     MockWebSocket.CONNECTING = 0;
     MockWebSocket.OPEN = 1;
     MockWebSocket.CLOSING = 2;
     MockWebSocket.CLOSED = 3;
-    
+
     return MockWebSocket;
   };
 
