@@ -63,9 +63,15 @@ export function DeviceHistoryDialog({
   const [settableOnly, setSettableOnly] = useState(false);
   const deviceTarget = `${device.ip} ${device.eoj}`;
 
-  // Get device alias information
-  const aliasInfo = deviceHasAlias(device, allDevices, aliases);
-  const displayName = aliasInfo.aliasName || device.name;
+  // Get device alias information (memoized for performance)
+  const aliasInfo = useMemo(
+    () => deviceHasAlias(device, allDevices, aliases),
+    [device, allDevices, aliases]
+  );
+  const displayName = useMemo(
+    () => aliasInfo.aliasName || device.name,
+    [aliasInfo.aliasName, device.name]
+  );
 
   const { entries, isLoading, error, refetch } = useDeviceHistory({
     connection,
@@ -115,10 +121,13 @@ export function DeviceHistoryDialog({
 
   const texts = isJapanese() ? messages.ja : messages.en;
 
-  // Generate dialog title with device name
-  const dialogTitle = isJapanese()
-    ? `${displayName}のデバイス履歴`
-    : `${displayName} - Device History`;
+  // Generate dialog title with device name (memoized for performance)
+  const dialogTitle = useMemo(
+    () => isJapanese()
+      ? `${displayName}のデバイス履歴`
+      : `${displayName} - Device History`,
+    [displayName]
+  );
 
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);
