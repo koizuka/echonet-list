@@ -328,6 +328,8 @@ export function DeviceCard({
           propertyDescriptions={propertyDescriptions}
           classCode={classCode}
           isConnected={isConnected}
+          aliases={aliases}
+          allDevices={devices}
         />
       )}
     </Card>

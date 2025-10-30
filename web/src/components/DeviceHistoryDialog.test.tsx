@@ -662,4 +662,163 @@ describe('DeviceHistoryDialog', () => {
     expect(container.textContent).toContain('online');
     expect(container.textContent).toContain('offline');
   });
+
+  describe('Device name display', () => {
+    it('should display device alias name when alias exists', () => {
+      const mockAliases = {
+        'Living Room AC': '013001:00000B:ABCDEF0123456789ABCDEF012345',
+      };
+
+      const mockAllDevices: Record<string, Device> = {
+        '192.168.1.10 0130:1': mockDevice,
+        '192.168.1.10 0EF0:1': {
+          ip: '192.168.1.10',
+          eoj: '0EF0:1',
+          name: 'NodeProfile',
+          id: '0EF001:00000B:ABCDEF0123456789ABCDEF012345',
+          properties: {
+            '83': { EDT: 'QUJDREVGMDI5NjU3ODlBQkNERUYwMTIzNDU=' }, // Identification Number
+          },
+          lastSeen: '2024-05-01T12:00:00Z',
+        },
+      };
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+          aliases={mockAliases}
+          allDevices={mockAllDevices}
+        />
+      );
+
+      const container = screen.getByRole('alertdialog');
+      // Should display alias name
+      expect(container.textContent).toContain('Living Room AC');
+    });
+
+    it('should display device physical name when alias exists', () => {
+      const mockAliases = {
+        'Living Room AC': '013001:00000B:ABCDEF0123456789ABCDEF012345',
+      };
+
+      const mockAllDevices: Record<string, Device> = {
+        '192.168.1.10 0130:1': mockDevice,
+        '192.168.1.10 0EF0:1': {
+          ip: '192.168.1.10',
+          eoj: '0EF0:1',
+          name: 'NodeProfile',
+          id: '0EF001:00000B:ABCDEF0123456789ABCDEF012345',
+          properties: {
+            '83': { EDT: 'QUJDREVGMDI5NjU3ODlBQkNERUYwMTIzNDU=' }, // Identification Number
+          },
+          lastSeen: '2024-05-01T12:00:00Z',
+        },
+      };
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+          aliases={mockAliases}
+          allDevices={mockAllDevices}
+        />
+      );
+
+      const container = screen.getByRole('alertdialog');
+      // Should display physical device name with "Device:" prefix
+      expect(container.textContent).toContain('Device:');
+      expect(container.textContent).toContain('HomeAirConditioner');
+    });
+
+    it('should display device name when no alias exists', () => {
+      const mockAliases = {};
+      const mockAllDevices: Record<string, Device> = {
+        '192.168.1.10 0130:1': mockDevice,
+      };
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+          aliases={mockAliases}
+          allDevices={mockAllDevices}
+        />
+      );
+
+      const container = screen.getByRole('alertdialog');
+      // Should display device name without "Device:" prefix
+      expect(container.textContent).toContain('HomeAirConditioner');
+      expect(container.textContent).not.toContain('Device:');
+    });
+
+    it('should display IP address and EOJ for all cases', () => {
+      const mockAliases = {};
+      const mockAllDevices: Record<string, Device> = {
+        '192.168.1.10 0130:1': mockDevice,
+      };
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+          aliases={mockAliases}
+          allDevices={mockAllDevices}
+        />
+      );
+
+      const container = screen.getByRole('alertdialog');
+      // Should display IP address and EOJ
+      expect(container.textContent).toContain('192.168.1.10');
+      expect(container.textContent).toContain('0130:1');
+    });
+  });
 });
