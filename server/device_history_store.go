@@ -41,7 +41,7 @@ type DeviceHistoryEntry struct {
 type HistoryQuery struct {
 	Since        time.Time
 	Limit        int
-	SettableOnly bool
+	SettableOnly bool // Applied by WebSocket handler after calculating settable flags, not by storage layer
 }
 
 // DeviceHistoryStore defines behaviour required from a history backend.
@@ -125,7 +125,7 @@ func (s *memoryDeviceHistoryStore) Query(device handler.IPAndEOJ, query HistoryQ
 	since := query.Since
 
 	// Iterate from newest to oldest so the result is ordered newest-first.
-	// Note: SettableOnly filtering is done by the caller after calculating settable flags
+	// Note: SettableOnly filtering is performed by the WebSocket handler after calculating settable flags
 	for i := len(entries) - 1; i >= 0; i-- {
 		entry := entries[i]
 
