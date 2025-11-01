@@ -84,7 +84,6 @@ func TestGetDeviceHistorySuccess(t *testing.T) {
 			EPC:       "80",
 			Value:     protocol.PropertyData{String: "on"},
 			Origin:    protocol.HistoryOriginSet,
-			Settable:  true,
 		}
 
 		history := protocol.DeviceHistoryResponse{
@@ -206,21 +205,18 @@ func TestGetDeviceHistoryWithEvents(t *testing.T) {
 				EPC:       "", // Empty EPC for event entries
 				Value:     protocol.PropertyData{},
 				Origin:    protocol.HistoryOriginOnline,
-				Settable:  false,
 			},
 			{
 				Timestamp: baseTime.Add(10 * time.Minute),
 				EPC:       "80",
 				Value:     protocol.PropertyData{String: "on"},
 				Origin:    protocol.HistoryOriginSet,
-				Settable:  true,
 			},
 			{
 				Timestamp: baseTime.Add(20 * time.Minute),
 				EPC:       "", // Empty EPC for event entries
 				Value:     protocol.PropertyData{},
 				Origin:    protocol.HistoryOriginOffline,
-				Settable:  false,
 			},
 		}
 

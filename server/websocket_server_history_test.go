@@ -208,7 +208,6 @@ func TestWebSocketServer_RecordPropertyChange_RecordsNotificationAfterTimeWindow
 		EPC:       epc,
 		Value:     value,
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	}
 	store.Record(oldEntry)
 

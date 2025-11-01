@@ -35,14 +35,12 @@ type DeviceHistoryEntry struct {
 	EPC       echonet_lite.EPCType
 	Value     protocol.PropertyData
 	Origin    HistoryOrigin
-	Settable  bool
 }
 
 // HistoryQuery specifies filters applied when fetching history entries.
 type HistoryQuery struct {
-	Since        time.Time
-	Limit        int
-	SettableOnly bool
+	Since time.Time
+	Limit int
 }
 
 // DeviceHistoryStore defines behaviour required from a history backend.
@@ -126,13 +124,11 @@ func (s *memoryDeviceHistoryStore) Query(device handler.IPAndEOJ, query HistoryQ
 	since := query.Since
 
 	// Iterate from newest to oldest so the result is ordered newest-first.
+	// Note: SettableOnly filtering is performed by the WebSocket handler after calculating settable flags
 	for i := len(entries) - 1; i >= 0; i-- {
 		entry := entries[i]
 
 		if !since.IsZero() && entry.Timestamp.Before(since) {
-			continue
-		}
-		if query.SettableOnly && !entry.Settable {
 			continue
 		}
 
@@ -260,7 +256,6 @@ type jsonDeviceHistoryEntry struct {
 	EPC       string                `json:"epc"`
 	Value     protocol.PropertyData `json:"value"`
 	Origin    HistoryOrigin         `json:"origin"`
-	Settable  bool                  `json:"settable"`
 }
 
 // jsonIPAndEOJ is used for JSON marshaling/unmarshaling of handler.IPAndEOJ
@@ -287,10 +282,9 @@ func (s *memoryDeviceHistoryStore) SaveToFile(filename string) error {
 					IP:  entry.Device.IP.String(),
 					EOJ: entry.Device.EOJ.Specifier(),
 				},
-				EPC:      fmt.Sprintf("0x%02X", byte(entry.EPC)),
-				Value:    entry.Value,
-				Origin:   entry.Origin,
-				Settable: entry.Settable,
+				EPC:    fmt.Sprintf("0x%02X", byte(entry.EPC)),
+				Value:  entry.Value,
+				Origin: entry.Origin,
 			})
 		}
 		jsonData[deviceKey] = jsonEntries
@@ -419,10 +413,9 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 					IP:  ip,
 					EOJ: eoj,
 				},
-				EPC:      epc,
-				Value:    jsonEntry.Value,
-				Origin:   jsonEntry.Origin,
-				Settable: jsonEntry.Settable,
+				EPC:    epc,
+				Value:  jsonEntry.Value,
+				Origin: jsonEntry.Origin,
 			}
 
 			filtered = append(filtered, entry)

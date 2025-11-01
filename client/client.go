@@ -40,7 +40,7 @@ type DeviceHistoryEntry struct {
 	EPC       EPCType
 	Value     protocol.PropertyData
 	Origin    protocol.HistoryOrigin
-	Settable  bool
+	Settable  bool // Calculated by server based on current Set Property Map
 }
 
 type ECHONETListClient interface {
