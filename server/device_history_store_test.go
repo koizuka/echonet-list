@@ -77,9 +77,8 @@ func TestMemoryDeviceHistoryStore_QueryFilters(t *testing.T) {
 	}
 
 	result := store.Query(device, HistoryQuery{
-		Since:        base.Add(-90 * time.Minute),
-		SettableOnly: true,
-		Limit:        5,
+		Since: base.Add(-90 * time.Minute),
+		Limit: 5,
 	})
 
 	if len(result) != 1 {
@@ -666,7 +665,7 @@ func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
 	})
 
 	// Query all entries (including events)
-	entries := store.Query(device, HistoryQuery{SettableOnly: false})
+	entries := store.Query(device, HistoryQuery{})
 	if len(entries) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(entries))
 	}
@@ -729,16 +728,16 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 		Origin:    HistoryOriginNotification,
 	})
 
-	// Query all entries (SettableOnly filtering is now done by the caller)
-	allEntries := store.Query(device, HistoryQuery{SettableOnly: false})
+	// Query all entries (SettableOnly filtering is now done by the handler, not by storage)
+	allEntries := store.Query(device, HistoryQuery{})
 	if len(allEntries) != 4 {
 		t.Fatalf("expected 4 entries total, got %d", len(allEntries))
 	}
 
-	// Query with settableOnly flag (note: filtering is now done by the caller, not by Query)
-	entriesForFiltering := store.Query(device, HistoryQuery{SettableOnly: true})
+	// Verify Query returns all entries without filtering (filtering is done by handler layer)
+	entriesForFiltering := store.Query(device, HistoryQuery{})
 	if len(entriesForFiltering) != 4 {
-		t.Fatalf("expected 4 entries (filtering not done by Query anymore), got %d", len(entriesForFiltering))
+		t.Fatalf("expected 4 entries (no filtering by Query), got %d", len(entriesForFiltering))
 	}
 
 	// Verify that events and property changes are both included

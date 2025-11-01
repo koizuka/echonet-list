@@ -79,9 +79,8 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 	}
 
 	query := HistoryQuery{
-		Since:        since,
-		Limit:        limit,
-		SettableOnly: settableOnly,
+		Since: since,
+		Limit: limit,
 	}
 
 	history := ws.historyStore.Query(ipAndEOJ, query)

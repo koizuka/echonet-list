@@ -39,9 +39,8 @@ type DeviceHistoryEntry struct {
 
 // HistoryQuery specifies filters applied when fetching history entries.
 type HistoryQuery struct {
-	Since        time.Time
-	Limit        int
-	SettableOnly bool // Applied by WebSocket handler after calculating settable flags, not by storage layer
+	Since time.Time
+	Limit int
 }
 
 // DeviceHistoryStore defines behaviour required from a history backend.
