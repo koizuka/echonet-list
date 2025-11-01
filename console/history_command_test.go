@@ -157,7 +157,6 @@ func TestProcessHistoryCommand(t *testing.T) {
 				EPC:       0x80,
 				Value:     protocol.PropertyData{String: "on"},
 				Origin:    protocol.HistoryOriginSet,
-				Settable:  true,
 			},
 		},
 	}
@@ -214,21 +213,18 @@ func TestProcessHistoryCommandWithOnlineOfflineEvents(t *testing.T) {
 				EPC:       0, // No EPC for event entries
 				Value:     protocol.PropertyData{},
 				Origin:    protocol.HistoryOriginOnline,
-				Settable:  false,
 			},
 			{
 				Timestamp: time.Date(2024, 5, 1, 12, 0, 0, 0, time.UTC),
 				EPC:       0x80,
 				Value:     protocol.PropertyData{String: "on"},
 				Origin:    protocol.HistoryOriginSet,
-				Settable:  true,
 			},
 			{
 				Timestamp: time.Date(2024, 5, 1, 14, 0, 0, 0, time.UTC),
 				EPC:       0, // No EPC for event entries
 				Value:     protocol.PropertyData{},
 				Origin:    protocol.HistoryOriginOffline,
-				Settable:  false,
 			},
 		},
 	}

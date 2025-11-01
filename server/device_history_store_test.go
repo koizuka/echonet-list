@@ -25,8 +25,7 @@ func TestMemoryDeviceHistoryStore_RecordEnforcesLimit(t *testing.T) {
 			Value: protocol.PropertyData{
 				String: fmt.Sprintf("value-%d", i),
 			},
-			Origin:   HistoryOriginNotification,
-			Settable: true,
+			Origin: HistoryOriginNotification,
 		})
 	}
 
@@ -56,7 +55,6 @@ func TestMemoryDeviceHistoryStore_QueryFilters(t *testing.T) {
 			EPC:       echonet_lite.EPCType(0xA0),
 			Value:     protocol.PropertyData{String: "old"},
 			Origin:    HistoryOriginNotification,
-			Settable:  true,
 		},
 		{
 			Timestamp: base.Add(-2 * time.Hour),
@@ -64,7 +62,6 @@ func TestMemoryDeviceHistoryStore_QueryFilters(t *testing.T) {
 			EPC:       echonet_lite.EPCType(0xA1),
 			Value:     protocol.PropertyData{String: "no-set"},
 			Origin:    HistoryOriginNotification,
-			Settable:  false,
 		},
 		{
 			Timestamp: base.Add(-1 * time.Hour),
@@ -72,7 +69,6 @@ func TestMemoryDeviceHistoryStore_QueryFilters(t *testing.T) {
 			EPC:       echonet_lite.EPCType(0xA2),
 			Value:     protocol.PropertyData{String: "recent"},
 			Origin:    HistoryOriginSet,
-			Settable:  true,
 		},
 	}
 
@@ -105,7 +101,6 @@ func TestMemoryDeviceHistoryStore_Clear(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x80),
 		Value:     protocol.PropertyData{String: "value"},
 		Origin:    HistoryOriginNotification,
-		Settable:  true,
 	})
 
 	if entries := store.Query(device, HistoryQuery{}); len(entries) != 1 {
@@ -137,7 +132,6 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x80),
 		Value:     protocol.PropertyData{String: "on"},
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 
 	// Test case 3: Same device, EPC, and value within time window - should be duplicate
@@ -165,7 +159,6 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x82),
 		Value:     protocol.PropertyData{String: "value1"},
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 
 	// Test case 7: Outside time window - should not be duplicate
@@ -181,7 +174,6 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x83),
 		Value:     protocol.PropertyData{String: "notif"},
 		Origin:    HistoryOriginNotification,
-		Settable:  true,
 	})
 
 	// Test case 9: Notification origin - should not be considered as duplicate
@@ -204,7 +196,6 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification_NumericValues(t *testi
 		EPC:       echonet_lite.EPCType(0xB0),
 		Value:     protocol.PropertyData{Number: &num25},
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 
 	// Same numeric value - should be duplicate
@@ -234,7 +225,6 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification_EDTValues(t *testing.T
 		EPC:       echonet_lite.EPCType(0xC0),
 		Value:     protocol.PropertyData{EDT: "AQID"}, // base64 encoded bytes
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 
 	// Same EDT value - should be duplicate
@@ -272,7 +262,6 @@ func TestMemoryDeviceHistoryStore_SaveToFile(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x80),
 		Value:     protocol.PropertyData{String: "on"},
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 	store.Record(DeviceHistoryEntry{
 		Timestamp: now.Add(1 * time.Minute),
@@ -280,7 +269,6 @@ func TestMemoryDeviceHistoryStore_SaveToFile(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0xB0),
 		Value:     protocol.PropertyData{Number: intPtr(25)},
 		Origin:    HistoryOriginNotification,
-		Settable:  false,
 	})
 
 	// Save to temporary file
@@ -318,7 +306,6 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x80),
 		Value:     protocol.PropertyData{String: "test-value"},
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 
 	// Save to file
@@ -377,7 +364,6 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_TimeFilter(t *testing.T) {
 			EPC:       echonet_lite.EPCType(0x80 + byte(i)),
 			Value:     protocol.PropertyData{String: entry.value},
 			Origin:    HistoryOriginNotification,
-			Settable:  true,
 		})
 	}
 
@@ -424,7 +410,6 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_CountFilter(t *testing.T) {
 			EPC:       echonet_lite.EPCType(0x80),
 			Value:     protocol.PropertyData{String: fmt.Sprintf("value-%d", i)},
 			Origin:    HistoryOriginNotification,
-			Settable:  true,
 		})
 	}
 
@@ -473,7 +458,6 @@ func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x80),
 		Value:     protocol.PropertyData{String: "string-value"},
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 	store1.Record(DeviceHistoryEntry{
 		Timestamp: now.Add(1 * time.Minute),
@@ -481,7 +465,6 @@ func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0xB0),
 		Value:     protocol.PropertyData{Number: &num25},
 		Origin:    HistoryOriginNotification,
-		Settable:  false,
 	})
 	store1.Record(DeviceHistoryEntry{
 		Timestamp: now.Add(2 * time.Minute),
@@ -489,7 +472,6 @@ func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0xC0),
 		Value:     protocol.PropertyData{EDT: "AQIDBA=="},
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 
 	// Save
@@ -602,7 +584,6 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_MultipleDevices(t *testing.T) {
 				EPC:       echonet_lite.EPCType(0x80),
 				Value:     protocol.PropertyData{String: fmt.Sprintf("device%d-value%d", deviceID, i)},
 				Origin:    HistoryOriginNotification,
-				Settable:  true,
 			})
 		}
 	}
@@ -673,7 +654,6 @@ func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0), // No EPC for event entries
 		Value:     protocol.PropertyData{}, // Empty value for events
 		Origin:    HistoryOriginOffline,
-		Settable:  false, // Events are not settable
 	})
 
 	// Record an online event
@@ -683,7 +663,6 @@ func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0), // No EPC for event entries
 		Value:     protocol.PropertyData{}, // Empty value for events
 		Origin:    HistoryOriginOnline,
-		Settable:  false, // Events are not settable
 	})
 
 	// Query all entries (including events)
@@ -721,7 +700,6 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x80),
 		Value:     protocol.PropertyData{String: "on"},
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 
 	// Record an offline event
@@ -731,7 +709,6 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0),
 		Value:     protocol.PropertyData{},
 		Origin:    HistoryOriginOffline,
-		Settable:  false,
 	})
 
 	// Record an online event
@@ -741,7 +718,6 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0),
 		Value:     protocol.PropertyData{},
 		Origin:    HistoryOriginOnline,
-		Settable:  false,
 	})
 
 	// Record another property change
@@ -751,29 +727,35 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x80),
 		Value:     protocol.PropertyData{String: "off"},
 		Origin:    HistoryOriginNotification,
-		Settable:  true,
 	})
 
-	// Query all entries
+	// Query all entries (SettableOnly filtering is now done by the caller)
 	allEntries := store.Query(device, HistoryQuery{SettableOnly: false})
 	if len(allEntries) != 4 {
 		t.Fatalf("expected 4 entries total, got %d", len(allEntries))
 	}
 
-	// Query settable only (should exclude events)
-	settableEntries := store.Query(device, HistoryQuery{SettableOnly: true})
-	if len(settableEntries) != 2 {
-		t.Fatalf("expected 2 settable entries, got %d", len(settableEntries))
+	// Query with settableOnly flag (note: filtering is now done by the caller, not by Query)
+	entriesForFiltering := store.Query(device, HistoryQuery{SettableOnly: true})
+	if len(entriesForFiltering) != 4 {
+		t.Fatalf("expected 4 entries (filtering not done by Query anymore), got %d", len(entriesForFiltering))
 	}
 
-	// Verify settable entries are property changes only
-	for i, entry := range settableEntries {
+	// Verify that events and property changes are both included
+	eventCount := 0
+	propertyCount := 0
+	for _, entry := range entriesForFiltering {
 		if entry.Origin == HistoryOriginOnline || entry.Origin == HistoryOriginOffline {
-			t.Errorf("settable entry %d: should not include event, got origin %s", i, entry.Origin)
+			eventCount++
+		} else {
+			propertyCount++
 		}
-		if entry.EPC == echonet_lite.EPCType(0) {
-			t.Errorf("settable entry %d: should have valid EPC, got 0", i)
-		}
+	}
+	if eventCount != 2 {
+		t.Errorf("expected 2 event entries, got %d", eventCount)
+	}
+	if propertyCount != 2 {
+		t.Errorf("expected 2 property entries, got %d", propertyCount)
 	}
 }
 
@@ -790,7 +772,6 @@ func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0),
 		Value:     protocol.PropertyData{},
 		Origin:    HistoryOriginOffline,
-		Settable:  false,
 	})
 	store1.Record(DeviceHistoryEntry{
 		Timestamp: now.Add(1 * time.Minute),
@@ -798,7 +779,6 @@ func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0),
 		Value:     protocol.PropertyData{},
 		Origin:    HistoryOriginOnline,
-		Settable:  false,
 	})
 
 	// Save to file

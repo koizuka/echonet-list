@@ -94,12 +94,24 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 			epcStr = fmt.Sprintf("%02X", byte(entry.EPC))
 		}
 
+		// Calculate settable flag dynamically based on current Set Property Map
+		// For event entries (online/offline), settable is always false
+		settable := false
+		if entry.EPC != 0 && entry.Origin != HistoryOriginOnline && entry.Origin != HistoryOriginOffline {
+			settable = ws.isPropertySettable(ipAndEOJ, entry.EPC)
+		}
+
+		// Apply settableOnly filter if requested
+		if settableOnly && !settable {
+			continue
+		}
+
 		resultEntries = append(resultEntries, protocol.HistoryEntry{
 			Timestamp: entry.Timestamp,
 			EPC:       epcStr, // Empty string for events, will be omitted in JSON
 			Value:     entry.Value,
 			Origin:    protocol.HistoryOrigin(entry.Origin),
-			Settable:  entry.Settable,
+			Settable:  settable,
 		})
 	}
 

@@ -15,9 +15,13 @@ func TestHandleGetDeviceHistoryFromClient_Success(t *testing.T) {
 	device := testDevice(20)
 
 	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+
+	// For this test, we'll use a nil handler which will cause isPropertySettable to return false
+	// This means we need to query with settableOnly=false to see results
 	ws := &WebSocketServer{
 		ctx:          ctx,
 		historyStore: store,
+		handler:      nil,
 		deviceResolver: func(d echonet_lite.IPAndEOJ) bool {
 			return d.Specifier() == device.Specifier()
 		},
@@ -29,11 +33,13 @@ func TestHandleGetDeviceHistoryFromClient_Success(t *testing.T) {
 		EPC:       echonet_lite.EPCType(0x80),
 		Value:     protocol.PropertyData{String: "on"},
 		Origin:    HistoryOriginSet,
-		Settable:  true,
 	})
 
+	// Query with settableOnly=false since handler is nil and will return settable=false
+	settableOnly := false
 	payload := protocol.GetDeviceHistoryPayload{
-		Target: device.Specifier(),
+		Target:       device.Specifier(),
+		SettableOnly: &settableOnly,
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -65,8 +71,9 @@ func TestHandleGetDeviceHistoryFromClient_Success(t *testing.T) {
 	if entry.Origin != protocol.HistoryOriginSet {
 		t.Fatalf("expected origin set, got %s", entry.Origin)
 	}
-	if !entry.Settable {
-		t.Fatalf("expected settable true")
+	// Since handler is nil, isPropertySettable returns false
+	if entry.Settable {
+		t.Fatalf("expected settable false (handler is nil)")
 	}
 	if entry.Value.String != "on" {
 		t.Fatalf("expected value 'on', got %s", entry.Value.String)

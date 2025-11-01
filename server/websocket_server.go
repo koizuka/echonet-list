@@ -163,7 +163,6 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 		EPC:       epc,
 		Value:     value,
 		Origin:    origin,
-		Settable:  ws.isPropertySettable(device, epc),
 	}
 
 	ws.historyStore.Record(entry)
