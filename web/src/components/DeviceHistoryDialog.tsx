@@ -281,7 +281,7 @@ export function DeviceHistoryDialog({
                 return (
                   <div
                     key={entry.index}
-                    className={`flex items-center gap-2 px-2 py-1 hover:bg-muted/50 ${eventColorClass}`}
+                    className={`relative flex items-center gap-2 px-2 py-1 hover:bg-muted/50 ${eventColorClass}`}
                     data-testid={testId}
                   >
                     {/* Icon for accessibility */}
