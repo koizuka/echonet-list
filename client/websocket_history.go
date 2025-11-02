@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"time"
 
 	"echonet-list/protocol"
 )
@@ -18,10 +17,6 @@ func (c *WebSocketClient) GetDeviceHistory(device IPAndEOJ, opts DeviceHistoryOp
 	if opts.Limit > 0 {
 		limit := opts.Limit
 		payload.Limit = &limit
-	}
-
-	if opts.Since != nil {
-		payload.Since = opts.Since.UTC().Format(time.RFC3339Nano)
 	}
 
 	if opts.SettableOnly != nil {

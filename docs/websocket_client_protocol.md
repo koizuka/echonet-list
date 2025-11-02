@@ -653,7 +653,6 @@ case 'device_added':
   "payload": {
     "target": "192.168.1.10 0130:1",
     "limit": 50,               // オプション: 取得件数の上限（既定値 50, サーバー設定値を超える場合は丸め込み）
-    "since": "2024-05-01T00:00:00Z", // オプション: この日時以降の履歴のみを取得（RFC3339 / RFC3339Nano）
     "settableOnly": true       // オプション: true で Set Property Map に含まれる履歴のみ（既定 true）
   },
   "requestId": "req-129"
@@ -662,7 +661,6 @@ case 'device_added':
 
 - `target`: デバイスID文字列（IP EOJ形式）。必須。
 - `limit`: 取得件数の上限。正の整数のみ許容。省略時は 50。
-- `since`: 絞り込み開始時刻。RFC3339 / RFC3339Nano 形式。省略時は全履歴。
 - `settableOnly`: `true` の場合、Set Property Map に含まれるプロパティのみ返します。省略時は `true`。
 
 レスポンスは `command_result` メッセージの `data` フィールドに以下の形式で返されます：

@@ -60,7 +60,7 @@ func (stubPropertyDescProvider) AvailablePropertyAliases(classCode client.EOJCla
 func TestParseHistoryCommand(t *testing.T) {
 	parser := NewCommandParser(stubPropertyDescProvider{}, stubAliasManager{}, stubGroupManager{})
 
-	cmd, err := parser.ParseCommand("history 192.168.1.20 0130:1 -limit 10 -since 2024-05-01T12:00:00Z -all", false)
+	cmd, err := parser.ParseCommand("history 192.168.1.20 0130:1 -limit 10 -all", false)
 	if err != nil {
 		t.Fatalf("ParseCommand returned error: %v", err)
 	}
@@ -71,9 +71,6 @@ func TestParseHistoryCommand(t *testing.T) {
 
 	if cmd.HistoryOptions.Limit != 10 {
 		t.Fatalf("expected limit 10, got %d", cmd.HistoryOptions.Limit)
-	}
-	if cmd.HistoryOptions.Since == nil || !cmd.HistoryOptions.Since.Equal(time.Date(2024, 5, 1, 12, 0, 0, 0, time.UTC)) {
-		t.Fatalf("unexpected since value: %v", cmd.HistoryOptions.Since)
 	}
 	if cmd.HistoryOptions.SettableOnly == nil || *cmd.HistoryOptions.SettableOnly {
 		t.Fatalf("expected settableOnly=false, got %v", cmd.HistoryOptions.SettableOnly)

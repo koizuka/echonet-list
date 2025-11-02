@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/c-bata/go-prompt"
 	"golang.org/x/exp/slices"
@@ -230,20 +229,6 @@ var CommandTable = []CommandDefinition{
 						return nil, fmt.Errorf("-limit には1以上の整数を指定してください")
 					}
 					cmd.HistoryOptions.Limit = value
-					argIndex += 2
-				case "-since":
-					if argIndex+1 >= len(parts) {
-						return nil, fmt.Errorf("-since オプションには時刻が必要です")
-					}
-					sinceStr := parts[argIndex+1]
-					timestamp, err := time.Parse(time.RFC3339Nano, sinceStr)
-					if err != nil {
-						timestamp, err = time.Parse(time.RFC3339, sinceStr)
-					}
-					if err != nil {
-						return nil, fmt.Errorf("-since の形式が不正です (RFC3339): %v", err)
-					}
-					cmd.HistoryOptions.Since = &timestamp
 					argIndex += 2
 				case "-all":
 					settable := false

@@ -31,7 +31,6 @@ type PropertyDescription = echonet_lite.PropertyDescription
 
 type DeviceHistoryOptions struct {
 	Limit        int
-	Since        *time.Time
 	SettableOnly *bool
 }
 
