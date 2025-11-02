@@ -718,7 +718,7 @@ func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
 		Timestamp: now,
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0), // No EPC for event entries
-		Value:     PropertyValue{}, // Empty value for events
+		Value:     PropertyValue{},         // Empty value for events
 		Origin:    HistoryOriginOffline,
 	})
 
@@ -727,7 +727,7 @@ func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
 		Timestamp: now.Add(1 * time.Minute),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0), // No EPC for event entries
-		Value:     PropertyValue{}, // Empty value for events
+		Value:     PropertyValue{},         // Empty value for events
 		Origin:    HistoryOriginOnline,
 	})
 
