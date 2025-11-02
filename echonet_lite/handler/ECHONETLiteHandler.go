@@ -355,12 +355,16 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 }
 
 // Close は、ECHONETLiteHandler のリソースを解放する
+// 履歴ファイルの保存に失敗した場合でもエラーを返さず、ログに記録するのみとする。
+// これは、履歴データの保存失敗がアプリケーションの正常終了を妨げるべきではないためである。
 func (h *ECHONETLiteHandler) Close() error {
 	// 履歴ファイルの保存（ファイルパスが指定されている場合のみ）
 	if h.historyFilePath != "" && h.data != nil && h.data.DeviceHistory != nil {
 		slog.Info("履歴ファイルを保存", "file", h.historyFilePath)
 		err := h.data.DeviceHistory.SaveToFile(h.historyFilePath)
 		if err != nil {
+			// 履歴保存エラーはログに記録するのみで、Close()自体は失敗させない
+			// 履歴データは重要だが、保存失敗がシステム終了を妨げるべきではない
 			slog.Error("履歴ファイルの保存に失敗", "file", h.historyFilePath, "error", err)
 		} else {
 			slog.Info("履歴ファイルの保存完了", "file", h.historyFilePath)

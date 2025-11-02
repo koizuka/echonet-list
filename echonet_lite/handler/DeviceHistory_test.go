@@ -10,6 +10,11 @@ import (
 	"echonet-list/echonet_lite"
 )
 
+// intPtr is a test helper that returns a pointer to an int
+func intPtr(i int) *int {
+	return &i
+}
+
 func TestMemoryDeviceHistoryStore_RecordEnforcesLimit(t *testing.T) {
 	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 3})
 	device := testDevice(1)

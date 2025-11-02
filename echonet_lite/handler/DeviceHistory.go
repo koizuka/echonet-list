@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -544,11 +545,6 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 	return nil
 }
 
-// intPtr returns a pointer to an int
-func intPtr(i int) *int {
-	return &i
-}
-
 // PropertyValueFromEDT creates a PropertyValue from EDT bytes
 func PropertyValueFromEDT(edt []byte, epc echonet_lite.EPCType, classCode echonet_lite.EOJClassCode) PropertyValue {
 	// Get property description
@@ -597,40 +593,10 @@ func PropertyValueFromEDT(edt []byte, epc echonet_lite.EPCType, classCode echone
 	}
 }
 
-// encodeEDTToBase64 encodes EDT bytes to base64 string
+// encodeEDTToBase64 encodes EDT bytes to base64 string using standard library
 func encodeEDTToBase64(edt []byte) string {
 	if len(edt) == 0 {
 		return ""
 	}
-	// Use standard base64 encoding
-	const base64Table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-
-	result := make([]byte, ((len(edt)+2)/3)*4)
-	j := 0
-
-	for i := 0; i < len(edt); i += 3 {
-		b := (uint32(edt[i]) << 16)
-		if i+1 < len(edt) {
-			b |= (uint32(edt[i+1]) << 8)
-		}
-		if i+2 < len(edt) {
-			b |= uint32(edt[i+2])
-		}
-
-		result[j] = base64Table[(b>>18)&0x3F]
-		result[j+1] = base64Table[(b>>12)&0x3F]
-		if i+1 < len(edt) {
-			result[j+2] = base64Table[(b>>6)&0x3F]
-		} else {
-			result[j+2] = '='
-		}
-		if i+2 < len(edt) {
-			result[j+3] = base64Table[b&0x3F]
-		} else {
-			result[j+3] = '='
-		}
-		j += 4
-	}
-
-	return string(result)
+	return base64.StdEncoding.EncodeToString(edt)
 }
