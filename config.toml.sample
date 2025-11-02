@@ -7,10 +7,12 @@ debug = false
 [log]
 filename = "echonet-list.log"
 
-# 履歴設定
+# デバイス履歴設定
 [history]
-# デバイスごとに保持する履歴件数の上限
-per_device_limit = 500
+# 操作可能プロパティ（settable）の履歴保持件数（デフォルト: 200）
+per_device_settable_limit = 200
+# 通知のみプロパティ（non-settable）の履歴保持件数（デフォルト: 100）
+per_device_non_settable_limit = 100
 
 # WebSocketサーバー設定
 [websocket]

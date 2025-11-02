@@ -83,8 +83,11 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 
 	options := DefaultHistoryOptions()
 	if len(historyOpts) > 0 {
-		if historyOpts[0].PerDeviceLimit > 0 {
-			options.PerDeviceLimit = historyOpts[0].PerDeviceLimit
+		if historyOpts[0].PerDeviceSettableLimit > 0 {
+			options.PerDeviceSettableLimit = historyOpts[0].PerDeviceSettableLimit
+		}
+		if historyOpts[0].PerDeviceNonSettableLimit > 0 {
+			options.PerDeviceNonSettableLimit = historyOpts[0].PerDeviceNonSettableLimit
 		}
 		if historyOpts[0].HistoryFilePath != "" {
 			options.HistoryFilePath = historyOpts[0].HistoryFilePath

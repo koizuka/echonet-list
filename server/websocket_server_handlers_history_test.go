@@ -15,7 +15,7 @@ func TestHandleGetDeviceHistoryFromClient_Success(t *testing.T) {
 	ctx := context.Background()
 	device := testDevice(20)
 
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 
 	// For this test, we'll use a nil handler which will cause isPropertySettable to return false
 	// This means we need to query with settableOnly=false to see results
@@ -120,7 +120,7 @@ func TestHandleGetDeviceHistoryFromClient_SettableCalculation(t *testing.T) {
 	ctx := context.Background()
 	device := testDevice(22)
 
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 
 	// Create a real handler and register the device with a Set Property Map
 	handlerInstance, err := handler.NewECHONETLiteHandler(ctx, handler.ECHONETLieHandlerOptions{})

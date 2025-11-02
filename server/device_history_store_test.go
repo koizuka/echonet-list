@@ -13,7 +13,7 @@ import (
 )
 
 func TestMemoryDeviceHistoryStore_RecordEnforcesLimit(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 3})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 3})
 	device := testDevice(1)
 	base := time.Now()
 
@@ -44,7 +44,7 @@ func TestMemoryDeviceHistoryStore_RecordEnforcesLimit(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_Clear(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 5})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 5})
 	device := testDevice(3)
 
 	store.Record(DeviceHistoryEntry{
@@ -67,7 +67,7 @@ func TestMemoryDeviceHistoryStore_Clear(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_IsDuplicateNotification(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(4)
 	now := time.Now().UTC()
 
@@ -136,7 +136,7 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_IsDuplicateNotification_NumericValues(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(5)
 	now := time.Now().UTC()
 
@@ -166,7 +166,7 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification_NumericValues(t *testi
 }
 
 func TestMemoryDeviceHistoryStore_IsDuplicateNotification_EDTValues(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(6)
 	now := time.Now().UTC()
 
@@ -202,7 +202,7 @@ func testDevice(id int) handler.IPAndEOJ {
 }
 
 func TestMemoryDeviceHistoryStore_SaveToFile(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device1 := testDevice(1)
 	device2 := testDevice(2)
 	now := time.Now().UTC()
@@ -248,7 +248,7 @@ func TestMemoryDeviceHistoryStore_SaveToFile(t *testing.T) {
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 	// Create and populate store
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -267,9 +267,9 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 	}
 
 	// Load into new store
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := HistoryLoadFilter{
-		PerDeviceLimit: 100,
+		PerDeviceNonSettableLimit: 100,
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
@@ -293,7 +293,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_CountFilter(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 100})
+	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -315,9 +315,9 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_CountFilter(t *testing.T) {
 	}
 
 	// Load with count filter (only 3 most recent)
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 100})
+	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
 	filter := HistoryLoadFilter{
-		PerDeviceLimit: 3, // Only 3 per device
+		PerDeviceNonSettableLimit: 3, // Only 3 per device
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
@@ -339,7 +339,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_CountFilter(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device1 := testDevice(1)
 	device2 := testDevice(2)
 	now := time.Now().UTC()
@@ -375,9 +375,9 @@ func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
 	}
 
 	// Load
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := HistoryLoadFilter{
-		PerDeviceLimit: 100,
+		PerDeviceNonSettableLimit: 100,
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
@@ -412,7 +412,7 @@ func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_FileNotFound(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := DefaultHistoryLoadFilter()
 
 	// Try to load non-existent file - should not error
@@ -430,7 +430,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_FileNotFound(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_InvalidJSON(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := DefaultHistoryLoadFilter()
 
 	// Create file with invalid JSON
@@ -447,7 +447,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_InvalidJSON(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_EmptyFile(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := DefaultHistoryLoadFilter()
 
 	// Create empty file
@@ -464,7 +464,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_EmptyFile(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_MultipleDevices(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 100})
+	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
 	now := time.Now().UTC()
 
 	// Add entries for multiple devices
@@ -488,9 +488,9 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_MultipleDevices(t *testing.T) {
 	}
 
 	// Load
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 100})
+	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
 	filter := HistoryLoadFilter{
-		PerDeviceLimit: 100,
+		PerDeviceNonSettableLimit: 100,
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
@@ -509,8 +509,8 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_MultipleDevices(t *testing.T) {
 // TestMemoryDeviceHistoryStore_SettableAndNonSettableLimits tests separate limits for settable and non-settable properties
 func TestMemoryDeviceHistoryStore_SettableAndNonSettableLimits(t *testing.T) {
 	store := newMemoryDeviceHistoryStore(HistoryOptions{
-		PerDeviceSettableLimit: 3, // settable limit
-		PerDeviceLimit:         2, // non-settable limit
+		PerDeviceSettableLimit:    3, // settable limit
+		PerDeviceNonSettableLimit: 2, // non-settable limit
 	})
 	device := testDevice(1)
 	base := time.Now().UTC()
@@ -604,8 +604,8 @@ func TestMemoryDeviceHistoryStore_SettableAndNonSettableLimits(t *testing.T) {
 // TestMemoryDeviceHistoryStore_SettableSaveLoad tests that settable flag is preserved in save/load
 func TestMemoryDeviceHistoryStore_SettableSaveLoad(t *testing.T) {
 	store1 := newMemoryDeviceHistoryStore(HistoryOptions{
-		PerDeviceSettableLimit: 10,
-		PerDeviceLimit:         10,
+		PerDeviceSettableLimit:    10,
+		PerDeviceNonSettableLimit: 10,
 	})
 	device := testDevice(1)
 	now := time.Now().UTC()
@@ -636,12 +636,12 @@ func TestMemoryDeviceHistoryStore_SettableSaveLoad(t *testing.T) {
 
 	// Load into new store
 	store2 := newMemoryDeviceHistoryStore(HistoryOptions{
-		PerDeviceSettableLimit: 10,
-		PerDeviceLimit:         10,
+		PerDeviceSettableLimit:    10,
+		PerDeviceNonSettableLimit: 10,
 	})
 	filter := HistoryLoadFilter{
-		PerDeviceSettableLimit: 100,
-		PerDeviceLimit:         100,
+		PerDeviceSettableLimit:    100,
+		PerDeviceNonSettableLimit: 100,
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
@@ -711,7 +711,7 @@ func findSubstring(s, substr string) bool {
 
 // TestMemoryDeviceHistoryStore_RecordEventHistory tests recording of online/offline events
 func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -757,7 +757,7 @@ func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
 
 // TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory tests mixed property changes and events
 func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -829,7 +829,7 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 
 // TestMemoryDeviceHistoryStore_EventHistorySaveLoad tests saving and loading event history
 func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -856,9 +856,9 @@ func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
 	}
 
 	// Load into new store
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
+	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := HistoryLoadFilter{
-		PerDeviceLimit: 100,
+		PerDeviceNonSettableLimit: 100,
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)

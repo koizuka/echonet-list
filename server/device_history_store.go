@@ -56,17 +56,17 @@ type DeviceHistoryStore interface {
 
 // HistoryOptions configures the behaviour of the history store.
 type HistoryOptions struct {
-	PerDeviceSettableLimit int    // Maximum number of settable property history per device
-	PerDeviceLimit         int    // Maximum number of non-settable property history per device
-	HistoryFilePath        string // Path to history file for persistence (empty = disabled)
+	PerDeviceSettableLimit    int    // Maximum number of settable property history per device
+	PerDeviceNonSettableLimit int    // Maximum number of non-settable property history per device
+	HistoryFilePath           string // Path to history file for persistence (empty = disabled)
 }
 
 // DefaultHistoryOptions returns the default options used when none are provided.
 func DefaultHistoryOptions() HistoryOptions {
 	return HistoryOptions{
-		PerDeviceSettableLimit: 200, // Settable properties (operations)
-		PerDeviceLimit:         100, // Non-settable properties (notifications)
-		HistoryFilePath:        "",  // Disabled by default
+		PerDeviceSettableLimit:    200, // Settable properties (operations)
+		PerDeviceNonSettableLimit: 100, // Non-settable properties (notifications)
+		HistoryFilePath:           "",  // Disabled by default
 	}
 }
 
@@ -76,13 +76,13 @@ func newMemoryDeviceHistoryStore(opts HistoryOptions) *memoryDeviceHistoryStore 
 	if opts.PerDeviceSettableLimit > 0 {
 		options.PerDeviceSettableLimit = opts.PerDeviceSettableLimit
 	}
-	if opts.PerDeviceLimit > 0 {
-		options.PerDeviceLimit = opts.PerDeviceLimit
+	if opts.PerDeviceNonSettableLimit > 0 {
+		options.PerDeviceNonSettableLimit = opts.PerDeviceNonSettableLimit
 	}
 
 	return &memoryDeviceHistoryStore{
 		perDeviceSettableLimit: options.PerDeviceSettableLimit,
-		perDeviceLimit:         options.PerDeviceLimit,
+		perDeviceLimit:         options.PerDeviceNonSettableLimit,
 		settableData:           make(map[string][]DeviceHistoryEntry),
 		nonSettableData:        make(map[string][]DeviceHistoryEntry),
 	}
@@ -300,16 +300,16 @@ func (s *memoryDeviceHistoryStore) trimToLimit(entries []DeviceHistoryEntry, cus
 
 // HistoryLoadFilter specifies filters applied when loading history from file
 type HistoryLoadFilter struct {
-	PerDeviceSettableLimit int // Maximum number of settable entries per device to load
-	PerDeviceLimit         int // Maximum number of non-settable entries per device to load
+	PerDeviceSettableLimit    int // Maximum number of settable entries per device to load
+	PerDeviceNonSettableLimit int // Maximum number of non-settable entries per device to load
 }
 
 // DefaultHistoryLoadFilter returns the default filter settings for loading history
 func DefaultHistoryLoadFilter() HistoryLoadFilter {
 	opts := DefaultHistoryOptions()
 	return HistoryLoadFilter{
-		PerDeviceSettableLimit: opts.PerDeviceSettableLimit,
-		PerDeviceLimit:         opts.PerDeviceLimit,
+		PerDeviceSettableLimit:    opts.PerDeviceSettableLimit,
+		PerDeviceNonSettableLimit: opts.PerDeviceNonSettableLimit,
 	}
 }
 
@@ -513,7 +513,7 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 
 		// Apply per-device limits separately
 		settableFiltered = s.trimToLimit(settableFiltered, filter.PerDeviceSettableLimit)
-		nonSettableFiltered = s.trimToLimit(nonSettableFiltered, filter.PerDeviceLimit)
+		nonSettableFiltered = s.trimToLimit(nonSettableFiltered, filter.PerDeviceNonSettableLimit)
 
 		if len(settableFiltered) > 0 {
 			s.settableData[deviceKey] = settableFiltered

@@ -144,9 +144,9 @@ func main() {
 			s.GetHandler(),
 			serverStartupTime,
 			server.HistoryOptions{
-				PerDeviceSettableLimit: cfg.History.PerDeviceSettableLimit,
-				PerDeviceLimit:         cfg.History.PerDeviceLimit,
-				HistoryFilePath:        cfg.DataFiles.HistoryFile,
+				PerDeviceSettableLimit:    cfg.History.PerDeviceSettableLimit,
+				PerDeviceNonSettableLimit: cfg.History.PerDeviceNonSettableLimit,
+				HistoryFilePath:           cfg.DataFiles.HistoryFile,
 			},
 		)
 		if err != nil {

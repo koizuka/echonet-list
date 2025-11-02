@@ -34,7 +34,7 @@ web_root = "web/bundle"
 # Maximum history entries for settable properties (operations) per device
 # per_device_settable_limit = 200
 # Maximum history entries for non-settable properties (notifications) per device
-# per_device_limit = 100
+# per_device_non_settable_limit = 100
 
 # Multicast Keep-Alive Configuration
 [multicast]
