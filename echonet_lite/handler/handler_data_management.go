@@ -17,17 +17,19 @@ type DataManagementHandler struct {
 	devices       Devices                     // デバイス情報
 	DeviceAliases *DeviceAliases              // デバイスエイリアス
 	DeviceGroups  *DeviceGroups               // デバイスグループ
+	DeviceHistory DeviceHistoryStore          // デバイス履歴
 	propMutex     sync.RWMutex                // プロパティの排他制御用ミューテックス
 	notifier      NotificationRelay           // 通知中継
 	hookProcessor PropertyUpdateHookProcessor // プロパティ更新後処理
 }
 
 // NewDataManagementHandler は、DataManagementHandlerの新しいインスタンスを作成する
-func NewDataManagementHandler(devices Devices, aliases *DeviceAliases, groups *DeviceGroups, notifier NotificationRelay) *DataManagementHandler {
+func NewDataManagementHandler(devices Devices, aliases *DeviceAliases, groups *DeviceGroups, history DeviceHistoryStore, notifier NotificationRelay) *DataManagementHandler {
 	return &DataManagementHandler{
 		devices:       devices,
 		DeviceAliases: aliases,
 		DeviceGroups:  groups,
+		DeviceHistory: history,
 		notifier:      notifier,
 	}
 }

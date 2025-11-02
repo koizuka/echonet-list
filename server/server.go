@@ -29,6 +29,15 @@ func NewServer(ctx context.Context, cfg *config.Config) (*Server, error) {
 		options.GroupsFile = cfg.DataFiles.GroupsFile
 	}
 
+	// 履歴設定を追加
+	if cfg != nil {
+		options.HistoryOptions = handler.HistoryOptions{
+			PerDeviceSettableLimit:    cfg.History.PerDeviceSettableLimit,
+			PerDeviceNonSettableLimit: cfg.History.PerDeviceNonSettableLimit,
+			HistoryFilePath:           cfg.DataFiles.HistoryFile,
+		}
+	}
+
 	// ネットワーク監視設定を追加
 	if cfg != nil && cfg.Network.MonitorEnabled {
 		options.NetworkMonitorConfig = &network.NetworkMonitorConfig{

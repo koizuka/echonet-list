@@ -5,6 +5,7 @@ import (
 	"echonet-list/client"
 	"echonet-list/config"
 	"echonet-list/console"
+	"echonet-list/echonet_lite/handler"
 	"echonet-list/server"
 	"flag"
 	"fmt"
@@ -143,7 +144,7 @@ func main() {
 			client.NewECHONETListClientProxy(s.GetHandler()),
 			s.GetHandler(),
 			serverStartupTime,
-			server.HistoryOptions{
+			handler.HistoryOptions{
 				PerDeviceSettableLimit:    cfg.History.PerDeviceSettableLimit,
 				PerDeviceNonSettableLimit: cfg.History.PerDeviceNonSettableLimit,
 				HistoryFilePath:           cfg.DataFiles.HistoryFile,

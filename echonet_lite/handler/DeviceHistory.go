@@ -1,18 +1,27 @@
-package server
+package handler
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"echonet-list/echonet_lite"
-	"echonet-list/echonet_lite/handler"
-	"echonet-list/protocol"
 )
+
+// PropertyValue represents the value of a property in history.
+// This is similar to protocol.PropertyData but defined in handler package to avoid import cycles.
+type PropertyValue struct {
+	EDT    string `json:"EDT,omitempty"`    // Base64 encoded EDT, omitted if empty
+	String string `json:"string,omitempty"` // String representation of EDT, omitted if empty
+	Number *int   `json:"number,omitempty"` // Numeric value, omitted if nil
+}
 
 // HistoryOrigin identifies how a history entry was produced.
 type HistoryOrigin string
@@ -31,9 +40,9 @@ const (
 // DeviceHistoryEntry represents a single history item for a device.
 type DeviceHistoryEntry struct {
 	Timestamp time.Time
-	Device    handler.IPAndEOJ
+	Device    IPAndEOJ
 	EPC       echonet_lite.EPCType
-	Value     protocol.PropertyData
+	Value     PropertyValue
 	Origin    HistoryOrigin
 	Settable  bool // Whether the property is settable (writable)
 }
@@ -46,12 +55,14 @@ type HistoryQuery struct {
 // DeviceHistoryStore defines behaviour required from a history backend.
 type DeviceHistoryStore interface {
 	Record(entry DeviceHistoryEntry)
-	Query(device handler.IPAndEOJ, query HistoryQuery) []DeviceHistoryEntry
-	Clear(device handler.IPAndEOJ)
+	Query(device IPAndEOJ, query HistoryQuery) []DeviceHistoryEntry
+	Clear(device IPAndEOJ)
 	// PerDeviceTotalLimit returns the maximum total number of history entries per device.
 	// For stores with separate settable/non-settable limits, this returns the sum of both limits.
 	PerDeviceTotalLimit() int
-	IsDuplicateNotification(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, within time.Duration) bool
+	IsDuplicateNotification(device IPAndEOJ, epc echonet_lite.EPCType, value PropertyValue, within time.Duration) bool
+	SaveToFile(filename string) error
+	LoadFromFile(filename string, filter HistoryLoadFilter) error
 }
 
 // HistoryOptions configures the behaviour of the history store.
@@ -70,8 +81,8 @@ func DefaultHistoryOptions() HistoryOptions {
 	}
 }
 
-// newMemoryDeviceHistoryStore constructs an in-memory store.
-func newMemoryDeviceHistoryStore(opts HistoryOptions) *memoryDeviceHistoryStore {
+// NewMemoryDeviceHistoryStore constructs an in-memory store.
+func NewMemoryDeviceHistoryStore(opts HistoryOptions) DeviceHistoryStore {
 	options := DefaultHistoryOptions()
 	if opts.PerDeviceSettableLimit > 0 {
 		options.PerDeviceSettableLimit = opts.PerDeviceSettableLimit
@@ -118,7 +129,7 @@ func (s *memoryDeviceHistoryStore) Record(entry DeviceHistoryEntry) {
 	}
 }
 
-func (s *memoryDeviceHistoryStore) Query(device handler.IPAndEOJ, query HistoryQuery) []DeviceHistoryEntry {
+func (s *memoryDeviceHistoryStore) Query(device IPAndEOJ, query HistoryQuery) []DeviceHistoryEntry {
 	key := device.Key()
 
 	s.mu.RLock()
@@ -153,7 +164,7 @@ func (s *memoryDeviceHistoryStore) Query(device handler.IPAndEOJ, query HistoryQ
 	return result
 }
 
-func (s *memoryDeviceHistoryStore) Clear(device handler.IPAndEOJ) {
+func (s *memoryDeviceHistoryStore) Clear(device IPAndEOJ) {
 	key := device.Key()
 
 	s.mu.Lock()
@@ -170,7 +181,7 @@ func (s *memoryDeviceHistoryStore) PerDeviceTotalLimit() int {
 
 // IsDuplicateNotification checks if there's a recent Set operation for the same device, EPC, and value.
 // This is used to avoid recording duplicate history entries when a notification follows a set operation.
-func (s *memoryDeviceHistoryStore) IsDuplicateNotification(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, within time.Duration) bool {
+func (s *memoryDeviceHistoryStore) IsDuplicateNotification(device IPAndEOJ, epc echonet_lite.EPCType, value PropertyValue, within time.Duration) bool {
 	key := device.Key()
 
 	s.mu.RLock()
@@ -200,10 +211,10 @@ func (s *memoryDeviceHistoryStore) IsDuplicateNotification(device handler.IPAndE
 		// Check if this is a Set operation for the same EPC
 		if entry.Origin == HistoryOriginSet && entry.EPC == epc {
 			// Check if the values match
-			equal := propertyDataEqual(entry.Value, value)
+			equal := propertyValueEqual(entry.Value, value)
 			// Debug logging
 			if !equal {
-				slog.Debug("PropertyData comparison mismatch",
+				slog.Debug("PropertyValue comparison mismatch",
 					"epc", fmt.Sprintf("0x%02X", epc),
 					"setEDT", entry.Value.EDT,
 					"notifEDT", value.EDT,
@@ -221,8 +232,8 @@ func (s *memoryDeviceHistoryStore) IsDuplicateNotification(device handler.IPAndE
 	return false
 }
 
-// propertyDataEqual compares two PropertyData values for equality
-func propertyDataEqual(a, b protocol.PropertyData) bool {
+// propertyValueEqual compares two PropertyValue values for equality
+func propertyValueEqual(a, b PropertyValue) bool {
 	// Compare EDT (base64 encoded bytes)
 	if a.EDT != b.EDT {
 		return false
@@ -239,13 +250,6 @@ func propertyDataEqual(a, b protocol.PropertyData) bool {
 		return false
 	}
 	return true
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // mergeEntriesByTimestamp merges two already-sorted slices into a single sorted slice.
@@ -321,15 +325,15 @@ type historyFileFormat struct {
 
 // jsonDeviceHistoryEntry is used for JSON marshaling/unmarshaling of DeviceHistoryEntry
 type jsonDeviceHistoryEntry struct {
-	Timestamp time.Time             `json:"timestamp"`
-	Device    jsonIPAndEOJ          `json:"device"`
-	EPC       string                `json:"epc"`
-	Value     protocol.PropertyData `json:"value"`
-	Origin    HistoryOrigin         `json:"origin"`
-	Settable  bool                  `json:"settable,omitempty"` // Whether the property is settable
+	Timestamp time.Time     `json:"timestamp"`
+	Device    jsonIPAndEOJ  `json:"device"`
+	EPC       string        `json:"epc"`
+	Value     PropertyValue `json:"value"`
+	Origin    HistoryOrigin `json:"origin"`
+	Settable  bool          `json:"settable,omitempty"` // Whether the property is settable
 }
 
-// jsonIPAndEOJ is used for JSON marshaling/unmarshaling of handler.IPAndEOJ
+// jsonIPAndEOJ is used for JSON marshaling/unmarshaling of IPAndEOJ
 type jsonIPAndEOJ struct {
 	IP  string `json:"ip"`
 	EOJ string `json:"eoj"`
@@ -464,7 +468,7 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 			}
 
 			// Parse EOJ
-			eoj, err := handler.ParseEOJString(jsonEntry.Device.EOJ)
+			eoj, err := ParseEOJString(jsonEntry.Device.EOJ)
 			if err != nil {
 				slog.Warn("Invalid EOJ in history entry, skipping",
 					"deviceKey", deviceKey,
@@ -488,7 +492,7 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 			// Create entry
 			entry := DeviceHistoryEntry{
 				Timestamp: jsonEntry.Timestamp,
-				Device: handler.IPAndEOJ{
+				Device: IPAndEOJ{
 					IP:  ip,
 					EOJ: eoj,
 				},
@@ -539,4 +543,60 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 		"deviceCount", len(allDeviceKeys))
 
 	return nil
+}
+
+// PropertyValueFromEDT creates a PropertyValue from EDT bytes
+func PropertyValueFromEDT(edt []byte, epc echonet_lite.EPCType, classCode echonet_lite.EOJClassCode) PropertyValue {
+	// Get property description
+	desc, _ := echonet_lite.GetPropertyDesc(classCode, epc)
+	if desc == nil {
+		// No description, store as base64 EDT
+		return PropertyValue{
+			EDT: encodeEDTToBase64(edt),
+		}
+	}
+
+	// Try to get string alias
+	if len(desc.Aliases) > 0 {
+		// Find the reverse mapping (EDT bytes -> alias string)
+		for alias, aliasEDT := range desc.Aliases {
+			if bytes.Equal(edt, aliasEDT) {
+				return PropertyValue{
+					EDT:    encodeEDTToBase64(edt),
+					String: alias,
+				}
+			}
+		}
+	}
+
+	// Try to decode as number if decoder is available
+	if desc.Decoder != nil {
+		if decoded, ok := desc.Decoder.ToString(edt); ok {
+			// Try to parse as integer
+			if num, err := strconv.Atoi(decoded); err == nil {
+				return PropertyValue{
+					EDT:    encodeEDTToBase64(edt),
+					Number: &num,
+				}
+			}
+			// If not a number, store as string
+			return PropertyValue{
+				EDT:    encodeEDTToBase64(edt),
+				String: decoded,
+			}
+		}
+	}
+
+	// Fallback to EDT only
+	return PropertyValue{
+		EDT: encodeEDTToBase64(edt),
+	}
+}
+
+// encodeEDTToBase64 encodes EDT bytes to base64 string using standard library
+func encodeEDTToBase64(edt []byte) string {
+	if len(edt) == 0 {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(edt)
 }

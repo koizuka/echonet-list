@@ -1,4 +1,4 @@
-package server
+package handler
 
 import (
 	"fmt"
@@ -8,12 +8,15 @@ import (
 	"time"
 
 	"echonet-list/echonet_lite"
-	"echonet-list/echonet_lite/handler"
-	"echonet-list/protocol"
 )
 
+// intPtr is a test helper that returns a pointer to an int
+func intPtr(i int) *int {
+	return &i
+}
+
 func TestMemoryDeviceHistoryStore_RecordEnforcesLimit(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 3})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 3})
 	device := testDevice(1)
 	base := time.Now()
 
@@ -22,7 +25,7 @@ func TestMemoryDeviceHistoryStore_RecordEnforcesLimit(t *testing.T) {
 			Timestamp: base.Add(time.Duration(i) * time.Minute),
 			Device:    device,
 			EPC:       echonet_lite.EPCType(0x80),
-			Value: protocol.PropertyData{
+			Value: PropertyValue{
 				String: fmt.Sprintf("value-%d", i),
 			},
 			Origin: HistoryOriginNotification,
@@ -44,14 +47,14 @@ func TestMemoryDeviceHistoryStore_RecordEnforcesLimit(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_Clear(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 5})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 5})
 	device := testDevice(3)
 
 	store.Record(DeviceHistoryEntry{
 		Timestamp: time.Now(),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0x80),
-		Value:     protocol.PropertyData{String: "value"},
+		Value:     PropertyValue{String: "value"},
 		Origin:    HistoryOriginNotification,
 	})
 
@@ -67,12 +70,12 @@ func TestMemoryDeviceHistoryStore_Clear(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_IsDuplicateNotification(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(4)
 	now := time.Now().UTC()
 
 	// Test case 1: No history - should not be duplicate
-	isDup := store.IsDuplicateNotification(device, echonet_lite.EPCType(0x80), protocol.PropertyData{String: "on"}, 2*time.Second)
+	isDup := store.IsDuplicateNotification(device, echonet_lite.EPCType(0x80), PropertyValue{String: "on"}, 2*time.Second)
 	if isDup {
 		t.Error("expected no duplicate when history is empty")
 	}
@@ -82,24 +85,24 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification(t *testing.T) {
 		Timestamp: now,
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0x80),
-		Value:     protocol.PropertyData{String: "on"},
+		Value:     PropertyValue{String: "on"},
 		Origin:    HistoryOriginSet,
 	})
 
 	// Test case 3: Same device, EPC, and value within time window - should be duplicate
-	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x80), protocol.PropertyData{String: "on"}, 2*time.Second)
+	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x80), PropertyValue{String: "on"}, 2*time.Second)
 	if !isDup {
 		t.Error("expected duplicate for same device, EPC, and value within time window")
 	}
 
 	// Test case 4: Different value - should not be duplicate
-	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x80), protocol.PropertyData{String: "off"}, 2*time.Second)
+	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x80), PropertyValue{String: "off"}, 2*time.Second)
 	if isDup {
 		t.Error("expected no duplicate for different value")
 	}
 
 	// Test case 5: Different EPC - should not be duplicate
-	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x81), protocol.PropertyData{String: "on"}, 2*time.Second)
+	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x81), PropertyValue{String: "on"}, 2*time.Second)
 	if isDup {
 		t.Error("expected no duplicate for different EPC")
 	}
@@ -109,12 +112,12 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification(t *testing.T) {
 		Timestamp: now.Add(-3 * time.Second),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0x82),
-		Value:     protocol.PropertyData{String: "value1"},
+		Value:     PropertyValue{String: "value1"},
 		Origin:    HistoryOriginSet,
 	})
 
 	// Test case 7: Outside time window - should not be duplicate
-	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x82), protocol.PropertyData{String: "value1"}, 2*time.Second)
+	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x82), PropertyValue{String: "value1"}, 2*time.Second)
 	if isDup {
 		t.Error("expected no duplicate for Set operation outside time window")
 	}
@@ -124,19 +127,19 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification(t *testing.T) {
 		Timestamp: now.Add(1 * time.Second),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0x83),
-		Value:     protocol.PropertyData{String: "notif"},
+		Value:     PropertyValue{String: "notif"},
 		Origin:    HistoryOriginNotification,
 	})
 
 	// Test case 9: Notification origin - should not be considered as duplicate
-	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x83), protocol.PropertyData{String: "notif"}, 2*time.Second)
+	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0x83), PropertyValue{String: "notif"}, 2*time.Second)
 	if isDup {
 		t.Error("expected no duplicate when origin is Notification (not Set)")
 	}
 }
 
 func TestMemoryDeviceHistoryStore_IsDuplicateNotification_NumericValues(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(5)
 	now := time.Now().UTC()
 
@@ -146,27 +149,27 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification_NumericValues(t *testi
 		Timestamp: now,
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0xB0),
-		Value:     protocol.PropertyData{Number: &num25},
+		Value:     PropertyValue{Number: &num25},
 		Origin:    HistoryOriginSet,
 	})
 
 	// Same numeric value - should be duplicate
 	num25Copy := 25
-	isDup := store.IsDuplicateNotification(device, echonet_lite.EPCType(0xB0), protocol.PropertyData{Number: &num25Copy}, 2*time.Second)
+	isDup := store.IsDuplicateNotification(device, echonet_lite.EPCType(0xB0), PropertyValue{Number: &num25Copy}, 2*time.Second)
 	if !isDup {
 		t.Error("expected duplicate for same numeric value")
 	}
 
 	// Different numeric value - should not be duplicate
 	num26 := 26
-	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0xB0), protocol.PropertyData{Number: &num26}, 2*time.Second)
+	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0xB0), PropertyValue{Number: &num26}, 2*time.Second)
 	if isDup {
 		t.Error("expected no duplicate for different numeric value")
 	}
 }
 
 func TestMemoryDeviceHistoryStore_IsDuplicateNotification_EDTValues(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(6)
 	now := time.Now().UTC()
 
@@ -175,34 +178,34 @@ func TestMemoryDeviceHistoryStore_IsDuplicateNotification_EDTValues(t *testing.T
 		Timestamp: now,
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0xC0),
-		Value:     protocol.PropertyData{EDT: "AQID"}, // base64 encoded bytes
+		Value:     PropertyValue{EDT: "AQID"}, // base64 encoded bytes
 		Origin:    HistoryOriginSet,
 	})
 
 	// Same EDT value - should be duplicate
-	isDup := store.IsDuplicateNotification(device, echonet_lite.EPCType(0xC0), protocol.PropertyData{EDT: "AQID"}, 2*time.Second)
+	isDup := store.IsDuplicateNotification(device, echonet_lite.EPCType(0xC0), PropertyValue{EDT: "AQID"}, 2*time.Second)
 	if !isDup {
 		t.Error("expected duplicate for same EDT value")
 	}
 
 	// Different EDT value - should not be duplicate
-	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0xC0), protocol.PropertyData{EDT: "BAUG"}, 2*time.Second)
+	isDup = store.IsDuplicateNotification(device, echonet_lite.EPCType(0xC0), PropertyValue{EDT: "BAUG"}, 2*time.Second)
 	if isDup {
 		t.Error("expected no duplicate for different EDT value")
 	}
 }
 
-func testDevice(id int) handler.IPAndEOJ {
+func testDevice(id int) IPAndEOJ {
 	ip := net.ParseIP(fmt.Sprintf("192.0.2.%d", id))
 	eoj := echonet_lite.MakeEOJ(echonet_lite.EOJClassCode(0x0130), echonet_lite.EOJInstanceCode(id))
-	return handler.IPAndEOJ{
+	return IPAndEOJ{
 		IP:  ip,
 		EOJ: eoj,
 	}
 }
 
 func TestMemoryDeviceHistoryStore_SaveToFile(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device1 := testDevice(1)
 	device2 := testDevice(2)
 	now := time.Now().UTC()
@@ -212,14 +215,14 @@ func TestMemoryDeviceHistoryStore_SaveToFile(t *testing.T) {
 		Timestamp: now,
 		Device:    device1,
 		EPC:       echonet_lite.EPCType(0x80),
-		Value:     protocol.PropertyData{String: "on"},
+		Value:     PropertyValue{String: "on"},
 		Origin:    HistoryOriginSet,
 	})
 	store.Record(DeviceHistoryEntry{
 		Timestamp: now.Add(1 * time.Minute),
 		Device:    device2,
 		EPC:       echonet_lite.EPCType(0xB0),
-		Value:     protocol.PropertyData{Number: intPtr(25)},
+		Value:     PropertyValue{Number: intPtr(25)},
 		Origin:    HistoryOriginNotification,
 	})
 
@@ -248,7 +251,7 @@ func TestMemoryDeviceHistoryStore_SaveToFile(t *testing.T) {
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 	// Create and populate store
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store1 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -256,7 +259,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 		Timestamp: now,
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0x80),
-		Value:     protocol.PropertyData{String: "test-value"},
+		Value:     PropertyValue{String: "test-value"},
 		Origin:    HistoryOriginSet,
 	})
 
@@ -267,7 +270,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 	}
 
 	// Load into new store
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store2 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := HistoryLoadFilter{
 		PerDeviceNonSettableLimit: 100,
 	}
@@ -293,7 +296,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_CountFilter(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
+	store1 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -303,7 +306,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_CountFilter(t *testing.T) {
 			Timestamp: now.Add(time.Duration(i) * time.Minute),
 			Device:    device,
 			EPC:       echonet_lite.EPCType(0x80),
-			Value:     protocol.PropertyData{String: fmt.Sprintf("value-%d", i)},
+			Value:     PropertyValue{String: fmt.Sprintf("value-%d", i)},
 			Origin:    HistoryOriginNotification,
 		})
 	}
@@ -315,7 +318,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_CountFilter(t *testing.T) {
 	}
 
 	// Load with count filter (only 3 most recent)
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
+	store2 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
 	filter := HistoryLoadFilter{
 		PerDeviceNonSettableLimit: 3, // Only 3 per device
 	}
@@ -339,7 +342,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_CountFilter(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store1 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device1 := testDevice(1)
 	device2 := testDevice(2)
 	now := time.Now().UTC()
@@ -350,21 +353,21 @@ func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
 		Timestamp: now,
 		Device:    device1,
 		EPC:       echonet_lite.EPCType(0x80),
-		Value:     protocol.PropertyData{String: "string-value"},
+		Value:     PropertyValue{String: "string-value"},
 		Origin:    HistoryOriginSet,
 	})
 	store1.Record(DeviceHistoryEntry{
 		Timestamp: now.Add(1 * time.Minute),
 		Device:    device1,
 		EPC:       echonet_lite.EPCType(0xB0),
-		Value:     protocol.PropertyData{Number: &num25},
+		Value:     PropertyValue{Number: &num25},
 		Origin:    HistoryOriginNotification,
 	})
 	store1.Record(DeviceHistoryEntry{
 		Timestamp: now.Add(2 * time.Minute),
 		Device:    device2,
 		EPC:       echonet_lite.EPCType(0xC0),
-		Value:     protocol.PropertyData{EDT: "AQIDBA=="},
+		Value:     PropertyValue{EDT: "AQIDBA=="},
 		Origin:    HistoryOriginSet,
 	})
 
@@ -375,7 +378,7 @@ func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
 	}
 
 	// Load
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store2 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := HistoryLoadFilter{
 		PerDeviceNonSettableLimit: 100,
 	}
@@ -412,7 +415,7 @@ func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_FileNotFound(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := DefaultHistoryLoadFilter()
 
 	// Try to load non-existent file - should not error
@@ -430,7 +433,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_FileNotFound(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_InvalidJSON(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := DefaultHistoryLoadFilter()
 
 	// Create file with invalid JSON
@@ -447,7 +450,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_InvalidJSON(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_EmptyFile(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := DefaultHistoryLoadFilter()
 
 	// Create empty file
@@ -464,7 +467,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_EmptyFile(t *testing.T) {
 }
 
 func TestMemoryDeviceHistoryStore_LoadFromFile_MultipleDevices(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
+	store1 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
 	now := time.Now().UTC()
 
 	// Add entries for multiple devices
@@ -475,7 +478,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_MultipleDevices(t *testing.T) {
 				Timestamp: now.Add(time.Duration(i) * time.Minute),
 				Device:    device,
 				EPC:       echonet_lite.EPCType(0x80),
-				Value:     protocol.PropertyData{String: fmt.Sprintf("device%d-value%d", deviceID, i)},
+				Value:     PropertyValue{String: fmt.Sprintf("device%d-value%d", deviceID, i)},
 				Origin:    HistoryOriginNotification,
 			})
 		}
@@ -488,7 +491,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_MultipleDevices(t *testing.T) {
 	}
 
 	// Load
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
+	store2 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 100})
 	filter := HistoryLoadFilter{
 		PerDeviceNonSettableLimit: 100,
 	}
@@ -508,7 +511,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_MultipleDevices(t *testing.T) {
 
 // TestMemoryDeviceHistoryStore_SettableAndNonSettableLimits tests separate limits for settable and non-settable properties
 func TestMemoryDeviceHistoryStore_SettableAndNonSettableLimits(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{
 		PerDeviceSettableLimit:    3, // settable limit
 		PerDeviceNonSettableLimit: 2, // non-settable limit
 	})
@@ -521,7 +524,7 @@ func TestMemoryDeviceHistoryStore_SettableAndNonSettableLimits(t *testing.T) {
 			Timestamp: base.Add(time.Duration(i) * time.Minute),
 			Device:    device,
 			EPC:       echonet_lite.EPCType(0x80),
-			Value:     protocol.PropertyData{String: fmt.Sprintf("settable-%d", i)},
+			Value:     PropertyValue{String: fmt.Sprintf("settable-%d", i)},
 			Origin:    HistoryOriginSet,
 			Settable:  true,
 		})
@@ -533,7 +536,7 @@ func TestMemoryDeviceHistoryStore_SettableAndNonSettableLimits(t *testing.T) {
 			Timestamp: base.Add(time.Duration(10+i) * time.Minute),
 			Device:    device,
 			EPC:       echonet_lite.EPCType(0xB0),
-			Value:     protocol.PropertyData{String: fmt.Sprintf("non-settable-%d", i)},
+			Value:     PropertyValue{String: fmt.Sprintf("non-settable-%d", i)},
 			Origin:    HistoryOriginNotification,
 			Settable:  false,
 		})
@@ -603,7 +606,7 @@ func TestMemoryDeviceHistoryStore_SettableAndNonSettableLimits(t *testing.T) {
 
 // TestMemoryDeviceHistoryStore_SettableSaveLoad tests that settable flag is preserved in save/load
 func TestMemoryDeviceHistoryStore_SettableSaveLoad(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{
+	store1 := NewMemoryDeviceHistoryStore(HistoryOptions{
 		PerDeviceSettableLimit:    10,
 		PerDeviceNonSettableLimit: 10,
 	})
@@ -615,7 +618,7 @@ func TestMemoryDeviceHistoryStore_SettableSaveLoad(t *testing.T) {
 		Timestamp: now,
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0x80),
-		Value:     protocol.PropertyData{String: "settable-value"},
+		Value:     PropertyValue{String: "settable-value"},
 		Origin:    HistoryOriginSet,
 		Settable:  true,
 	})
@@ -623,7 +626,7 @@ func TestMemoryDeviceHistoryStore_SettableSaveLoad(t *testing.T) {
 		Timestamp: now.Add(1 * time.Minute),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0xB0),
-		Value:     protocol.PropertyData{String: "non-settable-value"},
+		Value:     PropertyValue{String: "non-settable-value"},
 		Origin:    HistoryOriginNotification,
 		Settable:  false,
 	})
@@ -635,7 +638,7 @@ func TestMemoryDeviceHistoryStore_SettableSaveLoad(t *testing.T) {
 	}
 
 	// Load into new store
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{
+	store2 := NewMemoryDeviceHistoryStore(HistoryOptions{
 		PerDeviceSettableLimit:    10,
 		PerDeviceNonSettableLimit: 10,
 	})
@@ -711,7 +714,7 @@ func findSubstring(s, substr string) bool {
 
 // TestMemoryDeviceHistoryStore_RecordEventHistory tests recording of online/offline events
 func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -720,7 +723,7 @@ func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
 		Timestamp: now,
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0), // No EPC for event entries
-		Value:     protocol.PropertyData{}, // Empty value for events
+		Value:     PropertyValue{},         // Empty value for events
 		Origin:    HistoryOriginOffline,
 	})
 
@@ -729,7 +732,7 @@ func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
 		Timestamp: now.Add(1 * time.Minute),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0), // No EPC for event entries
-		Value:     protocol.PropertyData{}, // Empty value for events
+		Value:     PropertyValue{},         // Empty value for events
 		Origin:    HistoryOriginOnline,
 	})
 
@@ -757,7 +760,7 @@ func TestMemoryDeviceHistoryStore_RecordEventHistory(t *testing.T) {
 
 // TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory tests mixed property changes and events
 func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -766,7 +769,7 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 		Timestamp: now,
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0x80),
-		Value:     protocol.PropertyData{String: "on"},
+		Value:     PropertyValue{String: "on"},
 		Origin:    HistoryOriginSet,
 	})
 
@@ -775,7 +778,7 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 		Timestamp: now.Add(1 * time.Minute),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0),
-		Value:     protocol.PropertyData{},
+		Value:     PropertyValue{},
 		Origin:    HistoryOriginOffline,
 	})
 
@@ -784,7 +787,7 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 		Timestamp: now.Add(2 * time.Minute),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0),
-		Value:     protocol.PropertyData{},
+		Value:     PropertyValue{},
 		Origin:    HistoryOriginOnline,
 	})
 
@@ -793,7 +796,7 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 		Timestamp: now.Add(3 * time.Minute),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0x80),
-		Value:     protocol.PropertyData{String: "off"},
+		Value:     PropertyValue{String: "off"},
 		Origin:    HistoryOriginNotification,
 	})
 
@@ -829,7 +832,7 @@ func TestMemoryDeviceHistoryStore_MixedPropertyAndEventHistory(t *testing.T) {
 
 // TestMemoryDeviceHistoryStore_EventHistorySaveLoad tests saving and loading event history
 func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store1 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	device := testDevice(1)
 	now := time.Now().UTC()
 
@@ -838,14 +841,14 @@ func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
 		Timestamp: now,
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0),
-		Value:     protocol.PropertyData{},
+		Value:     PropertyValue{},
 		Origin:    HistoryOriginOffline,
 	})
 	store1.Record(DeviceHistoryEntry{
 		Timestamp: now.Add(1 * time.Minute),
 		Device:    device,
 		EPC:       echonet_lite.EPCType(0),
-		Value:     protocol.PropertyData{},
+		Value:     PropertyValue{},
 		Origin:    HistoryOriginOnline,
 	})
 
@@ -856,7 +859,7 @@ func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
 	}
 
 	// Load into new store
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
+	store2 := NewMemoryDeviceHistoryStore(HistoryOptions{PerDeviceNonSettableLimit: 10})
 	filter := HistoryLoadFilter{
 		PerDeviceNonSettableLimit: 100,
 	}
