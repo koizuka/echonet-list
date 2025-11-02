@@ -587,6 +587,18 @@ func TestMemoryDeviceHistoryStore_SettableAndNonSettableLimits(t *testing.T) {
 	if !stringSlicesEqual(nonSettableValues, expectedNonSettable) {
 		t.Errorf("non-settable values mismatch: expected %v, got %v", expectedNonSettable, nonSettableValues)
 	}
+
+	// Verify chronological order (newest first)
+	// Expected order: settable-4 (4min), settable-3 (3min), settable-2 (2min),
+	//                 non-settable-3 (13min), non-settable-2 (12min)
+	// However, since merged entries are sorted newest-first, the actual order should be:
+	// non-settable-3 (13min), non-settable-2 (12min), settable-4 (4min), settable-3 (3min), settable-2 (2min)
+	for i := 0; i < len(entries)-1; i++ {
+		if entries[i].Timestamp.Before(entries[i+1].Timestamp) {
+			t.Errorf("entries not in chronological order (newest first) at index %d: %v is before %v",
+				i, entries[i].Timestamp, entries[i+1].Timestamp)
+		}
+	}
 }
 
 // TestMemoryDeviceHistoryStore_SettableSaveLoad tests that settable flag is preserved in save/load

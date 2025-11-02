@@ -163,6 +163,11 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 	settable := false
 	if epc != 0 && origin != HistoryOriginOnline && origin != HistoryOriginOffline {
 		settable = ws.isPropertySettable(device, epc)
+		slog.Debug("Property settable check",
+			"device", device.Key(),
+			"epc", fmt.Sprintf("0x%02X", epc),
+			"settable", settable,
+			"origin", origin)
 	}
 
 	entry := DeviceHistoryEntry{

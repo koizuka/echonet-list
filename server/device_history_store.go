@@ -251,6 +251,10 @@ func min(a, b int) int {
 // mergeEntriesByTimestamp merges two already-sorted slices into a single sorted slice.
 // Both input slices must be sorted in ascending order (oldest first).
 // This is O(n) which is more efficient than insertion sort O(n²) for merging sorted data.
+//
+// Note: The returned slice contains the same DeviceHistoryEntry structs as the input slices
+// (not copies). This is safe because DeviceHistoryEntry instances are never modified after
+// creation (immutable by convention).
 func mergeEntriesByTimestamp(a, b []DeviceHistoryEntry) []DeviceHistoryEntry {
 	result := make([]DeviceHistoryEntry, 0, len(a)+len(b))
 	i, j := 0, 0
