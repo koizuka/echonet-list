@@ -48,9 +48,9 @@ type DeviceHistoryStore interface {
 	Record(entry DeviceHistoryEntry)
 	Query(device handler.IPAndEOJ, query HistoryQuery) []DeviceHistoryEntry
 	Clear(device handler.IPAndEOJ)
-	// PerDeviceLimit returns the maximum total number of history entries per device.
+	// PerDeviceTotalLimit returns the maximum total number of history entries per device.
 	// For stores with separate settable/non-settable limits, this returns the sum of both limits.
-	PerDeviceLimit() int
+	PerDeviceTotalLimit() int
 	IsDuplicateNotification(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, within time.Duration) bool
 }
 
@@ -162,9 +162,9 @@ func (s *memoryDeviceHistoryStore) Clear(device handler.IPAndEOJ) {
 	s.mu.Unlock()
 }
 
-// PerDeviceLimit returns the maximum total number of history entries per device.
+// PerDeviceTotalLimit returns the maximum total number of history entries per device.
 // This is the sum of settable and non-settable limits.
-func (s *memoryDeviceHistoryStore) PerDeviceLimit() int {
+func (s *memoryDeviceHistoryStore) PerDeviceTotalLimit() int {
 	return s.perDeviceSettableLimit + s.perDeviceLimit
 }
 
