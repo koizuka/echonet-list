@@ -35,6 +35,7 @@ type DeviceHistoryEntry struct {
 	EPC       echonet_lite.EPCType
 	Value     protocol.PropertyData
 	Origin    HistoryOrigin
+	Settable  bool // Whether the property is settable (writable)
 }
 
 // HistoryQuery specifies filters applied when fetching history entries.
@@ -53,35 +54,44 @@ type DeviceHistoryStore interface {
 
 // HistoryOptions configures the behaviour of the history store.
 type HistoryOptions struct {
-	PerDeviceLimit  int
-	HistoryFilePath string // Path to history file for persistence (empty = disabled)
+	PerDeviceSettableLimit int    // Maximum number of settable property history per device
+	PerDeviceLimit         int    // Maximum number of non-settable property history per device
+	HistoryFilePath        string // Path to history file for persistence (empty = disabled)
 }
 
 // DefaultHistoryOptions returns the default options used when none are provided.
 func DefaultHistoryOptions() HistoryOptions {
 	return HistoryOptions{
-		PerDeviceLimit:  500,
-		HistoryFilePath: "", // Disabled by default
+		PerDeviceSettableLimit: 200, // Settable properties (operations)
+		PerDeviceLimit:         100, // Non-settable properties (notifications)
+		HistoryFilePath:        "",  // Disabled by default
 	}
 }
 
 // newMemoryDeviceHistoryStore constructs an in-memory store.
 func newMemoryDeviceHistoryStore(opts HistoryOptions) *memoryDeviceHistoryStore {
 	options := DefaultHistoryOptions()
+	if opts.PerDeviceSettableLimit > 0 {
+		options.PerDeviceSettableLimit = opts.PerDeviceSettableLimit
+	}
 	if opts.PerDeviceLimit > 0 {
 		options.PerDeviceLimit = opts.PerDeviceLimit
 	}
 
 	return &memoryDeviceHistoryStore{
-		perDeviceLimit: options.PerDeviceLimit,
-		data:           make(map[string][]DeviceHistoryEntry),
+		perDeviceSettableLimit: options.PerDeviceSettableLimit,
+		perDeviceLimit:         options.PerDeviceLimit,
+		settableData:           make(map[string][]DeviceHistoryEntry),
+		nonSettableData:        make(map[string][]DeviceHistoryEntry),
 	}
 }
 
 type memoryDeviceHistoryStore struct {
-	mu             sync.RWMutex
-	perDeviceLimit int
-	data           map[string][]DeviceHistoryEntry
+	mu                     sync.RWMutex
+	perDeviceSettableLimit int
+	perDeviceLimit         int
+	settableData           map[string][]DeviceHistoryEntry
+	nonSettableData        map[string][]DeviceHistoryEntry
 }
 
 func (s *memoryDeviceHistoryStore) Record(entry DeviceHistoryEntry) {
@@ -94,33 +104,49 @@ func (s *memoryDeviceHistoryStore) Record(entry DeviceHistoryEntry) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	entries := append(s.data[key], entry)
-	entries = s.trimToLimit(entries)
-
-	s.data[key] = entries
+	// Add to appropriate map based on settable flag
+	if entry.Settable {
+		entries := append(s.settableData[key], entry)
+		entries = s.trimToLimit(entries, s.perDeviceSettableLimit)
+		s.settableData[key] = entries
+	} else {
+		entries := append(s.nonSettableData[key], entry)
+		entries = s.trimToLimit(entries, s.perDeviceLimit)
+		s.nonSettableData[key] = entries
+	}
 }
 
 func (s *memoryDeviceHistoryStore) Query(device handler.IPAndEOJ, query HistoryQuery) []DeviceHistoryEntry {
 	key := device.Key()
 
 	s.mu.RLock()
-	entries, ok := s.data[key]
+	settableEntries := s.settableData[key]
+	nonSettableEntries := s.nonSettableData[key]
 	s.mu.RUnlock()
-	if !ok || len(entries) == 0 {
+
+	// Merge both settable and non-settable entries
+	allEntries := make([]DeviceHistoryEntry, 0, len(settableEntries)+len(nonSettableEntries))
+	allEntries = append(allEntries, settableEntries...)
+	allEntries = append(allEntries, nonSettableEntries...)
+
+	if len(allEntries) == 0 {
 		return nil
 	}
 
+	// Sort by timestamp (oldest first)
+	// Since entries in each map are already sorted, we need to merge sort them
+	sortEntriesByTimestamp(allEntries)
+
 	limit := query.Limit
 	if limit <= 0 {
-		limit = len(entries)
+		limit = len(allEntries)
 	}
 
-	result := make([]DeviceHistoryEntry, 0, min(limit, len(entries)))
+	result := make([]DeviceHistoryEntry, 0, min(limit, len(allEntries)))
 
-	// Iterate from newest to oldest so the result is ordered newest-first.
-	// Note: SettableOnly filtering is performed by the WebSocket handler after calculating settable flags
-	for i := len(entries) - 1; i >= 0; i-- {
-		entry := entries[i]
+	// Iterate from newest to oldest so the result is ordered newest-first
+	for i := len(allEntries) - 1; i >= 0; i-- {
+		entry := allEntries[i]
 
 		result = append(result, entry)
 		if len(result) >= limit {
@@ -135,7 +161,8 @@ func (s *memoryDeviceHistoryStore) Clear(device handler.IPAndEOJ) {
 	key := device.Key()
 
 	s.mu.Lock()
-	delete(s.data, key)
+	delete(s.settableData, key)
+	delete(s.nonSettableData, key)
 	s.mu.Unlock()
 }
 
@@ -149,19 +176,28 @@ func (s *memoryDeviceHistoryStore) IsDuplicateNotification(device handler.IPAndE
 	key := device.Key()
 
 	s.mu.RLock()
-	entries, ok := s.data[key]
+	settableEntries := s.settableData[key]
+	nonSettableEntries := s.nonSettableData[key]
 	s.mu.RUnlock()
 
-	if !ok || len(entries) == 0 {
+	// Merge both settable and non-settable entries
+	allEntries := make([]DeviceHistoryEntry, 0, len(settableEntries)+len(nonSettableEntries))
+	allEntries = append(allEntries, settableEntries...)
+	allEntries = append(allEntries, nonSettableEntries...)
+
+	if len(allEntries) == 0 {
 		return false
 	}
+
+	// Sort by timestamp to check from newest to oldest
+	sortEntriesByTimestamp(allEntries)
 
 	now := time.Now().UTC()
 	cutoff := now.Add(-within)
 
 	// Check recent entries from newest to oldest
-	for i := len(entries) - 1; i >= 0; i-- {
-		entry := entries[i]
+	for i := len(allEntries) - 1; i >= 0; i-- {
+		entry := allEntries[i]
 
 		// Stop checking if we've gone past the time window
 		if entry.Timestamp.Before(cutoff) {
@@ -219,6 +255,20 @@ func min(a, b int) int {
 	return b
 }
 
+// sortEntriesByTimestamp sorts entries by timestamp in ascending order (oldest first)
+func sortEntriesByTimestamp(entries []DeviceHistoryEntry) {
+	// Simple insertion sort - efficient for small arrays and already-sorted data
+	for i := 1; i < len(entries); i++ {
+		key := entries[i]
+		j := i - 1
+		for j >= 0 && entries[j].Timestamp.After(key.Timestamp) {
+			entries[j+1] = entries[j]
+			j--
+		}
+		entries[j+1] = key
+	}
+}
+
 // trimToLimit returns a slice of entries limited to the configured per-device limit.
 // If customLimit is provided and > 0, it overrides the store's perDeviceLimit.
 // If limit > 0 and len(entries) > limit, oldest entries are dropped to enforce the cap.
@@ -236,14 +286,16 @@ func (s *memoryDeviceHistoryStore) trimToLimit(entries []DeviceHistoryEntry, cus
 
 // HistoryLoadFilter specifies filters applied when loading history from file
 type HistoryLoadFilter struct {
-	PerDeviceLimit int // Maximum number of entries per device to load
+	PerDeviceSettableLimit int // Maximum number of settable entries per device to load
+	PerDeviceLimit         int // Maximum number of non-settable entries per device to load
 }
 
 // DefaultHistoryLoadFilter returns the default filter settings for loading history
 func DefaultHistoryLoadFilter() HistoryLoadFilter {
 	opts := DefaultHistoryOptions()
 	return HistoryLoadFilter{
-		PerDeviceLimit: opts.PerDeviceLimit, // Match the in-memory limit from default options
+		PerDeviceSettableLimit: opts.PerDeviceSettableLimit,
+		PerDeviceLimit:         opts.PerDeviceLimit,
 	}
 }
 
@@ -260,6 +312,7 @@ type jsonDeviceHistoryEntry struct {
 	EPC       string                `json:"epc"`
 	Value     protocol.PropertyData `json:"value"`
 	Origin    HistoryOrigin         `json:"origin"`
+	Settable  bool                  `json:"settable,omitempty"` // Whether the property is settable
 }
 
 // jsonIPAndEOJ is used for JSON marshaling/unmarshaling of handler.IPAndEOJ
@@ -275,20 +328,41 @@ func (s *memoryDeviceHistoryStore) SaveToFile(filename string) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	// Merge settable and non-settable data for each device
+	allDeviceKeys := make(map[string]bool)
+	for key := range s.settableData {
+		allDeviceKeys[key] = true
+	}
+	for key := range s.nonSettableData {
+		allDeviceKeys[key] = true
+	}
+
 	// Convert data to JSON-serializable format
 	jsonData := make(map[string][]jsonDeviceHistoryEntry)
-	for deviceKey, entries := range s.data {
-		jsonEntries := make([]jsonDeviceHistoryEntry, 0, len(entries))
-		for _, entry := range entries {
+	for deviceKey := range allDeviceKeys {
+		settableEntries := s.settableData[deviceKey]
+		nonSettableEntries := s.nonSettableData[deviceKey]
+
+		// Merge both settable and non-settable entries
+		allEntries := make([]DeviceHistoryEntry, 0, len(settableEntries)+len(nonSettableEntries))
+		allEntries = append(allEntries, settableEntries...)
+		allEntries = append(allEntries, nonSettableEntries...)
+
+		// Sort by timestamp (oldest first)
+		sortEntriesByTimestamp(allEntries)
+
+		jsonEntries := make([]jsonDeviceHistoryEntry, 0, len(allEntries))
+		for _, entry := range allEntries {
 			jsonEntries = append(jsonEntries, jsonDeviceHistoryEntry{
 				Timestamp: entry.Timestamp,
 				Device: jsonIPAndEOJ{
 					IP:  entry.Device.IP.String(),
 					EOJ: entry.Device.EOJ.Specifier(),
 				},
-				EPC:    fmt.Sprintf("0x%02X", byte(entry.EPC)),
-				Value:  entry.Value,
-				Origin: entry.Origin,
+				EPC:      fmt.Sprintf("0x%02X", byte(entry.EPC)),
+				Value:    entry.Value,
+				Origin:   entry.Origin,
+				Settable: entry.Settable,
 			})
 		}
 		jsonData[deviceKey] = jsonEntries
@@ -355,14 +429,16 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 	defer s.mu.Unlock()
 
 	// Clear existing data
-	s.data = make(map[string][]DeviceHistoryEntry)
+	s.settableData = make(map[string][]DeviceHistoryEntry)
+	s.nonSettableData = make(map[string][]DeviceHistoryEntry)
 
 	totalLoaded := 0
 	totalFiltered := 0
 
 	for deviceKey, jsonEntries := range fileData.Data {
-		// Convert JSON entries back to DeviceHistoryEntry
-		filtered := make([]DeviceHistoryEntry, 0, len(jsonEntries))
+		// Separate settable and non-settable entries
+		settableFiltered := make([]DeviceHistoryEntry, 0)
+		nonSettableFiltered := make([]DeviceHistoryEntry, 0)
 
 		// Process entries from newest to oldest
 		for i := len(jsonEntries) - 1; i >= 0; i-- {
@@ -407,34 +483,55 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 					IP:  ip,
 					EOJ: eoj,
 				},
-				EPC:    epc,
-				Value:  jsonEntry.Value,
-				Origin: jsonEntry.Origin,
+				EPC:      epc,
+				Value:    jsonEntry.Value,
+				Origin:   jsonEntry.Origin,
+				Settable: jsonEntry.Settable,
 			}
 
-			filtered = append(filtered, entry)
+			// Separate by settable flag
+			if entry.Settable {
+				settableFiltered = append(settableFiltered, entry)
+			} else {
+				nonSettableFiltered = append(nonSettableFiltered, entry)
+			}
 			totalLoaded++
 		}
 
 		// Reverse to chronological order (oldest first) before trimming
-		for i, j := 0, len(filtered)-1; i < j; i, j = i+1, j-1 {
-			filtered[i], filtered[j] = filtered[j], filtered[i]
+		for i, j := 0, len(settableFiltered)-1; i < j; i, j = i+1, j-1 {
+			settableFiltered[i], settableFiltered[j] = settableFiltered[j], settableFiltered[i]
+		}
+		for i, j := 0, len(nonSettableFiltered)-1; i < j; i, j = i+1, j-1 {
+			nonSettableFiltered[i], nonSettableFiltered[j] = nonSettableFiltered[j], nonSettableFiltered[i]
 		}
 
-		// Apply per-device limit using the common trimming logic
-		// trimToLimit keeps the newest entries (drops oldest)
-		filtered = s.trimToLimit(filtered, filter.PerDeviceLimit)
+		// Apply per-device limits separately
+		settableFiltered = s.trimToLimit(settableFiltered, filter.PerDeviceSettableLimit)
+		nonSettableFiltered = s.trimToLimit(nonSettableFiltered, filter.PerDeviceLimit)
 
-		if len(filtered) > 0 {
-			s.data[deviceKey] = filtered
+		if len(settableFiltered) > 0 {
+			s.settableData[deviceKey] = settableFiltered
 		}
+		if len(nonSettableFiltered) > 0 {
+			s.nonSettableData[deviceKey] = nonSettableFiltered
+		}
+	}
+
+	// Count unique devices across both maps
+	allDeviceKeys := make(map[string]bool)
+	for key := range s.settableData {
+		allDeviceKeys[key] = true
+	}
+	for key := range s.nonSettableData {
+		allDeviceKeys[key] = true
 	}
 
 	slog.Info("History data loaded successfully",
 		"filename", filename,
 		"totalLoaded", totalLoaded,
 		"totalFiltered", totalFiltered,
-		"deviceCount", len(s.data))
+		"deviceCount", len(allDeviceKeys))
 
 	return nil
 }

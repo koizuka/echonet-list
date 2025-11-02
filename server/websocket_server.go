@@ -157,12 +157,20 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 		return
 	}
 
+	// Determine if the property is settable
+	// For online/offline events (EPC=0), settable is false
+	settable := false
+	if epc != 0 && origin != HistoryOriginOnline && origin != HistoryOriginOffline {
+		settable = ws.isPropertySettable(device, epc)
+	}
+
 	entry := DeviceHistoryEntry{
 		Timestamp: time.Now().UTC(),
 		Device:    device,
 		EPC:       epc,
 		Value:     value,
 		Origin:    origin,
+		Settable:  settable,
 	}
 
 	ws.historyStore.Record(entry)
