@@ -53,6 +53,11 @@ host = "localhost"
 port = 8080
 web_root = "web/bundle"
 
+# デバイス履歴設定
+[history]
+per_device_settable_limit = 200     # 操作可能プロパティの履歴保持件数
+per_device_non_settable_limit = 100 # 通知のみプロパティの履歴保持件数
+
 # ネットワーク監視設定
 [network]
 monitor_enabled = true  # ネットワークインターフェース変更の監視
@@ -95,6 +100,15 @@ pid_file = ""  # 省略時はプラットフォーム別のデフォルトパス
 - `host`: Server hostname (default: "localhost")
 - `port`: Server port (default: 8080)
 - `web_root`: Web root directory for static files (default: "web/bundle")
+
+#### Device History (`[history]`)
+
+- `per_device_settable_limit`: Maximum number of settable property history entries per device (default: 200)
+  - Controls history for user-initiated operations (on/off, mode changes, etc.)
+- `per_device_non_settable_limit`: Maximum number of non-settable property history entries per device (default: 100)
+  - Controls history for sensor notifications (temperature, humidity, etc.)
+
+These separate limits ensure that important operation history is retained even when frequent sensor notifications occur.
 
 #### Network Monitoring (`[network]`)
 

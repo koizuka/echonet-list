@@ -48,7 +48,7 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 		limit = *payload.Limit
 	}
 
-	if storeLimit := ws.historyStore.PerDeviceLimit(); storeLimit > 0 && limit > storeLimit {
+	if storeLimit := ws.historyStore.PerDeviceTotalLimit(); storeLimit > 0 && limit > storeLimit {
 		limit = storeLimit
 	}
 

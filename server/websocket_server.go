@@ -83,8 +83,11 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 
 	options := DefaultHistoryOptions()
 	if len(historyOpts) > 0 {
-		if historyOpts[0].PerDeviceLimit > 0 {
-			options.PerDeviceLimit = historyOpts[0].PerDeviceLimit
+		if historyOpts[0].PerDeviceSettableLimit > 0 {
+			options.PerDeviceSettableLimit = historyOpts[0].PerDeviceSettableLimit
+		}
+		if historyOpts[0].PerDeviceNonSettableLimit > 0 {
+			options.PerDeviceNonSettableLimit = historyOpts[0].PerDeviceNonSettableLimit
 		}
 		if historyOpts[0].HistoryFilePath != "" {
 			options.HistoryFilePath = historyOpts[0].HistoryFilePath
@@ -157,12 +160,26 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 		return
 	}
 
+	// Determine if the property is settable
+	// Online/offline events use EPC=0 (special marker for events, not a real property).
+	// These should not be checked against the Set Property Map and are always non-settable.
+	settable := false
+	if epc != 0 && origin != HistoryOriginOnline && origin != HistoryOriginOffline {
+		settable = ws.isPropertySettable(device, epc)
+		slog.Debug("Property settable check",
+			"device", device.Key(),
+			"epc", fmt.Sprintf("0x%02X", epc),
+			"settable", settable,
+			"origin", origin)
+	}
+
 	entry := DeviceHistoryEntry{
 		Timestamp: time.Now().UTC(),
 		Device:    device,
 		EPC:       epc,
 		Value:     value,
 		Origin:    origin,
+		Settable:  settable,
 	}
 
 	ws.historyStore.Record(entry)
