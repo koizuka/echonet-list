@@ -29,6 +29,13 @@ host = "localhost"
 port = 8080
 web_root = "web/bundle"
 
+# Device History Configuration
+[history]
+# Maximum history entries for settable properties (operations) per device
+# per_device_settable_limit = 200
+# Maximum history entries for non-settable properties (notifications) per device
+# per_device_limit = 100
+
 # Multicast Keep-Alive Configuration
 [multicast]
 # Enable multicast keep-alive functionality
