@@ -31,7 +31,7 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
         <Binary className={size === 'sm' ? "h-2 w-2" : "h-3 w-3"} />
       </Button>
       {showHexData && currentValue.EDT && (
-        <div className={`absolute top-full left-0 right-0 mt-1 ${sizeClasses.text} font-mono bg-muted p-${size === 'sm' ? '1' : '2'} rounded border break-all shadow-md z-10 min-w-max`}>
+        <div className={`absolute top-full left-0 right-0 mt-1 ${sizeClasses.text} font-mono bg-muted p-${size === 'sm' ? '1' : '2'} rounded border break-all shadow-md z-10 overflow-x-auto`}>
           {edtToHexString(currentValue.EDT) || 'Invalid data'}
         </div>
       )}
