@@ -48,6 +48,8 @@ type DeviceHistoryStore interface {
 	Record(entry DeviceHistoryEntry)
 	Query(device handler.IPAndEOJ, query HistoryQuery) []DeviceHistoryEntry
 	Clear(device handler.IPAndEOJ)
+	// PerDeviceLimit returns the maximum total number of history entries per device.
+	// For stores with separate settable/non-settable limits, this returns the sum of both limits.
 	PerDeviceLimit() int
 	IsDuplicateNotification(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, within time.Duration) bool
 }
@@ -124,18 +126,12 @@ func (s *memoryDeviceHistoryStore) Query(device handler.IPAndEOJ, query HistoryQ
 	nonSettableEntries := s.nonSettableData[key]
 	s.mu.RUnlock()
 
-	// Merge both settable and non-settable entries
-	allEntries := make([]DeviceHistoryEntry, 0, len(settableEntries)+len(nonSettableEntries))
-	allEntries = append(allEntries, settableEntries...)
-	allEntries = append(allEntries, nonSettableEntries...)
+	// Both slices are already sorted (oldest first), so merge them efficiently
+	allEntries := mergeEntriesByTimestamp(settableEntries, nonSettableEntries)
 
 	if len(allEntries) == 0 {
 		return nil
 	}
-
-	// Sort by timestamp (oldest first)
-	// Since entries in each map are already sorted, we need to merge sort them
-	sortEntriesByTimestamp(allEntries)
 
 	limit := query.Limit
 	if limit <= 0 {
@@ -166,8 +162,10 @@ func (s *memoryDeviceHistoryStore) Clear(device handler.IPAndEOJ) {
 	s.mu.Unlock()
 }
 
+// PerDeviceLimit returns the maximum total number of history entries per device.
+// This is the sum of settable and non-settable limits.
 func (s *memoryDeviceHistoryStore) PerDeviceLimit() int {
-	return s.perDeviceLimit
+	return s.perDeviceSettableLimit + s.perDeviceLimit
 }
 
 // IsDuplicateNotification checks if there's a recent Set operation for the same device, EPC, and value.
@@ -180,17 +178,12 @@ func (s *memoryDeviceHistoryStore) IsDuplicateNotification(device handler.IPAndE
 	nonSettableEntries := s.nonSettableData[key]
 	s.mu.RUnlock()
 
-	// Merge both settable and non-settable entries
-	allEntries := make([]DeviceHistoryEntry, 0, len(settableEntries)+len(nonSettableEntries))
-	allEntries = append(allEntries, settableEntries...)
-	allEntries = append(allEntries, nonSettableEntries...)
+	// Both slices are already sorted (oldest first), so merge them efficiently
+	allEntries := mergeEntriesByTimestamp(settableEntries, nonSettableEntries)
 
 	if len(allEntries) == 0 {
 		return false
 	}
-
-	// Sort by timestamp to check from newest to oldest
-	sortEntriesByTimestamp(allEntries)
 
 	now := time.Now().UTC()
 	cutoff := now.Add(-within)
@@ -255,17 +248,34 @@ func min(a, b int) int {
 	return b
 }
 
-// sortEntriesByTimestamp sorts entries by timestamp in ascending order (oldest first)
-func sortEntriesByTimestamp(entries []DeviceHistoryEntry) {
-	// Simple insertion sort - efficient for small arrays and already-sorted data
-	for i := 1; i < len(entries); i++ {
-		key := entries[i]
-		j := i - 1
-		for j >= 0 && entries[j].Timestamp.After(key.Timestamp) {
-			entries[j+1] = entries[j]
-			j--
+// mergeEntriesByTimestamp merges two already-sorted slices into a single sorted slice.
+// Both input slices must be sorted in ascending order (oldest first).
+// This is O(n) which is more efficient than insertion sort O(n²) for merging sorted data.
+func mergeEntriesByTimestamp(a, b []DeviceHistoryEntry) []DeviceHistoryEntry {
+	result := make([]DeviceHistoryEntry, 0, len(a)+len(b))
+	i, j := 0, 0
+
+	// Merge while both slices have elements
+	for i < len(a) && j < len(b) {
+		if a[i].Timestamp.Before(b[j].Timestamp) || a[i].Timestamp.Equal(b[j].Timestamp) {
+			result = append(result, a[i])
+			i++
+		} else {
+			result = append(result, b[j])
+			j++
 		}
-		entries[j+1] = key
+	}
+
+	// Append remaining elements from either slice
+	result = append(result, a[i:]...)
+	result = append(result, b[j:]...)
+	return result
+}
+
+// reverseEntries reverses a slice of history entries in place.
+func reverseEntries(entries []DeviceHistoryEntry) {
+	for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
+		entries[i], entries[j] = entries[j], entries[i]
 	}
 }
 
@@ -343,13 +353,8 @@ func (s *memoryDeviceHistoryStore) SaveToFile(filename string) error {
 		settableEntries := s.settableData[deviceKey]
 		nonSettableEntries := s.nonSettableData[deviceKey]
 
-		// Merge both settable and non-settable entries
-		allEntries := make([]DeviceHistoryEntry, 0, len(settableEntries)+len(nonSettableEntries))
-		allEntries = append(allEntries, settableEntries...)
-		allEntries = append(allEntries, nonSettableEntries...)
-
-		// Sort by timestamp (oldest first)
-		sortEntriesByTimestamp(allEntries)
+		// Both slices are already sorted (oldest first), so merge them efficiently
+		allEntries := mergeEntriesByTimestamp(settableEntries, nonSettableEntries)
 
 		jsonEntries := make([]jsonDeviceHistoryEntry, 0, len(allEntries))
 		for _, entry := range allEntries {
@@ -499,12 +504,8 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 		}
 
 		// Reverse to chronological order (oldest first) before trimming
-		for i, j := 0, len(settableFiltered)-1; i < j; i, j = i+1, j-1 {
-			settableFiltered[i], settableFiltered[j] = settableFiltered[j], settableFiltered[i]
-		}
-		for i, j := 0, len(nonSettableFiltered)-1; i < j; i, j = i+1, j-1 {
-			nonSettableFiltered[i], nonSettableFiltered[j] = nonSettableFiltered[j], nonSettableFiltered[i]
-		}
+		reverseEntries(settableFiltered)
+		reverseEntries(nonSettableFiltered)
 
 		// Apply per-device limits separately
 		settableFiltered = s.trimToLimit(settableFiltered, filter.PerDeviceSettableLimit)
