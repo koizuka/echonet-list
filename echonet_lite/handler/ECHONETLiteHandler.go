@@ -16,6 +16,7 @@ type ECHONETLiteHandler struct {
 	core             *HandlerCore                    // コア機能
 	comm             *CommunicationHandler           // 通信機能
 	data             *DataManagementHandler          // データ管理機能
+	historyFilePath  string                          // 履歴ファイルパス
 	NotificationCh   chan DeviceNotification         // デバイス通知用チャネル
 	PropertyChangeCh chan PropertyChangeNotification // プロパティ変化通知用チャネル
 }
@@ -30,6 +31,8 @@ type ECHONETLieHandlerOptions struct {
 	DevicesFile string // デバイスファイルパス
 	AliasesFile string // エイリアスファイルパス
 	GroupsFile  string // グループファイルパス
+	// 履歴設定
+	HistoryOptions HistoryOptions // 履歴ストアのオプション
 	// テスト用設定（CI環境での実行時にファイルアクセスやネットワーク通信を避ける）
 	TestMode bool // テストモード（ファイル読み込みとネットワーク通信を無効化）
 }
@@ -275,8 +278,33 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 
 	// 各ハンドラを初期化
 	core := NewHandlerCore(handlerCtx, cancel, options.Debug)
-	// 履歴ストアを作成（デフォルトオプション使用）
-	history := NewMemoryDeviceHistoryStore(DefaultHistoryOptions())
+
+	// 履歴ストアを作成
+	historyOpts := options.HistoryOptions
+	if historyOpts.PerDeviceSettableLimit == 0 && historyOpts.PerDeviceNonSettableLimit == 0 {
+		// オプションが指定されていない場合はデフォルトを使用
+		historyOpts = DefaultHistoryOptions()
+		// HistoryFilePathだけは引き継ぐ
+		historyOpts.HistoryFilePath = options.HistoryOptions.HistoryFilePath
+	}
+	history := NewMemoryDeviceHistoryStore(historyOpts)
+
+	// 履歴ファイルの読み込み（テストモードでは省略、ファイルパスが指定されている場合のみ）
+	if !options.TestMode && historyOpts.HistoryFilePath != "" {
+		slog.Info("履歴ファイルを使用", "file", historyOpts.HistoryFilePath)
+		// ロード時のフィルター設定
+		filter := HistoryLoadFilter{
+			PerDeviceSettableLimit:    historyOpts.PerDeviceSettableLimit,
+			PerDeviceNonSettableLimit: historyOpts.PerDeviceNonSettableLimit,
+		}
+		err := history.LoadFromFile(historyOpts.HistoryFilePath, filter)
+		if err != nil {
+			slog.Warn("履歴ファイルの読み込みに失敗（新規作成します）", "file", historyOpts.HistoryFilePath, "error", err)
+		} else {
+			slog.Info("履歴ファイルの読み込み完了", "file", historyOpts.HistoryFilePath)
+		}
+	}
+
 	data := NewDataManagementHandler(devices, aliases, groups, history, core)
 	var comm *CommunicationHandler
 	if !options.TestMode && session != nil {
@@ -301,6 +329,7 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 		core:             core,
 		comm:             comm,
 		data:             data,
+		historyFilePath:  historyOpts.HistoryFilePath,
 		NotificationCh:   make(chan DeviceNotification, 100),
 		PropertyChangeCh: core.PropertyChangeCh,
 	}
@@ -327,6 +356,16 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 
 // Close は、ECHONETLiteHandler のリソースを解放する
 func (h *ECHONETLiteHandler) Close() error {
+	// 履歴ファイルの保存（ファイルパスが指定されている場合のみ）
+	if h.historyFilePath != "" && h.data != nil && h.data.DeviceHistory != nil {
+		slog.Info("履歴ファイルを保存", "file", h.historyFilePath)
+		err := h.data.DeviceHistory.SaveToFile(h.historyFilePath)
+		if err != nil {
+			slog.Error("履歴ファイルの保存に失敗", "file", h.historyFilePath, "error", err)
+		} else {
+			slog.Info("履歴ファイルの保存完了", "file", h.historyFilePath)
+		}
+	}
 	return h.core.Close()
 }
 

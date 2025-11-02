@@ -73,7 +73,7 @@ type WebSocketServer struct {
 }
 
 // NewWebSocketServer creates a new WebSocket server
-func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.ECHONETListClient, handler *handler.ECHONETLiteHandler, startupTime time.Time, historyOpts ...HistoryOptions) (*WebSocketServer, error) {
+func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.ECHONETListClient, handler *handler.ECHONETLiteHandler, startupTime time.Time, historyOpts ...handler.HistoryOptions) (*WebSocketServer, error) {
 	serverCtx, cancel := context.WithCancel(ctx)
 
 	// Create the transport
@@ -133,7 +133,7 @@ func (ws *WebSocketServer) GetHistoryStore() handler.DeviceHistoryStore {
 }
 
 // recordHistory stores a history entry if the store is available.
-func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, origin HistoryOrigin) {
+func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, origin handler.HistoryOrigin) {
 	historyStore := ws.GetHistoryStore()
 	if historyStore == nil {
 		return
@@ -143,7 +143,7 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 	// Online/offline events use EPC=0 (special marker for events, not a real property).
 	// These should not be checked against the Set Property Map and are always non-settable.
 	settable := false
-	if epc != 0 && origin != HistoryOriginOnline && origin != HistoryOriginOffline {
+	if epc != 0 && origin != handler.HistoryOriginOnline && origin != handler.HistoryOriginOffline {
 		settable = ws.isPropertySettable(device, epc)
 		slog.Debug("Property settable check",
 			"device", device.Key(),
@@ -152,27 +152,12 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 			"origin", origin)
 	}
 
-	// Convert HistoryOrigin
-	var handlerOrigin handler.HistoryOrigin
-	switch origin {
-	case HistoryOriginNotification:
-		handlerOrigin = handler.HistoryOriginNotification
-	case HistoryOriginSet:
-		handlerOrigin = handler.HistoryOriginSet
-	case HistoryOriginOnline:
-		handlerOrigin = handler.HistoryOriginOnline
-	case HistoryOriginOffline:
-		handlerOrigin = handler.HistoryOriginOffline
-	default:
-		handlerOrigin = handler.HistoryOriginNotification
-	}
-
 	entry := handler.DeviceHistoryEntry{
 		Timestamp: time.Now().UTC(),
 		Device:    device,
 		EPC:       epc,
 		Value:     value.ToHandlerPropertyValue(),
-		Origin:    handlerOrigin,
+		Origin:    origin,
 		Settable:  settable,
 	}
 
@@ -204,7 +189,7 @@ func (ws *WebSocketServer) recordPropertyChange(change handler.PropertyChangeNot
 		}
 	}
 
-	ws.recordHistory(change.Device, change.Property.EPC, value, HistoryOriginNotification)
+	ws.recordHistory(change.Device, change.Property.EPC, value, handler.HistoryOriginNotification)
 }
 
 func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData) {
@@ -214,7 +199,7 @@ func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_
 			"epc", fmt.Sprintf("0x%02X", epc),
 			"value", value)
 	}
-	ws.recordHistory(device, epc, value, HistoryOriginSet)
+	ws.recordHistory(device, epc, value, handler.HistoryOriginSet)
 }
 
 func (ws *WebSocketServer) clearHistoryForDevice(device handler.IPAndEOJ) {
@@ -1151,7 +1136,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 
 			case handler.DeviceOffline:
 				// Record offline event in history
-				ws.recordHistory(notification.Device, echonet_lite.EPCType(0), protocol.PropertyData{}, HistoryOriginOffline)
+				ws.recordHistory(notification.Device, echonet_lite.EPCType(0), protocol.PropertyData{}, handler.HistoryOriginOffline)
 
 				// Create device offline payload
 				device := notification.Device
@@ -1170,7 +1155,7 @@ func (ws *WebSocketServer) listenForNotifications() {
 
 			case handler.DeviceOnline:
 				// Record online event in history
-				ws.recordHistory(notification.Device, echonet_lite.EPCType(0), protocol.PropertyData{}, HistoryOriginOnline)
+				ws.recordHistory(notification.Device, echonet_lite.EPCType(0), protocol.PropertyData{}, handler.HistoryOriginOnline)
 
 				// Create device online payload
 				device := notification.Device

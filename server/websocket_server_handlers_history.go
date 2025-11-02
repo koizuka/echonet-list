@@ -13,7 +13,7 @@ const defaultHistoryLimit = 50
 
 // handleGetDeviceHistoryFromClient handles a get_device_history message from a client.
 func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Message) protocol.CommandResultPayload {
-	if ws.historyStore == nil {
+	if ws.GetHistoryStore() == nil {
 		return ErrorResponse(protocol.ErrorCodeInternalServerError, "History store is not available")
 	}
 
@@ -48,7 +48,7 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 		limit = *payload.Limit
 	}
 
-	if storeLimit := ws.historyStore.PerDeviceTotalLimit(); storeLimit > 0 && limit > storeLimit {
+	if storeLimit := ws.GetHistoryStore().PerDeviceTotalLimit(); storeLimit > 0 && limit > storeLimit {
 		limit = storeLimit
 	}
 
@@ -57,11 +57,11 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 		settableOnly = *payload.SettableOnly
 	}
 
-	query := HistoryQuery{
+	query := handler.HistoryQuery{
 		Limit: limit,
 	}
 
-	history := ws.historyStore.Query(ipAndEOJ, query)
+	history := ws.GetHistoryStore().Query(ipAndEOJ, query)
 	resultEntries := make([]protocol.HistoryEntry, 0, len(history))
 
 	for _, entry := range history {
@@ -74,7 +74,7 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 		// Calculate settable flag dynamically based on current Set Property Map
 		// For event entries (online/offline), settable is always false
 		settable := false
-		if entry.EPC != 0 && entry.Origin != HistoryOriginOnline && entry.Origin != HistoryOriginOffline {
+		if entry.EPC != 0 && entry.Origin != handler.HistoryOriginOnline && entry.Origin != handler.HistoryOriginOffline {
 			settable = ws.isPropertySettable(ipAndEOJ, entry.EPC)
 		}
 
@@ -86,7 +86,7 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 		resultEntries = append(resultEntries, protocol.HistoryEntry{
 			Timestamp: entry.Timestamp,
 			EPC:       epcStr, // Empty string for events, will be omitted in JSON
-			Value:     entry.Value,
+			Value:     protocol.PropertyDataFromHandlerValue(entry.Value),
 			Origin:    protocol.HistoryOrigin(entry.Origin),
 			Settable:  settable,
 		})
