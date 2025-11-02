@@ -227,7 +227,6 @@ type UpdatePropertiesPayload struct {
 type GetDeviceHistoryPayload struct {
 	Target       string `json:"target"`
 	Limit        *int   `json:"limit,omitempty"`
-	Since        string `json:"since,omitempty"`
 	SettableOnly *bool  `json:"settableOnly,omitempty"`
 }
 

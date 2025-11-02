@@ -43,53 +43,6 @@ func TestMemoryDeviceHistoryStore_RecordEnforcesLimit(t *testing.T) {
 	}
 }
 
-func TestMemoryDeviceHistoryStore_QueryFilters(t *testing.T) {
-	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
-	device := testDevice(2)
-	base := time.Now()
-
-	entries := []DeviceHistoryEntry{
-		{
-			Timestamp: base.Add(-3 * time.Hour),
-			Device:    device,
-			EPC:       echonet_lite.EPCType(0xA0),
-			Value:     protocol.PropertyData{String: "old"},
-			Origin:    HistoryOriginNotification,
-		},
-		{
-			Timestamp: base.Add(-2 * time.Hour),
-			Device:    device,
-			EPC:       echonet_lite.EPCType(0xA1),
-			Value:     protocol.PropertyData{String: "no-set"},
-			Origin:    HistoryOriginNotification,
-		},
-		{
-			Timestamp: base.Add(-1 * time.Hour),
-			Device:    device,
-			EPC:       echonet_lite.EPCType(0xA2),
-			Value:     protocol.PropertyData{String: "recent"},
-			Origin:    HistoryOriginSet,
-		},
-	}
-
-	for _, entry := range entries {
-		store.Record(entry)
-	}
-
-	result := store.Query(device, HistoryQuery{
-		Since: base.Add(-90 * time.Minute),
-		Limit: 5,
-	})
-
-	if len(result) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(result))
-	}
-
-	if result[0].Value.String != "recent" {
-		t.Fatalf("expected 'recent', got %s", result[0].Value.String)
-	}
-}
-
 func TestMemoryDeviceHistoryStore_Clear(t *testing.T) {
 	store := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 5})
 	device := testDevice(3)
@@ -316,7 +269,6 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 	// Load into new store
 	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
 	filter := HistoryLoadFilter{
-		Since:          24 * time.Hour, // Load everything within 24 hours
 		PerDeviceLimit: 100,
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
@@ -337,62 +289,6 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_BasicLoad(t *testing.T) {
 	}
 	if entries[0].Origin != HistoryOriginSet {
 		t.Errorf("expected origin 'set', got '%s'", entries[0].Origin)
-	}
-}
-
-func TestMemoryDeviceHistoryStore_LoadFromFile_TimeFilter(t *testing.T) {
-	store1 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
-	device := testDevice(1)
-	now := time.Now().UTC()
-
-	// Add entries at different times
-	entries := []struct {
-		offset time.Duration
-		value  string
-	}{
-		{-10 * 24 * time.Hour, "very-old"}, // 10 days ago
-		{-5 * 24 * time.Hour, "old"},       // 5 days ago
-		{-2 * 24 * time.Hour, "recent"},    // 2 days ago
-		{-1 * time.Hour, "very-recent"},    // 1 hour ago
-	}
-
-	for i, entry := range entries {
-		store1.Record(DeviceHistoryEntry{
-			Timestamp: now.Add(entry.offset),
-			Device:    device,
-			EPC:       echonet_lite.EPCType(0x80 + byte(i)),
-			Value:     protocol.PropertyData{String: entry.value},
-			Origin:    HistoryOriginNotification,
-		})
-	}
-
-	// Save to file
-	tmpFile := t.TempDir() + "/history_time_filter_test.json"
-	if err := store1.SaveToFile(tmpFile); err != nil {
-		t.Fatalf("SaveToFile failed: %v", err)
-	}
-
-	// Load with time filter (only last 3 days)
-	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
-	filter := HistoryLoadFilter{
-		Since:          3 * 24 * time.Hour, // Last 3 days
-		PerDeviceLimit: 100,
-	}
-	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
-		t.Fatalf("LoadFromFile failed: %v", err)
-	}
-
-	// Verify only recent entries were loaded
-	loadedEntries := store2.Query(device, HistoryQuery{})
-	if len(loadedEntries) != 2 {
-		t.Fatalf("expected 2 entries (within 3 days), got %d", len(loadedEntries))
-	}
-
-	// Check that very-old and old entries were filtered out
-	for _, entry := range loadedEntries {
-		if entry.Value.String == "very-old" || entry.Value.String == "old" {
-			t.Errorf("time filter failed: entry '%s' should have been filtered out", entry.Value.String)
-		}
 	}
 }
 
@@ -421,8 +317,7 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_CountFilter(t *testing.T) {
 	// Load with count filter (only 3 most recent)
 	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 100})
 	filter := HistoryLoadFilter{
-		Since:          24 * time.Hour, // Load everything within 24 hours
-		PerDeviceLimit: 3,              // But only 3 per device
+		PerDeviceLimit: 3, // Only 3 per device
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
@@ -482,7 +377,6 @@ func TestMemoryDeviceHistoryStore_RoundTrip(t *testing.T) {
 	// Load
 	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
 	filter := HistoryLoadFilter{
-		Since:          24 * time.Hour,
 		PerDeviceLimit: 100,
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
@@ -596,7 +490,6 @@ func TestMemoryDeviceHistoryStore_LoadFromFile_MultipleDevices(t *testing.T) {
 	// Load
 	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 100})
 	filter := HistoryLoadFilter{
-		Since:          24 * time.Hour,
 		PerDeviceLimit: 100,
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {
@@ -789,7 +682,6 @@ func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
 	// Load into new store
 	store2 := newMemoryDeviceHistoryStore(HistoryOptions{PerDeviceLimit: 10})
 	filter := HistoryLoadFilter{
-		Since:          24 * time.Hour,
 		PerDeviceLimit: 100,
 	}
 	if err := store2.LoadFromFile(tmpFile, filter); err != nil {

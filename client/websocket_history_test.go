@@ -66,9 +66,9 @@ func TestGetDeviceHistorySuccess(t *testing.T) {
 		EOJ: echonet_lite.MakeEOJ(0x0130, 0x01),
 	}
 
-	since := time.Date(2024, 5, 1, 12, 0, 0, 0, time.UTC)
 	limit := 5
 	settableOnly := false
+	testTime := time.Date(2024, 5, 1, 12, 10, 0, 0, time.UTC)
 
 	var capturedPayload protocol.GetDeviceHistoryPayload
 	mock.handler = func(msg *protocol.Message) (*protocol.Message, error) {
@@ -80,7 +80,7 @@ func TestGetDeviceHistorySuccess(t *testing.T) {
 		}
 
 		entry := protocol.HistoryEntry{
-			Timestamp: since.Add(10 * time.Minute),
+			Timestamp: testTime,
 			EPC:       "80",
 			Value:     protocol.PropertyData{String: "on"},
 			Origin:    protocol.HistoryOriginSet,
@@ -104,7 +104,6 @@ func TestGetDeviceHistorySuccess(t *testing.T) {
 
 	opts := DeviceHistoryOptions{
 		Limit:        limit,
-		Since:        &since,
 		SettableOnly: &settableOnly,
 	}
 
@@ -118,9 +117,6 @@ func TestGetDeviceHistorySuccess(t *testing.T) {
 	}
 	if capturedPayload.Limit == nil || *capturedPayload.Limit != limit {
 		t.Fatalf("expected limit %d, got %v", limit, capturedPayload.Limit)
-	}
-	if capturedPayload.Since != since.Format(time.RFC3339Nano) {
-		t.Fatalf("unexpected since value: %s", capturedPayload.Since)
 	}
 	if capturedPayload.SettableOnly == nil || *capturedPayload.SettableOnly != settableOnly {
 		t.Fatalf("expected settableOnly false, got %v", capturedPayload.SettableOnly)

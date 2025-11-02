@@ -4,24 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"echonet-list/echonet_lite/handler"
 	"echonet-list/protocol"
 )
 
 const defaultHistoryLimit = 50
-
-func parseHistorySince(value string) (time.Time, error) {
-	if value == "" {
-		return time.Time{}, nil
-	}
-
-	if ts, err := time.Parse(time.RFC3339Nano, value); err == nil {
-		return ts, nil
-	}
-	return time.Parse(time.RFC3339, value)
-}
 
 // handleGetDeviceHistoryFromClient handles a get_device_history message from a client.
 func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Message) protocol.CommandResultPayload {
@@ -64,22 +52,12 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 		limit = storeLimit
 	}
 
-	since := time.Time{}
-	if payload.Since != "" {
-		var err error
-		since, err = parseHistorySince(payload.Since)
-		if err != nil {
-			return ErrorResponse(protocol.ErrorCodeInvalidParameters, "Invalid since value: %v", err)
-		}
-	}
-
 	settableOnly := true
 	if payload.SettableOnly != nil {
 		settableOnly = *payload.SettableOnly
 	}
 
 	query := HistoryQuery{
-		Since: since,
 		Limit: limit,
 	}
 

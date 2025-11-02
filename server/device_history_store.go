@@ -39,7 +39,6 @@ type DeviceHistoryEntry struct {
 
 // HistoryQuery specifies filters applied when fetching history entries.
 type HistoryQuery struct {
-	Since time.Time
 	Limit int
 }
 
@@ -96,11 +95,7 @@ func (s *memoryDeviceHistoryStore) Record(entry DeviceHistoryEntry) {
 	defer s.mu.Unlock()
 
 	entries := append(s.data[key], entry)
-
-	if limit := s.perDeviceLimit; limit > 0 && len(entries) > limit {
-		// Drop oldest entries to enforce the cap.
-		entries = entries[len(entries)-limit:]
-	}
+	entries = s.trimToLimit(entries)
 
 	s.data[key] = entries
 }
@@ -121,16 +116,11 @@ func (s *memoryDeviceHistoryStore) Query(device handler.IPAndEOJ, query HistoryQ
 	}
 
 	result := make([]DeviceHistoryEntry, 0, min(limit, len(entries)))
-	since := query.Since
 
 	// Iterate from newest to oldest so the result is ordered newest-first.
 	// Note: SettableOnly filtering is performed by the WebSocket handler after calculating settable flags
 	for i := len(entries) - 1; i >= 0; i-- {
 		entry := entries[i]
-
-		if !since.IsZero() && entry.Timestamp.Before(since) {
-			continue
-		}
 
 		result = append(result, entry)
 		if len(result) >= limit {
@@ -229,17 +219,31 @@ func min(a, b int) int {
 	return b
 }
 
+// trimToLimit returns a slice of entries limited to the configured per-device limit.
+// If customLimit is provided and > 0, it overrides the store's perDeviceLimit.
+// If limit > 0 and len(entries) > limit, oldest entries are dropped to enforce the cap.
+func (s *memoryDeviceHistoryStore) trimToLimit(entries []DeviceHistoryEntry, customLimit ...int) []DeviceHistoryEntry {
+	limit := s.perDeviceLimit
+	if len(customLimit) > 0 && customLimit[0] > 0 {
+		limit = customLimit[0]
+	}
+	if limit > 0 && len(entries) > limit {
+		// Drop oldest entries to enforce the cap
+		return entries[len(entries)-limit:]
+	}
+	return entries
+}
+
 // HistoryLoadFilter specifies filters applied when loading history from file
 type HistoryLoadFilter struct {
-	Since          time.Duration // Load entries from this duration ago (e.g., 7 * 24 * time.Hour for 1 week)
-	PerDeviceLimit int           // Maximum number of entries per device to load
+	PerDeviceLimit int // Maximum number of entries per device to load
 }
 
 // DefaultHistoryLoadFilter returns the default filter settings for loading history
 func DefaultHistoryLoadFilter() HistoryLoadFilter {
+	opts := DefaultHistoryOptions()
 	return HistoryLoadFilter{
-		Since:          7 * 24 * time.Hour, // 1 week
-		PerDeviceLimit: 100,                // 100 entries per device
+		PerDeviceLimit: opts.PerDeviceLimit, // Match the in-memory limit from default options
 	}
 }
 
@@ -346,9 +350,6 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 			"expectedVersion", currentHistoryFileVersion)
 	}
 
-	// Calculate cutoff time for filtering
-	cutoffTime := time.Now().Add(-filter.Since)
-
 	// Load and filter data
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -361,18 +362,11 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 
 	for deviceKey, jsonEntries := range fileData.Data {
 		// Convert JSON entries back to DeviceHistoryEntry
-		// Filter by time and limit per device
-		filtered := make([]DeviceHistoryEntry, 0, min(len(jsonEntries), filter.PerDeviceLimit))
+		filtered := make([]DeviceHistoryEntry, 0, len(jsonEntries))
 
 		// Process entries from newest to oldest
-		for i := len(jsonEntries) - 1; i >= 0 && len(filtered) < filter.PerDeviceLimit; i-- {
+		for i := len(jsonEntries) - 1; i >= 0; i-- {
 			jsonEntry := jsonEntries[i]
-
-			// Skip entries older than cutoff time
-			if jsonEntry.Timestamp.Before(cutoffTime) {
-				totalFiltered++
-				continue
-			}
 
 			// Parse IP address
 			ip := net.ParseIP(jsonEntry.Device.IP)
@@ -422,10 +416,14 @@ func (s *memoryDeviceHistoryStore) LoadFromFile(filename string, filter HistoryL
 			totalLoaded++
 		}
 
-		// Reverse filtered entries to restore chronological order (oldest first)
+		// Reverse to chronological order (oldest first) before trimming
 		for i, j := 0, len(filtered)-1; i < j; i, j = i+1, j-1 {
 			filtered[i], filtered[j] = filtered[j], filtered[i]
 		}
+
+		// Apply per-device limit using the common trimming logic
+		// trimToLimit keeps the newest entries (drops oldest)
+		filtered = s.trimToLimit(filtered, filter.PerDeviceLimit)
 
 		if len(filtered) > 0 {
 			s.data[deviceKey] = filtered
