@@ -16,6 +16,24 @@ type PropertyData struct {
 	Number *int   `json:"number,omitempty"` // Numeric value, omitted if nil. Only usable when PropertyDesc has NumberDesc.
 }
 
+// ToHandlerPropertyValue converts PropertyData to handler.PropertyValue
+func (pd PropertyData) ToHandlerPropertyValue() handler.PropertyValue {
+	return handler.PropertyValue{
+		EDT:    pd.EDT,
+		String: pd.String,
+		Number: pd.Number,
+	}
+}
+
+// PropertyDataFromHandlerValue converts handler.PropertyValue to PropertyData
+func PropertyDataFromHandlerValue(hv handler.PropertyValue) PropertyData {
+	return PropertyData{
+		EDT:    hv.EDT,
+		String: hv.String,
+		Number: hv.Number,
+	}
+}
+
 // HistoryOrigin identifies the source of a history entry.
 type HistoryOrigin string
 

@@ -69,8 +69,6 @@ type WebSocketServer struct {
 	forcedUpdateInterval   time.Duration                     // Forced update interval
 	timeProvider           TimeProvider                      // Time provider for testability
 	serverStartupTime      time.Time                         // Server startup timestamp
-	historyStore           DeviceHistoryStore                // In-memory history storage
-	historyFilePath        string                            // Path to history file for persistence (empty = disabled)
 	deviceResolver         func(echonet_lite.IPAndEOJ) bool  // Resolves whether a device is known
 }
 
@@ -81,33 +79,8 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 	// Create the transport
 	transport := NewDefaultWebSocketTransport(serverCtx, addr)
 
-	options := DefaultHistoryOptions()
-	if len(historyOpts) > 0 {
-		if historyOpts[0].PerDeviceSettableLimit > 0 {
-			options.PerDeviceSettableLimit = historyOpts[0].PerDeviceSettableLimit
-		}
-		if historyOpts[0].PerDeviceNonSettableLimit > 0 {
-			options.PerDeviceNonSettableLimit = historyOpts[0].PerDeviceNonSettableLimit
-		}
-		if historyOpts[0].HistoryFilePath != "" {
-			options.HistoryFilePath = historyOpts[0].HistoryFilePath
-		}
-	}
-
 	// WebSocketServer用の通知チャンネルを取得
 	notificationCh := handler.GetCore().SubscribeNotifications(100)
-
-	// Create history store
-	historyStore := newMemoryDeviceHistoryStore(options)
-
-	// Load history from file if path is specified
-	if options.HistoryFilePath != "" {
-		filter := DefaultHistoryLoadFilter()
-		if err := historyStore.LoadFromFile(options.HistoryFilePath, filter); err != nil {
-			slog.Error("Failed to load history from file", "path", options.HistoryFilePath, "error", err)
-			// Continue with empty history - this is not a fatal error
-		}
-	}
 
 	// Create the WebSocket server
 	ws := &WebSocketServer{
@@ -121,8 +94,6 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 		monitorDone:       make(chan bool),     // Initialize the monitor done channel
 		timeProvider:      &RealTimeProvider{}, // Use real time by default
 		serverStartupTime: startupTime,
-		historyStore:      historyStore,
-		historyFilePath:   options.HistoryFilePath,
 	}
 
 	ws.deviceResolver = func(device echonet_lite.IPAndEOJ) bool {
@@ -150,13 +121,21 @@ func (ws *WebSocketServer) GetTransport() WebSocketTransport {
 }
 
 // GetHistoryStore exposes the history store, primarily for testing and API handlers.
-func (ws *WebSocketServer) GetHistoryStore() DeviceHistoryStore {
-	return ws.historyStore
+func (ws *WebSocketServer) GetHistoryStore() handler.DeviceHistoryStore {
+	if ws.handler == nil {
+		return nil
+	}
+	dataHandler := ws.handler.GetDataManagementHandler()
+	if dataHandler == nil {
+		return nil
+	}
+	return dataHandler.DeviceHistory
 }
 
 // recordHistory stores a history entry if the store is available.
 func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData, origin HistoryOrigin) {
-	if ws.historyStore == nil {
+	historyStore := ws.GetHistoryStore()
+	if historyStore == nil {
 		return
 	}
 
@@ -173,16 +152,31 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 			"origin", origin)
 	}
 
-	entry := DeviceHistoryEntry{
+	// Convert HistoryOrigin
+	var handlerOrigin handler.HistoryOrigin
+	switch origin {
+	case HistoryOriginNotification:
+		handlerOrigin = handler.HistoryOriginNotification
+	case HistoryOriginSet:
+		handlerOrigin = handler.HistoryOriginSet
+	case HistoryOriginOnline:
+		handlerOrigin = handler.HistoryOriginOnline
+	case HistoryOriginOffline:
+		handlerOrigin = handler.HistoryOriginOffline
+	default:
+		handlerOrigin = handler.HistoryOriginNotification
+	}
+
+	entry := handler.DeviceHistoryEntry{
 		Timestamp: time.Now().UTC(),
 		Device:    device,
 		EPC:       epc,
-		Value:     value,
-		Origin:    origin,
+		Value:     value.ToHandlerPropertyValue(),
+		Origin:    handlerOrigin,
 		Settable:  settable,
 	}
 
-	ws.historyStore.Record(entry)
+	historyStore.Record(entry)
 }
 
 const (
@@ -194,8 +188,9 @@ func (ws *WebSocketServer) recordPropertyChange(change handler.PropertyChangeNot
 	value := protocol.MakePropertyData(change.Device.EOJ.ClassCode(), change.Property)
 
 	// Check if this notification is a duplicate of a recent Set operation
-	if ws.historyStore != nil {
-		isDup := ws.historyStore.IsDuplicateNotification(change.Device, change.Property.EPC, value, duplicateNotificationWindow)
+	historyStore := ws.GetHistoryStore()
+	if historyStore != nil {
+		isDup := historyStore.IsDuplicateNotification(change.Device, change.Property.EPC, value.ToHandlerPropertyValue(), duplicateNotificationWindow)
 		if ws.handler != nil && ws.handler.IsDebug() {
 			slog.Debug("Notification duplicate check",
 				"device", change.Device.Specifier(),
@@ -223,10 +218,11 @@ func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_
 }
 
 func (ws *WebSocketServer) clearHistoryForDevice(device handler.IPAndEOJ) {
-	if ws.historyStore == nil {
+	historyStore := ws.GetHistoryStore()
+	if historyStore == nil {
 		return
 	}
-	ws.historyStore.Clear(device)
+	historyStore.Clear(device)
 }
 
 func (ws *WebSocketServer) isPropertySettable(device handler.IPAndEOJ, epc echonet_lite.EPCType) bool {
@@ -593,15 +589,7 @@ func (ws *WebSocketServer) Stop() error {
 		close(ws.monitorDone)
 	}
 
-	// Save history to file if path is configured
-	if ws.historyFilePath != "" && ws.historyStore != nil {
-		if store, ok := ws.historyStore.(*memoryDeviceHistoryStore); ok {
-			if err := store.SaveToFile(ws.historyFilePath); err != nil {
-				slog.Error("Failed to save history to file", "path", ws.historyFilePath, "error", err)
-				// Continue with shutdown even if save fails
-			}
-		}
-	}
+	// TODO: History save is now handled by handler layer
 
 	ws.cancel() // Cancel the server context
 	return ws.transport.Stop()
