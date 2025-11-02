@@ -275,7 +275,9 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 
 	// 各ハンドラを初期化
 	core := NewHandlerCore(handlerCtx, cancel, options.Debug)
-	data := NewDataManagementHandler(devices, aliases, groups, core)
+	// 履歴ストアを作成（デフォルトオプション使用）
+	history := NewMemoryDeviceHistoryStore(DefaultHistoryOptions())
+	data := NewDataManagementHandler(devices, aliases, groups, history, core)
 	var comm *CommunicationHandler
 	if !options.TestMode && session != nil {
 		comm = NewCommunicationHandler(handlerCtx, session, localDevices, data, core, options.Debug)
