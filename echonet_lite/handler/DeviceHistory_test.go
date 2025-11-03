@@ -981,3 +981,160 @@ func TestPropertyValue_Equals(t *testing.T) {
 		}
 	})
 }
+
+// Helper function to record multiple settable entries
+func recordSettableEntries(store DeviceHistoryStore, device IPAndEOJ, count int, timeOffset int) {
+	for i := 1; i <= count; i++ {
+		store.Record(DeviceHistoryEntry{
+			Timestamp: time.Now().Add(time.Duration(timeOffset+i) * time.Minute),
+			Device:    device,
+			EPC:       echonet_lite.EPCType(0x80), // Operation status
+			Value:     PropertyValue{String: fmt.Sprintf("settable-%d", i)},
+			Origin:    HistoryOriginSet,
+			Settable:  true,
+		})
+	}
+}
+
+// Helper function to record multiple non-settable entries
+func recordNonSettableEntries(store DeviceHistoryStore, device IPAndEOJ, count int, timeOffset int) {
+	for i := 1; i <= count; i++ {
+		store.Record(DeviceHistoryEntry{
+			Timestamp: time.Now().Add(time.Duration(timeOffset+i) * time.Minute),
+			Device:    device,
+			EPC:       echonet_lite.EPCType(0xF3), // Temperature sensor
+			Value:     PropertyValue{String: fmt.Sprintf("temp-%d", i)},
+			Origin:    HistoryOriginNotification,
+			Settable:  false,
+		})
+	}
+}
+
+// Helper function to verify all entries are settable with correct EPC
+func verifySettableEntries(t *testing.T, entries []DeviceHistoryEntry, expectedEPC echonet_lite.EPCType) {
+	t.Helper()
+	for i, entry := range entries {
+		if !entry.Settable {
+			t.Errorf("entry %d is not settable", i)
+		}
+		if entry.EPC != expectedEPC {
+			t.Errorf("entry %d has wrong EPC: expected 0x%02X, got 0x%02X", i, expectedEPC, entry.EPC)
+		}
+	}
+}
+
+// Helper function to count settable and non-settable entries
+func countEntriesBySettable(entries []DeviceHistoryEntry) (settable, nonSettable int) {
+	for _, entry := range entries {
+		if entry.Settable {
+			settable++
+		} else {
+			nonSettable++
+		}
+	}
+	return
+}
+
+// TestQueryWithSettableOnly tests the SettableOnly filter in Query function
+func TestQueryWithSettableOnly(t *testing.T) {
+	store := NewMemoryDeviceHistoryStore(HistoryOptions{
+		PerDeviceSettableLimit:    200,
+		PerDeviceNonSettableLimit: 100,
+	})
+
+	device := testDevice(100)
+
+	// Record test data: 10 settable + 100 non-settable entries
+	recordSettableEntries(store, device, 10, 0)
+	recordNonSettableEntries(store, device, 100, 100)
+
+	t.Run("SettableOnly=true returns only settable entries", func(t *testing.T) {
+		entries := store.Query(device, HistoryQuery{
+			SettableOnly: true,
+		})
+
+		if len(entries) != 10 {
+			t.Fatalf("expected 10 settable entries, got %d", len(entries))
+		}
+
+		verifySettableEntries(t, entries, echonet_lite.EPCType(0x80))
+	})
+
+	t.Run("SettableOnly=false returns all entries", func(t *testing.T) {
+		entries := store.Query(device, HistoryQuery{
+			SettableOnly: false,
+		})
+
+		// Should have all entries (10 settable + 100 non-settable = 110 total)
+		if len(entries) != 110 {
+			t.Fatalf("expected 110 total entries, got %d", len(entries))
+		}
+
+		settableCount, nonSettableCount := countEntriesBySettable(entries)
+
+		if settableCount != 10 {
+			t.Errorf("expected 10 settable entries, got %d", settableCount)
+		}
+		if nonSettableCount != 100 {
+			t.Errorf("expected 100 non-settable entries, got %d", nonSettableCount)
+		}
+	})
+
+	t.Run("SettableOnly=true with limit returns correct number", func(t *testing.T) {
+		entries := store.Query(device, HistoryQuery{
+			SettableOnly: true,
+			Limit:        5,
+		})
+
+		if len(entries) != 5 {
+			t.Fatalf("expected 5 settable entries, got %d", len(entries))
+		}
+
+		verifySettableEntries(t, entries, echonet_lite.EPCType(0x80))
+	})
+
+	t.Run("Frequent non-settable entries don't affect settable query", func(t *testing.T) {
+		// This is the critical test case for the bug fix:
+		// Even with 100 non-settable entries that would dominate a merged query,
+		// settableOnly should still return all 10 settable entries
+
+		// Query with limit of 50 (should return all 10 settable entries)
+		entries := store.Query(device, HistoryQuery{
+			SettableOnly: true,
+			Limit:        50, // Even with a limit of 50
+		})
+
+		// Should still get all 10 settable entries (not affected by 100 non-settable)
+		if len(entries) != 10 {
+			t.Fatalf("expected 10 settable entries even with 100 non-settable entries, got %d", len(entries))
+		}
+
+		verifySettableEntries(t, entries, echonet_lite.EPCType(0x80))
+	})
+
+	t.Run("SettableOnly at max capacity returns all settable entries", func(t *testing.T) {
+		// Test boundary condition: when settable history is at max capacity (200 entries)
+		// and non-settable is also at max capacity (100 entries),
+		// SettableOnly query should still return all 200 settable entries
+		store2 := NewMemoryDeviceHistoryStore(HistoryOptions{
+			PerDeviceSettableLimit:    200,
+			PerDeviceNonSettableLimit: 100,
+		})
+
+		device2 := testDevice(200)
+
+		// Fill settable history to capacity (200 entries)
+		recordSettableEntries(store2, device2, 200, 0)
+
+		// Fill non-settable history to capacity (100 entries)
+		recordNonSettableEntries(store2, device2, 100, 200)
+
+		// Should get all 200 settable entries even with 100 non-settable entries
+		entries := store2.Query(device2, HistoryQuery{SettableOnly: true})
+		if len(entries) != 200 {
+			t.Fatalf("expected 200 settable entries at max capacity, got %d", len(entries))
+		}
+
+		verifySettableEntries(t, entries, echonet_lite.EPCType(0x80))
+	})
+}
