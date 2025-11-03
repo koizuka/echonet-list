@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -31,6 +32,11 @@ const (
 	// Monitoring intervals
 	monitoringInterval   = 30 * time.Second // Interval for periodic monitoring
 	counterLeakResetTime = 5 * time.Minute  // Reset leaked counters after this time
+
+	// SET operation tracking window
+	setOperationTrackingWindow = 500 * time.Millisecond // Window to track SET operations for duplicate INF detection
+	// SET operation cleanup interval
+	setOperationCleanupInterval = time.Second // Interval to clean up expired SET operation tracking entries
 )
 
 // StartOptions は WebSocketServer の起動オプションを表す
@@ -48,6 +54,14 @@ type StartOptions struct {
 	// HTTPサーバーの設定
 	HTTPEnabled bool
 	HTTPWebRoot string
+}
+
+// setOperationTracker tracks a recent SET operation for duplicate detection.
+// Entries are automatically cleaned up by cleanupSetOperationTracker after
+// setOperationTrackingWindow (500ms) to prevent memory leaks.
+type setOperationTracker struct {
+	Value     handler.PropertyValue
+	Timestamp time.Time
 }
 
 // WebSocketServer implements a WebSocket server for ECHONET Lite
@@ -70,6 +84,9 @@ type WebSocketServer struct {
 	timeProvider           TimeProvider                      // Time provider for testability
 	serverStartupTime      time.Time                         // Server startup timestamp
 	deviceResolver         func(echonet_lite.IPAndEOJ) bool  // Resolves whether a device is known
+	recentSetOps           map[string]setOperationTracker    // Tracks recent SET operations, key: "{IP}_{EOJ}_{EPC}"
+	recentSetOpsMutex      sync.RWMutex                      // Protects recentSetOps
+	cleanupDone            chan bool                         // Channel to stop the cleanup goroutine
 }
 
 // NewWebSocketServer creates a new WebSocket server
@@ -92,8 +109,10 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 		notificationCh:    notificationCh,
 		tickerDone:        make(chan bool),     // Initialize the done channel
 		monitorDone:       make(chan bool),     // Initialize the monitor done channel
+		cleanupDone:       make(chan bool),     // Initialize the cleanup done channel
 		timeProvider:      &RealTimeProvider{}, // Use real time by default
 		serverStartupTime: startupTime,
+		recentSetOps:      make(map[string]setOperationTracker), // Initialize SET operation tracking map
 	}
 
 	ws.deviceResolver = func(device echonet_lite.IPAndEOJ) bool {
@@ -172,24 +191,47 @@ const (
 func (ws *WebSocketServer) recordPropertyChange(change handler.PropertyChangeNotification) {
 	value := protocol.MakePropertyData(change.Device.EOJ.ClassCode(), change.Property)
 
-	// Check if this notification is a duplicate of a recent Set operation
-	historyStore := ws.GetHistoryStore()
-	if historyStore != nil {
-		isDup := historyStore.IsDuplicateNotification(change.Device, change.Property.EPC, value.ToHandlerPropertyValue(), duplicateNotificationWindow)
-		if ws.handler != nil && ws.handler.IsDebug() {
-			slog.Debug("Notification duplicate check",
-				"device", change.Device.Specifier(),
-				"epc", fmt.Sprintf("0x%02X", change.Property.EPC),
-				"value", value,
-				"isDuplicate", isDup)
+	// Check if this notification is a duplicate of a recent SET operation (only if map is initialized)
+	isDup := false
+	if ws.recentSetOps != nil {
+		trackingKey := fmt.Sprintf("%s_%s_%02X", change.Device.IP.String(), change.Device.EOJ.Specifier(), change.Property.EPC)
+
+		ws.recentSetOpsMutex.Lock()
+		tracker, exists := ws.recentSetOps[trackingKey]
+
+		if exists {
+			// Check if this notification matches the recent SET operation
+			timeSinceSet := time.Since(tracker.Timestamp)
+			valuesMatch := tracker.Value.Equals(value.ToHandlerPropertyValue())
+
+			if valuesMatch && timeSinceSet <= setOperationTrackingWindow {
+				// This is a duplicate confirmation INF - remove from tracking and skip recording
+				isDup = true
+				delete(ws.recentSetOps, trackingKey)
+
+				if ws.handler != nil && ws.handler.IsDebug() {
+					slog.Debug("Skipping duplicate INF notification (SET confirmation)",
+						"device", change.Device.Specifier(),
+						"epc", fmt.Sprintf("0x%02X", change.Property.EPC),
+						"value", value,
+						"timeSinceSet", timeSinceSet)
+				}
+			}
 		}
-		if isDup {
-			// Skip recording this notification as it's a duplicate of a recent Set operation
-			return
-		}
+		ws.recentSetOpsMutex.Unlock()
 	}
 
-	ws.recordHistory(change.Device, change.Property.EPC, value, handler.HistoryOriginNotification)
+	if ws.handler != nil && ws.handler.IsDebug() && !isDup {
+		slog.Debug("Recording property change notification",
+			"device", change.Device.Specifier(),
+			"epc", fmt.Sprintf("0x%02X", change.Property.EPC),
+			"value", value,
+			"isDuplicate", isDup)
+	}
+
+	if !isDup {
+		ws.recordHistory(change.Device, change.Property.EPC, value, handler.HistoryOriginNotification)
+	}
 }
 
 func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_lite.EPCType, value protocol.PropertyData) {
@@ -200,6 +242,23 @@ func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_
 			"value", value)
 	}
 	ws.recordHistory(device, epc, value, handler.HistoryOriginSet)
+
+	// Track this SET operation for duplicate detection (only if map is initialized)
+	if ws.recentSetOps != nil {
+		trackingKey := fmt.Sprintf("%s_%s_%02X", device.IP.String(), device.EOJ.Specifier(), epc)
+		ws.recentSetOpsMutex.Lock()
+		ws.recentSetOps[trackingKey] = setOperationTracker{
+			Value:     value.ToHandlerPropertyValue(),
+			Timestamp: time.Now(),
+		}
+		ws.recentSetOpsMutex.Unlock()
+
+		if ws.handler != nil && ws.handler.IsDebug() {
+			slog.Debug("Tracked SET operation",
+				"key", trackingKey,
+				"value", value)
+		}
+	}
 }
 
 func (ws *WebSocketServer) clearHistoryForDevice(device handler.IPAndEOJ) {
@@ -425,6 +484,48 @@ func (ws *WebSocketServer) monitorUpdateInterval() {
 	}
 }
 
+// cleanupSetOperationTracker periodically removes expired SET operation tracking entries
+func (ws *WebSocketServer) cleanupSetOperationTracker() {
+	// パニックからの回復
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("Panic in SET operation tracker cleanup", "error", r)
+		}
+		slog.Info("SET operation tracker cleanup stopped")
+	}()
+
+	slog.Info("SET operation tracker cleanup started", "checkInterval", setOperationCleanupInterval)
+
+	// クリーンアップ用のティッカー
+	ticker := time.NewTicker(setOperationCleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// 期限切れのエントリを削除
+			now := time.Now()
+			ws.recentSetOpsMutex.Lock()
+			for key, tracker := range ws.recentSetOps {
+				if now.Sub(tracker.Timestamp) > setOperationTrackingWindow {
+					delete(ws.recentSetOps, key)
+					if ws.handler != nil && ws.handler.IsDebug() {
+						slog.Debug("Removed expired SET operation tracker",
+							"key", key,
+							"age", now.Sub(tracker.Timestamp))
+					}
+				}
+			}
+			ws.recentSetOpsMutex.Unlock()
+
+		case <-ws.cleanupDone:
+			return
+		case <-ws.ctx.Done():
+			return
+		}
+	}
+}
+
 // handleClientConnect is called when a new client connects
 func (ws *WebSocketServer) handleClientConnect(connID string) error {
 	if ws.handler.IsDebug() {
@@ -530,6 +631,9 @@ func (ws *WebSocketServer) Start(options StartOptions) error {
 	// Start listening for notifications from the ECHONET Lite handler
 	go ws.listenForNotifications()
 
+	// Start the SET operation tracker cleanup goroutine
+	go ws.cleanupSetOperationTracker()
+
 	// HTTPサーバーが有効な場合は静的ファイル配信を設定
 	if options.HTTPEnabled {
 		if transport, ok := ws.transport.(*DefaultWebSocketTransport); ok {
@@ -572,6 +676,9 @@ func (ws *WebSocketServer) Stop() error {
 	}
 	if ws.monitorDone != nil {
 		close(ws.monitorDone)
+	}
+	if ws.cleanupDone != nil {
+		close(ws.cleanupDone)
 	}
 
 	// TODO: History save is now handled by handler layer
