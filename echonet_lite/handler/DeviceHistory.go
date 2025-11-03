@@ -69,8 +69,14 @@ type DeviceHistoryEntry struct {
 
 // HistoryQuery specifies filters applied when fetching history entries.
 type HistoryQuery struct {
-	Limit        int
-	SettableOnly bool // If true, only return settable (writable) property entries
+	Limit int
+	// SettableOnly, if true, queries only settable (writable) property entries.
+	// This queries directly from settableData without merging with nonSettableData,
+	// ensuring settable entries are not pushed out by frequent sensor notifications.
+	// This is critical for devices with high-frequency non-settable events (e.g., temperature sensors)
+	// where settable history (operation status, settings) would otherwise be excluded from results
+	// when the merged data is limited to the latest N entries.
+	SettableOnly bool
 }
 
 // DeviceHistoryStore defines behaviour required from a history backend.
