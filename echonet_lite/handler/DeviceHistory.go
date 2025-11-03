@@ -23,6 +23,26 @@ type PropertyValue struct {
 	Number *int   `json:"number,omitempty"` // Numeric value, omitted if nil
 }
 
+// Equals checks if two PropertyValue instances are equal.
+func (pv PropertyValue) Equals(other PropertyValue) bool {
+	// Compare EDT strings
+	if pv.EDT != other.EDT {
+		return false
+	}
+	// Compare String representations
+	if pv.String != other.String {
+		return false
+	}
+	// Compare Number values (handle nil cases)
+	if (pv.Number == nil) != (other.Number == nil) {
+		return false
+	}
+	if pv.Number != nil && other.Number != nil && *pv.Number != *other.Number {
+		return false
+	}
+	return true
+}
+
 // HistoryOrigin identifies how a history entry was produced.
 type HistoryOrigin string
 
