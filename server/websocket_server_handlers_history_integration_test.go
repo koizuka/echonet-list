@@ -306,3 +306,228 @@ func TestClearHistoryForDevice(t *testing.T) {
 		t.Fatalf("Expected 0 entries after clear, got %d", len(entries))
 	}
 }
+
+// TestRecordPropertyChange_DuplicateDetection tests the duplicate detection for INF notifications
+func TestRecordPropertyChange_DuplicateDetection(t *testing.T) {
+	ctx := context.Background()
+
+	// Create a test handler with history enabled
+	handlerOpts := handler.ECHONETLieHandlerOptions{
+		TestMode: true,
+		HistoryOptions: handler.HistoryOptions{
+			PerDeviceSettableLimit:    10,
+			PerDeviceNonSettableLimit: 10,
+		},
+	}
+	liteHandler, err := handler.NewECHONETLiteHandler(ctx, handlerOpts)
+	if err != nil {
+		t.Fatalf("Failed to create handler: %v", err)
+	}
+	defer liteHandler.Close()
+
+	// Create test device
+	testIP := net.ParseIP("192.168.1.100")
+	testEOJ := echonet_lite.MakeEOJ(0x0291, 1)
+	testDevice := handler.IPAndEOJ{IP: testIP, EOJ: testEOJ}
+
+	// Register device in handler
+	dataHandler := liteHandler.GetDataManagementHandler()
+	dataHandler.RegisterDevice(testDevice)
+
+	ws := &WebSocketServer{
+		ctx:          ctx,
+		handler:      liteHandler,
+		recentSetOps: make(map[string]setOperationTracker),
+	}
+
+	historyStore := ws.GetHistoryStore()
+	if historyStore == nil {
+		t.Fatal("History store is nil")
+	}
+
+	testEPC := echonet_lite.EPCType(0x80)
+
+	t.Run("SpontaneousINFIsRecorded", func(t *testing.T) {
+		// Simulate a spontaneous INF notification (remote control, physical button, etc.)
+		// This should be recorded because there's no recent SET operation
+		change := handler.PropertyChangeNotification{
+			Device: testDevice,
+			Property: echonet_lite.Property{
+				EPC: testEPC,
+				EDT: []byte{0x30}, // "on"
+			},
+		}
+
+		ws.recordPropertyChange(change)
+
+		// Verify it was recorded
+		query := handler.HistoryQuery{Limit: 10}
+		entries := historyStore.Query(testDevice, query)
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry for spontaneous INF, got %d", len(entries))
+		}
+
+		if entries[0].Origin != handler.HistoryOriginNotification {
+			t.Errorf("Expected origin Notification, got %s", entries[0].Origin)
+		}
+	})
+
+	t.Run("SETConfirmationINFIsFiltered", func(t *testing.T) {
+		// Clear history
+		historyStore.Clear(testDevice)
+
+		// Record a SET operation with value 0x31 ("off")
+		testValue := protocol.PropertyData{
+			String: "off",
+			EDT:    "MQ==", // base64 of 0x31 (49)
+		}
+		ws.recordSetResult(testDevice, testEPC, testValue)
+
+		// Verify SET was recorded
+		query := handler.HistoryQuery{Limit: 10}
+		entries := historyStore.Query(testDevice, query)
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry for SET, got %d", len(entries))
+		}
+
+		// Simulate an INF confirmation with the same value (within 500ms)
+		change := handler.PropertyChangeNotification{
+			Device: testDevice,
+			Property: echonet_lite.Property{
+				EPC: testEPC,
+				EDT: []byte{0x31}, // 0x31 = "off" - same as SET
+			},
+		}
+
+		ws.recordPropertyChange(change)
+
+		// Should still be 1 entry (INF was filtered as duplicate)
+		entries = historyStore.Query(testDevice, query)
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry (INF filtered), got %d", len(entries))
+		}
+
+		if entries[0].Origin != handler.HistoryOriginSet {
+			t.Errorf("Expected origin Set, got %s", entries[0].Origin)
+		}
+	})
+
+	t.Run("INFWithDifferentValueIsRecorded", func(t *testing.T) {
+		// Clear history
+		historyStore.Clear(testDevice)
+
+		// Record a SET operation with value 0x31 ("off")
+		testValue := protocol.PropertyData{
+			String: "off",
+			EDT:    "MQ==", // base64 of 0x31
+		}
+		ws.recordSetResult(testDevice, testEPC, testValue)
+
+		// Simulate an INF with a DIFFERENT value 0x30 ("on")
+		change := handler.PropertyChangeNotification{
+			Device: testDevice,
+			Property: echonet_lite.Property{
+				EPC: testEPC,
+				EDT: []byte{0x30}, // 0x30 = "on" - different from SET
+			},
+		}
+
+		ws.recordPropertyChange(change)
+
+		// Should have 2 entries (SET + INF with different value)
+		query := handler.HistoryQuery{Limit: 10}
+		entries := historyStore.Query(testDevice, query)
+		if len(entries) != 2 {
+			t.Fatalf("Expected 2 entries (SET + different INF), got %d", len(entries))
+		}
+
+		// Newest first: INF (on), SET (off)
+		if entries[0].Origin != handler.HistoryOriginNotification {
+			t.Errorf("Expected first entry to be Notification, got %s", entries[0].Origin)
+		}
+		if entries[1].Origin != handler.HistoryOriginSet {
+			t.Errorf("Expected second entry to be Set, got %s", entries[1].Origin)
+		}
+	})
+
+	t.Run("INFAfterTrackingWindowIsRecorded", func(t *testing.T) {
+		// Clear history and tracking
+		historyStore.Clear(testDevice)
+		ws.recentSetOpsMutex.Lock()
+		for k := range ws.recentSetOps {
+			delete(ws.recentSetOps, k)
+		}
+		ws.recentSetOpsMutex.Unlock()
+
+		// Record a SET operation with value 0x31 ("off")
+		testValue := protocol.PropertyData{
+			String: "off",
+			EDT:    "MQ==", // base64 of 0x31
+		}
+		ws.recordSetResult(testDevice, testEPC, testValue)
+
+		// Wait for tracking window to expire (500ms + buffer)
+		time.Sleep(600 * time.Millisecond)
+
+		// Simulate an INF with the same value (but after tracking window)
+		change := handler.PropertyChangeNotification{
+			Device: testDevice,
+			Property: echonet_lite.Property{
+				EPC: testEPC,
+				EDT: []byte{0x31}, // 0x31 = "off" - same as SET
+			},
+		}
+
+		ws.recordPropertyChange(change)
+
+		// Should have 2 entries (SET + INF after window)
+		query := handler.HistoryQuery{Limit: 10}
+		entries := historyStore.Query(testDevice, query)
+		if len(entries) != 2 {
+			t.Fatalf("Expected 2 entries (SET + INF after window), got %d", len(entries))
+		}
+
+		if entries[0].Origin != handler.HistoryOriginNotification {
+			t.Errorf("Expected first entry to be Notification, got %s", entries[0].Origin)
+		}
+	})
+
+	t.Run("DifferentDeviceINFIsRecorded", func(t *testing.T) {
+		// Clear history
+		historyStore.Clear(testDevice)
+
+		// Create second device
+		testIP2 := net.ParseIP("192.168.1.101")
+		testDevice2 := handler.IPAndEOJ{IP: testIP2, EOJ: testEOJ}
+		dataHandler.RegisterDevice(testDevice2)
+
+		// Record a SET operation on device 1 with value 0x31 ("off")
+		testValue := protocol.PropertyData{
+			String: "off",
+			EDT:    "MQ==", // base64 of 0x31
+		}
+		ws.recordSetResult(testDevice, testEPC, testValue)
+
+		// Simulate an INF from device 2 with the same value
+		change := handler.PropertyChangeNotification{
+			Device: testDevice2,
+			Property: echonet_lite.Property{
+				EPC: testEPC,
+				EDT: []byte{0x31}, // 0x31 = "off" - same value as device 1 SET
+			},
+		}
+
+		ws.recordPropertyChange(change)
+
+		// Device 2 should have 1 entry (not filtered because it's a different device)
+		query := handler.HistoryQuery{Limit: 10}
+		entries := historyStore.Query(testDevice2, query)
+		if len(entries) != 1 {
+			t.Fatalf("Expected 1 entry for device 2, got %d", len(entries))
+		}
+
+		if entries[0].Origin != handler.HistoryOriginNotification {
+			t.Errorf("Expected origin Notification for device 2, got %s", entries[0].Origin)
+		}
+	})
+}
