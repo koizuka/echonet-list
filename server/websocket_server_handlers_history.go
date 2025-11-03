@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"echonet-list/echonet_lite/handler"
@@ -64,6 +65,8 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 	history := ws.GetHistoryStore().Query(ipAndEOJ, query)
 	resultEntries := make([]protocol.HistoryEntry, 0, len(history))
 
+	totalEntries := len(history)
+
 	for _, entry := range history {
 		// For event entries (online/offline), EPC is 0 and should be omitted from the response
 		epcStr := ""
@@ -90,6 +93,14 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 			Origin:    protocol.HistoryOrigin(entry.Origin),
 			Settable:  settable,
 		})
+	}
+
+	// Log history retrieval for settable-only queries
+	if settableOnly {
+		slog.Info("Get settable history",
+			"device", ipAndEOJ.Key(),
+			"totalEntries", totalEntries,
+			"returned", len(resultEntries))
 	}
 
 	response := protocol.DeviceHistoryResponse{

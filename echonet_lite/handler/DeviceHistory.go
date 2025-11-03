@@ -139,13 +139,26 @@ func (s *memoryDeviceHistoryStore) Record(entry DeviceHistoryEntry) {
 
 	// Add to appropriate map based on settable flag
 	if entry.Settable {
+		beforeCount := len(s.settableData[key])
 		entries := append(s.settableData[key], entry)
 		entries = s.trimToLimit(entries, s.perDeviceSettableLimit)
 		s.settableData[key] = entries
+
+		// Log if trimming occurred for settable history (to debug disappearing history issue)
+		if beforeCount+1 > s.perDeviceSettableLimit {
+			slog.Info("Trimmed settable history",
+				"device", key,
+				"epc", fmt.Sprintf("0x%02X", entry.EPC),
+				"before", beforeCount+1,
+				"after", len(entries),
+				"limit", s.perDeviceSettableLimit,
+				"dropped", (beforeCount+1)-len(entries))
+		}
 	} else {
 		entries := append(s.nonSettableData[key], entry)
 		entries = s.trimToLimit(entries, s.perDeviceLimit)
 		s.nonSettableData[key] = entries
+		// No logging for non-settable to avoid log spam from frequent sensor notifications
 	}
 }
 
