@@ -889,3 +889,95 @@ func TestMemoryDeviceHistoryStore_EventHistorySaveLoad(t *testing.T) {
 		t.Errorf("expected EPC 0 for offline event, got 0x%02X", entries[1].EPC)
 	}
 }
+
+// TestPropertyValue_Equals tests the Equals method for PropertyValue
+func TestPropertyValue_Equals(t *testing.T) {
+	t.Run("Equal string values", func(t *testing.T) {
+		pv1 := PropertyValue{String: "on"}
+		pv2 := PropertyValue{String: "on"}
+		if !pv1.Equals(pv2) {
+			t.Error("expected equal for same string values")
+		}
+	})
+
+	t.Run("Different string values", func(t *testing.T) {
+		pv1 := PropertyValue{String: "on"}
+		pv2 := PropertyValue{String: "off"}
+		if pv1.Equals(pv2) {
+			t.Error("expected not equal for different string values")
+		}
+	})
+
+	t.Run("Equal numeric values", func(t *testing.T) {
+		num1 := 25
+		num2 := 25
+		pv1 := PropertyValue{Number: &num1}
+		pv2 := PropertyValue{Number: &num2}
+		if !pv1.Equals(pv2) {
+			t.Error("expected equal for same numeric values")
+		}
+	})
+
+	t.Run("Different numeric values", func(t *testing.T) {
+		num1 := 25
+		num2 := 26
+		pv1 := PropertyValue{Number: &num1}
+		pv2 := PropertyValue{Number: &num2}
+		if pv1.Equals(pv2) {
+			t.Error("expected not equal for different numeric values")
+		}
+	})
+
+	t.Run("One nil number, one not", func(t *testing.T) {
+		num := 25
+		pv1 := PropertyValue{Number: &num}
+		pv2 := PropertyValue{}
+		if pv1.Equals(pv2) {
+			t.Error("expected not equal when one has number and other doesn't")
+		}
+	})
+
+	t.Run("Equal EDT values", func(t *testing.T) {
+		pv1 := PropertyValue{EDT: "AQIDBA=="}
+		pv2 := PropertyValue{EDT: "AQIDBA=="}
+		if !pv1.Equals(pv2) {
+			t.Error("expected equal for same EDT values")
+		}
+	})
+
+	t.Run("Different EDT values", func(t *testing.T) {
+		pv1 := PropertyValue{EDT: "AQIDBA=="}
+		pv2 := PropertyValue{EDT: "BAUG"}
+		if pv1.Equals(pv2) {
+			t.Error("expected not equal for different EDT values")
+		}
+	})
+
+	t.Run("Combined fields - all equal", func(t *testing.T) {
+		num1 := 25
+		num2 := 25
+		pv1 := PropertyValue{EDT: "AQID", String: "on", Number: &num1}
+		pv2 := PropertyValue{EDT: "AQID", String: "on", Number: &num2}
+		if !pv1.Equals(pv2) {
+			t.Error("expected equal when all fields match")
+		}
+	})
+
+	t.Run("Combined fields - string differs", func(t *testing.T) {
+		num1 := 25
+		num2 := 25
+		pv1 := PropertyValue{EDT: "AQID", String: "on", Number: &num1}
+		pv2 := PropertyValue{EDT: "AQID", String: "off", Number: &num2}
+		if pv1.Equals(pv2) {
+			t.Error("expected not equal when string differs")
+		}
+	})
+
+	t.Run("Empty values", func(t *testing.T) {
+		pv1 := PropertyValue{}
+		pv2 := PropertyValue{}
+		if !pv1.Equals(pv2) {
+			t.Error("expected equal for empty property values")
+		}
+	})
+}
