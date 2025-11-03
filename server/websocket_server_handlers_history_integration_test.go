@@ -624,4 +624,32 @@ func TestRecordSetResult_TrackingBeforeHistory(t *testing.T) {
 	if entries[0].Origin != handler.HistoryOriginSet {
 		t.Errorf("Expected origin Set, got %s", entries[0].Origin)
 	}
+
+	// Test negative case: After waiting > 500ms (tracking window),
+	// a new INF should be recorded as a separate entry
+	time.Sleep(600 * time.Millisecond)
+
+	change2 := handler.PropertyChangeNotification{
+		Device: testDevice,
+		Property: echonet_lite.Property{
+			EPC: testEPC,
+			EDT: []byte{0x31}, // different value (off)
+		},
+	}
+
+	ws.recordPropertyChange(change2)
+
+	// Should now have 2 entries (SET + INF after window)
+	entries = historyStore.Query(testDevice, query)
+	if len(entries) != 2 {
+		t.Fatalf("Expected 2 entries (SET + INF after window), got %d", len(entries))
+	}
+
+	// Verify origins: newest first (INF, SET)
+	if entries[0].Origin != handler.HistoryOriginNotification {
+		t.Errorf("Expected first entry to be Notification, got %s", entries[0].Origin)
+	}
+	if entries[1].Origin != handler.HistoryOriginSet {
+		t.Errorf("Expected second entry to be Set, got %s", entries[1].Origin)
+	}
 }

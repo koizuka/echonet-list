@@ -240,6 +240,7 @@ func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_
 	// Track this SET operation for duplicate detection BEFORE recording history
 	// This ensures that if an INF notification arrives immediately after the SET,
 	// it can be detected as a duplicate and not recorded separately.
+	// Entries are cleaned up automatically after setOperationTrackingWindow (500ms).
 	if ws.recentSetOps != nil {
 		trackingKey := fmt.Sprintf("%s_%s_%02X", device.IP.String(), device.EOJ.Specifier(), epc)
 		ws.recentSetOpsMutex.Lock()
