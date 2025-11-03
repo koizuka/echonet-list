@@ -183,11 +183,6 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 	historyStore.Record(entry)
 }
 
-const (
-	// duplicateNotificationWindow is the time window to check for duplicate notifications after a Set operation
-	duplicateNotificationWindow = 2 * time.Second
-)
-
 func (ws *WebSocketServer) recordPropertyChange(change handler.PropertyChangeNotification) {
 	value := protocol.MakePropertyData(change.Device.EOJ.ClassCode(), change.Property)
 
@@ -241,9 +236,11 @@ func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_
 			"epc", fmt.Sprintf("0x%02X", epc),
 			"value", value)
 	}
-	ws.recordHistory(device, epc, value, handler.HistoryOriginSet)
 
-	// Track this SET operation for duplicate detection (only if map is initialized)
+	// Track this SET operation for duplicate detection BEFORE recording history
+	// This ensures that if an INF notification arrives immediately after the SET,
+	// it can be detected as a duplicate and not recorded separately.
+	// Entries are cleaned up automatically after setOperationTrackingWindow (500ms).
 	if ws.recentSetOps != nil {
 		trackingKey := fmt.Sprintf("%s_%s_%02X", device.IP.String(), device.EOJ.Specifier(), epc)
 		ws.recentSetOpsMutex.Lock()
@@ -259,6 +256,8 @@ func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_
 				"value", value)
 		}
 	}
+
+	ws.recordHistory(device, epc, value, handler.HistoryOriginSet)
 }
 
 func (ws *WebSocketServer) clearHistoryForDevice(device handler.IPAndEOJ) {

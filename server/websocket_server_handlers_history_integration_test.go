@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -530,4 +531,125 @@ func TestRecordPropertyChange_DuplicateDetection(t *testing.T) {
 			t.Errorf("Expected origin Notification for device 2, got %s", entries[0].Origin)
 		}
 	})
+}
+
+// TestRecordSetResult_TrackingBeforeHistory verifies that recordSetResult
+// adds the SET operation to the tracking map BEFORE recording it to history.
+// This ensures that if an INF notification arrives immediately after the SET,
+// it can be detected as a duplicate.
+//
+// This test prevents regression of the bug where tracking was added after
+// history recording, causing SET confirmations to be recorded as separate entries.
+func TestRecordSetResult_TrackingBeforeHistory(t *testing.T) {
+	ctx := context.Background()
+
+	// Create a test handler with history enabled
+	handlerOpts := handler.ECHONETLieHandlerOptions{
+		TestMode: true,
+		HistoryOptions: handler.HistoryOptions{
+			PerDeviceSettableLimit:    10,
+			PerDeviceNonSettableLimit: 10,
+		},
+	}
+	liteHandler, err := handler.NewECHONETLiteHandler(ctx, handlerOpts)
+	if err != nil {
+		t.Fatalf("Failed to create handler: %v", err)
+	}
+	defer liteHandler.Close()
+
+	// Create test device
+	testIP := net.ParseIP("192.168.1.100")
+	testEOJ := echonet_lite.MakeEOJ(0x0291, 1)
+	testDevice := handler.IPAndEOJ{IP: testIP, EOJ: testEOJ}
+
+	// Register device in handler
+	dataHandler := liteHandler.GetDataManagementHandler()
+	dataHandler.RegisterDevice(testDevice)
+
+	ws := &WebSocketServer{
+		ctx:          ctx,
+		handler:      liteHandler,
+		recentSetOps: make(map[string]setOperationTracker),
+	}
+
+	testEPC := echonet_lite.EPCType(0x80)
+	testValue := protocol.PropertyData{
+		String: "on",
+		EDT:    "MA==", // base64 of 0x30
+	}
+
+	// Record a SET operation
+	ws.recordSetResult(testDevice, testEPC, testValue)
+
+	// Verify tracking entry exists immediately after recordSetResult
+	// The tracking key format is: IP_EOJ_EPC (EPC in uppercase hex)
+	expectedKey := fmt.Sprintf("%s_%s_%02X", testDevice.IP.String(), testDevice.EOJ.Specifier(), testEPC)
+	ws.recentSetOpsMutex.RLock()
+	tracker, exists := ws.recentSetOps[expectedKey]
+	ws.recentSetOpsMutex.RUnlock()
+
+	if !exists {
+		t.Fatalf("Tracking entry should exist immediately after recordSetResult. Expected key: %s", expectedKey)
+	}
+
+	// Verify the tracked value matches
+	expectedValue := handler.PropertyValue{
+		String: "on",
+		EDT:    "MA==",
+	}
+	if !tracker.Value.Equals(expectedValue) {
+		t.Errorf("Tracked value mismatch. Expected %+v, got %+v", expectedValue, tracker.Value)
+	}
+
+	// Now simulate an immediate INF notification with the same value
+	change := handler.PropertyChangeNotification{
+		Device: testDevice,
+		Property: echonet_lite.Property{
+			EPC: testEPC,
+			EDT: []byte{0x30}, // same as SET
+		},
+	}
+
+	ws.recordPropertyChange(change)
+
+	// Verify that only 1 entry exists in history (INF was filtered)
+	historyStore := ws.GetHistoryStore()
+	query := handler.HistoryQuery{Limit: 10}
+	entries := historyStore.Query(testDevice, query)
+
+	if len(entries) != 1 {
+		t.Fatalf("Expected 1 entry (INF should be filtered), got %d", len(entries))
+	}
+
+	if entries[0].Origin != handler.HistoryOriginSet {
+		t.Errorf("Expected origin Set, got %s", entries[0].Origin)
+	}
+
+	// Test negative case: After waiting > 500ms (tracking window),
+	// a new INF should be recorded as a separate entry
+	time.Sleep(600 * time.Millisecond)
+
+	change2 := handler.PropertyChangeNotification{
+		Device: testDevice,
+		Property: echonet_lite.Property{
+			EPC: testEPC,
+			EDT: []byte{0x31}, // different value (off)
+		},
+	}
+
+	ws.recordPropertyChange(change2)
+
+	// Should now have 2 entries (SET + INF after window)
+	entries = historyStore.Query(testDevice, query)
+	if len(entries) != 2 {
+		t.Fatalf("Expected 2 entries (SET + INF after window), got %d", len(entries))
+	}
+
+	// Verify origins: newest first (INF, SET)
+	if entries[0].Origin != handler.HistoryOriginNotification {
+		t.Errorf("Expected first entry to be Notification, got %s", entries[0].Origin)
+	}
+	if entries[1].Origin != handler.HistoryOriginSet {
+		t.Errorf("Expected second entry to be Set, got %s", entries[1].Origin)
+	}
 }
