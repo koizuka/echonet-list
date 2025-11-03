@@ -183,11 +183,6 @@ func (ws *WebSocketServer) recordHistory(device handler.IPAndEOJ, epc echonet_li
 	historyStore.Record(entry)
 }
 
-const (
-	// duplicateNotificationWindow is the time window to check for duplicate notifications after a Set operation
-	duplicateNotificationWindow = 2 * time.Second
-)
-
 func (ws *WebSocketServer) recordPropertyChange(change handler.PropertyChangeNotification) {
 	value := protocol.MakePropertyData(change.Device.EOJ.ClassCode(), change.Property)
 
