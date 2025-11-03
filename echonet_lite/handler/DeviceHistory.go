@@ -69,7 +69,8 @@ type DeviceHistoryEntry struct {
 
 // HistoryQuery specifies filters applied when fetching history entries.
 type HistoryQuery struct {
-	Limit int
+	Limit        int
+	SettableOnly bool // If true, only return settable (writable) property entries
 }
 
 // DeviceHistoryStore defines behaviour required from a history backend.
@@ -170,8 +171,14 @@ func (s *memoryDeviceHistoryStore) Query(device IPAndEOJ, query HistoryQuery) []
 	nonSettableEntries := s.nonSettableData[key]
 	s.mu.RUnlock()
 
-	// Both slices are already sorted (oldest first), so merge them efficiently
-	allEntries := mergeEntriesByTimestamp(settableEntries, nonSettableEntries)
+	// If settableOnly is requested, only use settableData
+	var allEntries []DeviceHistoryEntry
+	if query.SettableOnly {
+		allEntries = settableEntries
+	} else {
+		// Both slices are already sorted (oldest first), so merge them efficiently
+		allEntries = mergeEntriesByTimestamp(settableEntries, nonSettableEntries)
+	}
 
 	if len(allEntries) == 0 {
 		return nil

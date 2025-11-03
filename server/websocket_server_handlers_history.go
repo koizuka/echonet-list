@@ -59,13 +59,19 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 	}
 
 	query := handler.HistoryQuery{
-		Limit: limit,
+		Limit:        limit,
+		SettableOnly: settableOnly,
 	}
 
 	history := ws.GetHistoryStore().Query(ipAndEOJ, query)
 	resultEntries := make([]protocol.HistoryEntry, 0, len(history))
 
-	totalEntries := len(history)
+	// Log history retrieval for settable-only queries
+	if settableOnly {
+		slog.Info("Get settable history",
+			"device", ipAndEOJ.Key(),
+			"returned", len(history))
+	}
 
 	for _, entry := range history {
 		// For event entries (online/offline), EPC is 0 and should be omitted from the response
@@ -74,17 +80,9 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 			epcStr = fmt.Sprintf("%02X", byte(entry.EPC))
 		}
 
-		// Calculate settable flag dynamically based on current Set Property Map
-		// For event entries (online/offline), settable is always false
-		settable := false
-		if entry.EPC != 0 && entry.Origin != handler.HistoryOriginOnline && entry.Origin != handler.HistoryOriginOffline {
-			settable = ws.isPropertySettable(ipAndEOJ, entry.EPC)
-		}
-
-		// Apply settableOnly filter if requested
-		if settableOnly && !settable {
-			continue
-		}
+		// Use the settable flag from the stored entry
+		// This preserves the settable state at the time of recording
+		settable := entry.Settable
 
 		resultEntries = append(resultEntries, protocol.HistoryEntry{
 			Timestamp: entry.Timestamp,
@@ -93,14 +91,6 @@ func (ws *WebSocketServer) handleGetDeviceHistoryFromClient(msg *protocol.Messag
 			Origin:    protocol.HistoryOrigin(entry.Origin),
 			Settable:  settable,
 		})
-	}
-
-	// Log history retrieval for settable-only queries
-	if settableOnly {
-		slog.Info("Get settable history",
-			"device", ipAndEOJ.Key(),
-			"totalEntries", totalEntries,
-			"returned", len(resultEntries))
 	}
 
 	response := protocol.DeviceHistoryResponse{
