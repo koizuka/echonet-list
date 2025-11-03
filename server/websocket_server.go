@@ -241,9 +241,10 @@ func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_
 			"epc", fmt.Sprintf("0x%02X", epc),
 			"value", value)
 	}
-	ws.recordHistory(device, epc, value, handler.HistoryOriginSet)
 
-	// Track this SET operation for duplicate detection (only if map is initialized)
+	// Track this SET operation for duplicate detection BEFORE recording history
+	// This ensures that if an INF notification arrives immediately after the SET,
+	// it can be detected as a duplicate and not recorded separately.
 	if ws.recentSetOps != nil {
 		trackingKey := fmt.Sprintf("%s_%s_%02X", device.IP.String(), device.EOJ.Specifier(), epc)
 		ws.recentSetOpsMutex.Lock()
@@ -259,6 +260,8 @@ func (ws *WebSocketServer) recordSetResult(device handler.IPAndEOJ, epc echonet_
 				"value", value)
 		}
 	}
+
+	ws.recordHistory(device, epc, value, handler.HistoryOriginSet)
 }
 
 func (ws *WebSocketServer) clearHistoryForDevice(device handler.IPAndEOJ) {
