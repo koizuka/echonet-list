@@ -230,8 +230,8 @@ func (s *memoryDeviceHistoryStore) IsDuplicateNotification(device IPAndEOJ, epc 
 
 		// Check if this is a Set operation for the same EPC
 		if entry.Origin == HistoryOriginSet && entry.EPC == epc {
-			// Check if the values match
-			equal := propertyValueEqual(entry.Value, value)
+			// Check if the values match using the Equals method
+			equal := entry.Value.Equals(value)
 			// Debug logging
 			if !equal {
 				slog.Debug("PropertyValue comparison mismatch",
@@ -250,26 +250,6 @@ func (s *memoryDeviceHistoryStore) IsDuplicateNotification(device IPAndEOJ, epc 
 	}
 
 	return false
-}
-
-// propertyValueEqual compares two PropertyValue values for equality
-func propertyValueEqual(a, b PropertyValue) bool {
-	// Compare EDT (base64 encoded bytes)
-	if a.EDT != b.EDT {
-		return false
-	}
-	// Compare String (for alias-based properties)
-	if a.String != b.String {
-		return false
-	}
-	// Compare Number (for numeric properties)
-	if (a.Number == nil) != (b.Number == nil) {
-		return false
-	}
-	if a.Number != nil && b.Number != nil && *a.Number != *b.Number {
-		return false
-	}
-	return true
 }
 
 // mergeEntriesByTimestamp merges two already-sorted slices into a single sorted slice.

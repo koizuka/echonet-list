@@ -35,6 +35,8 @@ const (
 
 	// SET operation tracking window
 	setOperationTrackingWindow = 500 * time.Millisecond // Window to track SET operations for duplicate INF detection
+	// SET operation cleanup interval
+	setOperationCleanupInterval = time.Second // Interval to clean up expired SET operation tracking entries
 )
 
 // StartOptions は WebSocketServer の起動オプションを表す
@@ -54,7 +56,9 @@ type StartOptions struct {
 	HTTPWebRoot string
 }
 
-// setOperationTracker tracks a recent SET operation for duplicate detection
+// setOperationTracker tracks a recent SET operation for duplicate detection.
+// Entries are automatically cleaned up by cleanupSetOperationTracker after
+// setOperationTrackingWindow (500ms) to prevent memory leaks.
 type setOperationTracker struct {
 	Value     handler.PropertyValue
 	Timestamp time.Time
@@ -490,10 +494,10 @@ func (ws *WebSocketServer) cleanupSetOperationTracker() {
 		slog.Info("SET operation tracker cleanup stopped")
 	}()
 
-	slog.Info("SET operation tracker cleanup started", "checkInterval", time.Second)
+	slog.Info("SET operation tracker cleanup started", "checkInterval", setOperationCleanupInterval)
 
-	// クリーンアップ用のティッカー（1秒ごと）
-	ticker := time.NewTicker(time.Second)
+	// クリーンアップ用のティッカー
+	ticker := time.NewTicker(setOperationCleanupInterval)
 	defer ticker.Stop()
 
 	for {
