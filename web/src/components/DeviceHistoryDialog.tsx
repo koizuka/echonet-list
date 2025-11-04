@@ -167,10 +167,23 @@ export function DeviceHistoryDialog({
     }
   };
 
-  // Group entries by timestamp and collect all unique properties
+  /**
+   * Groups history entries by timestamp and collects unique properties for column headers.
+   *
+   * This transforms the flat list of history entries into a table structure where:
+   * - Each row represents a unique timestamp
+   * - Each column represents a property (EPC)
+   * - Event entries (online/offline) are stored with a special EVENT_KEY
+   * - Property names are pre-computed for performance
+   *
+   * @returns Object containing:
+   *   - groupedEntries: Rows sorted by timestamp (newest first)
+   *   - propertyColumns: Sorted array of unique EPCs
+   *   - propertyNames: Map of EPC to human-readable property names
+   */
   const { groupedEntries, propertyColumns, propertyNames } = useMemo(() => {
     // Group entries by timestamp
-    const timestampMap = new Map<string, Map<string, typeof entries[0]>>();
+    const timestampMap = new Map<string, Map<string, typeof entries[number]>>();
     const uniqueProperties = new Set<string>();
 
     entries.forEach((entry) => {
@@ -283,7 +296,7 @@ export function DeviceHistoryDialog({
           {!isLoading && !error && groupedEntries.length > 0 && (
             <div className="relative w-full">
               {/* Use raw <table> element instead of shadcn Table wrapper for better scroll control */}
-              <table className="w-full caption-bottom text-sm">
+              <table className="w-full caption-bottom text-sm" aria-label="Device history with properties as columns">
                 <TableHeader>
                 <TableRow>
                   {/* Z-index strategy: timestamp header needs z-30 to appear above other sticky headers (z-20)
@@ -313,9 +326,9 @@ export function DeviceHistoryDialog({
 
                   // Determine row color based on event type
                   const rowColorClass = isOnline
-                    ? 'bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 font-semibold'
+                    ? 'bg-green-200 dark:bg-green-900 text-green-900 dark:text-green-200 font-semibold'
                     : isOffline
-                    ? 'bg-red-200 dark:bg-red-800 text-red-900 dark:text-red-100 font-semibold'
+                    ? 'bg-red-200 dark:bg-red-900 text-red-900 dark:text-red-200 font-semibold'
                     : '';
 
                   const testId = hasEvent ? `history-event-${eventEntry?.origin}` : undefined;

@@ -418,7 +418,7 @@ describe('DeviceHistoryDialog', () => {
 
     // Verify green color classes are applied (table row styling)
     expect(eventRow.className).toMatch(/bg-green-200/);
-    expect(eventRow.className).toMatch(/dark:bg-green-800/);
+    expect(eventRow.className).toMatch(/dark:bg-green-900/);
     expect(eventRow.className).toMatch(/font-semibold/);
 
     // Verify event description is displayed
@@ -460,7 +460,7 @@ describe('DeviceHistoryDialog', () => {
 
     // Verify red color classes are applied (table row styling)
     expect(eventRow.className).toMatch(/bg-red-200/);
-    expect(eventRow.className).toMatch(/dark:bg-red-800/);
+    expect(eventRow.className).toMatch(/dark:bg-red-900/);
     expect(eventRow.className).toMatch(/font-semibold/);
 
     // Verify event description is displayed
