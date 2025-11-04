@@ -816,6 +816,268 @@ describe('DeviceHistoryDialog', () => {
     });
   });
 
+  describe('Row compression for same timestamp and origin', () => {
+    it('should merge multiple properties with same timestamp and same origin into one row', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:00:00.123Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:00:00.456Z', // Different milliseconds, same second
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'set', // Same origin as previous entry
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Should have only ONE row for both properties (excluding header)
+      const table = screen.getByRole('table');
+      const rows = table.querySelectorAll('tbody tr');
+      expect(rows.length).toBe(1);
+
+      // The row should contain both property values
+      const row = rows[0];
+      expect(row.textContent).toContain('on');
+      expect(row.textContent).toContain('25');
+    });
+
+    it('should create separate rows for same timestamp but different origins', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:00:00.123Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:00:00.456Z', // Different milliseconds, same second
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'notification', // Different origin
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Should have TWO rows for different origins (excluding header)
+      const table = screen.getByRole('table');
+      const rows = table.querySelectorAll('tbody tr');
+      expect(rows.length).toBe(2);
+
+      // Each row should have its own origin
+      const rowTexts = Array.from(rows).map((r) => r.textContent);
+      expect(rowTexts.some((text) => text?.includes('Operation'))).toBe(true); // 'set' origin
+      expect(rowTexts.some((text) => text?.includes('Notification'))).toBe(true); // 'notification' origin
+    });
+
+    it('should keep online/offline events in separate rows regardless of timestamp', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:00:00.123Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:00:00.456Z', // Different milliseconds, same second
+          origin: 'online',
+          settable: false,
+          value: { EDT: '' },
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Should have TWO rows (one for property, one for event)
+      const table = screen.getByRole('table');
+      const rows = table.querySelectorAll('tbody tr');
+      expect(rows.length).toBe(2);
+
+      // Event row should be separate
+      const eventRow = screen.getByTestId('history-event-online');
+      expect(eventRow).toBeInTheDocument();
+    });
+
+    it('should handle complex scenario with multiple timestamps and origins', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        // Time 1: Two properties with 'set' origin (same second, different milliseconds)
+        {
+          timestamp: '2024-05-01T12:00:00.123Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:00:00.456Z',
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'set',
+          settable: true,
+        },
+        // Time 1: One property with 'notification' origin (same second, different origin)
+        {
+          timestamp: '2024-05-01T12:00:00.789Z',
+          epc: 'B3',
+          value: { number: 26, EDT: 'MjY=' },
+          origin: 'notification',
+          settable: true,
+        },
+        // Time 2: Online event
+        {
+          timestamp: '2024-05-01T12:01:00.000Z',
+          origin: 'online',
+          settable: false,
+          value: { EDT: '' },
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Should have THREE rows:
+      // 1. Time 12:00:00, origin 'set' with 80 and B3
+      // 2. Time 12:00:00, origin 'notification' with B3
+      // 3. Time 12:01:00, origin 'online' event
+      const table = screen.getByRole('table');
+      const rows = table.querySelectorAll('tbody tr');
+      expect(rows.length).toBe(3);
+    });
+
+    it('should use the latest value when same property is updated multiple times in the same second', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:00:00.100Z',
+          epc: 'B3',
+          value: { number: 20, EDT: 'MjA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:00:00.200Z',
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:00:00.900Z', // Latest value in the same second
+          epc: 'B3',
+          value: { number: 30, EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Should have only ONE row (all entries are in the same second with same origin)
+      const table = screen.getByRole('table');
+      const rows = table.querySelectorAll('tbody tr');
+      expect(rows.length).toBe(1);
+
+      // The row should contain the LATEST value (30), not earlier values
+      const row = rows[0];
+      expect(row.textContent).toContain('30');
+      expect(row.textContent).not.toContain('20');
+      expect(row.textContent).not.toContain('25');
+    });
+  });
+
   describe('Table format display with properties as columns', () => {
     it('should render history entries in table format with properties as columns', () => {
       const mockEntries: DeviceHistoryEntry[] = [

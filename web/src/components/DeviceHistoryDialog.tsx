@@ -22,7 +22,7 @@ import { useDeviceHistory } from '@/hooks/useDeviceHistory';
 import { isJapanese } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor, shouldShowHexViewer } from '@/libs/propertyHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
-import type { Device, PropertyDescriptionData } from '@/hooks/types';
+import type { Device, PropertyDescriptionData, HistoryOrigin } from '@/hooks/types';
 import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 
 // Special key used to store event entries (online/offline) in the property map
@@ -182,26 +182,42 @@ export function DeviceHistoryDialog({
    *   - propertyNames: Map of EPC to human-readable property names
    */
   const { groupedEntries, propertyColumns, propertyNames } = useMemo(() => {
-    // Group entries by timestamp
-    const timestampMap = new Map<string, Map<string, typeof entries[number]>>();
+    // Group entries by timestamp (truncated to seconds) AND origin (for non-event entries)
+    // Events (online/offline) always get their own row
+    const groupMap = new Map<string, { timestamp: string; origin: HistoryOrigin; properties: Map<string, typeof entries[number]> }>();
     const uniqueProperties = new Set<string>();
 
     entries.forEach((entry) => {
-      const timestamp = entry.timestamp;
-      if (!timestampMap.has(timestamp)) {
-        timestampMap.set(timestamp, new Map());
+      const isEvent = entry.origin === 'online' || entry.origin === 'offline';
+
+      // Truncate timestamp to seconds (remove milliseconds)
+      // This groups entries that occurred within the same second
+      const date = new Date(entry.timestamp);
+      const timestampSeconds = date.toISOString().split('.')[0] + 'Z'; // Keep only up to seconds
+
+      // Create a grouping key: for events, use timestamp only (they always get their own row)
+      // For properties, use timestamp (truncated to seconds) + origin to group same-origin updates together
+      const groupKey = isEvent ? entry.timestamp : `${timestampSeconds}:${entry.origin}`;
+
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, {
+          timestamp: entry.timestamp, // Keep the original timestamp for display
+          origin: entry.origin,
+          properties: new Map(),
+        });
       }
 
-      const entryMap = timestampMap.get(timestamp);
-      if (!entryMap) return; // Safety check, should never happen
+      const group = groupMap.get(groupKey);
+      if (!group) return; // Safety check, should never happen
 
-      const isEvent = entry.origin === 'online' || entry.origin === 'offline';
       if (!isEvent && entry.epc && typeof entry.epc === 'string') {
         uniqueProperties.add(entry.epc);
-        entryMap.set(entry.epc, entry);
+        // If the same property already exists, overwrite with the later value
+        // (entries are typically ordered, so later entries will overwrite earlier ones)
+        group.properties.set(entry.epc, entry);
       } else if (isEvent) {
         // Store event entries with a special key
-        entryMap.set(EVENT_KEY, entry);
+        group.properties.set(EVENT_KEY, entry);
       }
     });
 
@@ -218,15 +234,15 @@ export function DeviceHistoryDialog({
       return nameA.localeCompare(nameB);
     });
 
-    // Convert to array and sort by timestamp (newest first)
-    const grouped = Array.from(timestampMap.entries())
-      .map(([timestamp, propertyMap]) => ({
-        timestamp,
-        properties: propertyMap,
-        // Get the origin from the first entry at this timestamp
-        origin: Array.from(propertyMap.values())[0]?.origin || 'notification',
-      }))
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    // Convert to array and sort by timestamp (newest first), then by origin
+    const grouped = Array.from(groupMap.values())
+      .sort((a, b) => {
+        const timeDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        if (timeDiff !== 0) return timeDiff;
+        // If timestamps are equal, sort by origin (events first, then set, then notification)
+        const originOrder: Record<HistoryOrigin, number> = { online: 0, offline: 1, set: 2, notification: 3 };
+        return originOrder[a.origin] - originOrder[b.origin];
+      });
 
     return {
       groupedEntries: grouped,
