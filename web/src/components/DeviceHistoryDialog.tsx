@@ -218,9 +218,11 @@ export function DeviceHistoryDialog({
 
       if (!isEvent && entry.epc && typeof entry.epc === 'string') {
         uniqueProperties.add(entry.epc);
-        // If the same property already exists, overwrite with the later value
-        // (entries are typically ordered, so later entries will overwrite earlier ones)
-        group.properties.set(entry.epc, entry);
+        // If the same property already exists, keep the latest entry by comparing timestamps
+        const existing = group.properties.get(entry.epc);
+        if (!existing || new Date(entry.timestamp) >= new Date(existing.timestamp)) {
+          group.properties.set(entry.epc, entry);
+        }
       } else if (isEvent) {
         // Store event entries with a special key
         group.properties.set(EVENT_KEY, entry);
