@@ -412,19 +412,17 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Find the online event card by data-testid
-    const eventCard = screen.getByTestId('history-event-online');
-    expect(eventCard).toBeInTheDocument();
+    // Find the online event row by data-testid
+    const eventRow = screen.getByTestId('history-event-online');
+    expect(eventRow).toBeInTheDocument();
 
-    // Verify green color classes are applied (updated for new log-style formatting)
-    expect(eventCard.className).toMatch(/bg-green-200/);
-    expect(eventCard.className).toMatch(/dark:bg-green-800/);
-    expect(eventCard.className).toMatch(/border-l-4/);
-    expect(eventCard.className).toMatch(/border-green-600/);
-    expect(eventCard.className).toMatch(/font-semibold/);
+    // Verify green color classes are applied (table row styling)
+    expect(eventRow.className).toMatch(/bg-green-200/);
+    expect(eventRow.className).toMatch(/dark:bg-green-900/);
+    expect(eventRow.className).toMatch(/font-semibold/);
 
     // Verify event description is displayed
-    expect(eventCard.textContent).toMatch(/Device came online/i);
+    expect(eventRow.textContent).toMatch(/Device came online/i);
   });
 
   it('should apply red styling for offline events', () => {
@@ -456,19 +454,17 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Find the offline event card by data-testid
-    const eventCard = screen.getByTestId('history-event-offline');
-    expect(eventCard).toBeInTheDocument();
+    // Find the offline event row by data-testid
+    const eventRow = screen.getByTestId('history-event-offline');
+    expect(eventRow).toBeInTheDocument();
 
-    // Verify red color classes are applied (updated for new log-style formatting)
-    expect(eventCard.className).toMatch(/bg-red-200/);
-    expect(eventCard.className).toMatch(/dark:bg-red-800/);
-    expect(eventCard.className).toMatch(/border-l-4/);
-    expect(eventCard.className).toMatch(/border-red-600/);
-    expect(eventCard.className).toMatch(/font-semibold/);
+    // Verify red color classes are applied (table row styling)
+    expect(eventRow.className).toMatch(/bg-red-200/);
+    expect(eventRow.className).toMatch(/dark:bg-red-900/);
+    expect(eventRow.className).toMatch(/font-semibold/);
 
     // Verify event description is displayed
-    expect(eventCard.textContent).toMatch(/Device went offline/i);
+    expect(eventRow.textContent).toMatch(/Device went offline/i);
   });
 
   it('should apply blue styling for settable property entries', () => {
@@ -501,13 +497,11 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Settable property entries should have blue background (updated for new log-style formatting)
+    // Settable property entries should have blue background (table row styling)
     // Use document.querySelectorAll since AlertDialog uses portal
-    const blueCards = document.querySelectorAll('.bg-blue-200');
-    expect(blueCards.length).toBe(1);
-    expect(blueCards[0].className).toMatch(/dark:bg-blue-800/);
-    expect(blueCards[0].className).toMatch(/border-l-4/);
-    expect(blueCards[0].className).toMatch(/border-blue-600/);
+    const blueRows = document.querySelectorAll('.bg-blue-200');
+    expect(blueRows.length).toBe(1);
+    expect(blueRows[0].className).toMatch(/dark:bg-blue-900/);
   });
 
   it('should not apply background colors for non-settable entries', () => {
@@ -615,10 +609,10 @@ describe('DeviceHistoryDialog', () => {
     const greenCards = document.querySelectorAll('.bg-green-200');
     const redCards = document.querySelectorAll('.bg-red-200');
 
-    // settable -> blue, online -> green, offline -> red, non-settable -> no color
+    // settable -> blue, online -> green (row + timestamp cell = 2), offline -> red (row + timestamp cell = 2), non-settable -> no color
     expect(blueCards.length).toBe(1);
-    expect(greenCards.length).toBe(1);
-    expect(redCards.length).toBe(1);
+    expect(greenCards.length).toBe(2); // Event row applies color to both row and timestamp cell
+    expect(redCards.length).toBe(2); // Event row applies color to both row and timestamp cell
   });
 
   it('should display event description for online/offline events', () => {
@@ -819,6 +813,165 @@ describe('DeviceHistoryDialog', () => {
       // Should display IP address and EOJ
       expect(container.textContent).toContain('192.168.1.10');
       expect(container.textContent).toContain('0130:1');
+    });
+  });
+
+  describe('Table format display with properties as columns', () => {
+    it('should render history entries in table format with properties as columns', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:34:56.789Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:35:10.123Z',
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'notification',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Table should exist
+      const table = screen.getByRole('table');
+      expect(table).toBeInTheDocument();
+
+      // Table headers should be present
+      expect(screen.getByText(/Time/i)).toBeInTheDocument();
+      expect(screen.getByText(/Origin/i)).toBeInTheDocument();
+
+      // Property names should be in column headers
+      expect(screen.getByText(/Operation Status/i)).toBeInTheDocument();
+      expect(screen.getByText(/Temperature Setting/i)).toBeInTheDocument();
+    });
+
+    it('should display event entries with special styling in table', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:00:00Z',
+          origin: 'online',
+          settable: false,
+          value: { EDT: '' },
+        },
+        {
+          timestamp: '2024-05-01T12:01:00Z',
+          origin: 'offline',
+          settable: false,
+          value: { EDT: '' },
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Event entries should be displayed
+      const onlineEvent = screen.getByTestId('history-event-online');
+      const offlineEvent = screen.getByTestId('history-event-offline');
+
+      expect(onlineEvent).toBeInTheDocument();
+      expect(offlineEvent).toBeInTheDocument();
+
+      // Event descriptions should be in the table
+      expect(screen.getByText(/Device came online/i)).toBeInTheDocument();
+      expect(screen.getByText(/Device went offline/i)).toBeInTheDocument();
+    });
+
+    it('should truncate long property names with title attribute', () => {
+      const mockPropertyDescriptionsWithLongName = {
+        '0130': {
+          classCode: '0130',
+          properties: {
+            B3: {
+              description: 'Very Long Property Name That Should Be Truncated In The UI',
+              numberDesc: {
+                min: 0,
+                max: 50,
+                offset: 0,
+                unit: 'C',
+                edtLen: 1,
+              },
+            },
+          },
+        },
+      };
+
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:34:56.789Z',
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'set',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptionsWithLongName}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Long property name should exist in table header
+      const propertyHeader = screen.getByText(/Very Long Property Name/i);
+      expect(propertyHeader).toBeInTheDocument();
+
+      // The parent TableHead element should have title attribute
+      const tableHead = propertyHeader.closest('th');
+      expect(tableHead).toHaveAttribute('title', 'Very Long Property Name That Should Be Truncated In The UI');
+
+      // Should have truncate class
+      expect(propertyHeader.className).toMatch(/truncate/);
     });
   });
 });
