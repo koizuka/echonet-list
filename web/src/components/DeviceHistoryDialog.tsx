@@ -10,6 +10,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { HexViewer } from '@/components/HexViewer';
 import { useDeviceHistory } from '@/hooks/useDeviceHistory';
 import { isJapanese } from '@/libs/languageHelper';
@@ -157,45 +165,54 @@ export function DeviceHistoryDialog({
     }
   };
 
-  // Memoize processed entries to prevent re-rendering on propertyDescriptions updates
-  /* eslint-disable react-hooks/preserve-manual-memoization */
-  const processedEntries = useMemo(() => {
-    return entries.map((entry, index) => {
+  // Group entries by timestamp and collect all unique properties
+  const { groupedEntries, propertyColumns } = useMemo(() => {
+    // Group entries by timestamp
+    const timestampMap = new Map<string, Map<string, typeof entries[0]>>();
+    const uniqueProperties = new Set<string>();
+
+    entries.forEach((entry) => {
+      const timestamp = entry.timestamp;
+      if (!timestampMap.has(timestamp)) {
+        timestampMap.set(timestamp, new Map());
+      }
+
       const isEvent = entry.origin === 'online' || entry.origin === 'offline';
-      const eventDescription = entry.origin === 'online'
-        ? texts.eventOnline
-        : entry.origin === 'offline'
-        ? texts.eventOffline
-        : null;
-
-      // For property changes
-      const propertyName = entry.epc
-        ? getPropertyName(entry.epc, propertyDescriptions, classCode)
-        : '';
-      const descriptor = entry.epc
-        ? getPropertyDescriptor(entry.epc, propertyDescriptions, classCode)
-        : undefined;
-      const formattedValue = !isEvent
-        ? formatPropertyValue(entry.value, descriptor)
-        : '';
-      const canShowHexViewer = !isEvent && shouldShowHexViewer(entry.value, descriptor);
-
-      return {
-        ...entry,
-        index,
-        isEvent,
-        eventDescription,
-        propertyName,
-        formattedValue,
-        canShowHexViewer,
-      };
+      if (!isEvent && entry.epc) {
+        uniqueProperties.add(entry.epc);
+        timestampMap.get(timestamp)!.set(entry.epc, entry);
+      } else if (isEvent) {
+        // Store event entries with a special key
+        timestampMap.get(timestamp)!.set('__event__', entry);
+      }
     });
-  }, [entries, propertyDescriptions, classCode, texts.eventOnline, texts.eventOffline]);
-  /* eslint-enable react-hooks/preserve-manual-memoization */
+
+    // Sort properties by name for consistent column order
+    const sortedProperties = Array.from(uniqueProperties).sort((a, b) => {
+      const nameA = getPropertyName(a, propertyDescriptions, classCode);
+      const nameB = getPropertyName(b, propertyDescriptions, classCode);
+      return nameA.localeCompare(nameB);
+    });
+
+    // Convert to array and sort by timestamp (newest first)
+    const grouped = Array.from(timestampMap.entries())
+      .map(([timestamp, propertyMap]) => ({
+        timestamp,
+        properties: propertyMap,
+        // Get the origin from the first entry at this timestamp
+        origin: Array.from(propertyMap.values())[0]?.origin || 'notification',
+      }))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return {
+      groupedEntries: grouped,
+      propertyColumns: sortedProperties,
+    };
+  }, [entries, propertyDescriptions, classCode]);
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <AlertDialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <AlertDialogHeader>
           <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
           <div className="text-xs text-muted-foreground space-y-0.5">
@@ -227,7 +244,7 @@ export function DeviceHistoryDialog({
         </div>
 
         {/* History Content */}
-        <div className="flex-1 overflow-y-scroll min-h-[200px] scrollbar-visible">
+        <div className="flex-1 overflow-auto min-h-[200px] scrollbar-visible">
           {isLoading && (
             <div className="flex items-center justify-center h-full">
               <div className="flex flex-col items-center gap-2">
@@ -251,73 +268,144 @@ export function DeviceHistoryDialog({
             </div>
           )}
 
-          {!isLoading && !error && processedEntries.length > 0 && (
-            <div className="space-y-0.5 font-mono text-xs">
-              {processedEntries.map((entry) => {
-                // Determine color scheme based on entry type
-                // Events (online/offline) get their own colors
-                // Settable properties get blue background
-                // Other entries have no background color
-                const eventColorClass = entry.isEvent
-                  ? entry.origin === 'online'
-                    ? 'bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 font-semibold border-l-4 border-green-600 dark:border-green-400'
-                    : 'bg-red-200 dark:bg-red-800 text-red-900 dark:text-red-100 font-semibold border-l-4 border-red-600 dark:border-red-400'
-                  : entry.settable
-                  ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 border-l-4 border-blue-600 dark:border-blue-400'
-                  : '';
+          {!isLoading && !error && groupedEntries.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[140px] sticky left-0 bg-background dark:bg-background z-20 border-r h-8 py-1 px-2">{texts.timestamp}</TableHead>
+                  <TableHead className="w-[100px] h-8 py-1 px-2">{texts.origin}</TableHead>
+                  {propertyColumns.map((epc) => {
+                    const propertyName = getPropertyName(epc, propertyDescriptions, classCode);
+                    return (
+                      <TableHead
+                        key={epc}
+                        className="min-w-[120px] max-w-[200px] h-8 py-1 px-2 text-center"
+                        title={propertyName}
+                      >
+                        <span className="truncate block text-xs">{propertyName}</span>
+                      </TableHead>
+                    );
+                  })}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupedEntries.map((group, rowIndex) => {
+                  const hasEvent = group.properties.has('__event__');
+                  const eventEntry = hasEvent ? group.properties.get('__event__') : null;
+                  const isOnline = eventEntry?.origin === 'online';
+                  const isOffline = eventEntry?.origin === 'offline';
 
-                // Generate testid for event entries
-                const testId = entry.isEvent ? `history-event-${entry.origin}` : undefined;
+                  // Determine row color based on event type
+                  const rowColorClass = isOnline
+                    ? 'bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 font-semibold'
+                    : isOffline
+                    ? 'bg-red-200 dark:bg-red-800 text-red-900 dark:text-red-100 font-semibold'
+                    : '';
 
-                // Determine icon based on entry type
-                const EntryIcon = entry.isEvent
-                  ? entry.origin === 'online'
+                  const testId = hasEvent ? `history-event-${eventEntry?.origin}` : undefined;
+
+                  // Determine icon based on origin
+                  const OriginIcon = isOnline
                     ? CheckCircle
-                    : XCircle
-                  : entry.settable
-                  ? Edit
-                  : Eye;
+                    : isOffline
+                    ? XCircle
+                    : group.origin === 'set'
+                    ? Edit
+                    : Eye;
 
-                return (
-                  <div
-                    key={entry.index}
-                    className={`relative flex items-center gap-2 px-2 py-1 hover:bg-muted/50 ${eventColorClass}`}
-                    data-testid={testId}
-                  >
-                    {/* Icon for accessibility */}
-                    <EntryIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  // For event rows, show event description across all property columns
+                  if (hasEvent) {
+                    const eventDescription = isOnline
+                      ? texts.eventOnline
+                      : texts.eventOffline;
 
-                    {/* Timestamp */}
-                    <span className="text-muted-foreground shrink-0">
-                      {formatTimestamp(entry.timestamp)}
-                    </span>
+                    return (
+                      <TableRow
+                        key={rowIndex}
+                        className={rowColorClass}
+                        data-testid={testId}
+                      >
+                        {/* Timestamp */}
+                        <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 bg-background dark:bg-background z-20 border-r py-1 px-2">
+                          {formatTimestamp(group.timestamp)}
+                        </TableCell>
 
-                    {/* Origin badge */}
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-muted/70 shrink-0">
-                      {getOriginText(entry.origin)}
-                    </span>
+                        {/* Origin with icon */}
+                        <TableCell className="text-xs py-1 px-2">
+                          <div className="flex items-center gap-1.5">
+                            <OriginIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            <span className="px-1.5 py-0.5 rounded bg-muted/70 whitespace-nowrap text-xs">
+                              {getOriginText(group.origin)}
+                            </span>
+                          </div>
+                        </TableCell>
 
-                    {/* Property/Event name */}
-                    <span className="font-medium truncate">
-                      {entry.isEvent ? entry.eventDescription : entry.propertyName}
-                    </span>
+                        {/* Event description spans all property columns */}
+                        <TableCell colSpan={propertyColumns.length} className="font-semibold py-1 px-2">
+                          {eventDescription}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
 
-                    {/* Value (for property changes only) */}
-                    {!entry.isEvent && (
-                      <>
-                        <span className="text-muted-foreground">:</span>
-                        <span className="font-medium">{entry.formattedValue}</span>
-                        <HexViewer
-                          canShowHexViewer={entry.canShowHexViewer}
-                          currentValue={entry.value}
-                          size="sm"
-                        />
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  // For normal rows, show property values
+                  return (
+                    <TableRow
+                      key={rowIndex}
+                      className={rowColorClass}
+                      data-testid={testId}
+                    >
+                      {/* Timestamp */}
+                      <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 bg-background dark:bg-background z-20 border-r py-1 px-2">
+                        {formatTimestamp(group.timestamp)}
+                      </TableCell>
+
+                      {/* Origin with icon */}
+                      <TableCell className="text-xs py-1 px-2">
+                        <div className="flex items-center gap-1.5">
+                          <OriginIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span className="px-1.5 py-0.5 rounded bg-muted/70 whitespace-nowrap text-xs">
+                            {getOriginText(group.origin)}
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      {/* Property values */}
+                      {propertyColumns.map((epc) => {
+                        const entry = group.properties.get(epc);
+                        if (!entry) {
+                          return <TableCell key={epc} className="text-muted-foreground text-center py-1 px-2">-</TableCell>;
+                        }
+
+                        const descriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
+                        const formattedValue = formatPropertyValue(entry.value, descriptor);
+                        const canShowHexViewer = shouldShowHexViewer(entry.value, descriptor);
+
+                        // Apply blue background for settable properties
+                        const cellColorClass = entry.settable
+                          ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 py-1 px-2'
+                          : 'py-1 px-2';
+
+                        return (
+                          <TableCell key={epc} className={cellColorClass}>
+                            <div className="flex items-center justify-center gap-1">
+                              <span className="font-medium font-mono text-xs truncate" title={formattedValue}>
+                                {formattedValue}
+                              </span>
+                              <HexViewer
+                                canShowHexViewer={canShowHexViewer}
+                                currentValue={entry.value}
+                                size="sm"
+                              />
+                            </div>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </div>
 
