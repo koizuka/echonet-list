@@ -25,6 +25,9 @@ import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 
+// Special key used to store event entries (online/offline) in the property map
+const EVENT_KEY = '__event__' as const;
+
 type DialogMessages = {
   title: string;
   settableOnlyLabel: string;
@@ -165,7 +168,7 @@ export function DeviceHistoryDialog({
   };
 
   // Group entries by timestamp and collect all unique properties
-  const { groupedEntries, propertyColumns } = useMemo(() => {
+  const { groupedEntries, propertyColumns, propertyNames } = useMemo(() => {
     // Group entries by timestamp
     const timestampMap = new Map<string, Map<string, typeof entries[0]>>();
     const uniqueProperties = new Set<string>();
@@ -176,20 +179,29 @@ export function DeviceHistoryDialog({
         timestampMap.set(timestamp, new Map());
       }
 
+      const entryMap = timestampMap.get(timestamp);
+      if (!entryMap) return; // Safety check, should never happen
+
       const isEvent = entry.origin === 'online' || entry.origin === 'offline';
-      if (!isEvent && entry.epc) {
+      if (!isEvent && entry.epc && typeof entry.epc === 'string') {
         uniqueProperties.add(entry.epc);
-        timestampMap.get(timestamp)!.set(entry.epc, entry);
+        entryMap.set(entry.epc, entry);
       } else if (isEvent) {
         // Store event entries with a special key
-        timestampMap.get(timestamp)!.set('__event__', entry);
+        entryMap.set(EVENT_KEY, entry);
       }
+    });
+
+    // Memoize property names for better performance
+    const propertyNameMap = new Map<string, string>();
+    uniqueProperties.forEach(epc => {
+      propertyNameMap.set(epc, getPropertyName(epc, propertyDescriptions, classCode));
     });
 
     // Sort properties by name for consistent column order
     const sortedProperties = Array.from(uniqueProperties).sort((a, b) => {
-      const nameA = getPropertyName(a, propertyDescriptions, classCode);
-      const nameB = getPropertyName(b, propertyDescriptions, classCode);
+      const nameA = propertyNameMap.get(a)!;
+      const nameB = propertyNameMap.get(b)!;
       return nameA.localeCompare(nameB);
     });
 
@@ -206,6 +218,7 @@ export function DeviceHistoryDialog({
     return {
       groupedEntries: grouped,
       propertyColumns: sortedProperties,
+      propertyNames: propertyNameMap,
     };
   }, [entries, propertyDescriptions, classCode]);
 
@@ -269,13 +282,16 @@ export function DeviceHistoryDialog({
 
           {!isLoading && !error && groupedEntries.length > 0 && (
             <div className="relative w-full">
+              {/* Use raw <table> element instead of shadcn Table wrapper for better scroll control */}
               <table className="w-full caption-bottom text-sm">
                 <TableHeader>
                 <TableRow>
+                  {/* Z-index strategy: timestamp header needs z-30 to appear above other sticky headers (z-20)
+                      when both vertical (top-0) and horizontal (left-0) sticky positioning are active */}
                   <TableHead className="w-[140px] sticky top-0 left-0 bg-background dark:bg-background z-30 border-r h-8 py-1 px-2">{texts.timestamp}</TableHead>
                   <TableHead className="w-[100px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-2">{texts.origin}</TableHead>
                   {propertyColumns.map((epc) => {
-                    const propertyName = getPropertyName(epc, propertyDescriptions, classCode);
+                    const propertyName = propertyNames.get(epc) || epc;
                     return (
                       <TableHead
                         key={epc}
@@ -290,8 +306,8 @@ export function DeviceHistoryDialog({
               </TableHeader>
               <TableBody>
                 {groupedEntries.map((group, rowIndex) => {
-                  const hasEvent = group.properties.has('__event__');
-                  const eventEntry = hasEvent ? group.properties.get('__event__') : null;
+                  const hasEvent = group.properties.has(EVENT_KEY);
+                  const eventEntry = hasEvent ? group.properties.get(EVENT_KEY) : null;
                   const isOnline = eventEntry?.origin === 'online';
                   const isOffline = eventEntry?.origin === 'offline';
 
