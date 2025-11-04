@@ -326,7 +326,7 @@ export function DeviceHistoryDialog({
                         data-testid={testId}
                       >
                         {/* Timestamp */}
-                        <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 bg-background dark:bg-background z-20 border-r py-1 px-2">
+                        <TableCell className={`font-mono text-xs sticky left-0 z-20 border-r py-1 px-2 ${rowColorClass}`}>
                           {formatTimestamp(group.timestamp)}
                         </TableCell>
 
@@ -383,7 +383,7 @@ export function DeviceHistoryDialog({
 
                         // Apply blue background for settable properties
                         const cellColorClass = entry.settable
-                          ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 py-1 px-2'
+                          ? 'bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 py-1 px-2'
                           : 'py-1 px-2';
 
                         return (

@@ -501,7 +501,7 @@ describe('DeviceHistoryDialog', () => {
     // Use document.querySelectorAll since AlertDialog uses portal
     const blueRows = document.querySelectorAll('.bg-blue-200');
     expect(blueRows.length).toBe(1);
-    expect(blueRows[0].className).toMatch(/dark:bg-blue-800/);
+    expect(blueRows[0].className).toMatch(/dark:bg-blue-900/);
   });
 
   it('should not apply background colors for non-settable entries', () => {
@@ -609,10 +609,10 @@ describe('DeviceHistoryDialog', () => {
     const greenCards = document.querySelectorAll('.bg-green-200');
     const redCards = document.querySelectorAll('.bg-red-200');
 
-    // settable -> blue, online -> green, offline -> red, non-settable -> no color
+    // settable -> blue, online -> green (row + timestamp cell = 2), offline -> red (row + timestamp cell = 2), non-settable -> no color
     expect(blueCards.length).toBe(1);
-    expect(greenCards.length).toBe(1);
-    expect(redCards.length).toBe(1);
+    expect(greenCards.length).toBe(2); // Event row applies color to both row and timestamp cell
+    expect(redCards.length).toBe(2); // Event row applies color to both row and timestamp cell
   });
 
   it('should display event description for online/offline events', () => {
