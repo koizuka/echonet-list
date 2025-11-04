@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -269,17 +268,18 @@ export function DeviceHistoryDialog({
           )}
 
           {!isLoading && !error && groupedEntries.length > 0 && (
-            <Table>
-              <TableHeader>
+            <div className="relative w-full">
+              <table className="w-full caption-bottom text-sm">
+                <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[140px] sticky left-0 bg-background dark:bg-background z-20 border-r h-8 py-1 px-2">{texts.timestamp}</TableHead>
-                  <TableHead className="w-[100px] h-8 py-1 px-2">{texts.origin}</TableHead>
+                  <TableHead className="w-[140px] sticky top-0 left-0 bg-background dark:bg-background z-30 border-r h-8 py-1 px-2">{texts.timestamp}</TableHead>
+                  <TableHead className="w-[100px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-2">{texts.origin}</TableHead>
                   {propertyColumns.map((epc) => {
                     const propertyName = getPropertyName(epc, propertyDescriptions, classCode);
                     return (
                       <TableHead
                         key={epc}
-                        className="min-w-[120px] max-w-[200px] h-8 py-1 px-2 text-center"
+                        className="min-w-[120px] max-w-[200px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-2 text-center"
                         title={propertyName}
                       >
                         <span className="truncate block text-xs">{propertyName}</span>
@@ -405,7 +405,8 @@ export function DeviceHistoryDialog({
                   );
                 })}
               </TableBody>
-            </Table>
+              </table>
+            </div>
           )}
         </div>
 
