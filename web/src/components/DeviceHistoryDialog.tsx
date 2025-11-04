@@ -190,13 +190,19 @@ export function DeviceHistoryDialog({
     entries.forEach((entry) => {
       const isEvent = entry.origin === 'online' || entry.origin === 'offline';
 
-      // Truncate timestamp to seconds (remove milliseconds)
-      // This groups entries that occurred within the same second
+      // Truncate timestamp to seconds (remove milliseconds) in local timezone
+      // This groups entries that occurred within the same second in the user's local time
       const date = new Date(entry.timestamp);
-      const timestampSeconds = date.toISOString().split('.')[0] + 'Z'; // Keep only up to seconds
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      const timestampSeconds = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 
       // Create a grouping key: for events, use timestamp only (they always get their own row)
-      // For properties, use timestamp (truncated to seconds) + origin to group same-origin updates together
+      // For properties, use timestamp (truncated to seconds in local time) + origin to group same-origin updates together
       const groupKey = isEvent ? entry.timestamp : `${timestampSeconds}:${entry.origin}`;
 
       if (!groupMap.has(groupKey)) {
