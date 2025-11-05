@@ -78,6 +78,7 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
         onClick={() => setShowHexData(!showHexData)}
         className={`${sizeClasses.button} p-0`}
         title={showHexData ? "Hide hex data" : "Show hex data"}
+        aria-label={showHexData ? "Hide hex data" : "Show hex data"}
       >
         <Binary className={size === 'sm' ? "h-2 w-2" : "h-3 w-3"} />
       </Button>

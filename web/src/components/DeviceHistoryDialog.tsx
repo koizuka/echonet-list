@@ -489,6 +489,7 @@ export function DeviceHistoryDialog({
                                   }}
                                   className="h-4 w-4 p-0"
                                   title={isSelected ? "Hide hex data" : "Show hex data"}
+                                  aria-label={isSelected ? "Hide hex data" : "Show hex data"}
                                 >
                                   <Binary className="h-2 w-2" />
                                 </Button>
@@ -521,6 +522,7 @@ export function DeviceHistoryDialog({
                   onClick={() => setSelectedHexData(null)}
                   className="h-5 w-5 p-0"
                   title="Close hex viewer"
+                  aria-label="Close hex viewer"
                 >
                   <X className="h-3 w-3" />
                 </Button>
