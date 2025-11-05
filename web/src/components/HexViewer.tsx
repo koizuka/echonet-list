@@ -32,7 +32,7 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
       </Button>
       {showHexData && currentValue.EDT && (
         <div
-          className={`absolute top-full left-0 right-0 mt-1 ${sizeClasses.text} font-mono bg-muted ${size === 'sm' ? 'p-1' : 'p-2'} rounded border break-all shadow-md z-10`}
+          className={`absolute top-full left-0 mt-1 ${sizeClasses.text} font-mono bg-muted ${size === 'sm' ? 'p-1' : 'p-2'} rounded border break-words shadow-md z-10 min-w-[400px] max-w-[600px]`}
           role="status"
           aria-live="polite"
         >
