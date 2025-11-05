@@ -426,7 +426,7 @@ export function DeviceHistoryDialog({
                       data-testid={testId}
                     >
                       {/* Timestamp */}
-                      <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 bg-background dark:bg-background z-20 border-r py-1 px-2">
+                      <TableCell className={`font-mono text-xs sticky left-0 z-20 border-r py-1 px-2 ${rowColorClass || 'text-muted-foreground bg-background dark:bg-background'}`}>
                         {formatTimestamp(group.timestamp)}
                       </TableCell>
 
@@ -451,14 +451,10 @@ export function DeviceHistoryDialog({
                         const formattedValue = formatPropertyValue(entry.value, descriptor);
                         const canShowHexViewer = shouldShowHexViewer(entry.value, descriptor);
 
-                        // Apply blue background for settable properties only if the row itself is not already colored
-                        // (row coloring takes precedence over cell coloring for visual consistency)
-                        const cellColorClass = (entry.settable && !group.settable)
-                          ? 'bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 py-1 px-2'
-                          : 'py-1 px-2';
-
+                        // Row-level coloring handles all settable property highlighting
+                        // No need for cell-level coloring since grouping ensures consistent settable status per row
                         return (
-                          <TableCell key={epc} className={cellColorClass}>
+                          <TableCell key={epc} className="py-1 px-2">
                             <div className="flex items-center justify-center gap-1">
                               <span className="font-medium font-mono text-xs truncate" title={formattedValue}>
                                 {formattedValue}

@@ -34,7 +34,7 @@ const (
 	counterLeakResetTime = 5 * time.Minute  // Reset leaked counters after this time
 
 	// SET operation tracking window
-	setOperationTrackingWindow = 500 * time.Millisecond // Window to track SET operations for duplicate INF detection
+	setOperationTrackingWindow = 1000 * time.Millisecond // Window to track SET operations for duplicate INF detection
 	// SET operation cleanup interval
 	setOperationCleanupInterval = time.Second // Interval to clean up expired SET operation tracking entries
 )

@@ -958,8 +958,9 @@ describe('DeviceHistoryDialog', () => {
       expect(rows.length).toBe(2);
 
       // Verify one row has blue styling (settable=true), the other does not
+      // Note: bg-blue-100 appears on both the row and the timestamp cell (2 elements per settable row)
       const blueRows = document.querySelectorAll('.bg-blue-100');
-      expect(blueRows.length).toBe(1); // Only one settable row
+      expect(blueRows.length).toBe(2); // Row + timestamp cell for one settable row
     });
 
     it('should keep online/offline events in separate rows regardless of timestamp', () => {
