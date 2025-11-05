@@ -1287,4 +1287,206 @@ describe('DeviceHistoryDialog', () => {
       expect(propertyHeader.className).toMatch(/truncate/);
     });
   });
+
+  describe('Property column sorting by latest timestamp', () => {
+    it('should sort property columns by latest event timestamp in descending order', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        // Temperature Setting (B3) has latest event at 12:02:00
+        {
+          timestamp: '2024-05-01T12:02:00.000Z',
+          epc: 'B3',
+          value: { number: 26, EDT: 'MjY=' },
+          origin: 'set',
+          settable: true,
+        },
+        // Operation Status (80) has latest event at 12:01:00
+        {
+          timestamp: '2024-05-01T12:01:00.000Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        // Temperature Setting (B3) has older event at 12:00:00
+        {
+          timestamp: '2024-05-01T12:00:00.000Z',
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'notification',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Get all table header cells
+      const table = screen.getByRole('table');
+      const headerCells = table.querySelectorAll('thead th');
+
+      // Convert NodeList to array of text content
+      const headerTexts = Array.from(headerCells).map((cell) => cell.textContent?.trim());
+
+      // Expected order: Time, Origin, Temperature Setting (latest: 12:02:00), Operation Status (latest: 12:01:00)
+      // Find indices of property columns (excluding Time and Origin)
+      const tempIndex = headerTexts.findIndex((text) => text?.includes('Temperature Setting'));
+      const opStatusIndex = headerTexts.findIndex((text) => text?.includes('Operation Status'));
+
+      // Temperature Setting should come before Operation Status (left to right)
+      expect(tempIndex).toBeGreaterThan(-1);
+      expect(opStatusIndex).toBeGreaterThan(-1);
+      expect(tempIndex).toBeLessThan(opStatusIndex);
+    });
+
+    it('should handle properties with only one event each', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:00:00.000Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:01:00.000Z',
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'notification',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      const table = screen.getByRole('table');
+      const headerCells = table.querySelectorAll('thead th');
+      const headerTexts = Array.from(headerCells).map((cell) => cell.textContent?.trim());
+
+      const tempIndex = headerTexts.findIndex((text) => text?.includes('Temperature Setting'));
+      const opStatusIndex = headerTexts.findIndex((text) => text?.includes('Operation Status'));
+
+      // B3 (12:01:00) should come before 80 (12:00:00)
+      expect(tempIndex).toBeLessThan(opStatusIndex);
+    });
+
+    it('should place most recently updated property in leftmost column position', () => {
+      // Create mock entries with 3 properties at different times
+      const mockPropertyDescriptionsExtended = {
+        '0130': {
+          classCode: '0130',
+          properties: {
+            '80': {
+              description: 'Operation Status',
+              aliases: { on: 'MzA=', off: 'MzE=' },
+            },
+            B0: {
+              description: 'Operation Mode',
+              aliases: { auto: 'QXV0bw==', cooling: 'Q29vbA==', heating: 'SGVhdA==' },
+            },
+            B3: {
+              description: 'Temperature Setting',
+              numberDesc: {
+                min: 0,
+                max: 50,
+                offset: 0,
+                unit: 'C',
+                edtLen: 1,
+              },
+            },
+          },
+        },
+      };
+
+      const mockEntries: DeviceHistoryEntry[] = [
+        // Operation Mode (B0) - latest at 12:05:00
+        {
+          timestamp: '2024-05-01T12:05:00.000Z',
+          epc: 'B0',
+          value: { string: 'cooling', EDT: 'Q29vbA==' },
+          origin: 'set',
+          settable: true,
+        },
+        // Temperature Setting (B3) - latest at 12:03:00
+        {
+          timestamp: '2024-05-01T12:03:00.000Z',
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'notification',
+          settable: true,
+        },
+        // Operation Status (80) - latest at 12:01:00
+        {
+          timestamp: '2024-05-01T12:01:00.000Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptionsExtended}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      const table = screen.getByRole('table');
+      const headerCells = table.querySelectorAll('thead th');
+      const headerTexts = Array.from(headerCells).map((cell) => cell.textContent?.trim());
+
+      const opModeIndex = headerTexts.findIndex((text) => text?.includes('Operation Mode'));
+      const tempIndex = headerTexts.findIndex((text) => text?.includes('Temperature Setting'));
+      const opStatusIndex = headerTexts.findIndex((text) => text?.includes('Operation Status'));
+
+      // Expected order: Time, Origin, Operation Mode (12:05:00), Temperature Setting (12:03:00), Operation Status (12:01:00)
+      expect(opModeIndex).toBeLessThan(tempIndex);
+      expect(tempIndex).toBeLessThan(opStatusIndex);
+    });
+  });
 });

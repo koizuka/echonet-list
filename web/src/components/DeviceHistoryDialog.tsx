@@ -254,11 +254,22 @@ export function DeviceHistoryDialog({
       propertyNameMap.set(epc, getPropertyName(epc, propertyDescriptions, classCode));
     });
 
-    // Sort properties by name for consistent column order
+    // Sort properties by latest event timestamp (descending order)
+    // Properties with more recent events appear first (leftmost)
     const sortedProperties = Array.from(uniqueProperties).sort((a, b) => {
-      const nameA = propertyNameMap.get(a)!;
-      const nameB = propertyNameMap.get(b)!;
-      return nameA.localeCompare(nameB);
+      // Get the latest timestamp for each property
+      const lastTimestampA = entries
+        .filter(e => e.epc === a)
+        .map(e => new Date(e.timestamp).getTime())
+        .reduce((max, time) => Math.max(max, time), 0);
+
+      const lastTimestampB = entries
+        .filter(e => e.epc === b)
+        .map(e => new Date(e.timestamp).getTime())
+        .reduce((max, time) => Math.max(max, time), 0);
+
+      // Sort in descending order (newer timestamps first)
+      return lastTimestampB - lastTimestampA;
     });
 
     // Convert to array and sort by timestamp (newest first), then by origin
