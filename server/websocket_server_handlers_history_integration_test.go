@@ -467,8 +467,8 @@ func TestRecordPropertyChange_DuplicateDetection(t *testing.T) {
 		}
 		ws.recordSetResult(testDevice, testEPC, testValue)
 
-		// Wait for tracking window to expire (500ms + buffer)
-		time.Sleep(600 * time.Millisecond)
+		// Wait for tracking window to expire (1000ms + buffer)
+		time.Sleep(1100 * time.Millisecond)
 
 		// Simulate an INF with the same value (but after tracking window)
 		change := handler.PropertyChangeNotification{
