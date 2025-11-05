@@ -254,20 +254,24 @@ export function DeviceHistoryDialog({
       propertyNameMap.set(epc, getPropertyName(epc, propertyDescriptions, classCode));
     });
 
+    // Pre-compute latest timestamp for each property for O(m) instead of O(n² × m)
+    // where m = number of entries, n = number of properties
+    const latestTimestampMap = new Map<string, number>();
+    entries.forEach(entry => {
+      if (!entry.epc) return;
+      const timestamp = new Date(entry.timestamp).getTime();
+      const current = latestTimestampMap.get(entry.epc) || 0;
+      if (timestamp > current) {
+        latestTimestampMap.set(entry.epc, timestamp);
+      }
+    });
+
     // Sort properties by latest event timestamp (descending order)
     // Properties with more recent events appear first (leftmost)
+    // Complexity: O(n log n) where n = number of properties
     const sortedProperties = Array.from(uniqueProperties).sort((a, b) => {
-      // Get the latest timestamp for each property
-      const lastTimestampA = entries
-        .filter(e => e.epc === a)
-        .map(e => new Date(e.timestamp).getTime())
-        .reduce((max, time) => Math.max(max, time), 0);
-
-      const lastTimestampB = entries
-        .filter(e => e.epc === b)
-        .map(e => new Date(e.timestamp).getTime())
-        .reduce((max, time) => Math.max(max, time), 0);
-
+      const lastTimestampA = latestTimestampMap.get(a) || 0;
+      const lastTimestampB = latestTimestampMap.get(b) || 0;
       // Sort in descending order (newer timestamps first)
       return lastTimestampB - lastTimestampA;
     });
