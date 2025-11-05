@@ -16,7 +16,12 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
   const [leftOffset, setLeftOffset] = useState(0);
 
   useEffect(() => {
-    if (showHexData && hexViewerRef.current && window.innerWidth < 640) {
+    const calculateOffset = () => {
+      if (!showHexData || !hexViewerRef.current || window.innerWidth >= 640) {
+        setLeftOffset(0);
+        return;
+      }
+
       // Calculate offset from PropertyRow (the row) to card's content edge on mobile
       // Find the PropertyRow which is the nearest .relative ancestor
       const propertyRow = hexViewerRef.current.closest('.relative');
@@ -32,7 +37,13 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
         const offset = rowRect.left - cardRect.left - padding;
         setLeftOffset(-offset);
       }
-    }
+    };
+
+    calculateOffset(); // Initial calculation
+
+    // Add resize listener to recalculate on window resize or device rotation
+    window.addEventListener('resize', calculateOffset);
+    return () => window.removeEventListener('resize', calculateOffset);
   }, [showHexData]);
 
   if (!canShowHexViewer) return null;

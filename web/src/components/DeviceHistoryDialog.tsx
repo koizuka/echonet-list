@@ -525,7 +525,7 @@ export function DeviceHistoryDialog({
                   <X className="h-3 w-3" />
                 </Button>
               </div>
-              <div className="text-xs font-mono bg-background p-2 rounded border break-words overflow-auto" style={{ maxHeight: '300px', minHeight: '60px' }}>
+              <div className="text-xs font-mono bg-background p-2 rounded border break-words overflow-auto max-h-[300px] min-h-[60px]">
                 {edtToHexString(selectedHexData.edt) || 'Invalid data'}
               </div>
             </div>
