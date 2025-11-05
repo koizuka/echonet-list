@@ -467,7 +467,7 @@ describe('DeviceHistoryDialog', () => {
     expect(eventRow.textContent).toMatch(/Device went offline/i);
   });
 
-  it('should apply blue styling for settable property entries', () => {
+  it('should apply blue styling for settable property entries (row-level)', () => {
     const mockEntries: DeviceHistoryEntry[] = [
       {
         timestamp: '2024-05-01T12:00:00Z',
@@ -497,11 +497,13 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Settable property entries should have blue background (table row styling)
+    // Settable property entries should have blue background for the entire row
     // Use document.querySelectorAll since AlertDialog uses portal
-    const blueRows = document.querySelectorAll('.bg-blue-200');
-    expect(blueRows.length).toBe(1);
-    expect(blueRows[0].className).toMatch(/dark:bg-blue-900/);
+    const blueRows = document.querySelectorAll('.bg-blue-100');
+    expect(blueRows.length).toBeGreaterThan(0);
+    expect(blueRows[0].className).toMatch(/dark:bg-blue-950/);
+    expect(blueRows[0].className).toMatch(/text-blue-900/);
+    expect(blueRows[0].className).toMatch(/dark:text-blue-100/);
   });
 
   it('should not apply background colors for non-settable entries', () => {
@@ -603,14 +605,14 @@ describe('DeviceHistoryDialog', () => {
       />
     );
 
-    // Verify each type has correct colors (updated for new log-style formatting)
+    // Verify each type has correct colors (updated for row-level coloring)
     // Use document.querySelectorAll since AlertDialog uses portal
-    const blueCards = document.querySelectorAll('.bg-blue-200');
+    const blueRows = document.querySelectorAll('.bg-blue-100'); // settable row uses bg-blue-100
     const greenCards = document.querySelectorAll('.bg-green-200');
     const redCards = document.querySelectorAll('.bg-red-200');
 
-    // settable -> blue, online -> green (row + timestamp cell = 2), offline -> red (row + timestamp cell = 2), non-settable -> no color
-    expect(blueCards.length).toBe(1);
+    // settable -> blue (row-level: bg-blue-100), online -> green (row + timestamp cell = 2), offline -> red (row + timestamp cell = 2), non-settable -> no color
+    expect(blueRows.length).toBeGreaterThan(0); // At least one settable row
     expect(greenCards.length).toBe(2); // Event row applies color to both row and timestamp cell
     expect(redCards.length).toBe(2); // Event row applies color to both row and timestamp cell
   });
@@ -816,8 +818,8 @@ describe('DeviceHistoryDialog', () => {
     });
   });
 
-  describe('Row compression for same timestamp and origin', () => {
-    it('should merge multiple properties with same timestamp and same origin into one row', () => {
+  describe('Row compression for same timestamp, origin, and settable status', () => {
+    it('should merge multiple properties with same timestamp, same origin, and same settable status into one row', () => {
       const mockEntries: DeviceHistoryEntry[] = [
         {
           timestamp: '2024-05-01T12:00:00.123Z',
@@ -911,6 +913,53 @@ describe('DeviceHistoryDialog', () => {
       const rowTexts = Array.from(rows).map((r) => r.textContent);
       expect(rowTexts.some((text) => text?.includes('Operation'))).toBe(true); // 'set' origin
       expect(rowTexts.some((text) => text?.includes('Notification'))).toBe(true); // 'notification' origin
+    });
+
+    it('should create separate rows for same timestamp and origin but different settable status', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:00:00.123Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'notification',
+          settable: true, // settable=true
+        },
+        {
+          timestamp: '2024-05-01T12:00:00.456Z', // Different milliseconds, same second
+          epc: 'B3',
+          value: { number: 25, EDT: 'MjU=' },
+          origin: 'notification', // Same origin
+          settable: false, // settable=false (different from above)
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      // Should have TWO rows for different settable status (excluding header)
+      const table = screen.getByRole('table');
+      const rows = table.querySelectorAll('tbody tr');
+      expect(rows.length).toBe(2);
+
+      // Verify one row has blue styling (settable=true), the other does not
+      const blueRows = document.querySelectorAll('.bg-blue-100');
+      expect(blueRows.length).toBe(1); // Only one settable row
     });
 
     it('should keep online/offline events in separate rows regardless of timestamp', () => {

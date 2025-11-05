@@ -22,11 +22,22 @@ import { useDeviceHistory } from '@/hooks/useDeviceHistory';
 import { isJapanese } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor, shouldShowHexViewer } from '@/libs/propertyHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
-import type { Device, PropertyDescriptionData, HistoryOrigin } from '@/hooks/types';
+import type { Device, PropertyDescriptionData, HistoryOrigin, DeviceHistoryEntry } from '@/hooks/types';
 import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 
 // Special key used to store event entries (online/offline) in the property map
 const EVENT_KEY = '__event__' as const;
+
+/**
+ * Represents a group of history entries that occurred at the same time with the same origin and settable status.
+ * Each group becomes a single row in the history table.
+ */
+interface HistoryGroup {
+  timestamp: string;
+  origin: HistoryOrigin;
+  settable: boolean;
+  properties: Map<string, DeviceHistoryEntry>;
+}
 
 type DialogMessages = {
   title: string;
@@ -168,13 +179,14 @@ export function DeviceHistoryDialog({
   };
 
   /**
-   * Groups history entries by timestamp and collects unique properties for column headers.
+   * Groups history entries by timestamp, origin, and settable status, and collects unique properties for column headers.
    *
    * This transforms the flat list of history entries into a table structure where:
-   * - Each row represents a unique timestamp
+   * - Each row represents entries with the same timestamp (truncated to seconds), origin, and settable status
    * - Each column represents a property (EPC)
    * - Event entries (online/offline) are stored with a special EVENT_KEY
    * - Property names are pre-computed for performance
+   * - Entries with different settable values are separated into different rows
    *
    * @returns Object containing:
    *   - groupedEntries: Rows sorted by timestamp (newest first)
@@ -182,9 +194,9 @@ export function DeviceHistoryDialog({
    *   - propertyNames: Map of EPC to human-readable property names
    */
   const { groupedEntries, propertyColumns, propertyNames } = useMemo(() => {
-    // Group entries by timestamp (truncated to seconds) AND origin (for non-event entries)
+    // Group entries by timestamp (truncated to seconds), origin, AND settable (for non-event entries)
     // Events (online/offline) always get their own row
-    const groupMap = new Map<string, { timestamp: string; origin: HistoryOrigin; properties: Map<string, typeof entries[number]> }>();
+    const groupMap = new Map<string, HistoryGroup>();
     const uniqueProperties = new Set<string>();
 
     entries.forEach((entry) => {
@@ -202,13 +214,15 @@ export function DeviceHistoryDialog({
       const timestampSeconds = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 
       // Create a grouping key: for events, use timestamp only (they always get their own row)
-      // For properties, use timestamp (truncated to seconds in local time) + origin to group same-origin updates together
-      const groupKey = isEvent ? entry.timestamp : `${timestampSeconds}:${entry.origin}`;
+      // For properties, use timestamp (truncated to seconds in local time) + origin + settable to ensure
+      // settable and non-settable properties are never mixed in the same row
+      const groupKey = isEvent ? entry.timestamp : `${timestampSeconds}:${entry.origin}:${entry.settable}`;
 
       if (!groupMap.has(groupKey)) {
         groupMap.set(groupKey, {
           timestamp: entry.timestamp, // Keep the original timestamp for display
           origin: entry.origin,
+          settable: entry.settable,
           properties: new Map(),
         });
       }
@@ -348,11 +362,14 @@ export function DeviceHistoryDialog({
                   const isOnline = eventEntry?.origin === 'online';
                   const isOffline = eventEntry?.origin === 'offline';
 
-                  // Determine row color based on event type
+                  // Determine row color based on event type or settable status
+                  // Priority: online (green) > offline (red) > settable (blue) > default (no color)
                   const rowColorClass = isOnline
                     ? 'bg-green-200 dark:bg-green-900 text-green-900 dark:text-green-200 font-semibold'
                     : isOffline
                     ? 'bg-red-200 dark:bg-red-900 text-red-900 dark:text-red-200 font-semibold'
+                    : group.settable
+                    ? 'bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100'
                     : '';
 
                   const testId = hasEvent ? `history-event-${eventEntry?.origin}` : undefined;
@@ -434,8 +451,9 @@ export function DeviceHistoryDialog({
                         const formattedValue = formatPropertyValue(entry.value, descriptor);
                         const canShowHexViewer = shouldShowHexViewer(entry.value, descriptor);
 
-                        // Apply blue background for settable properties
-                        const cellColorClass = entry.settable
+                        // Apply blue background for settable properties only if the row itself is not already colored
+                        // (row coloring takes precedence over cell coloring for visual consistency)
+                        const cellColorClass = (entry.settable && !group.settable)
                           ? 'bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 py-1 px-2'
                           : 'py-1 px-2';
 
