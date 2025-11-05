@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { RefreshCw, Loader2, CheckCircle, XCircle, Edit, Eye } from 'lucide-react';
+import { RefreshCw, Loader2, CheckCircle, XCircle, Edit, Eye, Binary, X } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,10 +17,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { HexViewer } from '@/components/HexViewer';
 import { useDeviceHistory } from '@/hooks/useDeviceHistory';
 import { isJapanese } from '@/libs/languageHelper';
-import { getPropertyName, formatPropertyValue, getPropertyDescriptor, shouldShowHexViewer } from '@/libs/propertyHelper';
+import { getPropertyName, formatPropertyValue, getPropertyDescriptor, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import type { Device, PropertyDescriptionData, HistoryOrigin, DeviceHistoryEntry } from '@/hooks/types';
 import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
@@ -82,6 +81,7 @@ export function DeviceHistoryDialog({
   allDevices = {},
 }: DeviceHistoryDialogProps) {
   const [settableOnly, setSettableOnly] = useState(false);
+  const [selectedHexData, setSelectedHexData] = useState<{ epc: string; edt: string; propertyName: string; timestamp: string } | null>(null);
   const deviceTarget = `${device.ip} ${device.eoj}`;
 
   // Get device alias information (memoized for performance)
@@ -311,35 +311,37 @@ export function DeviceHistoryDialog({
           </Button>
         </div>
 
-        {/* History Content */}
-        <div className="flex-1 overflow-auto min-h-[200px] scrollbar-visible">
-          {isLoading && (
-            <div className="flex items-center justify-center h-full">
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">{texts.loading}</p>
+        {/* History Content and Hex Display Container */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-auto">
+          {/* History Content */}
+          <div className="flex-1 overflow-auto min-h-[200px] scrollbar-visible">
+            {isLoading && (
+              <div className="flex items-center justify-center h-full">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">{texts.loading}</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {!isLoading && error && (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <p className="text-sm text-destructive">{error.message}</p>
+            {!isLoading && error && (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <p className="text-sm text-destructive">{error.message}</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {!isLoading && !error && entries.length === 0 && (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-sm text-muted-foreground">{texts.noHistory}</p>
-            </div>
-          )}
+            {!isLoading && !error && entries.length === 0 && (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm text-muted-foreground">{texts.noHistory}</p>
+              </div>
+            )}
 
-          {!isLoading && !error && groupedEntries.length > 0 && (
-            <div className="relative w-full">
-              {/* Use raw <table> element instead of shadcn Table wrapper for better scroll control */}
-              <table className="w-full caption-bottom text-sm" aria-label="Device history with properties as columns">
+            {!isLoading && !error && groupedEntries.length > 0 && (
+              <div className="relative w-full">
+                {/* Use raw <table> element instead of shadcn Table wrapper for better scroll control */}
+                <table className="w-full caption-bottom text-sm" aria-label="Device history with properties as columns">
                 <TableHeader>
                 <TableRow>
                   {/* Z-index strategy: timestamp header needs z-30 to appear above other sticky headers (z-20)
@@ -455,6 +457,11 @@ export function DeviceHistoryDialog({
                         const descriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
                         const formattedValue = formatPropertyValue(entry.value, descriptor);
                         const canShowHexViewer = shouldShowHexViewer(entry.value, descriptor);
+                        const propertyName = propertyNames.get(epc) || epc;
+
+                        // Check if this hex data is currently selected
+                        const isSelected = selectedHexData?.epc === epc &&
+                                          selectedHexData?.edt === entry.value.EDT;
 
                         // Row-level coloring handles all settable property highlighting
                         // No need for cell-level coloring since grouping ensures consistent settable status per row
@@ -464,11 +471,29 @@ export function DeviceHistoryDialog({
                               <span className="font-medium font-mono text-xs truncate" title={formattedValue}>
                                 {formattedValue}
                               </span>
-                              <HexViewer
-                                canShowHexViewer={canShowHexViewer}
-                                currentValue={entry.value}
-                                size="sm"
-                              />
+                              {canShowHexViewer && entry.value.EDT && (
+                                <Button
+                                  variant={isSelected ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedHexData(null);
+                                    } else {
+                                      setSelectedHexData({
+                                        epc,
+                                        edt: entry.value.EDT!,
+                                        propertyName,
+                                        timestamp: group.timestamp,
+                                      });
+                                    }
+                                  }}
+                                  className="h-4 w-4 p-0"
+                                  title={isSelected ? "Hide hex data" : "Show hex data"}
+                                  aria-label={isSelected ? "Hide hex data" : "Show hex data"}
+                                >
+                                  <Binary className="h-2 w-2" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         );
@@ -478,6 +503,33 @@ export function DeviceHistoryDialog({
                 })}
               </TableBody>
               </table>
+            </div>
+          )}
+          </div>
+
+          {/* Hex Data Display Area */}
+          {selectedHexData && (
+            <div className="border-t p-2 bg-muted/30 flex-shrink-0">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex-1">
+                  <span className="text-xs text-muted-foreground">{formatTimestamp(selectedHexData.timestamp)}</span>
+                  <span className="text-xs font-semibold ml-2">{selectedHexData.propertyName}</span>
+                  <span className="text-xs text-muted-foreground ml-1">({selectedHexData.epc})</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedHexData(null)}
+                  className="h-5 w-5 p-0"
+                  title="Close hex viewer"
+                  aria-label="Close hex viewer"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="text-xs font-mono bg-background p-2 rounded border break-words overflow-auto max-h-[300px] min-h-[60px]">
+                {edtToHexString(selectedHexData.edt) || 'Invalid data'}
+              </div>
             </div>
           )}
         </div>
