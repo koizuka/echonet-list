@@ -34,6 +34,8 @@ const (
 	counterLeakResetTime = 5 * time.Minute  // Reset leaked counters after this time
 
 	// SET operation tracking window
+	// Extended from 500ms to 1000ms based on empirical evidence (653ms delay observed in logs)
+	// Monitor in production: if delays consistently exceed 1000ms, consider making this configurable
 	setOperationTrackingWindow = 1000 * time.Millisecond // Window to track SET operations for duplicate INF detection
 	// SET operation cleanup interval
 	setOperationCleanupInterval = time.Second // Interval to clean up expired SET operation tracking entries

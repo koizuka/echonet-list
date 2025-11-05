@@ -228,7 +228,12 @@ export function DeviceHistoryDialog({
       }
 
       const group = groupMap.get(groupKey);
-      if (!group) return; // Safety check, should never happen
+      if (!group) {
+        // This should never happen since we just created the group above
+        // If it does, it indicates a logic error in the grouping algorithm
+        console.error('Group not found for key:', groupKey, 'This indicates a logic error.');
+        return;
+      }
 
       if (!isEvent && entry.epc && typeof entry.epc === 'string') {
         uniqueProperties.add(entry.epc);
