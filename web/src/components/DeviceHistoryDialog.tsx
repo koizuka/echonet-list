@@ -21,6 +21,7 @@ import { useDeviceHistory } from '@/hooks/useDeviceHistory';
 import { isJapanese } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
+import { getDevicePrimaryProperties } from '@/libs/deviceTypeHelper';
 import type { Device, PropertyDescriptionData, HistoryOrigin, DeviceHistoryEntry } from '@/hooks/types';
 import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 
@@ -254,27 +255,30 @@ export function DeviceHistoryDialog({
       propertyNameMap.set(epc, getPropertyName(epc, propertyDescriptions, classCode));
     });
 
-    // Pre-compute latest timestamp for each property for O(m) instead of O(n² × m)
-    // where m = number of entries, n = number of properties
-    const latestTimestampMap = new Map<string, number>();
-    entries.forEach(entry => {
-      if (!entry.epc) return;
-      const timestamp = new Date(entry.timestamp).getTime();
-      const current = latestTimestampMap.get(entry.epc) || 0;
-      if (timestamp > current) {
-        latestTimestampMap.set(entry.epc, timestamp);
-      }
+    // Sort properties to match DeviceCard's full mode display order:
+    // 1. Primary properties (in predefined order)
+    // 2. Secondary properties (in insertion order from uniqueProperties Set)
+    const primaryProperties = getDevicePrimaryProperties(classCode);
+    const allProperties = Array.from(uniqueProperties);
+
+    // Separate properties into primary and secondary groups
+    const primaryEPCs = allProperties.filter(epc => primaryProperties.includes(epc));
+    const secondaryEPCs = allProperties.filter(epc => !primaryProperties.includes(epc));
+
+    // Sort primary properties by their order in the predefined list
+    const sortedPrimary = primaryEPCs.sort((a, b) => {
+      const indexA = primaryProperties.indexOf(a);
+      const indexB = primaryProperties.indexOf(b);
+      return indexA - indexB;
     });
 
-    // Sort properties by latest event timestamp (descending order)
-    // Properties with more recent events appear first (leftmost)
-    // Complexity: O(n log n) where n = number of properties
-    const sortedProperties = Array.from(uniqueProperties).sort((a, b) => {
-      const lastTimestampA = latestTimestampMap.get(a) || 0;
-      const lastTimestampB = latestTimestampMap.get(b) || 0;
-      // Sort in descending order (newer timestamps first)
-      return lastTimestampB - lastTimestampA;
-    });
+    // Keep secondary properties in their insertion order (same as DeviceCard's Object.entries order)
+    // Note: uniqueProperties Set maintains insertion order, which matches the order properties
+    // were encountered in the history entries
+    const sortedSecondary = secondaryEPCs;
+
+    // Combine: primary first, then secondary
+    const sortedProperties = [...sortedPrimary, ...sortedSecondary];
 
     // Convert to array and sort by timestamp (newest first), then by origin
     const grouped = Array.from(groupMap.values())
