@@ -255,9 +255,16 @@ export function DeviceHistoryDialog({
       propertyNameMap.set(epc, getPropertyName(epc, propertyDescriptions, classCode));
     });
 
-    // Sort properties to match DeviceCard's full mode display order:
-    // 1. Primary properties (in predefined order)
-    // 2. Secondary properties (in insertion order from uniqueProperties Set)
+    /**
+     * Sort properties to match DeviceCard's full mode display order.
+     *
+     * This ensures consistent property column ordering across the UI:
+     * 1. Primary properties appear first in their predefined order (from DEVICE_PRIMARY_PROPERTIES)
+     * 2. Secondary properties follow in insertion order (matching Object.entries behavior)
+     *
+     * Note: JavaScript Set maintains insertion order per ECMAScript 2015+ specification,
+     * so uniqueProperties preserves the order properties were encountered in history entries.
+     */
     const primaryProperties = getDevicePrimaryProperties(classCode);
     const allProperties = Array.from(uniqueProperties);
 
@@ -273,8 +280,6 @@ export function DeviceHistoryDialog({
     });
 
     // Keep secondary properties in their insertion order (same as DeviceCard's Object.entries order)
-    // Note: uniqueProperties Set maintains insertion order, which matches the order properties
-    // were encountered in the history entries
     const sortedSecondary = secondaryEPCs;
 
     // Combine: primary first, then secondary
