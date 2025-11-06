@@ -279,11 +279,8 @@ export function DeviceHistoryDialog({
       return indexA - indexB;
     });
 
-    // Keep secondary properties in their insertion order (same as DeviceCard's Object.entries order)
-    const orderedSecondary = secondaryEPCs;
-
-    // Combine: primary first, then secondary
-    const sortedProperties = [...sortedPrimary, ...orderedSecondary];
+    // Combine: primary first, then secondary (which maintains insertion order)
+    const sortedProperties = [...sortedPrimary, ...secondaryEPCs];
 
     // Convert to array and sort by timestamp (newest first), then by origin
     const grouped = Array.from(groupMap.values())
