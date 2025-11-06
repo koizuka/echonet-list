@@ -1288,18 +1288,10 @@ describe('DeviceHistoryDialog', () => {
     });
   });
 
-  describe('Property column sorting by latest timestamp', () => {
-    it('should sort property columns by latest event timestamp in descending order', () => {
+  describe('Property column sorting matching DeviceCard order', () => {
+    it('should sort property columns with primary properties first, then secondary alphabetically', () => {
       const mockEntries: DeviceHistoryEntry[] = [
-        // Temperature Setting (B3) has latest event at 12:02:00
-        {
-          timestamp: '2024-05-01T12:02:00.000Z',
-          epc: 'B3',
-          value: { number: 26, EDT: 'MjY=' },
-          origin: 'set',
-          settable: true,
-        },
-        // Operation Status (80) has latest event at 12:01:00
+        // Operation Status (80) - primary property
         {
           timestamp: '2024-05-01T12:01:00.000Z',
           epc: '80',
@@ -1307,12 +1299,12 @@ describe('DeviceHistoryDialog', () => {
           origin: 'set',
           settable: true,
         },
-        // Temperature Setting (B3) has older event at 12:00:00
+        // Temperature Setting (B3) - primary property for Home Air Conditioner
         {
-          timestamp: '2024-05-01T12:00:00.000Z',
+          timestamp: '2024-05-01T12:02:00.000Z',
           epc: 'B3',
-          value: { number: 25, EDT: 'MjU=' },
-          origin: 'notification',
+          value: { number: 26, EDT: 'MjY=' },
+          origin: 'set',
           settable: true,
         },
       ];
@@ -1343,67 +1335,18 @@ describe('DeviceHistoryDialog', () => {
       // Convert NodeList to array of text content
       const headerTexts = Array.from(headerCells).map((cell) => cell.textContent?.trim());
 
-      // Expected order: Time, Origin, Temperature Setting (latest: 12:02:00), Operation Status (latest: 12:01:00)
-      // Find indices of property columns (excluding Time and Origin)
-      const tempIndex = headerTexts.findIndex((text) => text?.includes('Temperature Setting'));
+      // Expected order: Time, Origin, Operation Status (80 - primary), Temperature Setting (B3 - primary)
+      // Operation Status should come before Temperature Setting (primary properties in defined order)
       const opStatusIndex = headerTexts.findIndex((text) => text?.includes('Operation Status'));
+      const tempIndex = headerTexts.findIndex((text) => text?.includes('Temperature Setting'));
 
-      // Temperature Setting should come before Operation Status (left to right)
-      expect(tempIndex).toBeGreaterThan(-1);
       expect(opStatusIndex).toBeGreaterThan(-1);
-      expect(tempIndex).toBeLessThan(opStatusIndex);
+      expect(tempIndex).toBeGreaterThan(-1);
+      expect(opStatusIndex).toBeLessThan(tempIndex);
     });
 
-    it('should handle properties with only one event each', () => {
-      const mockEntries: DeviceHistoryEntry[] = [
-        {
-          timestamp: '2024-05-01T12:00:00.000Z',
-          epc: '80',
-          value: { string: 'on', EDT: 'MzA=' },
-          origin: 'set',
-          settable: true,
-        },
-        {
-          timestamp: '2024-05-01T12:01:00.000Z',
-          epc: 'B3',
-          value: { number: 25, EDT: 'MjU=' },
-          origin: 'notification',
-          settable: true,
-        },
-      ];
-
-      vi.mocked(useDeviceHistory).mockReturnValue({
-        entries: mockEntries,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-
-      render(
-        <DeviceHistoryDialog
-          device={mockDevice}
-          connection={mockConnection}
-          isOpen={true}
-          onOpenChange={vi.fn()}
-          propertyDescriptions={mockPropertyDescriptions}
-          classCode="0130"
-          isConnected={true}
-        />
-      );
-
-      const table = screen.getByRole('table');
-      const headerCells = table.querySelectorAll('thead th');
-      const headerTexts = Array.from(headerCells).map((cell) => cell.textContent?.trim());
-
-      const tempIndex = headerTexts.findIndex((text) => text?.includes('Temperature Setting'));
-      const opStatusIndex = headerTexts.findIndex((text) => text?.includes('Operation Status'));
-
-      // B3 (12:01:00) should come before 80 (12:00:00)
-      expect(tempIndex).toBeLessThan(opStatusIndex);
-    });
-
-    it('should place most recently updated property in leftmost column position', () => {
-      // Create mock entries with 3 properties at different times
+    it('should place primary properties before secondary properties', () => {
+      // Create mock entries with both primary and secondary properties
       const mockPropertyDescriptionsExtended = {
         '0130': {
           classCode: '0130',
@@ -1426,20 +1369,32 @@ describe('DeviceHistoryDialog', () => {
                 edtLen: 1,
               },
             },
+            'A0': {
+              description: 'Air Volume Setting',
+              aliases: { low: 'TG93', medium: 'TWVkaXVt', high: 'SGlnaA==' },
+            },
           },
         },
       };
 
       const mockEntries: DeviceHistoryEntry[] = [
-        // Operation Mode (B0) - latest at 12:05:00
+        // Secondary property (A0 - not in primary list)
         {
           timestamp: '2024-05-01T12:05:00.000Z',
-          epc: 'B0',
-          value: { string: 'cooling', EDT: 'Q29vbA==' },
+          epc: 'A0',
+          value: { string: 'high', EDT: 'SGlnaA==' },
           origin: 'set',
           settable: true,
         },
-        // Temperature Setting (B3) - latest at 12:03:00
+        // Primary property (80)
+        {
+          timestamp: '2024-05-01T12:01:00.000Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        // Primary property (B3)
         {
           timestamp: '2024-05-01T12:03:00.000Z',
           epc: 'B3',
@@ -1447,11 +1402,11 @@ describe('DeviceHistoryDialog', () => {
           origin: 'notification',
           settable: true,
         },
-        // Operation Status (80) - latest at 12:01:00
+        // Primary property (B0)
         {
-          timestamp: '2024-05-01T12:01:00.000Z',
-          epc: '80',
-          value: { string: 'on', EDT: 'MzA=' },
+          timestamp: '2024-05-01T12:02:00.000Z',
+          epc: 'B0',
+          value: { string: 'cooling', EDT: 'Q29vbA==' },
           origin: 'set',
           settable: true,
         },
@@ -1480,13 +1435,109 @@ describe('DeviceHistoryDialog', () => {
       const headerCells = table.querySelectorAll('thead th');
       const headerTexts = Array.from(headerCells).map((cell) => cell.textContent?.trim());
 
+      const opStatusIndex = headerTexts.findIndex((text) => text?.includes('Operation Status'));
       const opModeIndex = headerTexts.findIndex((text) => text?.includes('Operation Mode'));
       const tempIndex = headerTexts.findIndex((text) => text?.includes('Temperature Setting'));
-      const opStatusIndex = headerTexts.findIndex((text) => text?.includes('Operation Status'));
+      const airVolumeIndex = headerTexts.findIndex((text) => text?.includes('Air Volume'));
 
-      // Expected order: Time, Origin, Operation Mode (12:05:00), Temperature Setting (12:03:00), Operation Status (12:01:00)
+      // Expected order (based on DEVICE_PRIMARY_PROPERTIES for 0130):
+      // Time, Origin, 80 (Operation Status), B0 (Operation Mode), B3 (Temperature Setting), A0 (Air Volume - secondary)
+      // All primary properties should come before secondary
+      expect(opStatusIndex).toBeLessThan(airVolumeIndex);
+      expect(opModeIndex).toBeLessThan(airVolumeIndex);
+      expect(tempIndex).toBeLessThan(airVolumeIndex);
+
+      // Primary properties should be in predefined order: 80, B0, B3
+      expect(opStatusIndex).toBeLessThan(opModeIndex);
       expect(opModeIndex).toBeLessThan(tempIndex);
-      expect(tempIndex).toBeLessThan(opStatusIndex);
+    });
+
+    it('should keep secondary properties in insertion order (matching DeviceCard)', () => {
+      const mockPropertyDescriptionsExtended = {
+        '0130': {
+          classCode: '0130',
+          properties: {
+            '80': {
+              description: 'Operation Status',
+              aliases: { on: 'MzA=', off: 'MzE=' },
+            },
+            'C0': {
+              description: 'Secondary Property C0',
+            },
+            'A5': {
+              description: 'Secondary Property A5',
+            },
+            'B9': {
+              description: 'Secondary Property B9',
+            },
+          },
+        },
+      };
+
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:01:00.000Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        // Secondary properties appear in this order: C0, A5, B9
+        {
+          timestamp: '2024-05-01T12:02:00.000Z',
+          epc: 'C0',
+          value: { EDT: 'QzA=' },
+          origin: 'notification',
+          settable: false,
+        },
+        {
+          timestamp: '2024-05-01T12:03:00.000Z',
+          epc: 'A5',
+          value: { EDT: 'QTU=' },
+          origin: 'notification',
+          settable: false,
+        },
+        {
+          timestamp: '2024-05-01T12:04:00.000Z',
+          epc: 'B9',
+          value: { EDT: 'Qjk=' },
+          origin: 'notification',
+          settable: false,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptionsExtended}
+          classCode="0130"
+          isConnected={true}
+        />
+      );
+
+      const table = screen.getByRole('table');
+      const headerCells = table.querySelectorAll('thead th');
+      const headerTexts = Array.from(headerCells).map((cell) => cell.textContent?.trim());
+
+      const opStatusIndex = headerTexts.findIndex((text) => text?.includes('Operation Status'));
+      const c0Index = headerTexts.findIndex((text) => text?.includes('Secondary Property C0'));
+      const a5Index = headerTexts.findIndex((text) => text?.includes('Secondary Property A5'));
+      const b9Index = headerTexts.findIndex((text) => text?.includes('Secondary Property B9'));
+
+      // Expected order: Time, Origin, 80 (primary), C0, A5, B9 (secondary in insertion order)
+      expect(opStatusIndex).toBeLessThan(c0Index);
+      expect(c0Index).toBeLessThan(a5Index);
+      expect(a5Index).toBeLessThan(b9Index);
     });
   });
 });
