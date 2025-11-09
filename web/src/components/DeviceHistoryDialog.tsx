@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { RefreshCw, Loader2, CheckCircle, XCircle, Edit, Eye, Binary, X } from 'lucide-react';
 import {
   AlertDialog,
@@ -70,6 +70,15 @@ interface DeviceHistoryDialogProps {
   allDevices?: Record<string, Device>;
 }
 
+// Helper function to format timestamp as HH:MM:SS
+function formatFetchTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
 export function DeviceHistoryDialog({
   device,
   connection,
@@ -88,23 +97,6 @@ export function DeviceHistoryDialog({
 
   // Track last fetch time for cache management (10 second cache)
   const lastFetchTimeRef = useRef<number>(0);
-
-  // Helper function to format timestamp as HH:MM:SS
-  const formatFetchTime = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  };
-
-  // Wrapper function to handle refetch with timestamp update
-  const handleRefetch = () => {
-    const now = Date.now();
-    lastFetchTimeRef.current = now;
-    setLastFetchTime(formatFetchTime(now));
-    refetch();
-  };
 
   // Get device alias information (memoized for performance)
   const aliasInfo = useMemo(
@@ -131,11 +123,24 @@ export function DeviceHistoryDialog({
 
       // Only refetch if cache has expired
       if (now - lastFetchTimeRef.current >= cacheTime) {
-        handleRefetch();
+        lastFetchTimeRef.current = now;
+        refetch();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isConnected]);
+  }, [isOpen, isConnected, refetch]);
+
+  // Update last fetch time display when data loads (even if empty)
+  useEffect(() => {
+    if (!isLoading && lastFetchTimeRef.current > 0) {
+      setLastFetchTime(formatFetchTime(lastFetchTimeRef.current));
+    }
+  }, [isLoading]);
+
+  // Handler for manual reload button
+  const handleManualReload = useCallback(() => {
+    lastFetchTimeRef.current = Date.now();
+    refetch();
+  }, [refetch]);
 
   const messages: Record<'en' | 'ja', DialogMessages> = {
     en: {
@@ -369,7 +374,7 @@ export function DeviceHistoryDialog({
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleRefetch}
+            onClick={handleManualReload}
             disabled={isLoading || !isConnected}
             title={texts.reload}
             className="h-8 w-8 p-0"
