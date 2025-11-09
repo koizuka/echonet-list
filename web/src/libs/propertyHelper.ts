@@ -12,7 +12,8 @@ export function getPropertyName(
   epc: string,
   propertyDescriptions: Record<string, PropertyDescriptionData>,
   classCode?: string,
-  lang?: string
+  lang?: string,
+  useShort?: boolean
 ): string {
   const currentLang = lang || getCurrentLocale();
 
@@ -21,30 +22,52 @@ export function getPropertyName(
     const langSpecificKey = `${classCode}:${currentLang}`;
     if (propertyDescriptions[langSpecificKey]) {
       const property = propertyDescriptions[langSpecificKey].properties[epc];
-      if (property?.description) {
-        return property.description;
+      if (property) {
+        if (useShort && property.shortDescription) {
+          return property.shortDescription;
+        }
+        if (property.description) {
+          return property.description;
+        }
       }
     }
 
     // Fallback to English if not found in requested language
     if (propertyDescriptions[classCode]) {
       const property = propertyDescriptions[classCode].properties[epc];
-      if (property?.description) {
-        return property.description;
+      if (property) {
+        if (useShort && property.shortDescription) {
+          return property.shortDescription;
+        }
+        if (property.description) {
+          return property.description;
+        }
       }
     }
   }
 
   // Try to find in common properties (classCode "") with language
   const commonLangKey = `:${currentLang}`;
-  if (propertyDescriptions[commonLangKey]?.properties[epc]?.description) {
-    return propertyDescriptions[commonLangKey].properties[epc].description;
+  const commonLangProperty = propertyDescriptions[commonLangKey]?.properties[epc];
+  if (commonLangProperty) {
+    if (useShort && commonLangProperty.shortDescription) {
+      return commonLangProperty.shortDescription;
+    }
+    if (commonLangProperty.description) {
+      return commonLangProperty.description;
+    }
   }
 
   // Fallback to English common properties
   const commonProperties = propertyDescriptions[""];
-  if (commonProperties?.properties[epc]?.description) {
-    return commonProperties.properties[epc].description;
+  const commonProperty = commonProperties?.properties[epc];
+  if (commonProperty) {
+    if (useShort && commonProperty.shortDescription) {
+      return commonProperty.shortDescription;
+    }
+    if (commonProperty.description) {
+      return commonProperty.description;
+    }
   }
 
   // Fallback to EPC hex display

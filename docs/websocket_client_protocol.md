@@ -812,6 +812,11 @@ ECHONET Lite のプロパティ値 (EDT) はバイト列であり直接扱うの
           "description": "温度設定値",
           "numberDesc": { "min": 0, "max": 50, "unit": "C", ... }
         },
+        "BB": {
+          "description": "室内温度計測値",
+          "shortDescription": "室内温度", // 短縮名（オプション、コンパクト表示用）
+          "numberDesc": { "min": -127, "max": 125, "unit": "℃", ... }
+        },
         "8C": {
            "description": "商品コード",
            "stringDesc": { "maxEDTLen": 12, ... },
@@ -824,6 +829,23 @@ ECHONET Lite のプロパティ値 (EDT) はバイト列であり直接扱うの
   "requestId": "req-128"
 }
 ```
+
+#### 短縮名（shortDescription）フィールド
+
+`shortDescription` フィールドは、スペースが限られた表示（テーブルヘッダーなど）でのコンパクト表示用の短縮名を提供します：
+
+- **オプショナル**: 短縮名が定義されていない場合は省略されます
+- **言語対応**: `lang` パラメータに応じて適切な言語の短縮名が返されます
+- **フォールバック**: 短縮名が未定義の場合、クライアントは通常の `description` を使用すべきです
+- **使用場面**: デバイス履歴ダイアログのテーブルヘッダー、モバイル表示、ダッシュボードなど
+
+例：
+- `"室内温度計測値"` → `"室内温度"` (日本語)
+- `"Current room temperature"` → `"Room temperature"` (英語)
+- `"瞬時電力計測値"` → `"瞬時電力"` (日本語)
+- `"Measured instantaneous power consumption"` → `"Instantaneous power"` (英語)
+
+詳細は **[国際化対応ガイド](./internationalization.md#短縮名short-names)** を参照してください。
 
 #### 国際化応答フィールド
 

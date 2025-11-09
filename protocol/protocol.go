@@ -340,6 +340,7 @@ type ProtocolStringDesc struct {
 // EPCDesc contains information about an EPC, including its description, aliases, and potentially numeric/string details.
 type EPCDesc struct {
 	Description       string              `json:"description"`                 // EPC description (e.g. "Operation status")
+	ShortDescription  string              `json:"shortDescription,omitempty"`  // Short description for compact display (e.g. "室内温度" instead of "室内温度計測値")
 	Aliases           map[string]string   `json:"aliases,omitempty"`           // Alias name -> EDT in base64 format (optional)
 	AliasTranslations map[string]string   `json:"aliasTranslations,omitempty"` // Alias translation table for current language (e.g., "on" -> "オン") (optional)
 	NumberDesc        *ProtocolNumberDesc `json:"numberDesc,omitempty"`        // Details if the property is numeric (optional)

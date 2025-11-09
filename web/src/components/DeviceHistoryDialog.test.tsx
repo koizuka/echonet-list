@@ -1228,7 +1228,7 @@ describe('DeviceHistoryDialog', () => {
       expect(screen.getByText(/Device went offline/i)).toBeInTheDocument();
     });
 
-    it('should truncate long property names with title attribute', () => {
+    it('should wrap long property names with title attribute', () => {
       const mockPropertyDescriptionsWithLongName = {
         '0130': {
           classCode: '0130',
@@ -1284,8 +1284,8 @@ describe('DeviceHistoryDialog', () => {
       const tableHead = propertyHeader.closest('th');
       expect(tableHead).toHaveAttribute('title', 'Very Long Property Name That Should Be Truncated In The UI');
 
-      // Should have truncate class
-      expect(propertyHeader.className).toMatch(/truncate/);
+      // Should have break-words class for wrapping
+      expect(propertyHeader.className).toMatch(/break-words/);
     });
   });
 

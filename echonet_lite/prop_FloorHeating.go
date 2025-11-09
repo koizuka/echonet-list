@@ -75,6 +75,10 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "室内温度計測値",
 				},
+				ShortName: "Room temp.",
+				ShortNameTranslations: map[string]string{
+					"ja": "室内温度",
+				},
 				Aliases:           ExtraValueAlias,
 				AliasTranslations: ExtraValueAliasTranslations,
 				Decoder:           MeasuredTemperatureDesc,
@@ -83,6 +87,10 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 				Name: "Floor temperature",
 				NameTranslations: map[string]string{
 					"ja": "床温度計測値",
+				},
+				ShortName: "Floor temp.",
+				ShortNameTranslations: map[string]string{
+					"ja": "床温度",
 				},
 				Aliases:           ExtraValueAlias,
 				AliasTranslations: ExtraValueAliasTranslations,
@@ -131,6 +139,10 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "デイリータイマー1設定値",
 				},
+				ShortName: "Timer 1",
+				ShortNameTranslations: map[string]string{
+					"ja": "タイマー1",
+				},
 				Aliases: nil,
 				Decoder: FH_DailyTimerDesc{},
 			},
@@ -138,6 +150,10 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 				Name: "Daily timer2",
 				NameTranslations: map[string]string{
 					"ja": "デイリータイマー2設定値",
+				},
+				ShortName: "Timer 2",
+				ShortNameTranslations: map[string]string{
+					"ja": "タイマー2",
 				},
 				Aliases: nil,
 				Decoder: FH_DailyTimerDesc{},

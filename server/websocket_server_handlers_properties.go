@@ -309,6 +309,11 @@ func populateEPCDescriptions(propTable echonet_lite.PropertyTable, targetMap map
 			Description: propDesc.GetName(lang),
 			Aliases:     make(map[string]string),
 		}
+		// Add short description if it differs from the full description
+		shortName := propDesc.GetShortName(lang)
+		if shortName != propDesc.GetName(lang) {
+			epcDesc.ShortDescription = shortName
+		}
 		// Add aliases if they exist (always use English aliases)
 		if propDesc.Aliases != nil {
 			for aliasName, edtBytes := range propDesc.Aliases {

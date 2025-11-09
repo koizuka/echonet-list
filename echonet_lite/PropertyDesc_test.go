@@ -183,3 +183,147 @@ func TestStringDesc_ToString(t *testing.T) {
 		t.Errorf("ToString(%v) expected full string with NUL, got '%s'", edt2, s2)
 	}
 }
+
+func TestPropertyDesc_GetName(t *testing.T) {
+	tests := []struct {
+		name     string
+		prop     PropertyDesc
+		lang     string
+		expected string
+	}{
+		{
+			name: "English default when lang is empty",
+			prop: PropertyDesc{
+				Name:             "Operation status",
+				NameTranslations: map[string]string{"ja": "動作状態"},
+			},
+			lang:     "",
+			expected: "Operation status",
+		},
+		{
+			name: "English default when lang is 'en'",
+			prop: PropertyDesc{
+				Name:             "Operation status",
+				NameTranslations: map[string]string{"ja": "動作状態"},
+			},
+			lang:     "en",
+			expected: "Operation status",
+		},
+		{
+			name: "Japanese translation when lang is 'ja'",
+			prop: PropertyDesc{
+				Name:             "Operation status",
+				NameTranslations: map[string]string{"ja": "動作状態"},
+			},
+			lang:     "ja",
+			expected: "動作状態",
+		},
+		{
+			name: "Fallback to English when translation not available",
+			prop: PropertyDesc{
+				Name:             "Operation status",
+				NameTranslations: map[string]string{"ja": "動作状態"},
+			},
+			lang:     "fr",
+			expected: "Operation status",
+		},
+		{
+			name: "No translations map returns English name",
+			prop: PropertyDesc{
+				Name: "Operation status",
+			},
+			lang:     "ja",
+			expected: "Operation status",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.prop.GetName(tt.lang)
+			if result != tt.expected {
+				t.Errorf("GetName(%q) = %q, want %q", tt.lang, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPropertyDesc_GetShortName(t *testing.T) {
+	tests := []struct {
+		name     string
+		prop     PropertyDesc
+		lang     string
+		expected string
+	}{
+		{
+			name: "Short name in English when lang is empty",
+			prop: PropertyDesc{
+				Name:                  "Measured instantaneous power consumption",
+				ShortName:             "Instantaneous power",
+				NameTranslations:      map[string]string{"ja": "瞬時電力計測値"},
+				ShortNameTranslations: map[string]string{"ja": "瞬時電力"},
+			},
+			lang:     "",
+			expected: "Instantaneous power",
+		},
+		{
+			name: "Short name in Japanese when lang is 'ja'",
+			prop: PropertyDesc{
+				Name:                  "Measured instantaneous power consumption",
+				ShortName:             "Instantaneous power",
+				NameTranslations:      map[string]string{"ja": "瞬時電力計測値"},
+				ShortNameTranslations: map[string]string{"ja": "瞬時電力"},
+			},
+			lang:     "ja",
+			expected: "瞬時電力",
+		},
+		{
+			name: "Fallback to English short name when translation not available",
+			prop: PropertyDesc{
+				Name:                  "Measured instantaneous power consumption",
+				ShortName:             "Instantaneous power",
+				NameTranslations:      map[string]string{"ja": "瞬時電力計測値"},
+				ShortNameTranslations: map[string]string{"ja": "瞬時電力"},
+			},
+			lang:     "fr",
+			expected: "Instantaneous power",
+		},
+		{
+			name: "Fallback to full name when no short name defined",
+			prop: PropertyDesc{
+				Name:             "Operation status",
+				NameTranslations: map[string]string{"ja": "動作状態"},
+			},
+			lang:     "en",
+			expected: "Operation status",
+		},
+		{
+			name: "Fallback to English short name when no short name translation",
+			prop: PropertyDesc{
+				Name:             "Operation status",
+				ShortName:        "Status",
+				NameTranslations: map[string]string{"ja": "動作状態"},
+			},
+			lang:     "ja",
+			expected: "Status",
+		},
+		{
+			name: "Fallback to English short name then full name",
+			prop: PropertyDesc{
+				Name:                  "Operation status",
+				NameTranslations:      map[string]string{"ja": "動作状態"},
+				ShortNameTranslations: map[string]string{"ja": "状態"},
+			},
+			lang:     "ja",
+			expected: "状態",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.prop.GetShortName(tt.lang)
+			if result != tt.expected {
+				t.Errorf("GetShortName(%q) = %q, want %q", tt.lang, result, tt.expected)
+			}
+		})
+	}
+}

@@ -92,6 +92,10 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "状変アナウンスプロパティマップ",
 				},
+				ShortName: "Status announce map",
+				ShortNameTranslations: map[string]string{
+					"ja": "状変通知マップ",
+				},
 				Aliases: nil,
 				Decoder: PropertyMapDesc{},
 			},
@@ -115,6 +119,10 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 				Name: "Individual identification information",
 				NameTranslations: map[string]string{
 					"ja": "個体識別情報",
+				},
+				ShortName: "Individual ID",
+				ShortNameTranslations: map[string]string{
+					"ja": "個体ID",
 				},
 				Aliases: nil,
 				Decoder: nil,
@@ -140,6 +148,10 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "インスタンスリスト通知",
 				},
+				ShortName: "Instance list",
+				ShortNameTranslations: map[string]string{
+					"ja": "インスタンス一覧",
+				},
 				Aliases: nil,
 				Decoder: InstanceListNotificationDesc{},
 			},
@@ -147,6 +159,10 @@ func (r PropertyRegistry) NodeProfileObject() PropertyTable {
 				Name: "Self-node instance list S",
 				NameTranslations: map[string]string{
 					"ja": "自ノードインスタンスリストS",
+				},
+				ShortName: "Instance list S",
+				ShortNameTranslations: map[string]string{
+					"ja": "インスタンス一覧S",
 				},
 				Aliases: nil,
 				Decoder: SelfNodeInstanceListDesc{},

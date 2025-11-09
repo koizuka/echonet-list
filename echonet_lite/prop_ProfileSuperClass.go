@@ -93,6 +93,10 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			NameTranslations: map[string]string{
 				"ja": "瞬時電力計測値",
 			},
+			ShortName: "Instantaneous power",
+			ShortNameTranslations: map[string]string{
+				"ja": "瞬時電力",
+			},
 			Aliases: nil,
 			Decoder: NumberDesc{EDTLen: 2, Max: 65533, Unit: "W"},
 		},
@@ -100,6 +104,10 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			Name: "Measured cumulative power consumption",
 			NameTranslations: map[string]string{
 				"ja": "積算電力量計測値",
+			},
+			ShortName: "Cumulative power",
+			ShortNameTranslations: map[string]string{
+				"ja": "積算電力量",
 			},
 			Aliases: nil,
 			Decoder: CumulativePowerConsumptionDesc{},
@@ -262,6 +270,10 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			NameTranslations: map[string]string{
 				"ja": "Setプロパティマップ",
 			},
+			ShortName: "Set map",
+			ShortNameTranslations: map[string]string{
+				"ja": "Set一覧",
+			},
 			Aliases: nil,
 			Decoder: PropertyMapDesc{},
 		},
@@ -269,6 +281,10 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			Name: "Get property map",
 			NameTranslations: map[string]string{
 				"ja": "Getプロパティマップ",
+			},
+			ShortName: "Get map",
+			ShortNameTranslations: map[string]string{
+				"ja": "Get一覧",
 			},
 			Aliases: nil,
 			Decoder: PropertyMapDesc{},
