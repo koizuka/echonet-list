@@ -236,6 +236,7 @@ export type AliasTranslations = Record<string, string>; // Flat: { cooling: "冷
 
 export type PropertyDescriptor = {
   description: string;
+  shortDescription?: string; // Short description for compact display
   aliases?: PropertyAlias;
   aliasTranslations?: AliasTranslations;
   numberDesc?: NumberDesc;

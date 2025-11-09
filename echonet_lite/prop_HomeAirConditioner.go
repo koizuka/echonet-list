@@ -146,6 +146,10 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "室内相対湿度計測値",
 				},
+				ShortName: "Room humidity",
+				ShortNameTranslations: map[string]string{
+					"ja": "室内湿度",
+				},
 				Aliases:           UnsignedExtraValueAlias,
 				AliasTranslations: UnsignedExtraValueAliasTranslations,
 				Decoder:           HumidityDesc,
@@ -155,6 +159,10 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "室内温度計測値",
 				},
+				ShortName: "Room temperature",
+				ShortNameTranslations: map[string]string{
+					"ja": "室内温度",
+				},
 				Aliases:           MeasuredTemperatureExtraValueAlias,
 				AliasTranslations: MeasuredTemperatureExtraValueAliasTranslations,
 				Decoder:           MeasuredTemperatureDesc,
@@ -163,6 +171,10 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				Name: "Current outside temperature",
 				NameTranslations: map[string]string{
 					"ja": "屋外温度計測値",
+				},
+				ShortName: "Outside temperature",
+				ShortNameTranslations: map[string]string{
+					"ja": "屋外温度",
 				},
 				Aliases:           MeasuredTemperatureExtraValueAlias,
 				AliasTranslations: MeasuredTemperatureExtraValueAliasTranslations,

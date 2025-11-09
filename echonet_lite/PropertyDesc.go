@@ -11,11 +11,13 @@ import (
 
 // PropertyDesc はプロパティの情報を表します。
 type PropertyDesc struct {
-	Name              string                       // 説明（英語のデフォルト値）
-	NameTranslations  map[string]string            // 言語別の説明 (e.g., "ja" -> "照度レベル")
-	Aliases           map[string][]byte            // Alias names for EDT values (e.g., "on" -> []byte{0x30})
-	AliasTranslations map[string]map[string]string // Alias翻訳テーブル (e.g., "ja" -> {"on" -> "オン"})
-	Decoder           PropertyDecoder              // デコーダ。PropertyEncoderも実装すると、文字列から変換できる。
+	Name                  string                       // 説明（英語のデフォルト値）
+	NameTranslations      map[string]string            // 言語別の説明 (e.g., "ja" -> "照度レベル")
+	ShortName             string                       // 短縮名（英語）。未設定時はNameを使用
+	ShortNameTranslations map[string]string            // 言語別の短縮名 (e.g., "ja" -> "室内温度")
+	Aliases               map[string][]byte            // Alias names for EDT values (e.g., "on" -> []byte{0x30})
+	AliasTranslations     map[string]map[string]string // Alias翻訳テーブル (e.g., "ja" -> {"on" -> "オン"})
+	Decoder               PropertyDecoder              // デコーダ。PropertyEncoderも実装すると、文字列から変換できる。
 
 	// Update trigger fields
 	TriggerUpdate bool          // このプロパティが変更されたときに自動的にUpdatePropertiesを実行するか
@@ -32,6 +34,21 @@ func (p PropertyDesc) GetName(lang string) string {
 		}
 	}
 	return p.Name
+}
+
+// GetShortName returns the short property name for the specified language.
+// If ShortName is not set, it falls back to the full name.
+func (p PropertyDesc) GetShortName(lang string) string {
+	if p.ShortNameTranslations != nil && lang != "" && lang != "en" {
+		if shortName, ok := p.ShortNameTranslations[lang]; ok {
+			return shortName
+		}
+	}
+	if p.ShortName != "" {
+		return p.ShortName
+	}
+	// Fallback to full name if short name is not defined
+	return p.GetName(lang)
 }
 
 // GetAliasTranslations returns the alias translations for the specified language.

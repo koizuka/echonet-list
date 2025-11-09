@@ -75,6 +75,10 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "室内温度計測値",
 				},
+				ShortName: "Room temp.",
+				ShortNameTranslations: map[string]string{
+					"ja": "室内温度",
+				},
 				Aliases:           ExtraValueAlias,
 				AliasTranslations: ExtraValueAliasTranslations,
 				Decoder:           MeasuredTemperatureDesc,
@@ -83,6 +87,10 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 				Name: "Floor temperature",
 				NameTranslations: map[string]string{
 					"ja": "床温度計測値",
+				},
+				ShortName: "Floor temp.",
+				ShortNameTranslations: map[string]string{
+					"ja": "床温度",
 				},
 				Aliases:           ExtraValueAlias,
 				AliasTranslations: ExtraValueAliasTranslations,

@@ -290,9 +290,10 @@ export function DeviceHistoryDialog({
     });
 
     // Memoize property names for better performance
+    // Use short names for compact display in table headers
     const propertyNameMap = new Map<string, string>();
     uniqueProperties.forEach(epc => {
-      propertyNameMap.set(epc, getPropertyName(epc, propertyDescriptions, classCode));
+      propertyNameMap.set(epc, getPropertyName(epc, propertyDescriptions, classCode, undefined, true));
     });
 
     /**
@@ -425,10 +426,10 @@ export function DeviceHistoryDialog({
                     return (
                       <TableHead
                         key={epc}
-                        className="min-w-[80px] max-w-[200px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-0.5 text-center"
+                        className="min-w-[80px] max-w-[120px] sticky top-0 bg-background dark:bg-background z-20 py-1 px-0.5 text-center"
                         title={propertyName}
                       >
-                        <span className="truncate block text-xs">{propertyName}</span>
+                        <span className="block text-xs leading-tight break-words">{propertyName}</span>
                       </TableHead>
                     );
                   })}
