@@ -269,7 +269,8 @@ describe('DeviceHistoryDialog', () => {
     const reloadButton = screen.getByTitle(/Reload/i);
     await user.click(reloadButton);
 
-    expect(mockRefetch).toHaveBeenCalledTimes(1);
+    // Expect 2 calls: 1 from auto-fetch when dialog opens + 1 from manual reload button click
+    expect(mockRefetch).toHaveBeenCalledTimes(2);
   });
 
   it('should call onOpenChange when close button is clicked', async () => {

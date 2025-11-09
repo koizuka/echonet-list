@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { RefreshCw, Loader2, CheckCircle, XCircle, Edit, Eye, Binary, X } from 'lucide-react';
 import {
   AlertDialog,
@@ -70,6 +70,15 @@ interface DeviceHistoryDialogProps {
   allDevices?: Record<string, Device>;
 }
 
+// Helper function to format timestamp as HH:MM:SS
+function formatFetchTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
 export function DeviceHistoryDialog({
   device,
   connection,
@@ -83,7 +92,11 @@ export function DeviceHistoryDialog({
 }: DeviceHistoryDialogProps) {
   const [settableOnly, setSettableOnly] = useState(false);
   const [selectedHexData, setSelectedHexData] = useState<{ epc: string; edt: string; propertyName: string; timestamp: string } | null>(null);
+  const [lastFetchTime, setLastFetchTime] = useState<string>('');
   const deviceTarget = `${device.ip} ${device.eoj}`;
+
+  // Track last fetch time for cache management (10 second cache)
+  const lastFetchTimeRef = useRef<number>(0);
 
   // Get device alias information (memoized for performance)
   const aliasInfo = useMemo(
@@ -101,6 +114,33 @@ export function DeviceHistoryDialog({
     limit: 50,
     settableOnly,
   });
+
+  // Auto-fetch history when dialog opens (with 10 second cache)
+  useEffect(() => {
+    if (isOpen && isConnected) {
+      const now = Date.now();
+      const cacheTime = 10000; // 10 seconds
+
+      // Only refetch if cache has expired
+      if (now - lastFetchTimeRef.current >= cacheTime) {
+        lastFetchTimeRef.current = now;
+        refetch();
+      }
+    }
+  }, [isOpen, isConnected, refetch]);
+
+  // Update last fetch time display when data loads (even if empty)
+  useEffect(() => {
+    if (!isLoading && lastFetchTimeRef.current > 0) {
+      setLastFetchTime(formatFetchTime(lastFetchTimeRef.current));
+    }
+  }, [isLoading]);
+
+  // Handler for manual reload button
+  const handleManualReload = useCallback(() => {
+    lastFetchTimeRef.current = Date.now();
+    refetch();
+  }, [refetch]);
 
   const messages: Record<'en' | 'ja', DialogMessages> = {
     en: {
@@ -304,9 +344,20 @@ export function DeviceHistoryDialog({
       <AlertDialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <AlertDialogHeader>
           <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
-          <div className="text-xs text-muted-foreground space-y-0.5">
+          <div className="text-xs text-muted-foreground space-y-0.5 text-left">
             {aliasInfo.hasAlias && <div>Device: {device.name}</div>}
-            <div>{device.ip} - {device.eoj}</div>
+            <div className="flex items-center justify-between gap-2">
+              <span>{device.ip} - {device.eoj}</span>
+              {lastFetchTime && (
+                <span
+                  className="text-xs text-muted-foreground"
+                  title="Last fetched at"
+                  aria-label={`Data last fetched at ${lastFetchTime}`}
+                >
+                  [{lastFetchTime}]
+                </span>
+              )}
+            </div>
           </div>
         </AlertDialogHeader>
 
@@ -323,7 +374,7 @@ export function DeviceHistoryDialog({
           <Button
             variant="ghost"
             size="sm"
-            onClick={refetch}
+            onClick={handleManualReload}
             disabled={isLoading || !isConnected}
             title={texts.reload}
             className="h-8 w-8 p-0"
