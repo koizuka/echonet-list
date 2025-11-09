@@ -89,6 +89,23 @@ export function DeviceHistoryDialog({
   // Track last fetch time for cache management (10 second cache)
   const lastFetchTimeRef = useRef<number>(0);
 
+  // Helper function to format timestamp as HH:MM:SS
+  const formatFetchTime = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  };
+
+  // Wrapper function to handle refetch with timestamp update
+  const handleRefetch = () => {
+    const now = Date.now();
+    lastFetchTimeRef.current = now;
+    setLastFetchTime(formatFetchTime(now));
+    refetch();
+  };
+
   // Get device alias information (memoized for performance)
   const aliasInfo = useMemo(
     () => deviceHasAlias(device, allDevices, aliases),
@@ -107,7 +124,6 @@ export function DeviceHistoryDialog({
   });
 
   // Auto-fetch history when dialog opens (with 10 second cache)
-  // Note: refetch is a stable function from useDeviceHistory, safe to include in dependencies
   useEffect(() => {
     if (isOpen && isConnected) {
       const now = Date.now();
@@ -115,22 +131,11 @@ export function DeviceHistoryDialog({
 
       // Only refetch if cache has expired
       if (now - lastFetchTimeRef.current >= cacheTime) {
-        refetch();
-        lastFetchTimeRef.current = now;
+        handleRefetch();
       }
     }
-  }, [isOpen, isConnected, refetch]);
-
-  // Update last fetch time display when data loads (even if empty)
-  useEffect(() => {
-    if (!isLoading && lastFetchTimeRef.current > 0) {
-      const date = new Date(lastFetchTimeRef.current);
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      setLastFetchTime(`${hours}:${minutes}:${seconds}`);
-    }
-  }, [isLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isConnected]);
 
   const messages: Record<'en' | 'ja', DialogMessages> = {
     en: {
@@ -339,7 +344,11 @@ export function DeviceHistoryDialog({
             <div className="flex items-center justify-between gap-2">
               <span>{device.ip} - {device.eoj}</span>
               {lastFetchTime && (
-                <span className="text-xs text-muted-foreground" title="Last fetched at">
+                <span
+                  className="text-xs text-muted-foreground"
+                  title="Last fetched at"
+                  aria-label={`Data last fetched at ${lastFetchTime}`}
+                >
                   [{lastFetchTime}]
                 </span>
               )}
@@ -360,20 +369,7 @@ export function DeviceHistoryDialog({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              // Manual reload always bypasses cache and updates timestamp immediately
-              const now = Date.now();
-              lastFetchTimeRef.current = now;
-
-              // Update display timestamp immediately
-              const date = new Date(now);
-              const hours = String(date.getHours()).padStart(2, '0');
-              const minutes = String(date.getMinutes()).padStart(2, '0');
-              const seconds = String(date.getSeconds()).padStart(2, '0');
-              setLastFetchTime(`${hours}:${minutes}:${seconds}`);
-
-              refetch();
-            }}
+            onClick={handleRefetch}
             disabled={isLoading || !isConnected}
             title={texts.reload}
             className="h-8 w-8 p-0"
