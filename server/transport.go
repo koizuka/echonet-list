@@ -167,7 +167,7 @@ func (t *DefaultWebSocketTransport) SetDisconnectHandler(handler func(connID str
 
 // isConnectionClosedError checks if the error indicates a closed connection
 func isConnectionClosedError(err error) bool {
-	return websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) ||
+	return websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) ||
 		strings.Contains(err.Error(), "close sent") ||
 		strings.Contains(err.Error(), "use of closed network connection") ||
 		strings.Contains(err.Error(), "broken pipe") ||
@@ -315,6 +315,11 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
+			// Check for unexpected close errors. Expected close codes:
+			// - 1000 (Normal): Intentional client disconnect (e.g., HMR, manual close)
+			// - 1001 (Going Away): Browser navigation or server shutdown
+			// - 1005 (No Status): No close code provided
+			// - 1006 (Abnormal): Connection lost without close frame
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) {
 				slog.Error("Unexpected WebSocket close error", "err", err)
 			}
