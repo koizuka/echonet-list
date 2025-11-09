@@ -367,14 +367,14 @@ export function DeviceHistoryDialog({
                 <TableRow>
                   {/* Z-index strategy: timestamp header needs z-30 to appear above other sticky headers (z-20)
                       when both vertical (top-0) and horizontal (left-0) sticky positioning are active */}
-                  <TableHead className="w-[140px] sticky top-0 left-0 bg-background dark:bg-background z-30 border-r h-8 py-1 px-2">{texts.timestamp}</TableHead>
-                  <TableHead className="w-[100px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-2">{texts.origin}</TableHead>
+                  <TableHead className="w-[140px] sticky top-0 left-0 bg-background dark:bg-background z-30 border-r h-8 py-1 px-0.5">{texts.timestamp}</TableHead>
+                  <TableHead className="w-[100px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-0.5">{texts.origin}</TableHead>
                   {propertyColumns.map((epc) => {
                     const propertyName = propertyNames.get(epc) || epc;
                     return (
                       <TableHead
                         key={epc}
-                        className="min-w-[120px] max-w-[200px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-2 text-center"
+                        className="min-w-[100px] max-w-[200px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-0.5 text-center"
                         title={propertyName}
                       >
                         <span className="truncate block text-xs">{propertyName}</span>
@@ -424,12 +424,12 @@ export function DeviceHistoryDialog({
                         data-testid={testId}
                       >
                         {/* Timestamp */}
-                        <TableCell className={`font-mono text-xs sticky left-0 z-20 border-r py-1 px-2 ${rowColorClass}`}>
+                        <TableCell className={`font-mono text-xs sticky left-0 z-20 border-r py-1 px-0.5 ${rowColorClass}`}>
                           {formatTimestamp(group.timestamp)}
                         </TableCell>
 
                         {/* Origin with icon */}
-                        <TableCell className="text-xs py-1 px-2">
+                        <TableCell className="text-xs py-1 px-0.5">
                           <div className="flex items-center gap-1.5">
                             <OriginIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
                             <span className="px-1.5 py-0.5 rounded bg-muted/70 whitespace-nowrap text-xs">
@@ -439,7 +439,7 @@ export function DeviceHistoryDialog({
                         </TableCell>
 
                         {/* Event description spans all property columns */}
-                        <TableCell colSpan={propertyColumns.length} className="font-semibold py-1 px-2">
+                        <TableCell colSpan={propertyColumns.length} className="font-semibold py-1 px-0.5">
                           {eventDescription}
                         </TableCell>
                       </TableRow>
@@ -454,12 +454,12 @@ export function DeviceHistoryDialog({
                       data-testid={testId}
                     >
                       {/* Timestamp */}
-                      <TableCell className={`font-mono text-xs sticky left-0 z-20 border-r py-1 px-2 ${rowColorClass || 'text-muted-foreground bg-background dark:bg-background'}`}>
+                      <TableCell className={`font-mono text-xs sticky left-0 z-20 border-r py-1 px-0.5 ${rowColorClass || 'text-muted-foreground bg-background dark:bg-background'}`}>
                         {formatTimestamp(group.timestamp)}
                       </TableCell>
 
                       {/* Origin with icon */}
-                      <TableCell className="text-xs py-1 px-2">
+                      <TableCell className="text-xs py-1 px-0.5">
                         <div className="flex items-center gap-1.5">
                           <OriginIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
                           <span className="px-1.5 py-0.5 rounded bg-muted/70 whitespace-nowrap text-xs">
@@ -472,7 +472,7 @@ export function DeviceHistoryDialog({
                       {propertyColumns.map((epc) => {
                         const entry = group.properties.get(epc);
                         if (!entry) {
-                          return <TableCell key={epc} className="text-muted-foreground text-center py-1 px-2">-</TableCell>;
+                          return <TableCell key={epc} className="text-muted-foreground text-center py-1 px-0.5">-</TableCell>;
                         }
 
                         const descriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
@@ -487,7 +487,7 @@ export function DeviceHistoryDialog({
                         // Row-level coloring handles all settable property highlighting
                         // No need for cell-level coloring since grouping ensures consistent settable status per row
                         return (
-                          <TableCell key={epc} className="py-1 px-2">
+                          <TableCell key={epc} className="py-1 px-0.5">
                             <div className="flex items-center justify-center gap-1">
                               <span className="font-medium font-mono text-xs truncate" title={formattedValue}>
                                 {formattedValue}
