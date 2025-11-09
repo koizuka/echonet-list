@@ -418,14 +418,14 @@ export function DeviceHistoryDialog({
                 <TableRow>
                   {/* Z-index strategy: timestamp header needs z-30 to appear above other sticky headers (z-20)
                       when both vertical (top-0) and horizontal (left-0) sticky positioning are active */}
-                  <TableHead className="w-[140px] sticky top-0 left-0 bg-background dark:bg-background z-30 border-r h-8 py-1 px-0.5">{texts.timestamp}</TableHead>
-                  <TableHead className="w-[100px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-0.5">{texts.origin}</TableHead>
+                  <TableHead className="w-[120px] sticky top-0 left-0 bg-background dark:bg-background z-30 border-r h-8 py-1 px-0.5">{texts.timestamp}</TableHead>
+                  <TableHead className="w-[80px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-0.5">{texts.origin}</TableHead>
                   {propertyColumns.map((epc) => {
                     const propertyName = propertyNames.get(epc) || epc;
                     return (
                       <TableHead
                         key={epc}
-                        className="min-w-[100px] max-w-[200px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-0.5 text-center"
+                        className="min-w-[80px] max-w-[200px] sticky top-0 bg-background dark:bg-background z-20 h-8 py-1 px-0.5 text-center"
                         title={propertyName}
                       >
                         <span className="truncate block text-xs">{propertyName}</span>
