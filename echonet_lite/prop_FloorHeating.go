@@ -139,6 +139,10 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "デイリータイマー1設定値",
 				},
+				ShortName: "Timer 1",
+				ShortNameTranslations: map[string]string{
+					"ja": "タイマー1",
+				},
 				Aliases: nil,
 				Decoder: FH_DailyTimerDesc{},
 			},
@@ -146,6 +150,10 @@ func (r PropertyRegistry) FloorHeating() PropertyTable {
 				Name: "Daily timer2",
 				NameTranslations: map[string]string{
 					"ja": "デイリータイマー2設定値",
+				},
+				ShortName: "Timer 2",
+				ShortNameTranslations: map[string]string{
+					"ja": "タイマー2",
 				},
 				Aliases: nil,
 				Decoder: FH_DailyTimerDesc{},

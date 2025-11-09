@@ -137,6 +137,10 @@ func (r PropertyRegistry) HomeAirConditioner() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "除湿モード時相対湿度設定値",
 				},
+				ShortName: "Humidity setting",
+				ShortNameTranslations: map[string]string{
+					"ja": "湿度設定値",
+				},
 				Aliases:           UnsignedExtraValueAlias,
 				AliasTranslations: UnsignedExtraValueAliasTranslations,
 				Decoder:           HumidityDesc,

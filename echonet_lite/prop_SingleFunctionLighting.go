@@ -58,6 +58,10 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyTable {
 				NameTranslations: map[string]string{
 					"ja": "パナソニック不明文字列FD",
 				},
+				ShortName: "Panasonic FD",
+				ShortNameTranslations: map[string]string{
+					"ja": "パナソニックFD",
+				},
 				Aliases: nil,
 				Decoder: StringDesc{MaxEDTLen: 255 /* ? */},
 			},
@@ -65,6 +69,10 @@ func (r PropertyRegistry) SingleFunctionLighting() PropertyTable {
 				Name: "Panasonic Unknown String FE",
 				NameTranslations: map[string]string{
 					"ja": "パナソニック不明文字列FE",
+				},
+				ShortName: "Panasonic FE",
+				ShortNameTranslations: map[string]string{
+					"ja": "パナソニックFE",
 				},
 				Aliases: nil,
 				Decoder: StringDesc{MaxEDTLen: 255 /* ? */},

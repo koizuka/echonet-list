@@ -270,6 +270,10 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			NameTranslations: map[string]string{
 				"ja": "Setプロパティマップ",
 			},
+			ShortName: "Set map",
+			ShortNameTranslations: map[string]string{
+				"ja": "Set一覧",
+			},
 			Aliases: nil,
 			Decoder: PropertyMapDesc{},
 		},
@@ -277,6 +281,10 @@ var ProfileSuperClass_PropertyTable = PropertyTable{
 			Name: "Get property map",
 			NameTranslations: map[string]string{
 				"ja": "Getプロパティマップ",
+			},
+			ShortName: "Get map",
+			ShortNameTranslations: map[string]string{
+				"ja": "Get一覧",
 			},
 			Aliases: nil,
 			Decoder: PropertyMapDesc{},

@@ -498,6 +498,88 @@ describe('Internationalization (i18n)', () => {
 
       expect(getPropertyName('B0', descriptionsWithConflict, '0130', 'en')).toBe('Set Temperature Value');
     });
+
+    it('should return short name when useShort is true and shortDescription is available', () => {
+      const descriptionsWithShort = {
+        '': {
+          classCode: '',
+          properties: {
+            '84': {
+              description: 'Measured instantaneous power consumption',
+              shortDescription: 'Instantaneous power'
+            }
+          }
+        },
+        ':ja': {
+          classCode: '',
+          properties: {
+            '84': {
+              description: '瞬時電力計測値',
+              shortDescription: '瞬時電力'
+            }
+          }
+        }
+      };
+
+      expect(getPropertyName('84', descriptionsWithShort, '', 'en', true)).toBe('Instantaneous power');
+      expect(getPropertyName('84', descriptionsWithShort, '', 'ja', true)).toBe('瞬時電力');
+    });
+
+    it('should fallback to full name when useShort is true but shortDescription is not available', () => {
+      const descriptionsWithoutShort = {
+        '': {
+          classCode: '',
+          properties: {
+            '80': { description: 'Operation Status' }
+          }
+        }
+      };
+
+      expect(getPropertyName('80', descriptionsWithoutShort, '', 'en', true)).toBe('Operation Status');
+    });
+
+    it('should return full name when useShort is false even if shortDescription is available', () => {
+      const descriptionsWithShort = {
+        '': {
+          classCode: '',
+          properties: {
+            '84': {
+              description: 'Measured instantaneous power consumption',
+              shortDescription: 'Instantaneous power'
+            }
+          }
+        }
+      };
+
+      expect(getPropertyName('84', descriptionsWithShort, '', 'en', false)).toBe('Measured instantaneous power consumption');
+    });
+
+    it('should handle short names for class-specific properties', () => {
+      const descriptionsWithShort = {
+        '0130': {
+          classCode: '0130',
+          properties: {
+            'BA': {
+              description: 'Current room humidity',
+              shortDescription: 'Room humidity'
+            }
+          }
+        },
+        '0130:ja': {
+          classCode: '0130',
+          properties: {
+            'BA': {
+              description: '室内相対湿度計測値',
+              shortDescription: '室内湿度'
+            }
+          }
+        }
+      };
+
+      expect(getPropertyName('BA', descriptionsWithShort, '0130', 'en', true)).toBe('Room humidity');
+      expect(getPropertyName('BA', descriptionsWithShort, '0130', 'ja', true)).toBe('室内湿度');
+      expect(getPropertyName('BA', descriptionsWithShort, '0130', 'en', false)).toBe('Current room humidity');
+    });
   });
 
   describe('getPropertyDescriptor', () => {

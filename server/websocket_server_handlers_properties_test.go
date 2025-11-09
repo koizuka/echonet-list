@@ -448,3 +448,112 @@ func TestHandleGetPropertyDescriptionFromClient(t *testing.T) {
 		})
 	}
 }
+
+// TestHandleGetPropertyDescriptionWithShortNames は短縮名フィールドのテスト
+func TestHandleGetPropertyDescriptionWithShortNames(t *testing.T) {
+	tests := []struct {
+		name            string
+		classCode       string
+		lang            string
+		epc             string
+		wantShortName   string
+		shouldHaveShort bool
+	}{
+		{
+			name:            "ProfileSuperClass with short name in English",
+			classCode:       "",
+			lang:            "en",
+			epc:             "84",
+			wantShortName:   "Instantaneous power",
+			shouldHaveShort: true,
+		},
+		{
+			name:            "ProfileSuperClass with short name in Japanese",
+			classCode:       "",
+			lang:            "ja",
+			epc:             "84",
+			wantShortName:   "瞬時電力",
+			shouldHaveShort: true,
+		},
+		{
+			name:            "HomeAirConditioner with short name in English",
+			classCode:       "0130",
+			lang:            "en",
+			epc:             "BA",
+			wantShortName:   "Room humidity",
+			shouldHaveShort: true,
+		},
+		{
+			name:            "HomeAirConditioner with short name in Japanese",
+			classCode:       "0130",
+			lang:            "ja",
+			epc:             "BA",
+			wantShortName:   "室内湿度",
+			shouldHaveShort: true,
+		},
+		{
+			name:            "Property without short name",
+			classCode:       "",
+			lang:            "en",
+			epc:             "80",
+			wantShortName:   "",
+			shouldHaveShort: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &mockECHONETListClient{}
+			ws := &WebSocketServer{
+				ctx:           context.Background(),
+				transport:     nil,
+				echonetClient: mockClient,
+				handler:       nil,
+				timeProvider:  &RealTimeProvider{},
+			}
+
+			payload := protocol.GetPropertyDescriptionPayload{
+				ClassCode: tt.classCode,
+				Lang:      tt.lang,
+			}
+			payloadBytes, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatalf("Failed to marshal payload: %v", err)
+			}
+
+			msg := &protocol.Message{
+				Type:      protocol.MessageTypeGetPropertyDescription,
+				Payload:   payloadBytes,
+				RequestID: "test-request-id",
+			}
+
+			responsePayload := ws.handleGetPropertyDescriptionFromClient(msg)
+
+			if !responsePayload.Success {
+				t.Fatalf("Request failed: %v", responsePayload.Error)
+			}
+
+			var descriptionData protocol.PropertyDescriptionData
+			if err := json.Unmarshal(responsePayload.Data, &descriptionData); err != nil {
+				t.Fatalf("Failed to unmarshal response data: %v", err)
+			}
+
+			epcDesc, ok := descriptionData.Properties[tt.epc]
+			if !ok {
+				t.Fatalf("EPC %s not found in response", tt.epc)
+			}
+
+			if tt.shouldHaveShort {
+				if epcDesc.ShortDescription == "" {
+					t.Errorf("ShortDescription is empty, want %q", tt.wantShortName)
+				} else if epcDesc.ShortDescription != tt.wantShortName {
+					t.Errorf("ShortDescription = %q, want %q", epcDesc.ShortDescription, tt.wantShortName)
+				}
+			} else {
+				if epcDesc.ShortDescription != "" {
+					t.Errorf("ShortDescription = %q, want empty", epcDesc.ShortDescription)
+				}
+			}
+		})
+	}
+}
