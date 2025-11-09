@@ -107,6 +107,7 @@ export function DeviceHistoryDialog({
   });
 
   // Auto-fetch history when dialog opens (with 10 second cache)
+  // Note: refetch is a stable function from useDeviceHistory, safe to include in dependencies
   useEffect(() => {
     if (isOpen && isConnected) {
       const now = Date.now();
@@ -120,16 +121,16 @@ export function DeviceHistoryDialog({
     }
   }, [isOpen, isConnected, refetch]);
 
-  // Update last fetch time display when not loading and entries exist
+  // Update last fetch time display when data loads (even if empty)
   useEffect(() => {
-    if (!isLoading && entries.length > 0 && lastFetchTimeRef.current > 0) {
+    if (!isLoading && lastFetchTimeRef.current > 0) {
       const date = new Date(lastFetchTimeRef.current);
       const hours = String(date.getHours()).padStart(2, '0');
       const minutes = String(date.getMinutes()).padStart(2, '0');
       const seconds = String(date.getSeconds()).padStart(2, '0');
       setLastFetchTime(`${hours}:${minutes}:${seconds}`);
     }
-  }, [isLoading, entries]);
+  }, [isLoading]);
 
   const messages: Record<'en' | 'ja', DialogMessages> = {
     en: {
@@ -360,8 +361,18 @@ export function DeviceHistoryDialog({
             variant="ghost"
             size="sm"
             onClick={() => {
+              // Manual reload always bypasses cache and updates timestamp immediately
+              const now = Date.now();
+              lastFetchTimeRef.current = now;
+
+              // Update display timestamp immediately
+              const date = new Date(now);
+              const hours = String(date.getHours()).padStart(2, '0');
+              const minutes = String(date.getMinutes()).padStart(2, '0');
+              const seconds = String(date.getSeconds()).padStart(2, '0');
+              setLastFetchTime(`${hours}:${minutes}:${seconds}`);
+
               refetch();
-              lastFetchTimeRef.current = Date.now();
             }}
             disabled={isLoading || !isConnected}
             title={texts.reload}
