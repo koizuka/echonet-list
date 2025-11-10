@@ -12,6 +12,9 @@ import type {
   PropertyValue
 } from './types';
 
+// Type alias for in-flight property description request tracking
+type PendingPropertyDescriptionRequests = Map<string, Promise<PropertyDescriptionData>>;
+
 type ECHONETAction =
   | { type: 'SET_INITIAL_STATE'; payload: { devices: Record<string, Device>; aliases: DeviceAlias; groups: DeviceGroup; serverStartupTime?: string } }
   | { type: 'ADD_DEVICE'; payload: { device: Device } }
@@ -537,7 +540,7 @@ export function useECHONET(
 
   // Property description operations
   // Track in-progress requests to prevent duplicate requests (e.g., from React Strict Mode double mounting)
-  const pendingPropertyDescriptionRequestsRef = useRef<Map<string, Promise<PropertyDescriptionData>>>(new Map());
+  const pendingPropertyDescriptionRequestsRef = useRef<PendingPropertyDescriptionRequests>(new Map());
 
   const getPropertyDescription = useCallback(async (classCode: string, lang?: string): Promise<PropertyDescriptionData> => {
     const currentLang = lang || getCurrentLocale();
