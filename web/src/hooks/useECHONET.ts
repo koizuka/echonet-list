@@ -547,13 +547,15 @@ export function useECHONET(
     const cacheKey = `${classCode}:${currentLang}`;
 
     // Check cache first (with language-specific key)
-    if (state.propertyDescriptions[cacheKey]) {
-      return state.propertyDescriptions[cacheKey];
+    const cached = state.propertyDescriptions[cacheKey];
+    if (cached) {
+      return cached;
     }
 
     // Check if request is already in progress
-    if (pendingPropertyDescriptionRequestsRef.current.has(cacheKey)) {
-      return pendingPropertyDescriptionRequestsRef.current.get(cacheKey)!;
+    const pending = pendingPropertyDescriptionRequestsRef.current.get(cacheKey);
+    if (pending) {
+      return pending;
     }
 
     const payload: { classCode: string; lang?: string } = { classCode };
@@ -573,13 +575,10 @@ export function useECHONET(
         type: 'SET_PROPERTY_DESCRIPTION',
         payload: { classCode: cacheKey, data: result },
       });
-      // Remove from pending requests
-      pendingPropertyDescriptionRequestsRef.current.delete(cacheKey);
       return result;
-    }).catch(error => {
-      // Remove from pending requests on error
+    }).finally(() => {
+      // Always remove from pending requests, even if dispatch throws
       pendingPropertyDescriptionRequestsRef.current.delete(cacheKey);
-      throw error;
     });
 
     pendingPropertyDescriptionRequestsRef.current.set(cacheKey, requestPromise);
