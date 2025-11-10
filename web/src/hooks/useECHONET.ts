@@ -583,6 +583,13 @@ export function useECHONET(
     return requestPromise;
   }, [connection, state.propertyDescriptions]);
 
+  // Clean up pending requests on unmount
+  useEffect(() => {
+    const pendingRequests = pendingPropertyDescriptionRequestsRef.current;
+    return () => {
+      pendingRequests.clear();
+    };
+  }, []);
 
   return {
     // State

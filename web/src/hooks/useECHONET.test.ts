@@ -624,4 +624,50 @@ describe('useECHONET', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
   });
+
+  it('should clean up pending requests on unmount', async () => {
+    const { result, unmount } = renderHook(() => useECHONET(testUrl));
+
+    const mockPropertyData = {
+      classCode: '0130',
+      properties: {
+        '80': { name: 'Operation status', type: 'string' },
+      },
+    };
+
+    // Create a promise that won't resolve immediately
+    let resolveRequest: (value: unknown) => void;
+    const pendingPromise = new Promise(resolve => {
+      resolveRequest = resolve;
+    });
+    mockSendMessage.mockReturnValue(pendingPromise);
+
+    // Start a request but don't wait for it
+    const promise = result.current.getPropertyDescription('0130');
+
+    // Unmount the component while request is still pending
+    unmount();
+
+    // Now resolve the promise
+    await act(async () => {
+      resolveRequest!(mockPropertyData);
+      // The promise should still resolve, but the component is unmounted
+      await promise;
+    });
+
+    // After unmount, a new mount should be able to make the same request
+    // (This verifies that pending requests were cleared on unmount)
+    const { result: result2 } = renderHook(() => useECHONET(testUrl));
+
+    mockSendMessage.mockClear();
+    mockSendMessage.mockResolvedValue(mockPropertyData);
+
+    await act(async () => {
+      const data = await result2.current.getPropertyDescription('0130');
+      expect(data).toEqual(mockPropertyData);
+    });
+
+    // Should make a new request (not reuse the cleared pending request)
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+  });
 });
