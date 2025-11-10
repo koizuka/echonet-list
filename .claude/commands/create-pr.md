@@ -18,7 +18,11 @@ Description: create a pull request
 1. **プリチェック（現在のブランチで実行）**：
    - Go: プロジェクトルートで `go fmt ./...` `go vet ./...` `go test ./...` `go build` を並列実行
    - Web UI: webディレクトリに移動してから `npm run lint` `npm run typecheck` `npm run test` `npm run build` を並列実行
-   
+   - **WebSocketプロトコル変更チェック**:
+     - `git diff HEAD` の結果から `protocol/protocol.go` または `server/websocket_server_handlers_*.go` に変更があるか確認
+     - 変更がある場合、`docs/websocket_client_protocol.md` も更新されているか確認
+     - プロトコルドキュメントが更新されていない場合、ユーザーに警告して確認を求める
+
    ※エラーがあった場合のみ、ユーザーに報告して中断してください。
 
 2. **ブランチ作成とコミット**：
