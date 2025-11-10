@@ -1,18 +1,18 @@
 import { renderHook, act } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } from 'vitest';
 import { useAutoReconnect } from './useAutoReconnect';
 import type { ConnectionState } from './types';
 
 describe('useAutoReconnect', () => {
-  let mockConnect: ReturnType<typeof vi.fn>;
-  let mockDisconnect: ReturnType<typeof vi.fn>;
+  let mockConnect: MockedFunction<() => void>;
+  let mockDisconnect: MockedFunction<() => void>;
   let mockAddEventListener: ReturnType<typeof vi.fn>;
   let mockRemoveEventListener: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    mockConnect = vi.fn();
-    mockDisconnect = vi.fn();
+    mockConnect = vi.fn(() => {});
+    mockDisconnect = vi.fn(() => {});
     mockAddEventListener = vi.fn();
     mockRemoveEventListener = vi.fn();
 
@@ -342,7 +342,7 @@ describe('useAutoReconnect', () => {
 
     it('should use updated connection state from ref', () => {
       let currentConnectionState: 'connected' | 'disconnected' = 'connected';
-      
+
       const { rerender } = renderHook(
         () =>
           useAutoReconnect({
@@ -385,7 +385,7 @@ describe('useAutoReconnect', () => {
     it('should use updated connect function from ref', () => {
       const newMockConnect = vi.fn();
       let currentConnect = mockConnect;
-      
+
       const { rerender } = renderHook(
         () =>
           useAutoReconnect({
@@ -421,7 +421,7 @@ describe('useAutoReconnect', () => {
       const newMockDisconnect = vi.fn();
       let currentDisconnect = mockDisconnect;
       let currentAutoDisconnect = true;
-      
+
       const { rerender } = renderHook(
         () =>
           useAutoReconnect({
@@ -477,7 +477,7 @@ describe('useAutoReconnect', () => {
 
     it('should cleanup timeout on unmount', () => {
       const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
-      
+
       const { unmount } = renderHook(() =>
         useAutoReconnect({
           connectionState: 'disconnected',
@@ -514,7 +514,7 @@ describe('useAutoReconnect', () => {
 
     it('should clear existing timeout before setting new one', () => {
       const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
-      
+
       renderHook(() =>
         useAutoReconnect({
           connectionState: 'disconnected',
