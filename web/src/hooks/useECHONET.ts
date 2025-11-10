@@ -536,6 +536,9 @@ export function useECHONET(
   }, [connection]);
 
   // Property description operations
+  // Track in-progress requests to prevent duplicate requests (e.g., from React Strict Mode double mounting)
+  const pendingPropertyDescriptionRequestsRef = useRef<Map<string, Promise<PropertyDescriptionData>>>(new Map());
+
   const getPropertyDescription = useCallback(async (classCode: string, lang?: string): Promise<PropertyDescriptionData> => {
     const currentLang = lang || getCurrentLocale();
     const cacheKey = `${classCode}:${currentLang}`;
@@ -545,24 +548,39 @@ export function useECHONET(
       return state.propertyDescriptions[cacheKey];
     }
 
+    // Check if request is already in progress
+    if (pendingPropertyDescriptionRequestsRef.current.has(cacheKey)) {
+      return pendingPropertyDescriptionRequestsRef.current.get(cacheKey)!;
+    }
+
     const payload: { classCode: string; lang?: string } = { classCode };
     if (currentLang !== 'en') {
       payload.lang = currentLang;
     }
 
-    const data = await connection.sendMessage({
+    // Create and store the pending request
+    const requestPromise = connection.sendMessage({
       type: 'get_property_description',
       payload,
       requestId: '',
-    }) as PropertyDescriptionData;
-
-    // Cache the result with language-specific key
-    dispatch({
-      type: 'SET_PROPERTY_DESCRIPTION',
-      payload: { classCode: cacheKey, data },
+    }).then(data => {
+      const result = data as PropertyDescriptionData;
+      // Cache the result with language-specific key
+      dispatch({
+        type: 'SET_PROPERTY_DESCRIPTION',
+        payload: { classCode: cacheKey, data: result },
+      });
+      // Remove from pending requests
+      pendingPropertyDescriptionRequestsRef.current.delete(cacheKey);
+      return result;
+    }).catch(error => {
+      // Remove from pending requests on error
+      pendingPropertyDescriptionRequestsRef.current.delete(cacheKey);
+      throw error;
     });
 
-    return data;
+    pendingPropertyDescriptionRequestsRef.current.set(cacheKey, requestPromise);
+    return requestPromise;
   }, [connection, state.propertyDescriptions]);
 
 
