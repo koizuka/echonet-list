@@ -12,6 +12,9 @@ import type {
   PropertyValue
 } from './types';
 
+// Type alias for in-flight property description request tracking
+type PendingPropertyDescriptionRequests = Map<string, Promise<PropertyDescriptionData>>;
+
 type ECHONETAction =
   | { type: 'SET_INITIAL_STATE'; payload: { devices: Record<string, Device>; aliases: DeviceAlias; groups: DeviceGroup; serverStartupTime?: string } }
   | { type: 'ADD_DEVICE'; payload: { device: Device } }
@@ -536,13 +539,23 @@ export function useECHONET(
   }, [connection]);
 
   // Property description operations
+  // Track in-progress requests to prevent duplicate requests (e.g., from React Strict Mode double mounting)
+  const pendingPropertyDescriptionRequestsRef = useRef<PendingPropertyDescriptionRequests>(new Map());
+
   const getPropertyDescription = useCallback(async (classCode: string, lang?: string): Promise<PropertyDescriptionData> => {
     const currentLang = lang || getCurrentLocale();
     const cacheKey = `${classCode}:${currentLang}`;
 
     // Check cache first (with language-specific key)
-    if (state.propertyDescriptions[cacheKey]) {
-      return state.propertyDescriptions[cacheKey];
+    const cached = state.propertyDescriptions[cacheKey];
+    if (cached) {
+      return cached;
+    }
+
+    // Check if request is already in progress
+    const pending = pendingPropertyDescriptionRequestsRef.current.get(cacheKey);
+    if (pending) {
+      return pending;
     }
 
     const payload: { classCode: string; lang?: string } = { classCode };
@@ -550,21 +563,35 @@ export function useECHONET(
       payload.lang = currentLang;
     }
 
-    const data = await connection.sendMessage({
+    // Create and store the pending request
+    const requestPromise = connection.sendMessage({
       type: 'get_property_description',
       payload,
       requestId: '',
-    }) as PropertyDescriptionData;
-
-    // Cache the result with language-specific key
-    dispatch({
-      type: 'SET_PROPERTY_DESCRIPTION',
-      payload: { classCode: cacheKey, data },
+    }).then(data => {
+      const result = data as PropertyDescriptionData;
+      // Cache the result with language-specific key
+      dispatch({
+        type: 'SET_PROPERTY_DESCRIPTION',
+        payload: { classCode: cacheKey, data: result },
+      });
+      return result;
+    }).finally(() => {
+      // Always remove from pending requests, even if dispatch throws
+      pendingPropertyDescriptionRequestsRef.current.delete(cacheKey);
     });
 
-    return data;
+    pendingPropertyDescriptionRequestsRef.current.set(cacheKey, requestPromise);
+    return requestPromise;
   }, [connection, state.propertyDescriptions]);
 
+  // Clean up pending requests on unmount
+  useEffect(() => {
+    const pendingRequests = pendingPropertyDescriptionRequestsRef.current;
+    return () => {
+      pendingRequests.clear();
+    };
+  }, []);
 
   return {
     // State

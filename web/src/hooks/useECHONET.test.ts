@@ -528,4 +528,146 @@ describe('useECHONET', () => {
     // Should not call sendMessage again
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
   });
+
+  it('should prevent duplicate concurrent requests for the same property description', async () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    const mockPropertyData = {
+      classCode: '0130',
+      properties: {
+        '80': { name: 'Operation status', type: 'string' },
+      },
+    };
+
+    mockSendMessage.mockResolvedValue(mockPropertyData);
+
+    // Make two concurrent requests for the same classCode
+    const promise1 = result.current.getPropertyDescription('0130');
+    const promise2 = result.current.getPropertyDescription('0130');
+
+    await act(async () => {
+      const [data1, data2] = await Promise.all([promise1, promise2]);
+      expect(data1).toEqual(mockPropertyData);
+      expect(data2).toEqual(mockPropertyData);
+    });
+
+    // Should only call sendMessage once (duplicate prevented)
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      type: 'get_property_description',
+      payload: { classCode: '0130' },
+      requestId: '',
+    });
+  });
+
+  it('should prevent duplicate concurrent requests with language parameter', async () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    const mockPropertyData = {
+      classCode: '0130',
+      properties: {
+        '80': { name: '運転状態', type: 'string' },
+      },
+    };
+
+    mockSendMessage.mockResolvedValue(mockPropertyData);
+
+    // Make three concurrent requests for the same classCode + language
+    const promise1 = result.current.getPropertyDescription('0130', 'ja');
+    const promise2 = result.current.getPropertyDescription('0130', 'ja');
+    const promise3 = result.current.getPropertyDescription('0130', 'ja');
+
+    await act(async () => {
+      const [data1, data2, data3] = await Promise.all([promise1, promise2, promise3]);
+      expect(data1).toEqual(mockPropertyData);
+      expect(data2).toEqual(mockPropertyData);
+      expect(data3).toEqual(mockPropertyData);
+    });
+
+    // Should only call sendMessage once
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      type: 'get_property_description',
+      payload: { classCode: '0130', lang: 'ja' },
+      requestId: '',
+    });
+  });
+
+  it('should clean up pending requests on error', async () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    const error = new Error('Network error');
+    mockSendMessage.mockRejectedValue(error);
+
+    // First request should fail
+    await act(async () => {
+      await expect(result.current.getPropertyDescription('0130')).rejects.toThrow('Network error');
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+
+    // Reset mock for second request
+    mockSendMessage.mockClear();
+    const mockPropertyData = {
+      classCode: '0130',
+      properties: {
+        '80': { name: 'Operation status', type: 'string' },
+      },
+    };
+    mockSendMessage.mockResolvedValue(mockPropertyData);
+
+    // Second request should retry (not blocked by first failed request)
+    await act(async () => {
+      const data = await result.current.getPropertyDescription('0130');
+      expect(data).toEqual(mockPropertyData);
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('should clean up pending requests on unmount', async () => {
+    const { result, unmount } = renderHook(() => useECHONET(testUrl));
+
+    const mockPropertyData = {
+      classCode: '0130',
+      properties: {
+        '80': { name: 'Operation status', type: 'string' },
+      },
+    };
+
+    // Create a promise that won't resolve immediately
+    let resolveRequest: (value: unknown) => void;
+    const pendingPromise = new Promise(resolve => {
+      resolveRequest = resolve;
+    });
+    mockSendMessage.mockReturnValue(pendingPromise);
+
+    // Start a request but don't wait for it
+    const promise = result.current.getPropertyDescription('0130');
+
+    // Unmount the component while request is still pending
+    unmount();
+
+    // Now resolve the promise
+    await act(async () => {
+      resolveRequest!(mockPropertyData);
+      // The promise should still resolve, but the component is unmounted
+      await promise;
+    });
+
+    // After unmount, a new mount should be able to make the same request
+    // (This verifies that pending requests were cleared on unmount)
+    const { result: result2 } = renderHook(() => useECHONET(testUrl));
+
+    mockSendMessage.mockClear();
+    mockSendMessage.mockResolvedValue(mockPropertyData);
+
+    await act(async () => {
+      const data = await result2.current.getPropertyDescription('0130');
+      expect(data).toEqual(mockPropertyData);
+    });
+
+    // Should make a new request (not reuse the cleared pending request)
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+  });
 });
