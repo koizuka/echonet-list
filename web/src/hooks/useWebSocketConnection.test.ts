@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockedFunction } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketConnection } from './useWebSocketConnection';
 
@@ -46,13 +46,13 @@ declare global {
  */
 
 describe('useWebSocketConnection', () => {
-  let mockOnMessage: ReturnType<typeof vi.fn>;
-  let mockOnConnectionStateChange: ReturnType<typeof vi.fn>;
+  let mockOnMessage: MockedFunction<(message: unknown) => void>;
+  let mockOnConnectionStateChange: MockedFunction<(state: string) => void>;
   let OriginalWebSocket: typeof globalThis.WebSocket;
 
   beforeEach(() => {
-    mockOnMessage = vi.fn();
-    mockOnConnectionStateChange = vi.fn();
+    mockOnMessage = vi.fn((_message: unknown) => {});
+    mockOnConnectionStateChange = vi.fn((_state: string) => {});
     
     // Store original WebSocket
     OriginalWebSocket = globalThis.WebSocket;
