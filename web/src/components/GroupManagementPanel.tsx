@@ -23,7 +23,6 @@ interface GroupManagementPanelProps {
   devices?: Device[];
   onPropertyChange?: (target: string, epc: string, value: PropertyValue) => Promise<void>;
   addLogEntry?: (log: LogEntry) => void;
-  resolveAlias?: (ip: string, eoj: string) => string | null;
 }
 
 export function GroupManagementPanel({
@@ -37,7 +36,6 @@ export function GroupManagementPanel({
   devices = [],
   onPropertyChange,
   addLogEntry,
-  resolveAlias,
 }: GroupManagementPanelProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -66,7 +64,6 @@ export function GroupManagementPanel({
               devices={devices}
               onPropertyChange={onPropertyChange}
               addLogEntry={addLogEntry}
-              resolveAlias={resolveAlias}
             />
           )}
 

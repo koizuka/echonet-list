@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Power, PowerOff } from 'lucide-react';
 import { isOperationStatusSettable } from '@/libs/propertyHelper';
 import { generateLogEntryId } from '@/libs/idHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import type { Device, PropertyValue } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
 
@@ -10,10 +11,31 @@ type GroupBulkControlProps = {
   devices: Device[];
   onPropertyChange: (target: string, epc: string, value: PropertyValue) => Promise<void>;
   addLogEntry?: (log: LogEntry) => void;
-  resolveAlias?: (ip: string, eoj: string) => string | null;
 };
 
-export function GroupBulkControl({ devices, onPropertyChange, addLogEntry, resolveAlias: _resolveAlias }: GroupBulkControlProps) {
+// Localized message templates for bulk control operations
+const BULK_CONTROL_MESSAGES = {
+  partial_failure: {
+    en: 'Turned {powerState} {successCount}/{totalDevices} devices ({failureCount} failed)',
+    ja: '{successCount}/{totalDevices}台のデバイスを{powerState}にしました（{failureCount}台失敗）'
+  },
+  all_failed: {
+    en: 'Failed to turn {powerState} {failureCount} devices',
+    ja: '{failureCount}台のデバイスを{powerState}にできませんでした'
+  },
+  power_state: {
+    on: {
+      en: 'ON',
+      ja: 'ON'
+    },
+    off: {
+      en: 'OFF',
+      ja: 'OFF'
+    }
+  }
+} as const;
+
+export function GroupBulkControl({ devices, onPropertyChange, addLogEntry }: GroupBulkControlProps) {
   const [isOperating, setIsOperating] = useState(false);
   const isOperatingRef = useRef(false);
 
@@ -47,17 +69,26 @@ export function GroupBulkControl({ devices, onPropertyChange, addLogEntry, resol
 
       // Add notification only if there are failures (partial or complete failure)
       if (addLogEntry && failureCount > 0) {
-        const actionText = powerState === 'on' ? 'ON' : 'OFF';
+        const locale = getCurrentLocale();
+        const powerStateText = BULK_CONTROL_MESSAGES.power_state[powerState][locale];
         let message: string;
         let level: 'WARN' | 'ERROR';
 
         if (successCount === 0) {
           // All failed
-          message = `${failureCount}台のデバイスを${actionText}にできませんでした`;
+          const template = BULK_CONTROL_MESSAGES.all_failed[locale];
+          message = template
+            .replace('{powerState}', powerStateText)
+            .replace('{failureCount}', String(failureCount));
           level = 'ERROR';
         } else {
           // Partial success
-          message = `${successCount}/${controllableDevices.length}台のデバイスを${actionText}にしました（${failureCount}台失敗）`;
+          const template = BULK_CONTROL_MESSAGES.partial_failure[locale];
+          message = template
+            .replace('{powerState}', powerStateText)
+            .replace('{successCount}', String(successCount))
+            .replace('{totalDevices}', String(controllableDevices.length))
+            .replace('{failureCount}', String(failureCount));
           level = 'WARN';
         }
 

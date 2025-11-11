@@ -571,7 +571,6 @@ function App() {
                     devices={getDevicesForTab(tabId)}
                     onPropertyChange={handlePropertyChange}
                     addLogEntry={logManager.addLogEntry}
-                    resolveAlias={resolveDeviceAlias}
                   />
                 )}
                 

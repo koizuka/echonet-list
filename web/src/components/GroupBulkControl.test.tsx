@@ -284,7 +284,7 @@ describe('GroupBulkControl', () => {
 
     const logEntry = mockAddLogEntry.mock.calls[0][0];
     expect(logEntry.level).toBe('ERROR');
-    expect(logEntry.message).toBe('2台のデバイスをOFFにできませんでした');
+    expect(logEntry.message).toBe('Failed to turn OFF 2 devices');
     expect(logEntry.attributes.successCount).toBe(0);
     expect(logEntry.attributes.failureCount).toBe(2);
   });
@@ -312,7 +312,7 @@ describe('GroupBulkControl', () => {
 
     const logEntry = mockAddLogEntry.mock.calls[0][0];
     expect(logEntry.level).toBe('WARN');
-    expect(logEntry.message).toBe('1/2台のデバイスをONにしました（1台失敗）');
+    expect(logEntry.message).toBe('Turned ON 1/2 devices (1 failed)');
     expect(logEntry.attributes.successCount).toBe(1);
     expect(logEntry.attributes.failureCount).toBe(1);
   });
