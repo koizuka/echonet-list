@@ -568,6 +568,8 @@ function App() {
                       }
                     }}
                     isConnected={isConnected}
+                    devices={getDevicesForTab(tabId)}
+                    onPropertyChange={handlePropertyChange}
                   />
                 )}
                 

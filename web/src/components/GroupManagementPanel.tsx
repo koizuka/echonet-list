@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Edit2, Users, Trash2 } from 'lucide-react';
+import { Edit2, Users, Trash2, MoreVertical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { GroupBulkControl } from './GroupBulkControl';
+import type { Device, PropertyValue } from '../hooks/types';
 
 interface GroupManagementPanelProps {
   groupName: string;
@@ -11,6 +19,8 @@ interface GroupManagementPanelProps {
   isEditingMembers?: boolean;
   onDoneEditingMembers?: () => void;
   isConnected?: boolean;
+  devices?: Device[];
+  onPropertyChange?: (target: string, epc: string, value: PropertyValue) => Promise<void>;
 }
 
 export function GroupManagementPanel({
@@ -21,6 +31,8 @@ export function GroupManagementPanel({
   isEditingMembers = false,
   onDoneEditingMembers,
   isConnected = true,
+  devices = [],
+  onPropertyChange,
 }: GroupManagementPanelProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -39,57 +51,67 @@ export function GroupManagementPanel({
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="flex flex-wrap gap-2">
-          {isEditingMembers ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onDoneEditingMembers}
-              title="メンバー編集を終了"
-            >
-              <Users className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">編集を終了</span>
-            </Button>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onRename}
-                disabled={!isConnected}
-                title="グループ名を変更"
-              >
-                <Edit2 className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">グループ名を変更</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onEditMembers}
-                disabled={!isConnected}
-                title="メンバーを編集"
-              >
-                <Users className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">メンバーを編集</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                className="destructive"
-                onClick={handleDeleteClick}
-                disabled={!isConnected}
-                title="グループを削除"
-              >
-                <Trash2 className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">グループを削除</span>
-              </Button>
-            </>
+      {/* Bulk Power Control + Group Management Controls */}
+      {!isEditingMembers && (
+        <div className="flex items-center gap-2 mb-4">
+          {/* Bulk Power Control - Left side */}
+          {devices.length > 0 && onPropertyChange && (
+            <GroupBulkControl
+              devices={devices}
+              onPropertyChange={onPropertyChange}
+            />
           )}
-        </CardContent>
-      </Card>
+
+          {/* Group Settings Menu - Right side */}
+          <div className="ml-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!isConnected}
+                  title="グループ設定"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onRename} disabled={!isConnected}>
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  グループ名を変更
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onEditMembers} disabled={!isConnected}>
+                  <Users className="h-4 w-4 mr-2" />
+                  メンバーを編集
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleDeleteClick}
+                  disabled={!isConnected}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  グループを削除
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      )}
+
+      {/* Member Editing Mode */}
+      {isEditingMembers && (
+        <div className="mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDoneEditingMembers}
+            title="メンバー編集を終了"
+          >
+            <Users className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">編集を終了</span>
+          </Button>
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
