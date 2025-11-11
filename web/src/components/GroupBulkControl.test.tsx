@@ -239,4 +239,104 @@ describe('GroupBulkControl', () => {
       );
     });
   });
+
+  it('adds INFO notification when all operations succeed', async () => {
+    const mockOnPropertyChange = vi.fn().mockResolvedValue(undefined);
+    const mockAddLogEntry = vi.fn();
+
+    render(
+      <GroupBulkControl
+        devices={mockDevices}
+        onPropertyChange={mockOnPropertyChange}
+        addLogEntry={mockAddLogEntry}
+      />
+    );
+
+    const onButton = screen.getByText('すべてON');
+    fireEvent.click(onButton);
+
+    await waitFor(() => {
+      expect(mockAddLogEntry).toHaveBeenCalledTimes(1);
+    });
+
+    const logEntry = mockAddLogEntry.mock.calls[0][0];
+    expect(logEntry.level).toBe('INFO');
+    expect(logEntry.message).toBe('2台のデバイスをONにしました');
+    expect(logEntry.attributes.successCount).toBe(2);
+    expect(logEntry.attributes.failureCount).toBe(0);
+  });
+
+  it('adds ERROR notification when all operations fail', async () => {
+    const mockOnPropertyChange = vi.fn().mockRejectedValue(new Error('Network error'));
+    const mockAddLogEntry = vi.fn();
+
+    render(
+      <GroupBulkControl
+        devices={mockDevices}
+        onPropertyChange={mockOnPropertyChange}
+        addLogEntry={mockAddLogEntry}
+      />
+    );
+
+    const offButton = screen.getByText('すべてOFF');
+    fireEvent.click(offButton);
+
+    await waitFor(() => {
+      expect(mockAddLogEntry).toHaveBeenCalledTimes(1);
+    });
+
+    const logEntry = mockAddLogEntry.mock.calls[0][0];
+    expect(logEntry.level).toBe('ERROR');
+    expect(logEntry.message).toBe('2台のデバイスをOFFにできませんでした');
+    expect(logEntry.attributes.successCount).toBe(0);
+    expect(logEntry.attributes.failureCount).toBe(2);
+  });
+
+  it('adds WARN notification when some operations fail', async () => {
+    const mockOnPropertyChange = vi.fn()
+      .mockResolvedValueOnce(undefined) // First device succeeds
+      .mockRejectedValueOnce(new Error('Network error')); // Second device fails
+    const mockAddLogEntry = vi.fn();
+
+    render(
+      <GroupBulkControl
+        devices={mockDevices}
+        onPropertyChange={mockOnPropertyChange}
+        addLogEntry={mockAddLogEntry}
+      />
+    );
+
+    const onButton = screen.getByText('すべてON');
+    fireEvent.click(onButton);
+
+    await waitFor(() => {
+      expect(mockAddLogEntry).toHaveBeenCalledTimes(1);
+    });
+
+    const logEntry = mockAddLogEntry.mock.calls[0][0];
+    expect(logEntry.level).toBe('WARN');
+    expect(logEntry.message).toBe('1/2台のデバイスをONにしました（1台失敗）');
+    expect(logEntry.attributes.successCount).toBe(1);
+    expect(logEntry.attributes.failureCount).toBe(1);
+  });
+
+  it('does not add notification when addLogEntry is not provided', async () => {
+    const mockOnPropertyChange = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <GroupBulkControl
+        devices={mockDevices}
+        onPropertyChange={mockOnPropertyChange}
+      />
+    );
+
+    const onButton = screen.getByText('すべてON');
+    fireEvent.click(onButton);
+
+    await waitFor(() => {
+      expect(mockOnPropertyChange).toHaveBeenCalledTimes(2);
+    });
+
+    // No errors should occur even without addLogEntry
+  });
 });

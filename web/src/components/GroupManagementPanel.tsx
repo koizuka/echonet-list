@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { GroupBulkControl } from './GroupBulkControl';
 import type { Device, PropertyValue } from '../hooks/types';
+import type { LogEntry } from '../hooks/useLogNotifications';
 
 interface GroupManagementPanelProps {
   groupName: string;
@@ -21,6 +22,8 @@ interface GroupManagementPanelProps {
   isConnected?: boolean;
   devices?: Device[];
   onPropertyChange?: (target: string, epc: string, value: PropertyValue) => Promise<void>;
+  addLogEntry?: (log: LogEntry) => void;
+  resolveAlias?: (ip: string, eoj: string) => string | null;
 }
 
 export function GroupManagementPanel({
@@ -33,8 +36,11 @@ export function GroupManagementPanel({
   isConnected = true,
   devices = [],
   onPropertyChange,
+  addLogEntry,
+  resolveAlias,
 }: GroupManagementPanelProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleDeleteClick = () => {
     setShowDeleteConfirm(true);
@@ -59,12 +65,14 @@ export function GroupManagementPanel({
             <GroupBulkControl
               devices={devices}
               onPropertyChange={onPropertyChange}
+              addLogEntry={addLogEntry}
+              resolveAlias={resolveAlias}
             />
           )}
 
           {/* Group Settings Menu - Right side */}
           <div className="ml-auto">
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={setIsMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
@@ -72,6 +80,8 @@ export function GroupManagementPanel({
                   disabled={!isConnected}
                   title="グループ設定"
                   aria-label="グループ設定メニューを開く"
+                  aria-haspopup="true"
+                  aria-expanded={isMenuOpen}
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
