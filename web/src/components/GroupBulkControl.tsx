@@ -32,6 +32,16 @@ const BULK_CONTROL_MESSAGES = {
       en: 'OFF',
       ja: 'OFF'
     }
+  },
+  tooltip: {
+    operating: {
+      en: 'Operating...',
+      ja: '操作中...'
+    },
+    no_controllable_devices: {
+      en: 'No controllable devices',
+      ja: '操作可能なデバイスがありません'
+    }
   }
 } as const;
 
@@ -113,6 +123,13 @@ export function GroupBulkControl({ devices, onPropertyChange, addLogEntry }: Gro
     }
   };
 
+  const getButtonTitle = () => {
+    const locale = getCurrentLocale();
+    if (isOperating) return BULK_CONTROL_MESSAGES.tooltip.operating[locale];
+    if (!hasControllableDevices) return BULK_CONTROL_MESSAGES.tooltip.no_controllable_devices[locale];
+    return undefined;
+  };
+
   return (
     <>
       <Button
@@ -122,6 +139,7 @@ export function GroupBulkControl({ devices, onPropertyChange, addLogEntry }: Gro
         size="sm"
         className="flex items-center gap-2"
         aria-label="すべてのデバイスをONにする"
+        title={getButtonTitle()}
       >
         <Power className="h-4 w-4" />
         すべてON
@@ -133,6 +151,7 @@ export function GroupBulkControl({ devices, onPropertyChange, addLogEntry }: Gro
         size="sm"
         className="flex items-center gap-2"
         aria-label="すべてのデバイスをOFFにする"
+        title={getButtonTitle()}
       >
         <PowerOff className="h-4 w-4" />
         すべてOFF
