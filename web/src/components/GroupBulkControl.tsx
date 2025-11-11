@@ -42,6 +42,16 @@ const BULK_CONTROL_MESSAGES = {
       en: 'No controllable devices',
       ja: '操作可能なデバイスがありません'
     }
+  },
+  button_label: {
+    all_on: {
+      en: 'All ON',
+      ja: 'すべてON'
+    },
+    all_off: {
+      en: 'All OFF',
+      ja: 'すべてOFF'
+    }
   }
 } as const;
 
@@ -123,8 +133,9 @@ export function GroupBulkControl({ devices, onPropertyChange, addLogEntry }: Gro
     }
   };
 
+  const locale = getCurrentLocale();
+
   const getButtonTitle = () => {
-    const locale = getCurrentLocale();
     if (isOperating) return BULK_CONTROL_MESSAGES.tooltip.operating[locale];
     if (!hasControllableDevices) return BULK_CONTROL_MESSAGES.tooltip.no_controllable_devices[locale];
     return undefined;
@@ -138,11 +149,11 @@ export function GroupBulkControl({ devices, onPropertyChange, addLogEntry }: Gro
         variant="outline"
         size="sm"
         className="flex items-center gap-2"
-        aria-label="すべてのデバイスをONにする"
+        aria-label={BULK_CONTROL_MESSAGES.button_label.all_on[locale]}
         title={getButtonTitle()}
       >
         <Power className="h-4 w-4" />
-        すべてON
+        {BULK_CONTROL_MESSAGES.button_label.all_on[locale]}
       </Button>
       <Button
         onClick={() => handleBulkPowerControl('off')}
@@ -150,11 +161,11 @@ export function GroupBulkControl({ devices, onPropertyChange, addLogEntry }: Gro
         variant="outline"
         size="sm"
         className="flex items-center gap-2"
-        aria-label="すべてのデバイスをOFFにする"
+        aria-label={BULK_CONTROL_MESSAGES.button_label.all_off[locale]}
         title={getButtonTitle()}
       >
         <PowerOff className="h-4 w-4" />
-        すべてOFF
+        {BULK_CONTROL_MESSAGES.button_label.all_off[locale]}
       </Button>
     </>
   );

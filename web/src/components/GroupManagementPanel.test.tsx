@@ -18,13 +18,13 @@ describe('GroupManagementPanel', () => {
   it('should render group settings button', () => {
     render(<GroupManagementPanel {...defaultProps} />);
 
-    expect(screen.getByTitle('グループ設定')).toBeInTheDocument();
+    expect(screen.getByTitle('Group settings')).toBeInTheDocument();
   });
 
   it('should not display management title', () => {
     render(<GroupManagementPanel {...defaultProps} />);
-    
-    expect(screen.queryByText('@testgroup の管理')).not.toBeInTheDocument();
+
+    expect(screen.queryByText('@testgroup management')).not.toBeInTheDocument();
   });
 
   it('should call onRename when rename menu item is clicked', async () => {
@@ -32,11 +32,11 @@ describe('GroupManagementPanel', () => {
     render(<GroupManagementPanel {...defaultProps} />);
 
     // Open dropdown menu
-    const menuButton = screen.getByTitle('グループ設定');
+    const menuButton = screen.getByTitle('Group settings');
     await user.click(menuButton);
 
     // Click rename option
-    const renameButton = await screen.findByText('グループ名を変更');
+    const renameButton = await screen.findByText('Rename group');
     await user.click(renameButton);
 
     expect(defaultProps.onRename).toHaveBeenCalled();
@@ -47,11 +47,11 @@ describe('GroupManagementPanel', () => {
     render(<GroupManagementPanel {...defaultProps} />);
 
     // Open dropdown menu
-    const menuButton = screen.getByTitle('グループ設定');
+    const menuButton = screen.getByTitle('Group settings');
     await user.click(menuButton);
 
     // Click edit members option
-    const editButton = await screen.findByText('メンバーを編集');
+    const editButton = await screen.findByText('Edit members');
     await user.click(editButton);
 
     expect(defaultProps.onEditMembers).toHaveBeenCalled();
@@ -62,17 +62,17 @@ describe('GroupManagementPanel', () => {
     render(<GroupManagementPanel {...defaultProps} />);
 
     // Open dropdown menu
-    const menuButton = screen.getByTitle('グループ設定');
+    const menuButton = screen.getByTitle('Group settings');
     await user.click(menuButton);
 
     // Click delete option
-    const deleteButton = await screen.findByText('グループを削除');
+    const deleteButton = await screen.findByText('Delete group');
     await user.click(deleteButton);
 
     // Check if confirmation dialog appears
-    expect(await screen.findByText('グループの削除確認')).toBeInTheDocument();
-    expect(screen.getByText('@testgroup を削除してもよろしいですか？')).toBeInTheDocument();
-    expect(screen.getByText('この操作は取り消せません。')).toBeInTheDocument();
+    expect(await screen.findByText('Delete group confirmation')).toBeInTheDocument();
+    expect(screen.getByText('Are you sure you want to delete @testgroup?')).toBeInTheDocument();
+    expect(screen.getByText('This action cannot be undone.')).toBeInTheDocument();
   });
 
   it('should call onDelete when deletion is confirmed', async () => {
@@ -80,15 +80,15 @@ describe('GroupManagementPanel', () => {
     render(<GroupManagementPanel {...defaultProps} />);
 
     // Open dropdown menu
-    const menuButton = screen.getByTitle('グループ設定');
+    const menuButton = screen.getByTitle('Group settings');
     await user.click(menuButton);
 
     // Open confirmation dialog
-    const deleteButton = await screen.findByText('グループを削除');
+    const deleteButton = await screen.findByText('Delete group');
     await user.click(deleteButton);
 
     // Confirm deletion
-    const confirmButton = await screen.findByText('削除する');
+    const confirmButton = await screen.findByText('Delete');
     await user.click(confirmButton);
 
     expect(defaultProps.onDelete).toHaveBeenCalled();
@@ -99,15 +99,15 @@ describe('GroupManagementPanel', () => {
     render(<GroupManagementPanel {...defaultProps} />);
 
     // Open dropdown menu
-    const menuButton = screen.getByTitle('グループ設定');
+    const menuButton = screen.getByTitle('Group settings');
     await user.click(menuButton);
 
     // Open confirmation dialog
-    const deleteButton = await screen.findByText('グループを削除');
+    const deleteButton = await screen.findByText('Delete group');
     await user.click(deleteButton);
 
     // Cancel deletion
-    const cancelButton = await screen.findByText('キャンセル');
+    const cancelButton = await screen.findByText('Cancel');
     await user.click(cancelButton);
 
     expect(defaultProps.onDelete).not.toHaveBeenCalled();
@@ -118,30 +118,30 @@ describe('GroupManagementPanel', () => {
     render(<GroupManagementPanel {...defaultProps} />);
 
     // Open dropdown menu
-    const menuButton = screen.getByTitle('グループ設定');
+    const menuButton = screen.getByTitle('Group settings');
     await user.click(menuButton);
 
     // Open confirmation dialog
-    const deleteButton = await screen.findByText('グループを削除');
+    const deleteButton = await screen.findByText('Delete group');
     await user.click(deleteButton);
 
     // Verify dialog is open
-    expect(await screen.findByText('グループの削除確認')).toBeInTheDocument();
+    expect(await screen.findByText('Delete group confirmation')).toBeInTheDocument();
 
     // Cancel deletion
-    const cancelButton = screen.getByText('キャンセル');
+    const cancelButton = screen.getByText('Cancel');
     await user.click(cancelButton);
 
     // Verify dialog is closed
     await waitFor(() => {
-      expect(screen.queryByText('グループの削除確認')).not.toBeInTheDocument();
+      expect(screen.queryByText('Delete group confirmation')).not.toBeInTheDocument();
     });
   });
 
   it('should have appropriate menu button styles', () => {
     render(<GroupManagementPanel {...defaultProps} />);
 
-    const menuButton = screen.getByTitle('グループ設定');
+    const menuButton = screen.getByTitle('Group settings');
 
     // Check that menu button has small height (h-9 is small size)
     expect(menuButton).toHaveClass('h-9');

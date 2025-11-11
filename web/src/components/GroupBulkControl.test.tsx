@@ -49,8 +49,8 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    expect(screen.getByText('すべてON')).toBeInTheDocument();
-    expect(screen.getByText('すべてOFF')).toBeInTheDocument();
+    expect(screen.getByText('All ON')).toBeInTheDocument();
+    expect(screen.getByText('All OFF')).toBeInTheDocument();
   });
 
   it('disables buttons when no controllable devices', () => {
@@ -75,8 +75,8 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const onButton = screen.getByText('すべてON');
-    const offButton = screen.getByText('すべてOFF');
+    const onButton = screen.getByText('All ON');
+    const offButton = screen.getByText('All OFF');
 
     expect(onButton).toBeDisabled();
     expect(offButton).toBeDisabled();
@@ -91,7 +91,7 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const onButton = screen.getByText('すべてON');
+    const onButton = screen.getByText('All ON');
     fireEvent.click(onButton);
 
     await waitFor(() => {
@@ -126,7 +126,7 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const offButton = screen.getByText('すべてOFF');
+    const offButton = screen.getByText('All OFF');
     fireEvent.click(offButton);
 
     await waitFor(() => {
@@ -157,7 +157,7 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const onButton = screen.getByText('すべてON');
+    const onButton = screen.getByText('All ON');
     fireEvent.click(onButton);
 
     await waitFor(() => {
@@ -180,12 +180,12 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const onButton = screen.getByText('すべてON');
+    const onButton = screen.getByText('All ON');
     fireEvent.click(onButton);
 
     // During operation, buttons should be disabled
     expect(onButton).toBeDisabled();
-    expect(screen.getByText('すべてOFF')).toBeDisabled();
+    expect(screen.getByText('All OFF')).toBeDisabled();
 
     await waitFor(() => {
       expect(onButton).not.toBeDisabled();
@@ -226,7 +226,7 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const onButton = screen.getByText('すべてON');
+    const onButton = screen.getByText('All ON');
     fireEvent.click(onButton);
 
     // Only the first device should be controlled
@@ -252,7 +252,7 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const onButton = screen.getByText('すべてON');
+    const onButton = screen.getByText('All ON');
     fireEvent.click(onButton);
 
     await waitFor(() => {
@@ -275,7 +275,7 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const offButton = screen.getByText('すべてOFF');
+    const offButton = screen.getByText('All OFF');
     fireEvent.click(offButton);
 
     await waitFor(() => {
@@ -303,7 +303,7 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const onButton = screen.getByText('すべてON');
+    const onButton = screen.getByText('All ON');
     fireEvent.click(onButton);
 
     await waitFor(() => {
@@ -327,7 +327,7 @@ describe('GroupBulkControl', () => {
       />
     );
 
-    const onButton = screen.getByText('すべてON');
+    const onButton = screen.getByText('All ON');
     fireEvent.click(onButton);
 
     await waitFor(() => {
