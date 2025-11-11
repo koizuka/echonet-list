@@ -45,17 +45,13 @@ export function GroupBulkControl({ devices, onPropertyChange, addLogEntry, resol
       const successCount = results.filter(r => r.status === 'fulfilled').length;
       const failureCount = results.filter(r => r.status === 'rejected').length;
 
-      // Add notification if there are any results
-      if (addLogEntry && (successCount > 0 || failureCount > 0)) {
+      // Add notification only if there are failures (partial or complete failure)
+      if (addLogEntry && failureCount > 0) {
         const actionText = powerState === 'on' ? 'ON' : 'OFF';
         let message: string;
-        let level: 'INFO' | 'WARN' | 'ERROR';
+        let level: 'WARN' | 'ERROR';
 
-        if (failureCount === 0) {
-          // All succeeded
-          message = `${successCount}台のデバイスを${actionText}にしました`;
-          level = 'INFO';
-        } else if (successCount === 0) {
+        if (successCount === 0) {
           // All failed
           message = `${failureCount}台のデバイスを${actionText}にできませんでした`;
           level = 'ERROR';

@@ -240,7 +240,7 @@ describe('GroupBulkControl', () => {
     });
   });
 
-  it('adds INFO notification when all operations succeed', async () => {
+  it('does not add notification when all operations succeed', async () => {
     const mockOnPropertyChange = vi.fn().mockResolvedValue(undefined);
     const mockAddLogEntry = vi.fn();
 
@@ -256,14 +256,11 @@ describe('GroupBulkControl', () => {
     fireEvent.click(onButton);
 
     await waitFor(() => {
-      expect(mockAddLogEntry).toHaveBeenCalledTimes(1);
+      expect(mockOnPropertyChange).toHaveBeenCalledTimes(2);
     });
 
-    const logEntry = mockAddLogEntry.mock.calls[0][0];
-    expect(logEntry.level).toBe('INFO');
-    expect(logEntry.message).toBe('2台のデバイスをONにしました');
-    expect(logEntry.attributes.successCount).toBe(2);
-    expect(logEntry.attributes.failureCount).toBe(0);
+    // No notification should be added when all succeed
+    expect(mockAddLogEntry).not.toHaveBeenCalled();
   });
 
   it('adds ERROR notification when all operations fail', async () => {
