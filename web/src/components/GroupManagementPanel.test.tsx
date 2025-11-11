@@ -71,8 +71,8 @@ describe('GroupManagementPanel', () => {
 
     // Check if confirmation dialog appears
     expect(await screen.findByText('Delete group confirmation')).toBeInTheDocument();
-    expect(screen.getByText('Are you sure you want to delete @testgroup?')).toBeInTheDocument();
-    expect(screen.getByText('This action cannot be undone.')).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete @testgroup\?/)).toBeInTheDocument();
+    expect(screen.getByText(/This action cannot be undone\./)).toBeInTheDocument();
   });
 
   it('should call onDelete when deletion is confirmed', async () => {

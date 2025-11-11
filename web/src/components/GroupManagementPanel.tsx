@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Edit2, Users, Trash2, MoreVertical } from 'lucide-react';
 import {
   DropdownMenu,
@@ -8,6 +7,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { GroupBulkControl } from './GroupBulkControl';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import type { Device, PropertyValue } from '../hooks/types';
@@ -107,10 +116,6 @@ export function GroupManagementPanel({
     setShowDeleteConfirm(false);
   };
 
-  const handleCancelDelete = () => {
-    setShowDeleteConfirm(false);
-  };
-
   return (
     <div className="space-y-4">
       {/* Bulk Power Control + Group Management Controls */}
@@ -180,40 +185,29 @@ export function GroupManagementPanel({
       )}
 
       {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <button 
-            className="fixed inset-0 bg-black/50 cursor-default" 
-            onClick={handleCancelDelete}
-            aria-label="Close dialog"
-          />
-          <Card className="relative z-10 max-w-md mx-4">
-            <CardContent className="space-y-4">
-              <h3 className="text-lg font-semibold">{GROUP_MANAGEMENT_MESSAGES.dialog.delete_confirmation[locale]}</h3>
-              <p className="text-sm">
-                {GROUP_MANAGEMENT_MESSAGES.dialog.delete_message[locale].replace('{groupName}', groupName)}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {GROUP_MANAGEMENT_MESSAGES.dialog.cannot_undo[locale]}
-              </p>
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={handleCancelDelete}
-                >
-                  {GROUP_MANAGEMENT_MESSAGES.dialog.cancel[locale]}
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleConfirmDelete}
-                >
-                  {GROUP_MANAGEMENT_MESSAGES.dialog.delete[locale]}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{GROUP_MANAGEMENT_MESSAGES.dialog.delete_confirmation[locale]}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {GROUP_MANAGEMENT_MESSAGES.dialog.delete_message[locale].replace('{groupName}', groupName)}
+              <br />
+              {GROUP_MANAGEMENT_MESSAGES.dialog.cannot_undo[locale]}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {GROUP_MANAGEMENT_MESSAGES.dialog.cancel[locale]}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {GROUP_MANAGEMENT_MESSAGES.dialog.delete[locale]}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
