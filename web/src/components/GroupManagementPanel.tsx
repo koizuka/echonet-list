@@ -71,6 +71,7 @@ export function GroupManagementPanel({
                   size="sm"
                   disabled={!isConnected}
                   title="グループ設定"
+                  aria-label="グループ設定メニューを開く"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { GroupBulkControl } from './GroupBulkControl';
-import type { Device } from '../hooks/types';
+import { GroupBulkControl } from '@/components/GroupBulkControl';
+import type { Device } from '@/hooks/types';
 
 describe('GroupBulkControl', () => {
   const mockDevices: Device[] = [
@@ -192,7 +192,7 @@ describe('GroupBulkControl', () => {
     }, { timeout: 200 });
   });
 
-  it('filters devices correctly based on Set Property Map', () => {
+  it('filters devices correctly based on Set Property Map', async () => {
     const devicesWithMixedSettability: Device[] = [
       {
         ip: '192.168.1.100',
@@ -230,7 +230,7 @@ describe('GroupBulkControl', () => {
     fireEvent.click(onButton);
 
     // Only the first device should be controlled
-    waitFor(() => {
+    await waitFor(() => {
       expect(mockOnPropertyChange).toHaveBeenCalledTimes(1);
       expect(mockOnPropertyChange).toHaveBeenCalledWith(
         '192.168.1.100 0130:1',

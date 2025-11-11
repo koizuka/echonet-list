@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Button } from './ui/button';
+import { useState, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
 import { Power, PowerOff } from 'lucide-react';
-import { isOperationStatusSettable } from '../libs/propertyHelper';
-import type { Device, PropertyValue } from '../hooks/types';
+import { isOperationStatusSettable } from '@/libs/propertyHelper';
+import type { Device, PropertyValue } from '@/hooks/types';
 
 type GroupBulkControlProps = {
   devices: Device[];
@@ -13,8 +13,9 @@ export function GroupBulkControl({ devices, onPropertyChange }: GroupBulkControl
   const [isOperating, setIsOperating] = useState(false);
 
   // Filter devices that support operation status control (EPC 0x80)
-  const controllableDevices = devices.filter(device =>
-    isOperationStatusSettable(device)
+  const controllableDevices = useMemo(
+    () => devices.filter(device => isOperationStatusSettable(device)),
+    [devices]
   );
 
   const hasControllableDevices = controllableDevices.length > 0;
@@ -45,6 +46,7 @@ export function GroupBulkControl({ devices, onPropertyChange }: GroupBulkControl
         variant="outline"
         size="sm"
         className="flex items-center gap-2"
+        aria-label="すべてのデバイスをONにする"
       >
         <Power className="h-4 w-4" />
         すべてON
@@ -55,6 +57,7 @@ export function GroupBulkControl({ devices, onPropertyChange }: GroupBulkControl
         variant="outline"
         size="sm"
         className="flex items-center gap-2"
+        aria-label="すべてのデバイスをOFFにする"
       >
         <PowerOff className="h-4 w-4" />
         すべてOFF
