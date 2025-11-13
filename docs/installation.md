@@ -1,118 +1,189 @@
-# Installation Guide
+# Deployment Guide (maintained)
 
-This guide covers the prerequisites, build process, and initial setup for the ECHONET Lite Device Discovery and Control Tool.
+This document replaces the old installation/daemon/how-to notes. Follow it for a fresh deployment that you can keep updated with `script/auto-update.sh`. Other docs in this folder are still useful but may lag behind current best practices; treat this guide as the canonical reference for provisioning and operating the server.
 
-## Prerequisites
+## Overview of the recommended flow
 
-- Go 1.23 or later
-- Node.js 18+ and npm (for Web UI development)
+1. Prepare a Linux host with `git`, Go 1.23+, Node.js 18+, and systemd.
+2. Clone this repository and build the release artifacts.
+3. Generate TLS material with `mkcert` so the Web UI/WebSocket endpoint can stay on HTTPS/WSS.
+4. Install the service via `script/install-systemd.sh`.
+5. Distribute the mkcert CA to every browser/OS that should trust the UI.
+6. Keep the instance up to date with `script/auto-update.sh` (plus an optional systemd timer or cron entry).
 
-## Building from Source
+The sections below describe each step in more detail.
 
-### 1. Clone the Repository
+## 0. Requirements
+
+- Ubuntu/Debian/Raspberry Pi OS (systemd based) with outbound HTTPS access.
+- Packages: `git`, `build-essential`, `golang`, `nodejs`, `npm`, `mkcert`, `libnss3-tools`.
+- A non-root user with sudo for build steps and root access for installation.
+- Optional but recommended: `mkcert` installed on your laptop as well to ease CA distribution.
 
 ```bash
-git clone https://github.com/koizuka/echonet-list.git
+sudo apt update
+sudo apt install -y git build-essential golang nodejs npm mkcert libnss3-tools
+```
+
+## 1. Clone the repository
+
+```bash
+cd /opt
+sudo git clone https://github.com/koizuka/echonet-list.git
+sudo chown -R "$USER":"$USER" echonet-list
 cd echonet-list
 ```
 
-### 2. Build the Go Application
+If you maintain a fork, replace the clone URL accordingly. Keep the working copy clean—`script/auto-update.sh` assumes it can run `git pull` without local changes.
+
+## 2. Build the server and Web UI
 
 ```bash
-go build
+./script/build.sh server   # Go binary
+./script/build.sh web      # Vite/React bundle
 ```
 
-This creates the `echonet-list` executable in the current directory.
+The default `./script/build.sh` with no arguments builds both parts. Confirm that `./echonet-list` exists and `web/bundle/` contains static assets before moving on.
 
-### 3. Build the Web UI
+## 3. Prepare TLS with mkcert
 
-```bash
-cd web
-npm install
-npm run build
-```
-
-The Web UI will be built to `web/bundle/` directory, which is served by the Go HTTP server.
-
-## Setting up TLS Certificates (Recommended)
-
-For secure Web UI access, you'll need TLS certificates. For development, we recommend using mkcert.
-
-### Quick Setup with mkcert
-
-1. **Install mkcert:**
+The systemd install script copies whatever lives in `./certs/` into `/etc/echonet-list/certs`, so generate the files now.
 
 ```bash
-# macOS
-brew install mkcert
-
-# Linux
-sudo apt install libnss3-tools
-curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-chmod +x mkcert-v*-linux-amd64
-sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
-```
-
-2. **Install the local CA:**
-
-```bash
-mkcert -install
-```
-
-3. **Generate certificates:**
-
-```bash
+mkcert -install                       # one-time per host
 mkdir -p certs
-mkcert -cert-file certs/localhost+2.pem -key-file certs/localhost+2-key.pem localhost 127.0.0.1 ::1
+mkcert \
+  -cert-file certs/echonet.pem \
+  -key-file certs/echonet-key.pem \
+  "$(hostname)" "$(hostname -f)" localhost 127.0.0.1 ::1
 ```
 
-4. **Run with TLS enabled:**
+Update `config.toml` (or keep the provided `systemd/config.toml.systemd`) so the WebSocket listener points to the filenames above. You can regenerate the certificates later with the same command; just rerun `sudo ./script/update.sh` afterward so the files are copied into `/etc/echonet-list/certs`.
+
+## 4. Install as a systemd service
+
+1. Review configuration: copy `config.toml.sample` to `config.toml` if you need to tweak the defaults before installing, or edit `/etc/echonet-list/config.toml` after install.
+2. Run the installer:
+
+   ```bash
+   sudo ./script/install-systemd.sh
+   ```
+
+   The script:
+   - creates the `echonet` system user/group,
+   - copies `echonet-list` into `/usr/local/bin`,
+   - copies `web/bundle/` into `/usr/local/share/echonet-list/web`,
+   - copies certificates into `/etc/echonet-list/certs`,
+   - seeds `/var/lib/echonet-list` with `devices.json`, `groups.json`, etc.,
+   - registers and starts `echonet-list.service`.
+
+3. Verify the service:
+
+   ```bash
+   sudo systemctl status echonet-list
+   sudo journalctl -u echonet-list -n 100
+   ```
+
+The Web UI is available at `https://<host>:8080` once the service is up and the certificate is trusted.
+
+## 5. Trust the mkcert CA on every client
+
+`mkcert` creates a host-local certificate authority. The UI will only work over HTTPS/WSS once each client trusts that CA.
+
+1. Locate the CA file:
+
+   ```bash
+   mkcert -CAROOT
+   # -> copy rootCA.pem from this directory
+   ```
+
+2. Install the CA:
+   - **macOS**: double-click `rootCA.pem`, add it to the System keychain, and set "Always Trust".
+   - **iOS/iPadOS**: AirDrop or email the file, install the profile, then enable it under `Settings > General > About > Certificate Trust Settings`.
+   - **Android**: copy the file, rename to `rootCA.cer` if required, install under `Settings > Security > Encryption & credentials > Install from storage`, choose "VPN and apps".
+   - **Windows**: run `certutil -addstore -f "ROOT" rootCA.pem` from an elevated prompt.
+   - **Firefox** (all platforms): `Settings > Privacy & Security > Certificates > View Certificates > Authorities > Import`.
+
+3. Repeat for every device that should open the UI.
+
+If you regenerate the CA (`mkcert -uninstall` / `mkcert -install`), you must redistribute the new CA file to all clients.
+
+## 6. Keeping the instance updated
+
+`script/auto-update.sh` wraps the typical flow (`git pull` → decide what changed → `./script/build.sh` → `sudo ./script/update.sh`). Run it from the repository root.
 
 ```bash
-./echonet-list -websocket -http-enabled -ws-tls -ws-cert-file=certs/localhost+2.pem -ws-key-file=certs/localhost+2-key.pem
+./script/auto-update.sh        # production run
+./script/auto-update.sh --dry-run
 ```
 
-5. **Access the Web UI** at `https://localhost:8080`
-
-For detailed certificate setup instructions and troubleshooting, see the [mkcert Setup Guide](mkcert_setup_guide.md).
-
-## Alternative Build Method
-
-For convenience, you can use the provided build script:
+To automate updates, create a dedicated systemd timer (example):
 
 ```bash
-./script/build.sh
+sudo tee /etc/systemd/system/echonet-auto-update.service >/dev/null <<EOF
+[Unit]
+Description=Update echonet-list working copy
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=$USER
+WorkingDirectory=/opt/echonet-list
+ExecStart=/opt/echonet-list/script/auto-update.sh
+EOF
+
+sudo tee /etc/systemd/system/echonet-auto-update.timer >/dev/null <<'EOF'
+[Unit]
+Description=Run echonet-list auto update hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now echonet-auto-update.timer
 ```
 
-This script builds both the Go application and Web UI in one step.
+The timer runs as the repository owner (not root) and invokes `sudo ./script/update.sh` internally whenever a rebuild is required.
 
-## Platform-Specific Notes
+## 7. Manual maintenance commands
 
-### macOS
+- Rebuild only what changed:
 
-- Ensure you have Xcode Command Line Tools installed
-- If using Homebrew, you can install Go with: `brew install go`
+  ```bash
+  ./script/build.sh server
+  ./script/build.sh web
+  ```
 
-### Linux
+- Deploy those bits without a git pull:
 
-- Most distributions have Go in their package managers
-- Ubuntu/Debian: `sudo apt install golang`
-- Fedora: `sudo dnf install golang`
+  ```bash
+  sudo ./script/update.sh          # binary + web bundle + service reload
+  sudo ./script/update.sh --web-only
+  ```
 
-### Windows
+- Check logs and status:
 
-- Use the official Go installer from <https://golang.org>
-- Consider using WSL2 for a better development experience
+  ```bash
+  sudo systemctl status echonet-list
+  sudo journalctl -u echonet-list -f
+  tail -f /var/log/echonet-list.log
+  ```
 
-## Next Steps
+- Rotate TLS certificates:
 
-After successful installation:
+  ```bash
+  mkcert -install       # only if you need a new CA
+  mkcert -cert-file certs/echonet.pem -key-file certs/echonet-key.pem <hosts...>
+  sudo ./script/update.sh
+  sudo systemctl restart echonet-list
+  ```
 
-1. Create a configuration file: `cp config.toml.sample config.toml`
-2. See [Configuration Guide](configuration.md) for configuration options
-3. Check [Quick Start Guide](quick-start.md) for basic usage
-4. For daemon mode setup, see [Daemon Setup Guide](daemon-setup.md)
+## 8. Related references
 
-## Troubleshooting
-
-If you encounter issues during installation, see the [Troubleshooting Guide](troubleshooting.md).
+- [websocket_client_protocol.md](websocket_client_protocol.md) — actively updated API contract for custom clients.
+- Legacy docs (quick start, daemon, troubleshooting, etc.) remain in this folder for historical reasons but are no longer reviewed; rely on this guide instead for deployment questions.
