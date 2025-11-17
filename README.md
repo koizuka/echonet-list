@@ -28,61 +28,36 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 ## Quick Start
 
 ```bash
-# Clone and build
 git clone https://github.com/koizuka/echonet-list.git
 cd echonet-list
 
 # Build everything (server + web UI)
 ./script/build.sh
 
-# Or build components separately:
-# ./script/build.sh server    # Server only
-# ./script/build.sh web       # Web UI only
-
-# Run with Web UI
+# Run with Web UI + HTTP proxy
 ./echonet-list -websocket -http-enabled
 ```
 
-Open your browser to `http://localhost:8080`
+Open your browser to `http://localhost:8080`.
 
-For a complete getting started guide, see [Quick Start Guide](docs/quick-start.md).
+## Deployment workflow (maintained)
+
+For new installations we recommend the following path:
+
+1. Prepare a systemd-based Linux host with Go 1.23+, Node.js 18+, `mkcert`, and sudo access.
+2. Clone this repository into `/opt/echonet-list` (or similar) and run `./script/build.sh server` + `./script/build.sh web`.
+3. Generate TLS files with `mkcert` under `certs/` so the Web UI/WebSocket endpoint can run over HTTPS/WSS.
+4. Run `sudo ./script/install-systemd.sh` to create the `echonet-list` service and copy binaries/web assets/certificates.
+5. Install the mkcert CA (`mkcert -CAROOT`) on every browser/device that should trust the UI.
+6. Keep the instance up to date with `./script/auto-update.sh` (optionally wired into a systemd timer).
+
+All of these steps are written out in detail inside [docs/installation.md](docs/installation.md).
 
 ## Documentation
 
-### Getting Started
-
-- [Quick Start Guide](docs/quick-start.md) - Get up and running quickly
-- [Installation Guide](docs/installation.md) - Prerequisites, building, and setup
-- [Configuration Guide](docs/configuration.md) - All configuration options
-
-### Usage Guides
-
-- [Console UI Usage Guide](docs/console_ui_usage.md) - Terminal interface operation
-- [Server Modes Guide](docs/server-modes.md) - Understanding different operation modes
-- [Daemon Setup Guide](docs/daemon-setup.md) - Running as a system service
-
-### Web UI & API
-
-- [Web UI Implementation Guide](docs/web_ui_implementation_guide.md) - Web interface details
-- [WebSocket Client Protocol](docs/websocket_client_protocol.md) - API protocol specification
-- [Client UI Development Guide](docs/client_ui_development_guide.md) - Building custom clients
-- [React Hooks Usage Guide](docs/react_hooks_usage_guide.md) - React integration guide
-- [Internationalization Guide](docs/internationalization.md) - Multi-language support implementation
-- [Error Handling Guide](docs/error_handling_guide.md) - Error handling patterns
-
-### Reference
-
-- [Device Types and Examples](docs/device_types.md) - Supported devices and usage
-- [Network Monitoring Guide](docs/network-monitoring.md) - Network interface monitoring and multicast management
-- [mkcert Setup Guide](docs/mkcert_setup_guide.md) - TLS certificate setup
-- [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and solutions
-
-### Development Resources
-
-For ECHONET Lite specifications (Japanese):
-
-- [ECHONET Lite Protocol Specification](https://echonet.jp/spec_v114_lite/)
-- [ECHONET Lite Device Object Specifications](https://echonet.jp/spec_object_rr2/)
+- [docs/installation.md](docs/installation.md) — deployment + operations guide described above.
+- [docs/websocket_client_protocol.md](docs/websocket_client_protocol.md) — reference for anyone building a custom client.
+- Everything else under `docs/` is still relevant but may lag behind recent changes; expect occasional gaps until we finish syncing them back up.
 
 ## systemd Management Scripts
 
