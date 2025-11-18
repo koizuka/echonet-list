@@ -1,10 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import type { 
-  ServerMessage, 
-  ClientMessage, 
-  CommandResult, 
+import type {
+  ServerMessage,
+  ClientMessage,
+  CommandResult,
   ConnectionState
 } from './types';
+import { isIOSSafari, getUserAgent } from '../libs/browserDetection';
 
 export type WebSocketConnectionOptions = {
   url: string;
@@ -285,12 +286,10 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       };
       
       ws.onmessage = handleMessage;
-      
-      // Detect iOS Safari for enhanced logging (excludes Chrome/Firefox/Edge/Opera on iOS)
-      const userAgent = navigator.userAgent;
-      const isIOSSafari = /iPhone|iPad|iPod/.test(userAgent) &&
-                          /Safari/.test(userAgent) &&
-                          !/CriOS|FxiOS|EdgiOS|OPiOS/.test(userAgent);
+
+      // Get browser info for diagnostic logging
+      const userAgent = getUserAgent();
+      const isCurrentBrowserIOSSafari = isIOSSafari();
 
       ws.onerror = (event) => {
         console.error('WebSocket error:', event);
@@ -299,7 +298,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
           component: 'WebSocket',
           eventType: event.type,
           userAgent: userAgent,
-          isIOSSafari: isIOSSafari,
+          isIOSSafari: isCurrentBrowserIOSSafari,
           readyState: ws.readyState
         });
       };
@@ -309,8 +308,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
           code: event.code,
           reason: event.reason,
           wasClean: event.wasClean,
-          isIOSSafari: isIOSSafari,
-          userAgent: isIOSSafari ? userAgent : undefined
+          isIOSSafari: isCurrentBrowserIOSSafari,
+          userAgent: isCurrentBrowserIOSSafari ? userAgent : undefined
         });
         // Stop heartbeat when connection closes
         stopHeartbeat();
