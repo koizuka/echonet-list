@@ -6,6 +6,7 @@
       "Bash(gh pr merge:*)",
       "Bash(gh pr comment:*)",
       "Bash(gh pr checks:*)",
+      "Bash(gh pr update-branch:*)",
       "Bash(gh run view:*)",
       "Bash(gh workflow:*)",
       "Bash(git add:*)",
