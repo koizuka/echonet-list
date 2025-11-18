@@ -1015,4 +1015,208 @@ describe('useAutoReconnect', () => {
       expect(mockDisconnect).not.toHaveBeenCalled();
     });
   });
+
+  describe('zombie connection detection (iOS Safari 26 fix)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should detect zombie connection when page becomes visible', async () => {
+      const mockCheckConnection = vi.fn().mockResolvedValue(false); // Connection is dead
+
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          checkConnection: mockCheckConnection,
+        })
+      );
+
+      // Get the visibilitychange handler
+      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'visibilitychange'
+      )?.[1];
+
+      // Simulate page becoming visible (returning from background)
+      await act(async () => {
+        Object.defineProperty(document, 'hidden', { value: false, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
+        visibilityChangeHandler?.();
+
+        // Advance timers to trigger visibility timeout
+        await vi.advanceTimersByTimeAsync(200);
+      });
+
+      // Should have checked connection
+      expect(mockCheckConnection).toHaveBeenCalled();
+      // Should have disconnected zombie connection
+      expect(mockDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not disconnect if connection check succeeds', async () => {
+      const mockCheckConnection = vi.fn().mockResolvedValue(true); // Connection is alive
+
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          checkConnection: mockCheckConnection,
+        })
+      );
+
+      // Get the visibilitychange handler
+      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'visibilitychange'
+      )?.[1];
+
+      // Simulate page becoming visible
+      await act(async () => {
+        Object.defineProperty(document, 'hidden', { value: false, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
+        visibilityChangeHandler?.();
+
+        // Advance timers to trigger visibility timeout
+        await vi.advanceTimersByTimeAsync(200);
+      });
+
+      // Should have checked connection
+      expect(mockCheckConnection).toHaveBeenCalled();
+      // Should NOT have disconnected since connection is alive
+      expect(mockDisconnect).not.toHaveBeenCalled();
+    });
+
+    it('should disconnect on connection check failure', async () => {
+      const mockCheckConnection = vi.fn().mockRejectedValue(new Error('Connection check failed'));
+
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          checkConnection: mockCheckConnection,
+        })
+      );
+
+      // Get the visibilitychange handler
+      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'visibilitychange'
+      )?.[1];
+
+      // Simulate page becoming visible
+      await act(async () => {
+        Object.defineProperty(document, 'hidden', { value: false, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
+        visibilityChangeHandler?.();
+
+        // Advance timers to trigger visibility timeout
+        await vi.advanceTimersByTimeAsync(200);
+      });
+
+      // Should have attempted to check connection
+      expect(mockCheckConnection).toHaveBeenCalled();
+      // Should have disconnected on check failure
+      expect(mockDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should detect zombie connection on pageshow event', async () => {
+      const mockCheckConnection = vi.fn().mockResolvedValue(false); // Connection is dead
+
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          checkConnection: mockCheckConnection,
+        })
+      );
+
+      // Get the pageshow handler
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'pageshow'
+      )?.[1];
+
+      // Simulate page being shown (returning from background)
+      await act(async () => {
+        pageshowHandler?.({ persisted: false });
+
+        // Advance timers to trigger pageshow timeout
+        await vi.advanceTimersByTimeAsync(200);
+      });
+
+      // Should have checked connection
+      expect(mockCheckConnection).toHaveBeenCalled();
+      // Should have disconnected zombie connection
+      expect(mockDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should force reconnection when page is restored from cache (persisted)', async () => {
+      const mockCheckConnection = vi.fn().mockResolvedValue(true);
+
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'connected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          checkConnection: mockCheckConnection,
+        })
+      );
+
+      // Get the pageshow handler
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'pageshow'
+      )?.[1];
+
+      // Simulate page being restored from bfcache
+      await act(async () => {
+        pageshowHandler?.({ persisted: true });
+
+        // Advance timers for the persisted timeout (200ms)
+        await vi.advanceTimersByTimeAsync(250);
+      });
+
+      // Should have disconnected (forced reconnection for bfcache)
+      expect(mockDisconnect).toHaveBeenCalledTimes(1);
+      // Should have reconnected
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not check connection when disconnected', async () => {
+      const mockCheckConnection = vi.fn().mockResolvedValue(false);
+
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'disconnected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          checkConnection: mockCheckConnection,
+        })
+      );
+
+      // Get the visibilitychange handler
+      const visibilityChangeHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'visibilitychange'
+      )?.[1];
+
+      // Simulate page becoming visible
+      await act(async () => {
+        Object.defineProperty(document, 'hidden', { value: false, writable: true });
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
+        visibilityChangeHandler?.();
+
+        // Advance timers
+        await vi.advanceTimersByTimeAsync(200);
+      });
+
+      // Should attempt reconnection when disconnected
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+      // Should not check connection when not connected
+      expect(mockCheckConnection).not.toHaveBeenCalled();
+    });
+  });
 });
