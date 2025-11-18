@@ -134,8 +134,16 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       return false;
     }
 
-    // For mobile browsers, we consider the connection alive if WebSocket state is OPEN
-    // The browser will handle the underlying TCP connection state
+    // iOS Safari 26 note: WebSocket may report OPEN state even when the connection is dead
+    // after returning from background (zombie connection). Unfortunately, WebSocket.send()
+    // doesn't throw synchronously for zombie connections, so we can't detect them here.
+    //
+    // Actual zombie detection happens through:
+    // 1. Request timeout in sendMessage() - if server doesn't respond
+    // 2. Server heartbeat responses - missing heartbeats indicate dead connection
+    // 3. onclose event - browser eventually detects and fires close event
+    //
+    // This function serves as a quick readyState check before attempting reconnection.
     return true;
   }, []);
 
@@ -278,19 +286,31 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       
       ws.onmessage = handleMessage;
       
+      // Detect iOS Safari for enhanced logging (excludes Chrome/Firefox/Edge/Opera on iOS)
+      const userAgent = navigator.userAgent;
+      const isIOSSafari = /iPhone|iPad|iPod/.test(userAgent) &&
+                          /Safari/.test(userAgent) &&
+                          !/CriOS|FxiOS|EdgiOS|OPiOS/.test(userAgent);
+
       ws.onerror = (event) => {
         console.error('WebSocket error:', event);
+
         sendLogNotification('ERROR', `WebSocket connection error: ${event.type}`, {
           component: 'WebSocket',
-          eventType: event.type
+          eventType: event.type,
+          userAgent: userAgent,
+          isIOSSafari: isIOSSafari,
+          readyState: ws.readyState
         });
       };
-      
+
       ws.onclose = (event) => {
         console.log('WebSocket disconnected:', {
           code: event.code,
           reason: event.reason,
-          wasClean: event.wasClean
+          wasClean: event.wasClean,
+          isIOSSafari: isIOSSafari,
+          userAgent: isIOSSafari ? userAgent : undefined
         });
         // Stop heartbeat when connection closes
         stopHeartbeat();

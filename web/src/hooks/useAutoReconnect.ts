@@ -20,6 +20,11 @@ export interface AutoReconnectOptions {
    * @default 3000
    */
   disconnectDelayMs?: number;
+  /**
+   * Callback for diagnostic logging to help troubleshoot reconnection issues.
+   * Useful for iOS Safari background/foreground transition debugging.
+   */
+  onDiagnosticLog?: (level: 'INFO' | 'WARN', message: string, attributes?: Record<string, unknown>) => void;
 }
 
 /**
@@ -39,7 +44,8 @@ export function useAutoReconnect({
   checkConnection,
   delayMs = 2000,
   autoDisconnect = true,
-  disconnectDelayMs = DEFAULT_DISCONNECT_DELAY_MS
+  disconnectDelayMs = DEFAULT_DISCONNECT_DELAY_MS,
+  onDiagnosticLog
 }: AutoReconnectOptions) {
   const hasReconnectedRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -47,7 +53,7 @@ export function useAutoReconnect({
   const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pageshowTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const disconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Store current values in refs to avoid stale closures
   const connectionStateRef = useRef(connectionState);
   const connectRef = useRef(connect);
@@ -55,6 +61,7 @@ export function useAutoReconnect({
   const checkConnectionRef = useRef(checkConnection);
   const autoDisconnectRef = useRef(autoDisconnect);
   const disconnectDelayMsRef = useRef(disconnectDelayMs);
+  const onDiagnosticLogRef = useRef(onDiagnosticLog);
   
   // Update refs when values change
   useEffect(() => {
@@ -88,6 +95,10 @@ export function useAutoReconnect({
   useEffect(() => {
     disconnectDelayMsRef.current = disconnectDelayMs;
   }, [disconnectDelayMs]);
+
+  useEffect(() => {
+    onDiagnosticLogRef.current = onDiagnosticLog;
+  }, [onDiagnosticLog]);
   
   // Helper function to schedule delayed disconnect
   const scheduleDelayedDisconnect = useCallback(() => {
@@ -159,6 +170,11 @@ export function useAutoReconnect({
             const isAlive = await checkConnectionRef.current();
             if (!isAlive) {
               // Connection is zombie, force disconnect and reconnect
+              onDiagnosticLogRef.current?.('WARN', 'Zombie WebSocket connection detected - forcing reconnection', {
+                component: 'AutoReconnect',
+                event: 'zombie_detection',
+                trigger: 'page_visibility'
+              });
               disconnectRef.current();
             }
           } catch (error) {
@@ -166,6 +182,11 @@ export function useAutoReconnect({
             if (import.meta.env.DEV) {
               console.warn('Connection health check failed:', error);
             }
+            onDiagnosticLogRef.current?.('WARN', 'WebSocket connection check failed - forcing reconnection', {
+              component: 'AutoReconnect',
+              event: 'connection_check_failed',
+              error: String(error)
+            });
             disconnectRef.current();
           }
         }
@@ -201,6 +222,15 @@ export function useAutoReconnect({
         if (import.meta.env.DEV) {
           console.log('👁️ Page became visible - canceling disconnect and attempting reconnection');
         }
+
+        // Notify about page visibility change (useful for iOS Safari debugging)
+        onDiagnosticLogRef.current?.('INFO', 'Page returned from background', {
+          component: 'AutoReconnect',
+          event: 'visibility_change',
+          visibilityState: currentVisibility,
+          connectionState: connectionStateRef.current
+        });
+
         cancelDelayedDisconnect();
 
         // Use timeout to avoid race conditions with pageshow event
@@ -239,13 +269,34 @@ export function useAutoReconnect({
       // If page was restored from cache, force reconnection
       if (event.persisted) {
         // Force full reconnection for pages restored from cache
+        // iOS Safari: bfcache (back-forward cache) may have stale WebSocket connections
+        if (import.meta.env.DEV) {
+          console.log('📱 Page restored from bfcache - forcing full reconnection');
+        }
+
+        // Notify about bfcache restoration
+        onDiagnosticLogRef.current?.('INFO', 'Page restored from browser cache (bfcache) - forcing full reconnection', {
+          component: 'AutoReconnect',
+          event: 'bfcache_restore',
+          connectionState: connectionStateRef.current,
+          persisted: true
+        });
+
         if (connectionStateRef.current === 'connected') {
           disconnectRef.current();
+          // Wait for disconnect to complete before reconnecting
+          // Add buffer to avoid race condition between disconnect and connect
+          pageshowTimeoutRef.current = setTimeout(() => {
+            connectRef.current();
+            pageshowTimeoutRef.current = null;
+          }, PAGESHOW_PERSISTED_TIMEOUT_MS + 100);
+        } else {
+          // Not connected, just reconnect normally
+          pageshowTimeoutRef.current = setTimeout(() => {
+            connectRef.current();
+            pageshowTimeoutRef.current = null;
+          }, PAGESHOW_PERSISTED_TIMEOUT_MS);
         }
-        pageshowTimeoutRef.current = setTimeout(() => {
-          attemptReconnection();
-          pageshowTimeoutRef.current = null;
-        }, PAGESHOW_PERSISTED_TIMEOUT_MS);
       } else {
         // Normal page show, check connection if needed
         // Use longer delay for iOS Safari compatibility

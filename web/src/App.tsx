@@ -188,12 +188,26 @@ function App() {
   // Compute isConnected from connectionState to avoid unnecessary re-renders
   const isConnected = echonet.connectionState === 'connected';
   
+  // Diagnostic log callback for auto-reconnect issues
+  const handleDiagnosticLog = useCallback((level: 'INFO' | 'WARN', message: string, attributes?: Record<string, unknown>) => {
+    const diagnosticEntry: LogEntry = {
+      id: generateLogEntryId('diagnostic'),
+      level,
+      message,
+      time: new Date().toISOString(),
+      attributes: attributes || {},
+      isRead: false
+    };
+    logManagerRef.current?.addLogEntry(diagnosticEntry);
+  }, []);
+
   // Auto-reconnect when page/browser becomes active and auto-disconnect when hidden
   useAutoReconnect({
     connectionState: echonet.connectionState,
     connect: echonet.connect,
     disconnect: echonet.disconnect,
     checkConnection: echonet.checkConnection,
+    onDiagnosticLog: handleDiagnosticLog,
   });
   
   // Loading state for update operations
