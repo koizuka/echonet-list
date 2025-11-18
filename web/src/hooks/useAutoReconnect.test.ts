@@ -3,6 +3,14 @@ import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } 
 import { useAutoReconnect } from './useAutoReconnect';
 import type { ConnectionState } from './types';
 
+// Mock browserDetection at the top level
+vi.mock('../libs/browserDetection', () => ({
+  isIOSSafari: vi.fn(() => false),
+  getUserAgent: vi.fn(() => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124')
+}));
+
+import { isIOSSafari } from '../libs/browserDetection';
+
 describe('useAutoReconnect', () => {
   let mockConnect: MockedFunction<() => void>;
   let mockDisconnect: MockedFunction<() => void>;
@@ -1217,6 +1225,217 @@ describe('useAutoReconnect', () => {
       expect(mockConnect).toHaveBeenCalledTimes(1);
       // Should not check connection when not connected
       expect(mockCheckConnection).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('iOS Safari 26.1 guard time handling', () => {
+    it('should wait 11 seconds before first reconnection attempt on iOS Safari', async () => {
+      // Mock isIOSSafari to return true for this test
+      vi.mocked(isIOSSafari).mockReturnValue(true);
+
+      const mockDiagnosticLog = vi.fn();
+
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'disconnected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          onDiagnosticLog: mockDiagnosticLog,
+        })
+      );
+
+      // Get the pageshow handler
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'pageshow'
+      )?.[1];
+
+      // Simulate page being shown (iOS Safari returns from background)
+      await act(async () => {
+        pageshowHandler?.({ persisted: false });
+        // Advance past PAGESHOW_TIMEOUT_MS (300ms) to trigger attemptReconnection
+        await vi.advanceTimersByTimeAsync(400);
+      });
+
+      // Should have called diagnostic log about 11 second wait
+      expect(mockDiagnosticLog).toHaveBeenCalledWith(
+        'INFO',
+        'iOS Safari requires 11 second wait before reconnection...',
+        expect.objectContaining({
+          component: 'AutoReconnect',
+          event: 'ios_safari_guard_wait',
+          guardTimeMs: 11000
+        })
+      );
+
+      // Should NOT have attempted connection yet
+      expect(mockConnect).not.toHaveBeenCalled();
+
+      // Advance time to 10.4 seconds - still no connection
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10000);
+      });
+      expect(mockConnect).not.toHaveBeenCalled();
+
+      // Advance time to ~11.3 seconds - first connection attempt
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(900); // Total: 400ms + 10000ms + 900ms = 11300ms
+      });
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should attempt 3 retries at 11s, 12s, 13s intervals', async () => {
+      // Mock isIOSSafari to return true for this test
+      vi.mocked(isIOSSafari).mockReturnValue(true);
+
+      const mockDiagnosticLog = vi.fn();
+
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'disconnected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+          onDiagnosticLog: mockDiagnosticLog,
+        })
+      );
+
+      // Get the pageshow handler
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'pageshow'
+      )?.[1];
+
+      // Simulate page being shown
+      await act(async () => {
+        pageshowHandler?.({ persisted: false });
+        // Advance past PAGESHOW_TIMEOUT_MS (300ms) to trigger attemptReconnection
+        await vi.advanceTimersByTimeAsync(400);
+      });
+
+      // Advance to ~11.3 seconds (300ms pageshow delay + 11000ms guard time) - first retry
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10900); // 400ms already advanced + 10900ms = 11300ms total
+      });
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+      expect(mockDiagnosticLog).toHaveBeenCalledWith(
+        'INFO',
+        'Reconnection attempt 1/3...',
+        expect.objectContaining({
+          attempt: 1,
+          maxRetries: 3
+        })
+      );
+
+      // Advance to 12 seconds - second retry
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(mockConnect).toHaveBeenCalledTimes(2);
+      expect(mockDiagnosticLog).toHaveBeenCalledWith(
+        'INFO',
+        'Reconnection attempt 2/3...',
+        expect.objectContaining({
+          attempt: 2,
+          maxRetries: 3
+        })
+      );
+
+      // Advance to 13 seconds - third retry
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(mockConnect).toHaveBeenCalledTimes(3);
+      expect(mockDiagnosticLog).toHaveBeenCalledWith(
+        'INFO',
+        'Reconnection attempt 3/3...',
+        expect.objectContaining({
+          attempt: 3,
+          maxRetries: 3
+        })
+      );
+
+      // No more retries after 3rd attempt
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(mockConnect).toHaveBeenCalledTimes(3);
+    });
+
+    it('should clear retry chain on successful connection', async () => {
+      // Mock isIOSSafari to return true for this test
+      vi.mocked(isIOSSafari).mockReturnValue(true);
+
+      const { rerender } = renderHook(
+        ({ connectionState }) =>
+          useAutoReconnect({
+            connectionState,
+            connect: mockConnect,
+            disconnect: mockDisconnect,
+          }),
+        {
+          initialProps: { connectionState: 'disconnected' as ConnectionState },
+        }
+      );
+
+      // Get the pageshow handler
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'pageshow'
+      )?.[1];
+
+      // Simulate page being shown - starts retry chain
+      await act(async () => {
+        pageshowHandler?.({ persisted: false });
+        // Advance past PAGESHOW_TIMEOUT_MS (300ms) to trigger attemptReconnection
+        await vi.advanceTimersByTimeAsync(400);
+      });
+
+      // Advance to ~11.3 seconds - first retry fires
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10900); // 400ms already advanced + 10900ms = 11300ms total
+      });
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+
+      // Simulate successful connection before second retry
+      await act(async () => {
+        rerender({ connectionState: 'connected' });
+      });
+
+      // Advance time past remaining retries
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+
+      // Should not have called connect again (retry chain cleared)
+      expect(mockConnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not use iOS Safari logic for non-iOS Safari browsers', async () => {
+      // Set isIOSSafari to return false
+      vi.mocked(isIOSSafari).mockReturnValue(false);
+
+      renderHook(() =>
+        useAutoReconnect({
+          connectionState: 'disconnected',
+          connect: mockConnect,
+          disconnect: mockDisconnect,
+        })
+      );
+
+      // Get the pageshow handler
+      const pageshowHandler = mockAddEventListener.mock.calls.find(
+        call => call[0] === 'pageshow'
+      )?.[1];
+
+      // Simulate page being shown
+      await act(async () => {
+        pageshowHandler?.({ persisted: false });
+      });
+
+      // Should use standard timeout (300ms), not 11s
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400);
+      });
+
+      // Should have attempted connection immediately (standard behavior)
+      expect(mockConnect).toHaveBeenCalled();
     });
   });
 });

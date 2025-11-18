@@ -6,10 +6,14 @@ import { isIOSSafari } from '../libs/browserDetection';
 const DEFAULT_DISCONNECT_DELAY_MS = 3000;
 
 // iOS Safari 26.1 specific timing constants
-// Empirical testing revealed that iOS Safari 26.1 has a ~10 second WebSocket guard time after background/foreground transitions
+// TODO: Monitor iOS Safari releases and remove this workaround when fixed
+// Known to affect: iOS Safari 26.1
+// Last verified: 2025-01-19
+// Issue: iOS Safari 26.1 has a ~10 second WebSocket guard time after background/foreground transitions
 // - Background → Foreground restoration requires waiting ~11 seconds before WebSocket connections can succeed
 // - Attempting to connect before this guard time expires always fails
 // - Manual page reload after 11 seconds succeeds on first try (sometimes needs 1-2 more tries)
+// - Other iOS browsers (Chrome, Firefox) do not have this issue
 const IOS_SAFARI_GUARD_TIME_MS = 11000; // 11 second wait for iOS Safari guard time
 const IOS_SAFARI_RETRY_INTERVAL_MS = 1000; // 1 second between retry attempts
 const IOS_SAFARI_MAX_RETRIES = 3; // Maximum retry attempts after guard time
@@ -75,6 +79,7 @@ export function useAutoReconnect({
   const disconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const iosSafariRetryTimeoutsRef = useRef<NodeJS.Timeout[]>([]); // For iOS Safari retry chain
   const iosSafariRetryCountRef = useRef(0); // Track current retry attempt
+  const connectionAttemptInProgressRef = useRef(false); // Prevent multiple simultaneous connection attempts
 
   // Store current values in refs to avoid stale closures
   const connectionStateRef = useRef(connectionState);
@@ -94,6 +99,7 @@ export function useAutoReconnect({
       iosSafariRetryTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
       iosSafariRetryTimeoutsRef.current = [];
       iosSafariRetryCountRef.current = 0;
+      connectionAttemptInProgressRef.current = false;
     }
   }, []);
 
@@ -188,6 +194,15 @@ export function useAutoReconnect({
 
         // iOS Safari 26.1 requires special handling due to 11-second WebSocket guard time
         if (isIOSSafari()) {
+          // Prevent starting multiple retry chains simultaneously
+          if (connectionAttemptInProgressRef.current) {
+            if (import.meta.env.DEV) {
+              console.log('🍎 iOS Safari retry chain already in progress, skipping');
+            }
+            return;
+          }
+          connectionAttemptInProgressRef.current = true;
+
           // Clear any existing retry chain
           clearIOSSafariRetries();
 
