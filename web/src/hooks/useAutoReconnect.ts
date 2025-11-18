@@ -1,11 +1,15 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { ConnectionState } from './types';
+import { isIOSSafari } from '../libs/browserDetection';
 
 // Default timeout constants for better maintainability
 const DEFAULT_DISCONNECT_DELAY_MS = 3000;
-const VISIBILITY_TIMEOUT_MS = 100;
-const PAGESHOW_TIMEOUT_MS = 150;
-const PAGESHOW_PERSISTED_TIMEOUT_MS = 200;
+// Increased timeouts for better iOS Safari compatibility
+const VISIBILITY_TIMEOUT_MS = 300; // Increased from 100ms to give Safari more time
+const PAGESHOW_TIMEOUT_MS = 300; // Increased from 150ms
+const PAGESHOW_PERSISTED_TIMEOUT_MS = 500; // Increased from 200ms
+const PAGESHOW_PERSISTED_DISCONNECT_BUFFER_MS = 200; // Increased from 100ms
+const ZOMBIE_CHECK_DELAY_MS = 200; // Delay before checking zombie connection
 
 export interface AutoReconnectOptions {
   connectionState: ConnectionState;
@@ -166,15 +170,21 @@ export function useAutoReconnect({
         // Check if the connection is actually alive (zombie detection)
         // Only perform zombie detection if checkConnection function is provided
         if (checkConnectionRef.current) {
+          // Add a small delay before checking to allow Safari to settle
+          await new Promise(resolve => setTimeout(resolve, ZOMBIE_CHECK_DELAY_MS));
+
           try {
             const isAlive = await checkConnectionRef.current();
             if (!isAlive) {
               // Connection is zombie, force disconnect and reconnect
-              onDiagnosticLogRef.current?.('WARN', 'Zombie WebSocket connection detected - forcing reconnection', {
-                component: 'AutoReconnect',
-                event: 'zombie_detection',
-                trigger: 'page_visibility'
-              });
+              // Only log for iOS Safari where zombie connections are common
+              if (isIOSSafari()) {
+                onDiagnosticLogRef.current?.('WARN', 'Zombie WebSocket connection detected - forcing reconnection', {
+                  component: 'AutoReconnect',
+                  event: 'zombie_detection',
+                  trigger: 'page_visibility'
+                });
+              }
               disconnectRef.current();
             }
           } catch (error) {
@@ -182,11 +192,14 @@ export function useAutoReconnect({
             if (import.meta.env.DEV) {
               console.warn('Connection health check failed:', error);
             }
-            onDiagnosticLogRef.current?.('WARN', 'WebSocket connection check failed - forcing reconnection', {
-              component: 'AutoReconnect',
-              event: 'connection_check_failed',
-              error: String(error)
-            });
+            // Only log for iOS Safari where this is more relevant
+            if (isIOSSafari()) {
+              onDiagnosticLogRef.current?.('WARN', 'WebSocket connection check failed - forcing reconnection', {
+                component: 'AutoReconnect',
+                event: 'connection_check_failed',
+                error: String(error)
+              });
+            }
             disconnectRef.current();
           }
         }
@@ -223,13 +236,15 @@ export function useAutoReconnect({
           console.log('👁️ Page became visible - canceling disconnect and attempting reconnection');
         }
 
-        // Notify about page visibility change (useful for iOS Safari debugging)
-        onDiagnosticLogRef.current?.('INFO', 'Page returned from background', {
-          component: 'AutoReconnect',
-          event: 'visibility_change',
-          visibilityState: currentVisibility,
-          connectionState: connectionStateRef.current
-        });
+        // Notify about page visibility change (only for iOS Safari where this is critical for debugging)
+        if (isIOSSafari()) {
+          onDiagnosticLogRef.current?.('INFO', 'Page returned from background', {
+            component: 'AutoReconnect',
+            event: 'visibility_change',
+            visibilityState: currentVisibility,
+            connectionState: connectionStateRef.current
+          });
+        }
 
         cancelDelayedDisconnect();
 
@@ -274,22 +289,25 @@ export function useAutoReconnect({
           console.log('📱 Page restored from bfcache - forcing full reconnection');
         }
 
-        // Notify about bfcache restoration
-        onDiagnosticLogRef.current?.('INFO', 'Page restored from browser cache (bfcache) - forcing full reconnection', {
-          component: 'AutoReconnect',
-          event: 'bfcache_restore',
-          connectionState: connectionStateRef.current,
-          persisted: true
-        });
+        // Notify about bfcache restoration (only for iOS Safari where this is critical)
+        if (isIOSSafari()) {
+          onDiagnosticLogRef.current?.('INFO', 'Page restored from browser cache (bfcache) - forcing full reconnection', {
+            component: 'AutoReconnect',
+            event: 'bfcache_restore',
+            connectionState: connectionStateRef.current,
+            persisted: true
+          });
+        }
 
         if (connectionStateRef.current === 'connected') {
           disconnectRef.current();
           // Wait for disconnect to complete before reconnecting
           // Add buffer to avoid race condition between disconnect and connect
+          // Increased timeouts for better Safari compatibility
           pageshowTimeoutRef.current = setTimeout(() => {
             connectRef.current();
             pageshowTimeoutRef.current = null;
-          }, PAGESHOW_PERSISTED_TIMEOUT_MS + 100);
+          }, PAGESHOW_PERSISTED_TIMEOUT_MS + PAGESHOW_PERSISTED_DISCONNECT_BUFFER_MS);
         } else {
           // Not connected, just reconnect normally
           pageshowTimeoutRef.current = setTimeout(() => {

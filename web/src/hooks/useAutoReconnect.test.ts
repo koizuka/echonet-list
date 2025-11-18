@@ -183,8 +183,8 @@ describe('useAutoReconnect', () => {
     // Simulate page being shown
     pageshowHandler({ persisted: false });
 
-    // Should trigger reconnection after timeout
-    vi.advanceTimersByTime(200);
+    // Should trigger reconnection after timeout (300ms visibility timeout)
+    vi.advanceTimersByTime(400);
     expect(mockConnect).toHaveBeenCalledTimes(1);
   });
 
@@ -207,9 +207,9 @@ describe('useAutoReconnect', () => {
     // Simulate page being shown
     pageshowHandler({ persisted: false });
 
-    // Advance timers to complete any delayed operations
-    vi.advanceTimersByTime(200);
-    
+    // Advance timers to complete any delayed operations (300ms pageshow timeout)
+    vi.advanceTimersByTime(400);
+
     expect(mockConnect).not.toHaveBeenCalled();
   });
 
@@ -237,7 +237,7 @@ describe('useAutoReconnect', () => {
 
     // Test 1: Pageshow should trigger connection when disconnected
     pageshowHandler({ persisted: false });
-    vi.advanceTimersByTime(200);
+    vi.advanceTimersByTime(400);
     expect(mockConnect).toHaveBeenCalledTimes(1);
     expect(mockDisconnect).not.toHaveBeenCalled();
 
@@ -303,7 +303,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers to complete delayed reconnection
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Try to trigger reconnection again immediately (should be prevented)
@@ -336,7 +336,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers to complete the delayed operation
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).toHaveBeenCalledTimes(2); // Called twice now
     });
 
@@ -365,7 +365,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).not.toHaveBeenCalled();
 
       // Update connection state to disconnected
@@ -378,7 +378,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).toHaveBeenCalledTimes(1);
     });
 
@@ -412,7 +412,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).not.toHaveBeenCalled();
       expect(newMockConnect).toHaveBeenCalledTimes(1);
     });
@@ -500,7 +500,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Unmount component
@@ -537,7 +537,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Advance time to allow the flag to reset
@@ -551,7 +551,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers for the second reconnection
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).toHaveBeenCalledTimes(2); // Should be called again
       expect(clearTimeoutSpy).toHaveBeenCalledTimes(1); // Should have cleared the previous timeout
       
@@ -583,7 +583,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Simulate connection becoming connected
@@ -623,7 +623,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).toHaveBeenCalledTimes(1);
 
       // Advance time past the delay period (still disconnected)
@@ -637,7 +637,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       expect(mockConnect).toHaveBeenCalledTimes(2);
     });
 
@@ -669,7 +669,7 @@ describe('useAutoReconnect', () => {
       });
 
       // Advance timers to complete any delayed operations
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(400);
       // Should only connect once despite multiple events
       expect(mockConnect).toHaveBeenCalledTimes(1);
     });
@@ -1048,8 +1048,8 @@ describe('useAutoReconnect', () => {
         Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
         visibilityChangeHandler?.();
 
-        // Advance timers to trigger visibility timeout
-        await vi.advanceTimersByTimeAsync(200);
+        // Advance timers to trigger visibility timeout + zombie check delay (300ms + 200ms)
+        await vi.advanceTimersByTimeAsync(550);
       });
 
       // Should have checked connection
@@ -1081,8 +1081,8 @@ describe('useAutoReconnect', () => {
         Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
         visibilityChangeHandler?.();
 
-        // Advance timers to trigger visibility timeout
-        await vi.advanceTimersByTimeAsync(200);
+        // Advance timers to trigger visibility timeout + zombie check delay (300ms + 200ms)
+        await vi.advanceTimersByTimeAsync(550);
       });
 
       // Should have checked connection
@@ -1114,8 +1114,8 @@ describe('useAutoReconnect', () => {
         Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
         visibilityChangeHandler?.();
 
-        // Advance timers to trigger visibility timeout
-        await vi.advanceTimersByTimeAsync(200);
+        // Advance timers to trigger visibility timeout + zombie check delay (300ms + 200ms)
+        await vi.advanceTimersByTimeAsync(550);
       });
 
       // Should have attempted to check connection
@@ -1145,8 +1145,8 @@ describe('useAutoReconnect', () => {
       await act(async () => {
         pageshowHandler?.({ persisted: false });
 
-        // Advance timers to trigger pageshow timeout
-        await vi.advanceTimersByTimeAsync(200);
+        // Advance timers to trigger pageshow timeout + zombie check delay (300ms + 200ms)
+        await vi.advanceTimersByTimeAsync(550);
       });
 
       // Should have checked connection
@@ -1176,8 +1176,8 @@ describe('useAutoReconnect', () => {
       await act(async () => {
         pageshowHandler?.({ persisted: true });
 
-        // Advance timers for the persisted timeout (200ms + 100ms buffer for disconnect)
-        await vi.advanceTimersByTimeAsync(350);
+        // Advance timers for the persisted timeout (500ms + 200ms buffer for disconnect)
+        await vi.advanceTimersByTimeAsync(800);
       });
 
       // Should have disconnected (forced reconnection for bfcache)
@@ -1209,8 +1209,8 @@ describe('useAutoReconnect', () => {
         Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
         visibilityChangeHandler?.();
 
-        // Advance timers
-        await vi.advanceTimersByTimeAsync(200);
+        // Advance timers for visibility timeout (300ms, no zombie check for disconnected state)
+        await vi.advanceTimersByTimeAsync(400);
       });
 
       // Should attempt reconnection when disconnected
