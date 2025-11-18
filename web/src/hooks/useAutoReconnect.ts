@@ -5,17 +5,21 @@ import { isIOSSafari } from '../libs/browserDetection';
 // Default timeout constants for better maintainability
 const DEFAULT_DISCONNECT_DELAY_MS = 3000;
 
-// Increased timeouts for better iOS Safari compatibility
-// These values were empirically determined through testing on iOS Safari 26.1:
-// - Original values resulted in ~5-20% reconnection success rate
-// - Increased values (2-3x) give iOS Safari more time to restore resources after background/foreground transitions
-// - Trade-off: Longer timeouts = slower reconnection but higher success rate
-// - Total bfcache reconnection delay: 300ms (old) → 700ms (new)
-const VISIBILITY_TIMEOUT_MS = 300; // Increased from 100ms - wait for page to settle before checking connection
-const PAGESHOW_TIMEOUT_MS = 300; // Increased from 150ms - delay before reconnection attempt
-const PAGESHOW_PERSISTED_TIMEOUT_MS = 500; // Increased from 200ms - bfcache restoration needs more time
-const PAGESHOW_PERSISTED_DISCONNECT_BUFFER_MS = 200; // Increased from 100ms - buffer between disconnect and reconnect
-const ZOMBIE_CHECK_DELAY_MS = 200; // New - delay before checking zombie connection to allow Safari to stabilize
+// iOS Safari 26.1 specific timing constants
+// Empirical testing revealed that iOS Safari 26.1 has a ~10 second WebSocket guard time after background/foreground transitions
+// - Background → Foreground restoration requires waiting ~11 seconds before WebSocket connections can succeed
+// - Attempting to connect before this guard time expires always fails
+// - Manual page reload after 11 seconds succeeds on first try (sometimes needs 1-2 more tries)
+const IOS_SAFARI_GUARD_TIME_MS = 11000; // 11 second wait for iOS Safari guard time
+const IOS_SAFARI_RETRY_INTERVAL_MS = 1000; // 1 second between retry attempts
+const IOS_SAFARI_MAX_RETRIES = 3; // Maximum retry attempts after guard time
+
+// Standard timeouts for non-iOS Safari browsers
+const VISIBILITY_TIMEOUT_MS = 300; // Wait for page to settle before checking connection
+const PAGESHOW_TIMEOUT_MS = 300; // Delay before reconnection attempt
+const PAGESHOW_PERSISTED_TIMEOUT_MS = 500; // bfcache restoration needs more time
+const PAGESHOW_PERSISTED_DISCONNECT_BUFFER_MS = 200; // Buffer between disconnect and reconnect
+const ZOMBIE_CHECK_DELAY_MS = 200; // Delay before checking zombie connection to allow Safari to stabilize
 
 /**
  * Helper function for async delays
@@ -69,6 +73,8 @@ export function useAutoReconnect({
   const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pageshowTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const disconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const iosSafariRetryTimeoutsRef = useRef<NodeJS.Timeout[]>([]); // For iOS Safari retry chain
+  const iosSafariRetryCountRef = useRef(0); // Track current retry attempt
 
   // Store current values in refs to avoid stale closures
   const connectionStateRef = useRef(connectionState);
@@ -78,7 +84,19 @@ export function useAutoReconnect({
   const autoDisconnectRef = useRef(autoDisconnect);
   const disconnectDelayMsRef = useRef(disconnectDelayMs);
   const onDiagnosticLogRef = useRef(onDiagnosticLog);
-  
+
+  // Helper function to clear iOS Safari retry chain
+  const clearIOSSafariRetries = useCallback(() => {
+    if (iosSafariRetryTimeoutsRef.current.length > 0) {
+      if (import.meta.env.DEV) {
+        console.log('🍎 Clearing iOS Safari retry timeouts');
+      }
+      iosSafariRetryTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      iosSafariRetryTimeoutsRef.current = [];
+      iosSafariRetryCountRef.current = 0;
+    }
+  }, []);
+
   // Update refs when values change
   useEffect(() => {
     connectionStateRef.current = connectionState;
@@ -89,21 +107,23 @@ export function useAutoReconnect({
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
+      // Clear iOS Safari retry chain on successful connection
+      clearIOSSafariRetries();
     }
-  }, [connectionState]);
-  
+  }, [connectionState, clearIOSSafariRetries]);
+
   useEffect(() => {
     connectRef.current = connect;
   }, [connect]);
-  
+
   useEffect(() => {
     disconnectRef.current = disconnect;
   }, [disconnect]);
-  
+
   useEffect(() => {
     checkConnectionRef.current = checkConnection;
   }, [checkConnection]);
-  
+
   useEffect(() => {
     autoDisconnectRef.current = autoDisconnect;
   }, [autoDisconnect]);
@@ -165,7 +185,51 @@ export function useAutoReconnect({
     const attemptReconnection = async () => {
       if (connectionStateRef.current === 'disconnected' && !hasReconnectedRef.current) {
         hasReconnectedRef.current = true;
-        connectRef.current();
+
+        // iOS Safari 26.1 requires special handling due to 11-second WebSocket guard time
+        if (isIOSSafari()) {
+          // Clear any existing retry chain
+          clearIOSSafariRetries();
+
+          // Notify user about waiting period
+          onDiagnosticLogRef.current?.('INFO', 'iOS Safari requires 11 second wait before reconnection...', {
+            component: 'AutoReconnect',
+            event: 'ios_safari_guard_wait',
+            guardTimeMs: IOS_SAFARI_GUARD_TIME_MS
+          });
+
+          // Schedule retry chain: 11s, 12s, 13s
+          for (let i = 0; i < IOS_SAFARI_MAX_RETRIES; i++) {
+            const delay = IOS_SAFARI_GUARD_TIME_MS + (i * IOS_SAFARI_RETRY_INTERVAL_MS);
+            const timeout = setTimeout(() => {
+              iosSafariRetryCountRef.current = i + 1;
+
+              if (import.meta.env.DEV) {
+                console.log(`🍎 iOS Safari reconnection attempt ${i + 1}/${IOS_SAFARI_MAX_RETRIES} (after ${delay}ms)`);
+              }
+
+              // Notify user about retry attempt
+              onDiagnosticLogRef.current?.('INFO', `Reconnection attempt ${i + 1}/${IOS_SAFARI_MAX_RETRIES}...`, {
+                component: 'AutoReconnect',
+                event: 'ios_safari_retry',
+                attempt: i + 1,
+                maxRetries: IOS_SAFARI_MAX_RETRIES,
+                delayMs: delay
+              });
+
+              // Only attempt if still disconnected
+              if (connectionStateRef.current === 'disconnected') {
+                connectRef.current();
+              }
+            }, delay);
+
+            iosSafariRetryTimeoutsRef.current.push(timeout);
+          }
+        } else {
+          // Standard reconnection for non-iOS Safari browsers
+          connectRef.current();
+        }
+
         // Reset flag after a delay to allow for future reconnection attempts
         // but only if we're still disconnected
         if (timeoutRef.current) {
@@ -398,6 +462,8 @@ export function useAutoReconnect({
         clearTimeout(disconnectTimeoutRef.current);
         disconnectTimeoutRef.current = null;
       }
+      // Clear iOS Safari retry timeouts
+      clearIOSSafariRetries();
     };
-  }, [delayMs, scheduleDelayedDisconnect, cancelDelayedDisconnect]); // Include helper functions in dependencies
+  }, [delayMs, scheduleDelayedDisconnect, cancelDelayedDisconnect, clearIOSSafariRetries]); // Include helper functions in dependencies
 }
