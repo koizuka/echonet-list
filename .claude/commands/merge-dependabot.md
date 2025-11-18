@@ -1,5 +1,6 @@
 ---
 description: Merge safe dependabot PRs one by one efficiently
+allowed-tools: Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr update-branch:*)
 ---
 
 Merge all safe dependabot PRs efficiently and automatically:
