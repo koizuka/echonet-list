@@ -284,14 +284,19 @@ export function useAutoReconnect({
 
         if (connectionStateRef.current === 'connected') {
           disconnectRef.current();
+          // Wait for disconnect to complete before reconnecting
+          // Add buffer to avoid race condition between disconnect and connect
+          pageshowTimeoutRef.current = setTimeout(() => {
+            connectRef.current();
+            pageshowTimeoutRef.current = null;
+          }, PAGESHOW_PERSISTED_TIMEOUT_MS + 100);
+        } else {
+          // Not connected, just reconnect normally
+          pageshowTimeoutRef.current = setTimeout(() => {
+            connectRef.current();
+            pageshowTimeoutRef.current = null;
+          }, PAGESHOW_PERSISTED_TIMEOUT_MS);
         }
-        // Force reconnection after disconnect completes
-        pageshowTimeoutRef.current = setTimeout(() => {
-          // Force connect even if already connected state
-          // This handles iOS Safari bfcache edge cases
-          connectRef.current();
-          pageshowTimeoutRef.current = null;
-        }, PAGESHOW_PERSISTED_TIMEOUT_MS);
       } else {
         // Normal page show, check connection if needed
         // Use longer delay for iOS Safari compatibility

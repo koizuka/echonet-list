@@ -134,34 +134,17 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       return false;
     }
 
-    // iOS Safari 26 fix: Detect zombie connections
-    // On iOS Safari, WebSocket may report OPEN state even when the connection is dead
-    // after returning from background. We detect this by checking if we can send data.
-    try {
-      // Try to send a small ping message to check if the connection is actually alive
-      // This is a lightweight check - we don't wait for a response
-      // The WebSocket will throw if the connection is actually closed
-      // Note: We don't use a real ping message to avoid server-side handling
-      // Instead, we rely on the send() call throwing if the connection is dead
-
-      // For iOS Safari, just checking readyState is not enough
-      // We need to trust that the browser's WebSocket implementation is correct
-      // and that any send() will fail if the connection is truly dead
-
-      // However, since WebSocket.send() doesn't throw for zombie connections,
-      // we just return true if readyState is OPEN
-      // The actual zombie detection happens through:
-      // 1. Request timeout in sendMessage()
-      // 2. Server heartbeat responses
-      // 3. onclose event eventually firing
-
-      return true;
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('WebSocket connection check failed:', error);
-      }
-      return false;
-    }
+    // iOS Safari 26 note: WebSocket may report OPEN state even when the connection is dead
+    // after returning from background (zombie connection). Unfortunately, WebSocket.send()
+    // doesn't throw synchronously for zombie connections, so we can't detect them here.
+    //
+    // Actual zombie detection happens through:
+    // 1. Request timeout in sendMessage() - if server doesn't respond
+    // 2. Server heartbeat responses - missing heartbeats indicate dead connection
+    // 3. onclose event - browser eventually detects and fires close event
+    //
+    // This function serves as a quick readyState check before attempting reconnection.
+    return true;
   }, []);
 
   const startHeartbeat = useCallback(() => {
@@ -303,12 +286,14 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       
       ws.onmessage = handleMessage;
       
+      // Detect iOS Safari for enhanced logging (excludes Chrome/Firefox/Edge/Opera on iOS)
+      const userAgent = navigator.userAgent;
+      const isIOSSafari = /iPhone|iPad|iPod/.test(userAgent) &&
+                          /Safari/.test(userAgent) &&
+                          !/CriOS|FxiOS|EdgiOS|OPiOS/.test(userAgent);
+
       ws.onerror = (event) => {
         console.error('WebSocket error:', event);
-
-        // iOS Safari 26 specific logging
-        const userAgent = navigator.userAgent;
-        const isIOSSafari = /iPhone|iPad|iPod/.test(userAgent) && /Safari/.test(userAgent);
 
         sendLogNotification('ERROR', `WebSocket connection error: ${event.type}`, {
           component: 'WebSocket',
@@ -318,12 +303,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
           readyState: ws.readyState
         });
       };
-      
-      ws.onclose = (event) => {
-        // iOS Safari 26 specific logging
-        const userAgent = navigator.userAgent;
-        const isIOSSafari = /iPhone|iPad|iPod/.test(userAgent) && /Safari/.test(userAgent);
 
+      ws.onclose = (event) => {
         console.log('WebSocket disconnected:', {
           code: event.code,
           reason: event.reason,

@@ -1176,8 +1176,8 @@ describe('useAutoReconnect', () => {
       await act(async () => {
         pageshowHandler?.({ persisted: true });
 
-        // Advance timers for the persisted timeout (200ms)
-        await vi.advanceTimersByTimeAsync(250);
+        // Advance timers for the persisted timeout (200ms + 100ms buffer for disconnect)
+        await vi.advanceTimersByTimeAsync(350);
       });
 
       // Should have disconnected (forced reconnection for bfcache)
