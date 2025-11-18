@@ -37,6 +37,30 @@ describe('browserDetection', () => {
       expect(isIOSSafari()).toBe(true);
     });
 
+    it('should return true for iPod Safari', () => {
+      Object.defineProperty(global, 'navigator', {
+        value: {
+          userAgent: 'Mozilla/5.0 (iPod touch; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      expect(isIOSSafari()).toBe(true);
+    });
+
+    it('should return true for iOS 18 Safari', () => {
+      Object.defineProperty(global, 'navigator', {
+        value: {
+          userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      expect(isIOSSafari()).toBe(true);
+    });
+
     it('should return false for Chrome on iOS', () => {
       Object.defineProperty(global, 'navigator', {
         value: {

@@ -9,6 +9,12 @@
  * - WebSocket connections may become "zombies" (report OPEN but are actually dead)
  * - bfcache (back-forward cache) restoration may not properly restore connections
  *
+ * Why User-Agent detection instead of feature detection:
+ * - The WebSocket zombie connection issue is browser-specific, not feature-detectable
+ * - WebSocket.readyState still reports OPEN even when connection is dead (iOS Safari bug)
+ * - No reliable JavaScript API to detect this condition without actually sending data
+ * - Other iOS browsers (Chrome, Firefox) use different WebView engines and don't exhibit this behavior
+ *
  * @returns true if running on iOS Safari, false otherwise
  */
 export function isIOSSafari(): boolean {

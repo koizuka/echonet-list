@@ -289,7 +289,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
 
       // Get browser info for diagnostic logging
       const userAgent = getUserAgent();
-      const isiOSSafari = isIOSSafari();
+      const isCurrentBrowserIOSSafari = isIOSSafari();
 
       ws.onerror = (event) => {
         console.error('WebSocket error:', event);
@@ -298,7 +298,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
           component: 'WebSocket',
           eventType: event.type,
           userAgent: userAgent,
-          isIOSSafari: isiOSSafari,
+          isIOSSafari: isCurrentBrowserIOSSafari,
           readyState: ws.readyState
         });
       };
@@ -308,8 +308,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
           code: event.code,
           reason: event.reason,
           wasClean: event.wasClean,
-          isIOSSafari: isiOSSafari,
-          userAgent: isiOSSafari ? userAgent : undefined
+          isIOSSafari: isCurrentBrowserIOSSafari,
+          userAgent: isCurrentBrowserIOSSafari ? userAgent : undefined
         });
         // Stop heartbeat when connection closes
         stopHeartbeat();
