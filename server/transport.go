@@ -55,9 +55,9 @@ type WebSocketTransport interface {
 
 // clientConnection wraps a WebSocket connection with a mutex for safe concurrent writes
 type clientConnection struct {
-	conn     *websocket.Conn
-	mutex    sync.Mutex
-	pingDone chan struct{} // ping goroutine停止用
+	conn     *websocket.Conn // immutable after creation, safe for concurrent read access
+	mutex    sync.Mutex      // protects write operations on conn
+	pingDone chan struct{}   // ping goroutine停止用
 }
 
 // DefaultWebSocketTransport は WebSocketTransport インターフェースのデフォルト実装
