@@ -9,8 +9,18 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
+)
+
+const (
+	// writeWait は書き込み操作のタイムアウト時間
+	writeWait = 10 * time.Second
+	// pongWait はクライアントからのPongを待つ時間
+	pongWait = 60 * time.Second
+	// pingPeriod はPingを送信する間隔（pongWaitより短くする必要がある）
+	pingPeriod = 54 * time.Second
 )
 
 // StartOptions は websocket_server.go で定義されていますが、ここにHTTPサーバー用の設定も追加します
@@ -45,8 +55,9 @@ type WebSocketTransport interface {
 
 // clientConnection wraps a WebSocket connection with a mutex for safe concurrent writes
 type clientConnection struct {
-	conn  *websocket.Conn
-	mutex sync.Mutex
+	conn     *websocket.Conn // immutable after creation, safe for concurrent read access
+	mutex    sync.Mutex      // protects write operations on conn
+	pingDone chan struct{}   // ping goroutine停止用
 }
 
 // DefaultWebSocketTransport は WebSocketTransport インターフェースのデフォルト実装
@@ -218,6 +229,7 @@ func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) e
 	client.mutex.Lock()
 	defer client.mutex.Unlock()
 
+	client.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	err := client.conn.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
 		// Check if this is a connection close error
@@ -246,6 +258,7 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 
 	for connID, client := range clients {
 		client.mutex.Lock()
+		client.conn.SetWriteDeadline(time.Now().Add(writeWait))
 		if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 			// Check if this is a client disconnection error
 			if isConnectionClosedError(err) {
@@ -290,8 +303,9 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 
 	// Register the client
 	client := &clientConnection{
-		conn:  conn,
-		mutex: sync.Mutex{},
+		conn:     conn,
+		mutex:    sync.Mutex{},
+		pingDone: make(chan struct{}),
 	}
 	t.clientsMutex.Lock()
 	t.clients[connID] = client
@@ -300,6 +314,7 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 
 	// Remove the client when the function returns
 	defer func() {
+		close(client.pingDone)
 		t.removeClient(connID)
 	}()
 
@@ -310,6 +325,37 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 			return
 		}
 	}
+
+	// Configure Pong handler and read deadline for heartbeat
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
+	// Start ping goroutine to send periodic pings
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				client.mutex.Lock()
+				conn.SetWriteDeadline(time.Now().Add(writeWait))
+				err := conn.WriteMessage(websocket.PingMessage, nil)
+				client.mutex.Unlock()
+				if err != nil {
+					slog.Debug("Ping failed, closing connection", "connID", connID, "err", err)
+					conn.Close()
+					return
+				}
+			case <-client.pingDone:
+				return
+			case <-t.ctx.Done():
+				return
+			}
+		}
+	}()
 
 	// Handle incoming messages
 	for {
