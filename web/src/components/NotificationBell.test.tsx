@@ -286,9 +286,11 @@ describe('NotificationBell', () => {
 
 describe('formatLogTime', () => {
   beforeEach(() => {
-    // Set current time to 2023-12-15 14:30:00 JST
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2023-12-15T05:30:00Z')); // UTC = JST - 9
+    // Set current time to today at 14:30:00 (local time)
+    const now = new Date();
+    now.setHours(14, 30, 0, 0);
+    vi.setSystemTime(now);
   });
 
   afterEach(() => {
@@ -296,29 +298,39 @@ describe('formatLogTime', () => {
   });
 
   it('returns time with seconds for today logs', () => {
-    // Today at 10:25:30 JST (01:25:30 UTC)
-    const todayLog = new Date('2023-12-15T01:25:30Z');
+    // Today at 10:25:30 (local time)
+    const todayLog = new Date();
+    todayLog.setHours(10, 25, 30, 0);
     const result = formatLogTime(todayLog);
     expect(result).toBe('10:25:30');
   });
 
   it('returns date and time for yesterday logs', () => {
-    // Yesterday at 10:25 JST
-    const yesterdayLog = new Date('2023-12-14T01:25:00Z');
+    // Yesterday at 10:25 (local time)
+    const yesterdayLog = new Date();
+    yesterdayLog.setDate(yesterdayLog.getDate() - 1);
+    yesterdayLog.setHours(10, 25, 0, 0);
     const result = formatLogTime(yesterdayLog);
-    expect(result).toBe('12/14 10:25');
+    const expectedMonth = yesterdayLog.getMonth() + 1;
+    const expectedDay = yesterdayLog.getDate();
+    expect(result).toBe(`${expectedMonth}/${expectedDay} 10:25`);
   });
 
   it('returns date and time for older logs', () => {
-    // A week ago at 08:05 JST
-    const oldLog = new Date('2023-12-08T23:05:00Z'); // Dec 9 08:05 JST
+    // A week ago at 08:05 (local time)
+    const oldLog = new Date();
+    oldLog.setDate(oldLog.getDate() - 7);
+    oldLog.setHours(8, 5, 0, 0);
     const result = formatLogTime(oldLog);
-    expect(result).toBe('12/9 8:05');
+    const expectedMonth = oldLog.getMonth() + 1;
+    const expectedDay = oldLog.getDate();
+    expect(result).toBe(`${expectedMonth}/${expectedDay} 8:05`);
   });
 
   it('pads minutes and seconds with zero when needed', () => {
-    // Today at 09:05:03 JST (00:05:03 UTC)
-    const todayLog = new Date('2023-12-15T00:05:03Z');
+    // Today at 09:05:03 (local time)
+    const todayLog = new Date();
+    todayLog.setHours(9, 5, 3, 0);
     const result = formatLogTime(todayLog);
     expect(result).toBe('9:05:03');
   });
