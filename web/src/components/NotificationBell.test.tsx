@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { LogEntry } from '../hooks/useLogNotifications';
-import { NotificationBell, type NotificationBellProps } from './NotificationBell';
+import { NotificationBell, type NotificationBellProps, formatLogTime } from './NotificationBell';
 
 describe('NotificationBell', () => {
   const mockLogs: LogEntry[] = [
@@ -272,9 +272,9 @@ describe('NotificationBell', () => {
 
     it('displays all timestamps in correct order when all provided', () => {
       render(<NotificationBell {...defaultProps} />);
-      
+
       fireEvent.click(screen.getByRole('button'));
-      
+
       // Check that all three timestamps are present
       expect(screen.getByTestId('server-startup-time')).toBeInTheDocument();
       expect(screen.getByTestId('build-time')).toBeInTheDocument();
@@ -282,4 +282,44 @@ describe('NotificationBell', () => {
     });
   });
 
+});
+
+describe('formatLogTime', () => {
+  beforeEach(() => {
+    // Set current time to 2023-12-15 14:30:00 JST
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2023-12-15T05:30:00Z')); // UTC = JST - 9
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns time with seconds for today logs', () => {
+    // Today at 10:25:30 JST (01:25:30 UTC)
+    const todayLog = new Date('2023-12-15T01:25:30Z');
+    const result = formatLogTime(todayLog);
+    expect(result).toBe('10:25:30');
+  });
+
+  it('returns date and time for yesterday logs', () => {
+    // Yesterday at 10:25 JST
+    const yesterdayLog = new Date('2023-12-14T01:25:00Z');
+    const result = formatLogTime(yesterdayLog);
+    expect(result).toBe('12/14 10:25');
+  });
+
+  it('returns date and time for older logs', () => {
+    // A week ago at 08:05 JST
+    const oldLog = new Date('2023-12-08T23:05:00Z'); // Dec 9 08:05 JST
+    const result = formatLogTime(oldLog);
+    expect(result).toBe('12/9 8:05');
+  });
+
+  it('pads minutes and seconds with zero when needed', () => {
+    // Today at 09:05:03 JST (00:05:03 UTC)
+    const todayLog = new Date('2023-12-15T00:05:03Z');
+    const result = formatLogTime(todayLog);
+    expect(result).toBe('9:05:03');
+  });
 });

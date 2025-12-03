@@ -5,6 +5,31 @@ import { formatValue } from '../libs/formatValue';
 import { Button } from './ui/button';
 import type { LogEntry } from '../hooks/useLogNotifications';
 
+/**
+ * Format log timestamp.
+ * - Today: HH:mm:ss (e.g., "14:30:25")
+ * - Before today: M/D HH:mm (e.g., "12/1 14:30")
+ */
+export function formatLogTime(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const logDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+
+  if (logDate.getTime() >= today.getTime()) {
+    // Today: time only with seconds
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  } else {
+    // Before today: date + time (no seconds to save space)
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}/${day} ${hours}:${minutes}`;
+  }
+}
+
 export interface NotificationBellProps {
   logs: LogEntry[];
   unreadCount: number;
@@ -189,7 +214,7 @@ export function NotificationBell({
                             {log.level}
                           </span>
                           <time className="text-xs text-gray-500 dark:text-gray-400">
-                            {new Date(log.time).toLocaleTimeString()}
+                            {formatLogTime(new Date(log.time))}
                           </time>
                         </div>
                         
