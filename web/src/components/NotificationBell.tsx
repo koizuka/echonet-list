@@ -8,7 +8,8 @@ import type { LogEntry } from '../hooks/useLogNotifications';
 /**
  * Format log timestamp.
  * - Today: HH:mm:ss (e.g., "14:30:25")
- * - Before today: M/D HH:mm (e.g., "12/1 14:30")
+ * - Before today (same year): M/D HH:mm (e.g., "12/1 14:30")
+ * - Different year: YYYY/M/D HH:mm (e.g., "2024/12/1 14:30")
  */
 export function formatLogTime(date: Date): string {
   const now = new Date();
@@ -26,6 +27,10 @@ export function formatLogTime(date: Date): string {
     // Before today: date + time (no seconds to save space)
     const month = date.getMonth() + 1;
     const day = date.getDate();
+    // Show year if different from current year
+    if (date.getFullYear() !== now.getFullYear()) {
+      return `${date.getFullYear()}/${month}/${day} ${hours}:${minutes}`;
+    }
     return `${month}/${day} ${hours}:${minutes}`;
   }
 }

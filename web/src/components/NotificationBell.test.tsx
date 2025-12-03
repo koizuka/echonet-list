@@ -334,4 +334,16 @@ describe('formatLogTime', () => {
     const result = formatLogTime(todayLog);
     expect(result).toBe('9:05:03');
   });
+
+  it('returns date with year for logs from previous year', () => {
+    // Last year at 10:25 (local time)
+    const lastYearLog = new Date();
+    lastYearLog.setFullYear(lastYearLog.getFullYear() - 1);
+    lastYearLog.setHours(10, 25, 0, 0);
+    const result = formatLogTime(lastYearLog);
+    const expectedYear = lastYearLog.getFullYear();
+    const expectedMonth = lastYearLog.getMonth() + 1;
+    const expectedDay = lastYearLog.getDate();
+    expect(result).toBe(`${expectedYear}/${expectedMonth}/${expectedDay} 10:25`);
+  });
 });
