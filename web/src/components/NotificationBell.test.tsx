@@ -305,6 +305,14 @@ describe('formatLogTime', () => {
     expect(result).toBe('10:25:30');
   });
 
+  it('returns padded time for midnight logs', () => {
+    // Today at 00:05:03 (local time)
+    const midnightLog = new Date();
+    midnightLog.setHours(0, 5, 3, 0);
+    const result = formatLogTime(midnightLog);
+    expect(result).toBe('00:05:03');
+  });
+
   it('returns date and time for yesterday logs', () => {
     // Yesterday at 10:25 (local time)
     const yesterdayLog = new Date();
@@ -324,15 +332,15 @@ describe('formatLogTime', () => {
     const result = formatLogTime(oldLog);
     const expectedMonth = oldLog.getMonth() + 1;
     const expectedDay = oldLog.getDate();
-    expect(result).toBe(`${expectedMonth}/${expectedDay} 8:05`);
+    expect(result).toBe(`${expectedMonth}/${expectedDay} 08:05`);
   });
 
-  it('pads minutes and seconds with zero when needed', () => {
+  it('pads hours, minutes and seconds with zero when needed', () => {
     // Today at 09:05:03 (local time)
     const todayLog = new Date();
     todayLog.setHours(9, 5, 3, 0);
     const result = formatLogTime(todayLog);
-    expect(result).toBe('9:05:03');
+    expect(result).toBe('09:05:03');
   });
 
   it('returns date with year for logs from previous year', () => {
