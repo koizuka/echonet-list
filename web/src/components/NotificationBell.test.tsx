@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { LogEntry } from '../hooks/useLogNotifications';
-import { NotificationBell, type NotificationBellProps } from './NotificationBell';
+import { NotificationBell, type NotificationBellProps, formatLogTime } from './NotificationBell';
 
 describe('NotificationBell', () => {
   const mockLogs: LogEntry[] = [
@@ -272,9 +272,9 @@ describe('NotificationBell', () => {
 
     it('displays all timestamps in correct order when all provided', () => {
       render(<NotificationBell {...defaultProps} />);
-      
+
       fireEvent.click(screen.getByRole('button'));
-      
+
       // Check that all three timestamps are present
       expect(screen.getByTestId('server-startup-time')).toBeInTheDocument();
       expect(screen.getByTestId('build-time')).toBeInTheDocument();
@@ -282,4 +282,76 @@ describe('NotificationBell', () => {
     });
   });
 
+});
+
+describe('formatLogTime', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // Set current time to today at 14:30:00 (local time)
+    const now = new Date();
+    now.setHours(14, 30, 0, 0);
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns time with seconds for today logs', () => {
+    // Today at 10:25:30 (local time)
+    const todayLog = new Date();
+    todayLog.setHours(10, 25, 30, 0);
+    const result = formatLogTime(todayLog);
+    expect(result).toBe('10:25:30');
+  });
+
+  it('returns padded time for midnight logs', () => {
+    // Today at 00:05:03 (local time)
+    const midnightLog = new Date();
+    midnightLog.setHours(0, 5, 3, 0);
+    const result = formatLogTime(midnightLog);
+    expect(result).toBe('00:05:03');
+  });
+
+  it('returns date and time for yesterday logs', () => {
+    // Yesterday at 10:25 (local time)
+    const yesterdayLog = new Date();
+    yesterdayLog.setDate(yesterdayLog.getDate() - 1);
+    yesterdayLog.setHours(10, 25, 0, 0);
+    const result = formatLogTime(yesterdayLog);
+    const expectedMonth = yesterdayLog.getMonth() + 1;
+    const expectedDay = yesterdayLog.getDate();
+    expect(result).toBe(`${expectedMonth}/${expectedDay} 10:25`);
+  });
+
+  it('returns date and time for older logs', () => {
+    // A week ago at 08:05 (local time)
+    const oldLog = new Date();
+    oldLog.setDate(oldLog.getDate() - 7);
+    oldLog.setHours(8, 5, 0, 0);
+    const result = formatLogTime(oldLog);
+    const expectedMonth = oldLog.getMonth() + 1;
+    const expectedDay = oldLog.getDate();
+    expect(result).toBe(`${expectedMonth}/${expectedDay} 08:05`);
+  });
+
+  it('pads hours, minutes and seconds with zero when needed', () => {
+    // Today at 09:05:03 (local time)
+    const todayLog = new Date();
+    todayLog.setHours(9, 5, 3, 0);
+    const result = formatLogTime(todayLog);
+    expect(result).toBe('09:05:03');
+  });
+
+  it('returns date with year for logs from previous year', () => {
+    // Last year at 10:25 (local time)
+    const lastYearLog = new Date();
+    lastYearLog.setFullYear(lastYearLog.getFullYear() - 1);
+    lastYearLog.setHours(10, 25, 0, 0);
+    const result = formatLogTime(lastYearLog);
+    const expectedYear = lastYearLog.getFullYear();
+    const expectedMonth = lastYearLog.getMonth() + 1;
+    const expectedDay = lastYearLog.getDate();
+    expect(result).toBe(`${expectedYear}/${expectedMonth}/${expectedDay} 10:25`);
+  });
 });
