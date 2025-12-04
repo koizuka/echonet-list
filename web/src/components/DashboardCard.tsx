@@ -3,8 +3,14 @@ import { DeviceIcon } from '@/components/DeviceIcon';
 import { PropertySwitchControl } from './PropertyEditControls/PropertySwitchControl';
 import { getDashboardStatusProperties } from '@/libs/deviceTypeHelper';
 import { formatPropertyValue, getPropertyDescriptor, isPropertySettable } from '@/libs/propertyHelper';
+import { isTemperatureSensor, getTemperatureColor } from '@/libs/sensorPropertyHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
-import type { Device, PropertyDescriptionData, DeviceAlias } from '@/hooks/types';
+import type { Device, PropertyDescriptionData, DeviceAlias, PropertyValue } from '@/hooks/types';
+
+interface StatusItem {
+  value: string;
+  colorClass: string;
+}
 
 interface DashboardCardProps {
   device: Device;
@@ -31,19 +37,28 @@ export function DashboardCard({
   const operationStatus = device.properties['80'];
   const isOperationSettable = isPropertySettable('80', device);
 
-  // Get dashboard status properties and format their values
+  // Get dashboard status properties and format their values with colors
   const statusEpcs = getDashboardStatusProperties(classCode) || [];
-  const statusValues = statusEpcs
+  const getStatusColorClass = (epc: string, property: PropertyValue): string => {
+    if (isTemperatureSensor(classCode, epc) && property.number !== undefined) {
+      return getTemperatureColor(property.number);
+    }
+    return 'text-muted-foreground';
+  };
+
+  const statusItems: StatusItem[] = statusEpcs
     .map(epc => {
       const property = device.properties[epc];
       if (!property) return null;
       const descriptor = getPropertyDescriptor(epc, propertyDescriptions, classCode);
-      return formatPropertyValue(property, descriptor);
+      const value = formatPropertyValue(property, descriptor);
+      if (!value) return null;
+      return {
+        value,
+        colorClass: getStatusColorClass(epc, property)
+      };
     })
-    .filter((v): v is string => v !== null);
-
-  // Join status values with separator
-  const statusDisplay = statusValues.length > 0 ? statusValues.join(' / ') : '---';
+    .filter((v): v is StatusItem => v !== null);
 
   // Determine card styling based on device status
   const isOperational = operationStatus?.string === 'on';
@@ -68,8 +83,17 @@ export function DashboardCard({
 
       {/* Line 2: Status + On/Off control */}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground truncate flex-1">
-          {statusDisplay}
+        <span className="text-xs truncate flex-1">
+          {statusItems.length > 0 ? (
+            statusItems.map((item, index) => (
+              <span key={index}>
+                {index > 0 && <span className="text-muted-foreground"> / </span>}
+                <span className={item.colorClass}>{item.value}</span>
+              </span>
+            ))
+          ) : (
+            <span className="text-muted-foreground">---</span>
+          )}
         </span>
 
         {isOperationSettable && operationStatus && (

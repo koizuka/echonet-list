@@ -31,9 +31,9 @@ const TEMPERATURE_SENSOR_EPCS = new Set([
 
 /**
  * Gets the temperature color class based on the temperature value
- * Only applies to temperature sensors, returns muted for others
+ * Returns a Tailwind CSS color class for the given temperature
  */
-function getTemperatureColor(value: number): string {
+export function getTemperatureColor(value: number): string {
   if (value <= 10) return 'text-blue-600';      // Very cold
   if (value <= 15) return 'text-blue-400';      // Cold
   if (value <= 24) return 'text-muted-foreground'; // Normal

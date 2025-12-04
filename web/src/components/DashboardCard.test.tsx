@@ -130,8 +130,9 @@ describe('DashboardCard', () => {
         />
       );
 
-      // Should display temperature and operation mode with separator
-      expect(screen.getByText(/24.*\/.*cooling/i)).toBeInTheDocument();
+      // Should display temperature and operation mode
+      expect(screen.getByText('24°C')).toBeInTheDocument();
+      expect(screen.getByText('cooling')).toBeInTheDocument();
     });
 
     it('should render "---" when status properties are not available', () => {
