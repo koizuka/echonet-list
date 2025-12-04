@@ -392,3 +392,29 @@ export function hasAnyOperationalDevice(devices: Device[]): boolean {
 export function hasAnyFaultyDevice(devices: Device[]): boolean {
   return devices.some(device => isDeviceFaulty(device));
 }
+
+/**
+ * Get display name for a tab
+ * - Dashboard and All tabs return their name as-is
+ * - Group tabs (starting with @) return their name as-is
+ * - Location tabs use getLocationDisplayName for translation
+ */
+export function getTabDisplayName(
+  tabId: string,
+  devices: Record<string, Device>,
+  propertyDescriptions: Record<string, PropertyDescriptionData>,
+  lang?: string
+): string {
+  // Dashboard and All tabs return their name as-is
+  if (tabId === 'Dashboard' || tabId === 'All') {
+    return tabId;
+  }
+
+  // Group tabs (starting with @) return their name as-is
+  if (tabId.startsWith('@')) {
+    return tabId;
+  }
+
+  // Location tabs use getLocationDisplayName for translation
+  return getLocationDisplayName(tabId, devices, propertyDescriptions, lang);
+}

@@ -1,4 +1,4 @@
-import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getAllTabs, getDashboardDevicesGroupedByLocation, getDevicesForTab, translateLocationId } from './locationHelper';
+import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getAllTabs, getDashboardDevicesGroupedByLocation, getDevicesForTab, translateLocationId, getTabDisplayName } from './locationHelper';
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 
 describe('locationHelper', () => {
@@ -381,6 +381,47 @@ describe('locationHelper', () => {
     it('should return capitalized ID if no translation found', () => {
       expect(translateLocationId('unknown')).toBe('Unknown');
       expect(translateLocationId('custom')).toBe('Custom');
+    });
+  });
+
+  describe('getTabDisplayName', () => {
+    const createDeviceWithLocation = (ip: string, eoj: string, location: string): Device => ({
+      ip,
+      eoj,
+      name: `${ip}-${eoj}`,
+      id: `${eoj}:001:${ip}`,
+      properties: {
+        '81': { string: location }
+      },
+      lastSeen: '2023-01-01T00:00:00Z'
+    });
+
+    it('should return "Dashboard" as-is for Dashboard tab', () => {
+      expect(getTabDisplayName('Dashboard', {}, {})).toBe('Dashboard');
+    });
+
+    it('should return "All" as-is for All tab', () => {
+      expect(getTabDisplayName('All', {}, {})).toBe('All');
+    });
+
+    it('should return group name as-is for group tabs (starting with @)', () => {
+      expect(getTabDisplayName('@Living Room', {}, {})).toBe('@Living Room');
+      expect(getTabDisplayName('@My Group', {}, {})).toBe('@My Group');
+    });
+
+    it('should delegate to getLocationDisplayName for location tabs', () => {
+      const devices: Record<string, Device> = {
+        'device1': createDeviceWithLocation('192.168.1.1', '0130:1', 'living')
+      };
+
+      // Without proper property descriptions, formatPropertyValue returns the raw value
+      const result = getTabDisplayName('living', devices, {});
+      expect(result).toBe('living');
+    });
+
+    it('should return capitalized location ID when no device found', () => {
+      const result = getTabDisplayName('unknown', {}, {});
+      expect(result).toBe('Unknown');
     });
   });
 });

@@ -1,5 +1,5 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
-import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getLocationDisplayName } from '@/libs/locationHelper';
+import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getTabDisplayName } from '@/libs/locationHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
@@ -488,12 +488,7 @@ function App() {
                 const tabDevices = getDevicesForTab(tabId);
                 const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
                 const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
-                // Dashboard and All tabs keep their name as-is, group tabs keep their "@" prefix
-                const displayName = tabId === 'Dashboard' || tabId === 'All'
-                  ? tabId
-                  : tabId.startsWith('@')
-                    ? tabId // Group tabs keep their name as-is
-                    : getLocationDisplayName(tabId, echonet.devices, echonet.propertyDescriptions);
+                const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions);
                 // Hide status indicators for Dashboard and All tabs
                 const showStatusIndicators = tabId !== 'Dashboard' && tabId !== 'All';
                 const showDeviceCount = tabId !== 'Dashboard' && tabId !== 'All';
