@@ -8,6 +8,7 @@ import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
 import { DeviceCard } from '@/components/DeviceCard';
+import { DashboardTabContent } from '@/components/DashboardTabContent';
 import { useLogNotifications } from '@/hooks/useLogNotifications';
 import { NotificationBell } from '@/components/NotificationBell';
 import { GroupNameEditor } from '@/components/GroupNameEditor';
@@ -487,29 +488,35 @@ function App() {
                 const tabDevices = getDevicesForTab(tabId);
                 const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
                 const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
-                const displayName = tabId.startsWith('@') 
-                  ? tabId // Group tabs keep their name as-is
-                  : getLocationDisplayName(tabId, echonet.devices, echonet.propertyDescriptions);
+                // Dashboard and All tabs keep their name as-is, group tabs keep their "@" prefix
+                const displayName = tabId === 'Dashboard' || tabId === 'All'
+                  ? tabId
+                  : tabId.startsWith('@')
+                    ? tabId // Group tabs keep their name as-is
+                    : getLocationDisplayName(tabId, echonet.devices, echonet.propertyDescriptions);
+                // Hide status indicators for Dashboard and All tabs
+                const showStatusIndicators = tabId !== 'Dashboard' && tabId !== 'All';
+                const showDeviceCount = tabId !== 'Dashboard' && tabId !== 'All';
                 return (
-                  <TabsTrigger 
-                    key={tabId} 
-                    value={tabId} 
+                  <TabsTrigger
+                    key={tabId}
+                    value={tabId}
                     className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary border-2 border-muted-foreground/30 bg-background px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg"
                     data-testid={`tab-${tabId}`}
                   >
                     <div className="flex items-center gap-1">
-                      {tabId !== 'All' && (
+                      {showStatusIndicators && (
                         <div className="flex items-center gap-1">
-                          <div 
+                          <div
                             className={`w-2 h-2 rounded-full ${
-                              hasOperationalDevice 
-                                ? 'bg-green-500' 
+                              hasOperationalDevice
+                                ? 'bg-green-500'
                                 : 'border-2 border-gray-400 bg-transparent'
                             }`}
                             title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
                           />
                           {hasFaultyDevice && (
-                            <div 
+                            <div
                               className="w-2 h-2 rounded-full bg-red-500"
                               title="At least one device has a fault"
                             />
@@ -517,7 +524,7 @@ function App() {
                         </div>
                       )}
                       <span>{displayName}</span>
-                      {tabId !== 'All' && (
+                      {showDeviceCount && (
                         <span className="ml-1 text-[10px] sm:text-xs">({tabDevices.length})</span>
                       )}
                     </div>
@@ -546,8 +553,19 @@ function App() {
             
             {tabIds.map((tabId) => (
               <TabsContent key={tabId} value={tabId} className="space-y-4" data-testid={`tab-content-${tabId}`}>
+                {/* Dashboard tab - special rendering */}
+                {tabId === 'Dashboard' && (
+                  <DashboardTabContent
+                    devices={echonet.devices}
+                    aliases={echonet.aliases}
+                    propertyDescriptions={echonet.propertyDescriptions}
+                    onPropertyChange={handlePropertyChange}
+                    isConnected={isConnected}
+                  />
+                )}
+
                 {/* Show group creation interface if creating a new group in this tab */}
-                {tabId === newGroupTabName && isCreatingGroup && (
+                {tabId !== 'Dashboard' && tabId === newGroupTabName && isCreatingGroup && (
                   <Card className="mb-4">
                     <CardContent className="pt-6">
                       <GroupNameEditor
@@ -567,7 +585,7 @@ function App() {
                 )}
                 
                 {/* Show group management panel for group tabs (but not for pending groups) */}
-                {tabId.startsWith('@') && !editingGroupName && tabId !== newGroupTabName && tabId !== pendingGroupName && (
+                {tabId !== 'Dashboard' && tabId.startsWith('@') && !editingGroupName && tabId !== newGroupTabName && tabId !== pendingGroupName && (
                   <GroupManagementPanel
                     groupName={tabId}
                     onRename={() => setEditingGroupName(tabId)}
@@ -589,7 +607,7 @@ function App() {
                 )}
                 
                 {/* Show group name editor if editing group name */}
-                {editingGroupName === tabId && (
+                {tabId !== 'Dashboard' && editingGroupName === tabId && (
                   <Card>
                     <CardContent className="pt-6">
                       <GroupNameEditor
@@ -605,7 +623,7 @@ function App() {
                 )}
                 
                 {/* Show member editor if editing members */}
-                {editingGroupMembers === tabId ? (
+                {tabId !== 'Dashboard' && editingGroupMembers === tabId ? (
                   <GroupMemberEditor
                     groupName={tabId}
                     groupMembers={echonet.groups[tabId] || []}
@@ -630,7 +648,7 @@ function App() {
                     } : undefined}
                     isConnected={isConnected}
                   />
-                ) : tabId !== newGroupTabName && (
+                ) : tabId !== 'Dashboard' && tabId !== newGroupTabName && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
                   {getDevicesForTab(tabId).map((device) => {
                     const deviceKey = `${device.ip} ${device.eoj}`;
@@ -661,7 +679,7 @@ function App() {
                   </div>
                 )}
                 
-                {!editingGroupMembers && tabId !== newGroupTabName && getDevicesForTab(tabId).length === 0 && (
+                {tabId !== 'Dashboard' && !editingGroupMembers && tabId !== newGroupTabName && getDevicesForTab(tabId).length === 0 && (
                   <Card>
                     <CardContent className="pt-6">
                       <p className="text-center text-muted-foreground">

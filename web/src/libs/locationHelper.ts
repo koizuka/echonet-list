@@ -212,24 +212,25 @@ export function getLocationDisplayName(
 }
 
 /**
- * Get all tabs including locations and device groups
+ * Get all tabs including Dashboard, locations and device groups
  * Device groups are prefixed with "@" to distinguish from locations
  * Returns tab IDs for internal use
+ * Order: Dashboard, All, locations (sorted), groups (sorted)
  */
 export function getAllTabs(
   devices: Record<string, Device>,
   groups: DeviceGroup
 ): string[] {
-  // Get location tab IDs
+  // Get location tab IDs (includes 'All' as first element)
   const locationTabIds = getAllLocations(devices);
-  
+
   // Get group tab IDs (prefixed with "@")
   const groupTabIds = Object.keys(groups)
     .filter(groupName => groupName.startsWith('@'))
     .sort();
-  
-  // Combine: All, locations, then groups
-  return [...locationTabIds, ...groupTabIds];
+
+  // Combine: Dashboard, All, locations, then groups
+  return ['Dashboard', ...locationTabIds, ...groupTabIds];
 }
 
 
@@ -241,27 +242,63 @@ export function groupDevicesByLocationId(
   devices: Record<string, Device>
 ): Record<string, Device[]> {
   const grouped: Record<string, Device[]> = {};
-  
+
   Object.values(devices).forEach(device => {
     // Skip Node Profile devices for location grouping
     if (isNodeProfileDevice(device)) {
       return;
     }
-    
+
     const locationId = extractRawLocationFromDevice(device);
     if (!grouped[locationId]) {
       grouped[locationId] = [];
     }
     grouped[locationId].push(device);
   });
-  
+
   return grouped;
 }
 
 /**
- * Get devices for a specific tab (location or group)
+ * Get devices for Dashboard view, grouped by installation location
+ * Excludes Node Profile devices and devices without settable operation status
+ * Returns devices sorted within each location group
+ */
+export function getDashboardDevicesGroupedByLocation(
+  devices: Record<string, Device>
+): Record<string, Device[]> {
+  const grouped: Record<string, Device[]> = {};
+
+  Object.values(devices).forEach(device => {
+    // Skip Node Profile devices
+    if (isNodeProfileDevice(device)) {
+      return;
+    }
+
+    // Skip devices without settable operation status (no on/off switch)
+    if (!isOperationStatusSettable(device)) {
+      return;
+    }
+
+    const locationId = extractRawLocationFromDevice(device);
+    if (!grouped[locationId]) {
+      grouped[locationId] = [];
+    }
+    grouped[locationId].push(device);
+  });
+
+  // Sort devices within each location group
+  Object.keys(grouped).forEach(locationId => {
+    grouped[locationId] = sortDevicesByEOJAndLocation(grouped[locationId]);
+  });
+
+  return grouped;
+}
+
+/**
+ * Get devices for a specific tab (location, group, Dashboard, or All)
  * Returns devices sorted by EOJ (classCode:instance) and installation location
- * For location tabs, excludes Node Profile devices. For 'All' tab, includes all devices.
+ * For location tabs and Dashboard, excludes Node Profile devices. For 'All' tab, includes all devices.
  * Takes tab ID as input (raw location ID or group name)
  */
 export function getDevicesForTab(
@@ -270,8 +307,13 @@ export function getDevicesForTab(
   groups: DeviceGroup
 ): Device[] {
   let filteredDevices: Device[];
-  
-  if (tabId === 'All') {
+
+  if (tabId === 'Dashboard') {
+    // Dashboard shows all devices except Node Profile
+    filteredDevices = Object.values(devices).filter(device =>
+      !isNodeProfileDevice(device)
+    );
+  } else if (tabId === 'All') {
     // Show all devices including Node Profile in the 'All' tab
     filteredDevices = Object.values(devices);
   } else if (tabId.startsWith('@')) {
