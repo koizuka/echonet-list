@@ -551,10 +551,12 @@ function App() {
             </div>
             
             
-            {tabIds.map((tabId) => (
+            {tabIds.map((tabId) => {
+              const isDashboard = tabId === 'Dashboard';
+              return (
               <TabsContent key={tabId} value={tabId} className="space-y-4" data-testid={`tab-content-${tabId}`}>
                 {/* Dashboard tab - special rendering */}
-                {tabId === 'Dashboard' && (
+                {isDashboard && (
                   <DashboardTabContent
                     devices={echonet.devices}
                     aliases={echonet.aliases}
@@ -565,7 +567,7 @@ function App() {
                 )}
 
                 {/* Show group creation interface if creating a new group in this tab */}
-                {tabId !== 'Dashboard' && tabId === newGroupTabName && isCreatingGroup && (
+                {!isDashboard && tabId === newGroupTabName && isCreatingGroup && (
                   <Card className="mb-4">
                     <CardContent className="pt-6">
                       <GroupNameEditor
@@ -585,7 +587,7 @@ function App() {
                 )}
                 
                 {/* Show group management panel for group tabs (but not for pending groups) */}
-                {tabId !== 'Dashboard' && tabId.startsWith('@') && !editingGroupName && tabId !== newGroupTabName && tabId !== pendingGroupName && (
+                {!isDashboard && tabId.startsWith('@') && !editingGroupName && tabId !== newGroupTabName && tabId !== pendingGroupName && (
                   <GroupManagementPanel
                     groupName={tabId}
                     onRename={() => setEditingGroupName(tabId)}
@@ -607,7 +609,7 @@ function App() {
                 )}
                 
                 {/* Show group name editor if editing group name */}
-                {tabId !== 'Dashboard' && editingGroupName === tabId && (
+                {!isDashboard && editingGroupName === tabId && (
                   <Card>
                     <CardContent className="pt-6">
                       <GroupNameEditor
@@ -623,7 +625,7 @@ function App() {
                 )}
                 
                 {/* Show member editor if editing members */}
-                {tabId !== 'Dashboard' && editingGroupMembers === tabId ? (
+                {!isDashboard && editingGroupMembers === tabId ? (
                   <GroupMemberEditor
                     groupName={tabId}
                     groupMembers={echonet.groups[tabId] || []}
@@ -648,7 +650,7 @@ function App() {
                     } : undefined}
                     isConnected={isConnected}
                   />
-                ) : tabId !== 'Dashboard' && tabId !== newGroupTabName && (
+                ) : !isDashboard && tabId !== newGroupTabName && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 sm:gap-4">
                   {getDevicesForTab(tabId).map((device) => {
                     const deviceKey = `${device.ip} ${device.eoj}`;
@@ -679,7 +681,7 @@ function App() {
                   </div>
                 )}
                 
-                {tabId !== 'Dashboard' && !editingGroupMembers && tabId !== newGroupTabName && getDevicesForTab(tabId).length === 0 && (
+                {!isDashboard && !editingGroupMembers && tabId !== newGroupTabName && getDevicesForTab(tabId).length === 0 && (
                   <Card>
                     <CardContent className="pt-6">
                       <p className="text-center text-muted-foreground">
@@ -694,7 +696,8 @@ function App() {
                   </Card>
                 )}
               </TabsContent>
-            ))}
+              );
+            })}
           </Tabs>
         )}
       </div>

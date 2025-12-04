@@ -65,7 +65,11 @@ export function DashboardCard({
   const isOffline = device.isOffline || false;
 
   const handlePowerChange = async (value: string) => {
-    await onPropertyChange(`${device.ip} ${device.eoj}`, '80', { string: value });
+    try {
+      await onPropertyChange(`${device.ip} ${device.eoj}`, '80', { string: value });
+    } catch (error) {
+      console.error('Failed to change power state:', error);
+    }
   };
 
   return (
