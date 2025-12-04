@@ -6,8 +6,10 @@ import {
   getSortedPrimaryProperties,
   isNodeProfileDevice,
   shouldShowPropertyInCompactMode,
+  getDashboardStatusProperties,
   ESSENTIAL_PROPERTIES,
-  DEVICE_PRIMARY_PROPERTIES
+  DEVICE_PRIMARY_PROPERTIES,
+  DEVICE_DASHBOARD_PROPERTIES
 } from './deviceTypeHelper';
 import type { PropertyValue, Device } from '@/hooks/types';
 
@@ -370,6 +372,75 @@ describe('deviceTypeHelper', () => {
         // Should show the property if condition value cannot be determined
         expect(shouldShowPropertyInCompactMode('B3', device, '0130')).toBe(true);
       });
+    });
+  });
+
+  describe('getDashboardStatusProperties', () => {
+    it('should return room temperature and operation mode for Home Air Conditioner', () => {
+      expect(getDashboardStatusProperties('0130')).toEqual(['BB', 'B0']);
+    });
+
+    it('should return illuminance level for Single Function Lighting', () => {
+      expect(getDashboardStatusProperties('0291')).toEqual(['B0']);
+    });
+
+    it('should return room temperature for Floor Heating', () => {
+      expect(getDashboardStatusProperties('027B')).toEqual(['E2']);
+    });
+
+    it('should return scene control for Lighting System', () => {
+      expect(getDashboardStatusProperties('02A3')).toEqual(['C0']);
+    });
+
+    it('should return hot water temperature for Electric Water Heater', () => {
+      expect(getDashboardStatusProperties('026B')).toEqual(['D1']);
+    });
+
+    it('should return operation mode for Bath Room Heating', () => {
+      expect(getDashboardStatusProperties('0272')).toEqual(['B0']);
+    });
+
+    it('should return door open status for Refrigerator', () => {
+      expect(getDashboardStatusProperties('03B7')).toEqual(['B0']);
+    });
+
+    it('should return undefined for unknown device types', () => {
+      expect(getDashboardStatusProperties('9999')).toBeUndefined();
+    });
+
+    it('should return undefined for Node Profile devices', () => {
+      expect(getDashboardStatusProperties('0EF0')).toBeUndefined();
+    });
+  });
+
+  describe('DEVICE_DASHBOARD_PROPERTIES', () => {
+    it('should have entries for common device types', () => {
+      expect(DEVICE_DASHBOARD_PROPERTIES['0130']).toBeDefined(); // Air Conditioner
+      expect(DEVICE_DASHBOARD_PROPERTIES['0291']).toBeDefined(); // Lighting
+      expect(DEVICE_DASHBOARD_PROPERTIES['027B']).toBeDefined(); // Floor Heating
+    });
+
+    it('should not include Node Profile devices', () => {
+      expect(DEVICE_DASHBOARD_PROPERTIES['0EF0']).toBeUndefined();
+    });
+
+    it('dashboard properties should exist in primary properties', () => {
+      // Each dashboard property should be part of the device's primary properties
+      for (const [classCode, dashboardEpcs] of Object.entries(DEVICE_DASHBOARD_PROPERTIES)) {
+        const primaryProps = DEVICE_PRIMARY_PROPERTIES[classCode];
+        if (primaryProps) {
+          for (const epc of dashboardEpcs) {
+            expect(primaryProps).toContain(epc);
+          }
+        }
+      }
+    });
+
+    it('should return arrays for all device types', () => {
+      for (const dashboardEpcs of Object.values(DEVICE_DASHBOARD_PROPERTIES)) {
+        expect(Array.isArray(dashboardEpcs)).toBe(true);
+        expect(dashboardEpcs.length).toBeGreaterThan(0);
+      }
     });
   });
 });

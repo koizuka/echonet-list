@@ -156,6 +156,48 @@ export function isNodeProfileDevice(device: { eoj: string }): boolean {
 }
 
 /**
+ * Device type specific dashboard status properties for ultra-compact display
+ * Key: EOJ class code (first 4 characters)
+ * Value: Array of EPC codes representing the most useful statuses for dashboard view
+ *
+ * Each device type can have one or more status properties to display (temperature, mode, etc.)
+ */
+export const DEVICE_DASHBOARD_PROPERTIES: Record<string, string[]> = {
+  // Home Air Conditioner (0130) - Room temperature + Operation mode
+  '0130': ['BB', 'B0'],
+
+  // Floor Heating (027B) - Room temperature
+  '027B': ['E2'],
+
+  // Single Function Lighting (0291) - Illuminance level
+  '0291': ['B0'],
+
+  // Lighting System (02A3) - Scene control
+  '02A3': ['C0'],
+
+  // Electric Water Heater (026B) - Hot water temperature
+  '026B': ['D1'],
+
+  // Bath Room Heating and Air Conditioning (0272) - Operation mode
+  '0272': ['B0'],
+
+  // Refrigerator (03B7) - Door open status
+  '03B7': ['B0'],
+};
+
+/**
+ * Gets the dashboard status properties for a device based on its class code
+ * Returns the EPC codes that should be displayed in dashboard view
+ * Returns undefined if no dashboard properties are defined for this device type
+ *
+ * @param classCode - The device class code (e.g., '0130' for Home Air Conditioner)
+ * @returns Array of EPC codes for the dashboard status properties, or undefined
+ */
+export function getDashboardStatusProperties(classCode: string): string[] | undefined {
+  return DEVICE_DASHBOARD_PROPERTIES[classCode];
+}
+
+/**
  * Gets primary properties in the correct display order
  * Ensures properties are displayed in the order they are defined
  */
