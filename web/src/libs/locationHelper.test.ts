@@ -1,4 +1,4 @@
-import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getAllTabs, getDashboardDevicesGroupedByLocation, getDevicesForTab, translateLocationId, getTabDisplayName } from './locationHelper';
+import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getAllTabs, getDashboardDevicesGroupedByLocation, getDevicesForTab, translateLocationId, getTabDisplayName, isDashboardDevice } from './locationHelper';
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 
 describe('locationHelper', () => {
@@ -248,31 +248,7 @@ describe('locationHelper', () => {
       };
     };
 
-    it('should exclude Node Profile devices', () => {
-      const devices = {
-        'device1': createSettableDeviceWithLocation('192.168.1.1', '0130:1', 'living'),
-        'nodeProfile': createNodeProfileDevice('192.168.1.3')
-      };
-
-      const grouped = getDashboardDevicesGroupedByLocation(devices);
-
-      const allGroupedDevices = Object.values(grouped).flat();
-      expect(allGroupedDevices).not.toContain(devices.nodeProfile);
-      expect(allGroupedDevices).toContain(devices.device1);
-    });
-
-    it('should exclude devices without settable operation status', () => {
-      const devices = {
-        'settable': createSettableDeviceWithLocation('192.168.1.1', '0130:1', 'living'),
-        'nonSettable': createNonSettableDeviceWithLocation('192.168.1.2', '0130:2', 'living')
-      };
-
-      const grouped = getDashboardDevicesGroupedByLocation(devices);
-
-      const allGroupedDevices = Object.values(grouped).flat();
-      expect(allGroupedDevices).toContain(devices.settable);
-      expect(allGroupedDevices).not.toContain(devices.nonSettable);
-    });
+    // Note: Filtering tests (Node Profile exclusion, settable status check) are in isDashboardDevice tests
 
     it('should group devices by installation location', () => {
       const devices = {
@@ -381,6 +357,33 @@ describe('locationHelper', () => {
     it('should return capitalized ID if no translation found', () => {
       expect(translateLocationId('unknown')).toBe('Unknown');
       expect(translateLocationId('custom')).toBe('Custom');
+    });
+  });
+
+  describe('isDashboardDevice', () => {
+    it('should return true for devices with settable operation status', () => {
+      const device = createDevice('192.168.1.1', '0130:1', 'on');
+      expect(isDashboardDevice(device)).toBe(true);
+    });
+
+    it('should return false for Node Profile devices', () => {
+      const nodeProfile = createNodeProfileDevice('192.168.1.1');
+      expect(isDashboardDevice(nodeProfile)).toBe(false);
+    });
+
+    it('should return false for devices without settable operation status', () => {
+      const device: Device = {
+        ip: '192.168.1.1',
+        eoj: '0130:1',
+        name: 'Test Device',
+        id: '0130:001:192.168.1.1',
+        properties: {
+          '80': { string: 'on' }
+          // No Set Property Map (0x9E), so operation status is not settable
+        },
+        lastSeen: '2023-01-01T00:00:00Z'
+      };
+      expect(isDashboardDevice(device)).toBe(false);
     });
   });
 

@@ -260,6 +260,16 @@ export function groupDevicesByLocationId(
 }
 
 /**
+ * Check if a device should appear on the Dashboard
+ * Dashboard shows devices that:
+ * - Are not Node Profile devices (they are controller nodes, not controllable devices)
+ * - Have settable operation status (can be controlled via on/off switch)
+ */
+export function isDashboardDevice(device: Device): boolean {
+  return !isNodeProfileDevice(device) && isOperationStatusSettable(device);
+}
+
+/**
  * Get devices for Dashboard view, grouped by installation location
  * Excludes Node Profile devices and devices without settable operation status
  * Returns devices sorted within each location group
@@ -270,13 +280,8 @@ export function getDashboardDevicesGroupedByLocation(
   const grouped: Record<string, Device[]> = {};
 
   Object.values(devices).forEach(device => {
-    // Skip Node Profile devices
-    if (isNodeProfileDevice(device)) {
-      return;
-    }
-
-    // Skip devices without settable operation status (no on/off switch)
-    if (!isOperationStatusSettable(device)) {
+    // Skip devices that shouldn't appear on the Dashboard
+    if (!isDashboardDevice(device)) {
       return;
     }
 

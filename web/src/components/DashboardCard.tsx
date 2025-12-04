@@ -5,6 +5,7 @@ import { getDashboardStatusProperties } from '@/libs/deviceTypeHelper';
 import { formatPropertyValue, getPropertyDescriptor, isPropertySettable } from '@/libs/propertyHelper';
 import { isTemperatureSensor, getTemperatureColor } from '@/libs/sensorPropertyHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
+import { cn } from '@/libs/utils';
 import type { Device, PropertyDescriptionData, DeviceAlias, PropertyValue } from '@/hooks/types';
 
 interface StatusItem {
@@ -74,7 +75,11 @@ export function DashboardCard({
 
   return (
     <Card
-      className={`p-2 border-2 ${isOffline ? 'opacity-50' : ''} ${isOperational ? 'border-green-500/60' : 'border-border'}`}
+      className={cn(
+        'p-2 border-2',
+        isOffline && 'opacity-50',
+        isOperational ? 'border-green-500/60' : 'border-border'
+      )}
       data-testid={`dashboard-card-${device.ip}-${device.eoj}`}
     >
       {/* Line 1: Device name */}
@@ -91,12 +96,12 @@ export function DashboardCard({
           {statusItems.length > 0 ? (
             statusItems.map((item, index) => (
               <span key={index}>
-                {index > 0 && <span className="text-muted-foreground"> / </span>}
-                <span className={item.colorClass}>{item.value}</span>
+                {index > 0 && <span className="text-muted-foreground" aria-hidden="true"> / </span>}
+                <span className={item.colorClass} aria-label={`Status: ${item.value}`}>{item.value}</span>
               </span>
             ))
           ) : (
-            <span className="text-muted-foreground">---</span>
+            <span className="text-muted-foreground" aria-label="No status data">---</span>
           )}
         </span>
 

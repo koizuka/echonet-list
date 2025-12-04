@@ -550,7 +550,7 @@ function App() {
               const isDashboard = tabId === 'Dashboard';
               return (
               <TabsContent key={tabId} value={tabId} className="space-y-4" data-testid={`tab-content-${tabId}`}>
-                {/* Dashboard tab - special rendering */}
+                {/* Dashboard tab uses dedicated layout component with compact device cards grouped by location */}
                 {isDashboard && (
                   <DashboardTabContent
                     devices={echonet.devices}
