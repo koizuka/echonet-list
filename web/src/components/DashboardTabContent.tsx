@@ -40,21 +40,38 @@ export function DashboardTabContent({
         const locationDevices = groupedDevices[locationId];
         const locationName = getLocationDisplayName(locationId, devices, propertyDescriptions);
 
+        const arranged = arrangeDashboardDevices(locationDevices);
+        const firstIsPlaceholder = arranged.length > 0 && isPlaceholder(arranged[0]);
+
+        const locationLabel = (
+          <h3 className="text-sm font-semibold text-muted-foreground px-1 md:px-0">
+            {locationName}
+          </h3>
+        );
+
         return (
           <div
             key={locationId}
             className="md:rounded-lg md:border md:bg-card md:p-3 md:shadow-sm"
             data-testid={`dashboard-location-${locationId}`}
           >
-            {/* Location header */}
-            <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1 md:px-0">
-              {locationName}
-            </h3>
+            {/* Location header - only show outside grid if first item is not a placeholder */}
+            {!firstIsPlaceholder && (
+              <div className="mb-2">{locationLabel}</div>
+            )}
 
             {/* Device grid within location */}
             <div className="grid grid-cols-2 gap-2">
-              {arrangeDashboardDevices(locationDevices).map((item, index) => {
+              {arranged.map((item, index) => {
                 if (isPlaceholder(item)) {
+                  // First placeholder becomes the location label
+                  if (index === 0) {
+                    return (
+                      <div key={`label-${locationId}`} className="flex items-start">
+                        {locationLabel}
+                      </div>
+                    );
+                  }
                   return <div key={`placeholder-${index}`} />;
                 }
                 const deviceKey = `${item.ip} ${item.eoj}`;
