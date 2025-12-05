@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { DeviceIcon } from '@/components/DeviceIcon';
 import { PropertySwitchControl } from './PropertyEditControls/PropertySwitchControl';
@@ -21,6 +20,8 @@ interface DashboardCardProps {
   devices: Record<string, Device>;
   aliases: DeviceAlias;
   isConnected?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 export function DashboardCard({
@@ -29,9 +30,10 @@ export function DashboardCard({
   propertyDescriptions,
   devices,
   aliases,
-  isConnected = true
+  isConnected = true,
+  isExpanded = false,
+  onToggleExpand
 }: DashboardCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const classCode = device.eoj.split(':')[0];
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const deviceName = aliasInfo.aliasName || device.name;
@@ -39,10 +41,6 @@ export function DashboardCard({
   // Get operation status for on/off control
   const operationStatus = device.properties['80'];
   const isOperationSettable = isPropertySettable('80', device);
-
-  const handleToggleExpand = () => {
-    setIsExpanded(prev => !prev);
-  };
 
   // Get dashboard status properties and format their values with colors
   const statusEpcs = getDashboardStatusProperties(classCode) || [];
@@ -93,8 +91,9 @@ export function DashboardCard({
         {/* Expandable area: Icon + Status */}
         <div
           className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
-          onClick={handleToggleExpand}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggleExpand(); } }}
+          onClick={onToggleExpand}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onToggleExpand?.(); } }}
+          onKeyUp={(e) => { if (e.key === ' ') { e.preventDefault(); onToggleExpand?.(); } }}
           role="button"
           tabIndex={0}
           aria-expanded={isExpanded}

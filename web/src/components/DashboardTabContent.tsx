@@ -1,6 +1,7 @@
 import { DashboardCard } from './DashboardCard';
 import { getDashboardDevicesGroupedByLocation, getLocationDisplayName } from '@/libs/locationHelper';
 import { arrangeDashboardDevices, isPlaceholder } from '@/libs/dashboardLayoutHelper';
+import { useDashboardCardExpansion } from '@/hooks/useDashboardCardExpansion';
 import type { Device, PropertyDescriptionData, DeviceAlias } from '@/hooks/types';
 
 interface DashboardTabContentProps {
@@ -18,6 +19,7 @@ export function DashboardTabContent({
   onPropertyChange,
   isConnected
 }: DashboardTabContentProps) {
+  const { isExpanded, toggleExpansion } = useDashboardCardExpansion();
   const groupedDevices = getDashboardDevicesGroupedByLocation(devices);
   const locationIds = Object.keys(groupedDevices).sort();
 
@@ -55,15 +57,18 @@ export function DashboardTabContent({
                 if (isPlaceholder(item)) {
                   return <div key={`placeholder-${index}`} />;
                 }
+                const deviceKey = `${item.ip} ${item.eoj}`;
                 return (
                   <DashboardCard
-                    key={`${item.ip} ${item.eoj}`}
+                    key={deviceKey}
                     device={item}
                     onPropertyChange={onPropertyChange}
                     propertyDescriptions={propertyDescriptions}
                     devices={devices}
                     aliases={aliases}
                     isConnected={isConnected}
+                    isExpanded={isExpanded(deviceKey)}
+                    onToggleExpand={() => toggleExpansion(deviceKey)}
                   />
                 );
               })}

@@ -91,6 +91,7 @@ describe('DashboardCard', () => {
           devices={mockDevices}
           aliases={{}}
           isConnected={true}
+          isExpanded={false}
         />
       );
 
@@ -106,17 +107,15 @@ describe('DashboardCard', () => {
           devices={mockDevices}
           aliases={{}}
           isConnected={true}
+          isExpanded={true}
         />
       );
-
-      // Click to expand
-      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
-      fireEvent.click(expandableArea);
 
       expect(screen.getByText('Home Air Conditioner')).toBeInTheDocument();
     });
 
-    it('should hide device name when collapsed after expand', () => {
+    it('should call onToggleExpand when expandable area is clicked', () => {
+      const mockToggle = vi.fn();
       render(
         <DashboardCard
           device={createDevice()}
@@ -125,18 +124,57 @@ describe('DashboardCard', () => {
           devices={mockDevices}
           aliases={{}}
           isConnected={true}
+          isExpanded={false}
+          onToggleExpand={mockToggle}
         />
       );
 
       const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
-
-      // Expand
       fireEvent.click(expandableArea);
-      expect(screen.getByText('Home Air Conditioner')).toBeInTheDocument();
 
-      // Collapse
-      fireEvent.click(expandableArea);
-      expect(screen.queryByText('Home Air Conditioner')).not.toBeInTheDocument();
+      expect(mockToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onToggleExpand when Enter key is pressed', () => {
+      const mockToggle = vi.fn();
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+          isExpanded={false}
+          onToggleExpand={mockToggle}
+        />
+      );
+
+      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+      fireEvent.keyDown(expandableArea, { key: 'Enter' });
+
+      expect(mockToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onToggleExpand when Space key is released', () => {
+      const mockToggle = vi.fn();
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+          isExpanded={false}
+          onToggleExpand={mockToggle}
+        />
+      );
+
+      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+      fireEvent.keyUp(expandableArea, { key: ' ' });
+
+      expect(mockToggle).toHaveBeenCalledTimes(1);
     });
 
     it('should render device name from alias when expanded', () => {
@@ -154,12 +192,9 @@ describe('DashboardCard', () => {
           devices={mockDevices}
           aliases={{ 'Living Room AC': '192.168.1.100 0130:1' }}
           isConnected={true}
+          isExpanded={true}
         />
       );
-
-      // Click to expand
-      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
-      fireEvent.click(expandableArea);
 
       expect(screen.getByText('Living Room AC')).toBeInTheDocument();
     });
@@ -303,7 +338,8 @@ describe('DashboardCard', () => {
       expect(switchElement).toBeDisabled();
     });
 
-    it('should not expand when switch is clicked', () => {
+    it('should not call onToggleExpand when switch is clicked', () => {
+      const mockToggle = vi.fn();
       render(
         <DashboardCard
           device={createDevice()}
@@ -312,6 +348,8 @@ describe('DashboardCard', () => {
           devices={mockDevices}
           aliases={{}}
           isConnected={true}
+          isExpanded={false}
+          onToggleExpand={mockToggle}
         />
       );
 
@@ -319,8 +357,8 @@ describe('DashboardCard', () => {
       const switchElement = screen.getByRole('switch');
       fireEvent.click(switchElement);
 
-      // Device name should not be visible (card should not expand)
-      expect(screen.queryByText('Home Air Conditioner')).not.toBeInTheDocument();
+      // onToggleExpand should not have been called
+      expect(mockToggle).not.toHaveBeenCalled();
     });
   });
 
