@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { DeviceIcon } from '@/components/DeviceIcon';
 import { PropertySwitchControl } from './PropertyEditControls/PropertySwitchControl';
@@ -30,6 +31,7 @@ export function DashboardCard({
   aliases,
   isConnected = true
 }: DashboardCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const classCode = device.eoj.split(':')[0];
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const deviceName = aliasInfo.aliasName || device.name;
@@ -37,6 +39,10 @@ export function DashboardCard({
   // Get operation status for on/off control
   const operationStatus = device.properties['80'];
   const isOperationSettable = isPropertySettable('80', device);
+
+  const handleToggleExpand = () => {
+    setIsExpanded(prev => !prev);
+  };
 
   // Get dashboard status properties and format their values with colors
   const statusEpcs = getDashboardStatusProperties(classCode) || [];
@@ -76,34 +82,39 @@ export function DashboardCard({
   return (
     <Card
       className={cn(
-        'p-2 border-2',
+        'py-1 px-2 border-2',
         isOffline && 'opacity-50',
         isOperational ? 'border-green-500/60' : 'border-border'
       )}
       data-testid={`dashboard-card-${device.ip}-${device.eoj}`}
     >
-      {/* Line 1: Device name */}
-      <div className="flex items-center gap-2 mb-1">
-        <DeviceIcon device={device} classCode={classCode} className="flex-shrink-0" />
-        <span className="text-sm font-medium truncate" title={deviceName}>
-          {deviceName}
-        </span>
-      </div>
-
-      {/* Line 2: Status + On/Off control */}
+      {/* Line 1: Icon + Status + On/Off control */}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs truncate flex-1">
-          {statusItems.length > 0 ? (
-            statusItems.map((item, index) => (
-              <span key={index}>
-                {index > 0 && <span className="text-muted-foreground" aria-hidden="true"> / </span>}
-                <span className={item.colorClass} aria-label={`Status: ${item.value}`}>{item.value}</span>
-              </span>
-            ))
-          ) : (
-            <span className="text-muted-foreground" aria-label="No status data">---</span>
-          )}
-        </span>
+        {/* Expandable area: Icon + Status */}
+        <div
+          className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+          onClick={handleToggleExpand}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggleExpand(); } }}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isExpanded}
+          aria-label={`${deviceName}: ${isExpanded ? 'collapse' : 'expand'}`}
+          data-testid={`dashboard-card-expandable-${device.ip}-${device.eoj}`}
+        >
+          <DeviceIcon device={device} classCode={classCode} className="flex-shrink-0" />
+          <span className="text-xs truncate flex-1">
+            {statusItems.length > 0 ? (
+              statusItems.map((item, index) => (
+                <span key={index}>
+                  {index > 0 && <span className="text-muted-foreground" aria-hidden="true"> / </span>}
+                  <span className={item.colorClass} aria-label={`Status: ${item.value}`}>{item.value}</span>
+                </span>
+              ))
+            ) : (
+              <span className="text-muted-foreground" aria-label="No status data">---</span>
+            )}
+          </span>
+        </div>
 
         {isOperationSettable && operationStatus && (
           <PropertySwitchControl
@@ -111,9 +122,17 @@ export function DashboardCard({
             onChange={handlePowerChange}
             disabled={!isConnected || isOffline}
             testId={`dashboard-power-${device.ip}-${device.eoj}`}
+            compact
           />
         )}
       </div>
+
+      {/* Line 2: Device name (only when expanded) */}
+      {isExpanded && (
+        <div className="text-xs text-muted-foreground truncate mt-0.5" title={deviceName}>
+          {deviceName}
+        </div>
+      )}
     </Card>
   );
 }

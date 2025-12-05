@@ -82,7 +82,7 @@ describe('DashboardCard', () => {
   });
 
   describe('rendering', () => {
-    it('should render device name from device.name when no alias', () => {
+    it('should not render device name by default (collapsed state)', () => {
       render(
         <DashboardCard
           device={createDevice()}
@@ -94,10 +94,52 @@ describe('DashboardCard', () => {
         />
       );
 
+      expect(screen.queryByText('Home Air Conditioner')).not.toBeInTheDocument();
+    });
+
+    it('should render device name when expanded', () => {
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+        />
+      );
+
+      // Click to expand
+      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+      fireEvent.click(expandableArea);
+
       expect(screen.getByText('Home Air Conditioner')).toBeInTheDocument();
     });
 
-    it('should render device name from alias when available', () => {
+    it('should hide device name when collapsed after expand', () => {
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+        />
+      );
+
+      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+
+      // Expand
+      fireEvent.click(expandableArea);
+      expect(screen.getByText('Home Air Conditioner')).toBeInTheDocument();
+
+      // Collapse
+      fireEvent.click(expandableArea);
+      expect(screen.queryByText('Home Air Conditioner')).not.toBeInTheDocument();
+    });
+
+    it('should render device name from alias when expanded', () => {
       vi.mocked(deviceIdHelper.deviceHasAlias).mockReturnValue({
         hasAlias: true,
         aliasName: 'Living Room AC',
@@ -114,6 +156,10 @@ describe('DashboardCard', () => {
           isConnected={true}
         />
       );
+
+      // Click to expand
+      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+      fireEvent.click(expandableArea);
 
       expect(screen.getByText('Living Room AC')).toBeInTheDocument();
     });
@@ -255,6 +301,26 @@ describe('DashboardCard', () => {
 
       const switchElement = screen.getByRole('switch');
       expect(switchElement).toBeDisabled();
+    });
+
+    it('should not expand when switch is clicked', () => {
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+        />
+      );
+
+      // Click the switch
+      const switchElement = screen.getByRole('switch');
+      fireEvent.click(switchElement);
+
+      // Device name should not be visible (card should not expand)
+      expect(screen.queryByText('Home Air Conditioner')).not.toBeInTheDocument();
     });
   });
 
