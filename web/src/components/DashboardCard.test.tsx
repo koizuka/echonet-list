@@ -82,7 +82,7 @@ describe('DashboardCard', () => {
   });
 
   describe('rendering', () => {
-    it('should render device name from device.name when no alias', () => {
+    it('should not render device name by default (collapsed state)', () => {
       render(
         <DashboardCard
           device={createDevice()}
@@ -91,13 +91,93 @@ describe('DashboardCard', () => {
           devices={mockDevices}
           aliases={{}}
           isConnected={true}
+          isExpanded={false}
+        />
+      );
+
+      expect(screen.queryByText('Home Air Conditioner')).not.toBeInTheDocument();
+    });
+
+    it('should render device name when expanded', () => {
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+          isExpanded={true}
         />
       );
 
       expect(screen.getByText('Home Air Conditioner')).toBeInTheDocument();
     });
 
-    it('should render device name from alias when available', () => {
+    it('should call onToggleExpand when expandable area is clicked', () => {
+      const mockToggle = vi.fn();
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+          isExpanded={false}
+          onToggleExpand={mockToggle}
+        />
+      );
+
+      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+      fireEvent.click(expandableArea);
+
+      expect(mockToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onToggleExpand when Enter key is pressed', () => {
+      const mockToggle = vi.fn();
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+          isExpanded={false}
+          onToggleExpand={mockToggle}
+        />
+      );
+
+      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+      fireEvent.keyDown(expandableArea, { key: 'Enter' });
+
+      expect(mockToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onToggleExpand when Space key is released', () => {
+      const mockToggle = vi.fn();
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+          isExpanded={false}
+          onToggleExpand={mockToggle}
+        />
+      );
+
+      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+      fireEvent.keyUp(expandableArea, { key: ' ' });
+
+      expect(mockToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should render device name from alias when expanded', () => {
       vi.mocked(deviceIdHelper.deviceHasAlias).mockReturnValue({
         hasAlias: true,
         aliasName: 'Living Room AC',
@@ -112,6 +192,7 @@ describe('DashboardCard', () => {
           devices={mockDevices}
           aliases={{ 'Living Room AC': '192.168.1.100 0130:1' }}
           isConnected={true}
+          isExpanded={true}
         />
       );
 
@@ -255,6 +336,29 @@ describe('DashboardCard', () => {
 
       const switchElement = screen.getByRole('switch');
       expect(switchElement).toBeDisabled();
+    });
+
+    it('should not call onToggleExpand when switch is clicked', () => {
+      const mockToggle = vi.fn();
+      render(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+          isExpanded={false}
+          onToggleExpand={mockToggle}
+        />
+      );
+
+      // Click the switch
+      const switchElement = screen.getByRole('switch');
+      fireEvent.click(switchElement);
+
+      // onToggleExpand should not have been called
+      expect(mockToggle).not.toHaveBeenCalled();
     });
   });
 
