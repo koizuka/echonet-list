@@ -146,6 +146,58 @@ describe('DashboardTabContent', () => {
       expect(locationKitchen.querySelector('h3')).toHaveTextContent(/kitchen/i);
     });
 
+    it('should render location label inside grid when only floor heaters exist (no AC)', () => {
+      // Floor heater class code is 027B
+      const devices = {
+        'd1': createDevice('192.168.1.1', '027B:1', 'living')
+      };
+
+      render(
+        <DashboardTabContent
+          devices={devices}
+          aliases={{}}
+          propertyDescriptions={mockPropertyDescriptions}
+          onPropertyChange={mockOnPropertyChange}
+          isConnected={true}
+        />
+      );
+
+      const locationDiv = screen.getByTestId('dashboard-location-living');
+      const gridContainer = locationDiv.querySelector('.grid');
+
+      // When only floor heaters exist, the label should be inside the grid (first cell)
+      // instead of being in a separate row above the grid
+      expect(gridContainer).toBeInTheDocument();
+      expect(gridContainer?.querySelector('h3')).toHaveTextContent(/living/i);
+
+      // The label should NOT be outside the grid (as a direct child of locationDiv)
+      const directH3Children = locationDiv.querySelectorAll(':scope > h3');
+      expect(directH3Children.length).toBe(0);
+    });
+
+    it('should render location label outside grid when AC exists', () => {
+      // Air conditioner class code is 0130
+      const devices = {
+        'd1': createDevice('192.168.1.1', '0130:1', 'living')
+      };
+
+      render(
+        <DashboardTabContent
+          devices={devices}
+          aliases={{}}
+          propertyDescriptions={mockPropertyDescriptions}
+          onPropertyChange={mockOnPropertyChange}
+          isConnected={true}
+        />
+      );
+
+      const locationDiv = screen.getByTestId('dashboard-location-living');
+
+      // When AC exists, label should be outside the grid (in a div wrapper)
+      const directDivWithH3 = locationDiv.querySelector(':scope > div:first-child > h3');
+      expect(directDivWithH3).toHaveTextContent(/living/i);
+    });
+
     it('should render DashboardCard for each device', () => {
       const devices = {
         'd1': createDevice('192.168.1.1', '0130:1', 'living'),
