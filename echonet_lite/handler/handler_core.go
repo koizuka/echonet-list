@@ -207,22 +207,45 @@ func (c *HandlerCore) fanoutNotifications() {
 				return
 			}
 
-			// 全購読者に通知を配信（バッファフルの購読者は切断）
-			c.subscribersMutex.Lock()
-			activeSubscribers := make([]chan DeviceNotification, 0, len(c.notificationSubscribers))
-			for _, subscriber := range c.notificationSubscribers {
+			// 購読者リストのスナップショットを取得（読み取りロックのみ）
+			c.subscribersMutex.RLock()
+			snapshot := make([]chan DeviceNotification, len(c.notificationSubscribers))
+			copy(snapshot, c.notificationSubscribers)
+			c.subscribersMutex.RUnlock()
+
+			// ロックを保持せずに通知を配信
+			var staleSubscribers []chan DeviceNotification
+			for _, subscriber := range snapshot {
 				select {
 				case subscriber <- notification:
 					// 送信成功
-					activeSubscribers = append(activeSubscribers, subscriber)
 				default:
-					// バッファがフルの購読者は切断
+					// バッファがフルの購読者は切断対象
 					slog.Warn("通知購読者のバッファがフルのため切断します", "notificationType", notification.Type, "device", notification.Device.Specifier())
 					close(subscriber)
+					staleSubscribers = append(staleSubscribers, subscriber)
 				}
 			}
-			c.notificationSubscribers = activeSubscribers
-			c.subscribersMutex.Unlock()
+
+			// バッファフルの購読者がいた場合のみ、書き込みロックでリストを更新
+			if len(staleSubscribers) > 0 {
+				c.subscribersMutex.Lock()
+				activeSubscribers := make([]chan DeviceNotification, 0, len(c.notificationSubscribers))
+				for _, subscriber := range c.notificationSubscribers {
+					isStale := false
+					for _, stale := range staleSubscribers {
+						if subscriber == stale {
+							isStale = true
+							break
+						}
+					}
+					if !isStale {
+						activeSubscribers = append(activeSubscribers, subscriber)
+					}
+				}
+				c.notificationSubscribers = activeSubscribers
+				c.subscribersMutex.Unlock()
+			}
 
 		case <-c.ctx.Done():
 			// コンテキストがキャンセルされた場合は終了
