@@ -72,9 +72,19 @@ func (c *HandlerCore) Close() error {
 	}
 
 	// 購読者チャンネルを閉じる（fanoutNotifications()終了後なので安全）
+	// 注: fanoutNotifications()で既にcloseされたチャネルがリストから削除されている可能性があるが、
+	// タイミングによってはまだ残っている可能性もあるため、panicをrecoverする
 	c.subscribersMutex.Lock()
 	for _, subscriber := range c.notificationSubscribers {
-		close(subscriber)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// チャネルが既にcloseされている場合は無視
+					slog.Debug("購読者チャネルは既にcloseされています", "panic", r)
+				}
+			}()
+			close(subscriber)
+		}()
 	}
 	c.notificationSubscribers = nil
 	c.subscribersMutex.Unlock()
