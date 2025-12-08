@@ -18,6 +18,7 @@ type HandlerCore struct {
 	OperationTracker        *OperationTracker               // 操作追跡システム
 	notificationSubscribers []chan DeviceNotification       // 通知購読者のリスト
 	subscribersMutex        sync.RWMutex                    // 購読者リストの保護
+	fanoutWg                sync.WaitGroup                  // fanoutNotifications()の終了待機用
 }
 
 // NewHandlerCore は、HandlerCoreの新しいインスタンスを作成する
@@ -41,6 +42,7 @@ func NewHandlerCore(ctx context.Context, cancel context.CancelFunc, debug bool) 
 	}
 
 	// ファンアウト処理を開始
+	core.fanoutWg.Add(1)
 	go core.fanoutNotifications()
 
 	return core
@@ -63,8 +65,8 @@ func (c *HandlerCore) Close() error {
 		close(c.NotificationCh)
 	}
 
-	// fanoutNotifications()の終了を少し待つ
-	time.Sleep(10 * time.Millisecond)
+	// fanoutNotifications()の終了を確実に待機
+	c.fanoutWg.Wait()
 
 	// プロパティ変化通知チャネルを閉じる
 	if c.PropertyChangeCh != nil {
@@ -72,9 +74,19 @@ func (c *HandlerCore) Close() error {
 	}
 
 	// 購読者チャンネルを閉じる（fanoutNotifications()終了後なので安全）
+	// 注: fanoutNotifications()で既にcloseされたチャネルがリストから削除されている可能性があるが、
+	// タイミングによってはまだ残っている可能性もあるため、panicをrecoverする
 	c.subscribersMutex.Lock()
 	for _, subscriber := range c.notificationSubscribers {
-		close(subscriber)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// チャネルが既にcloseされている場合は無視
+					slog.Debug("購読者チャネルは既にcloseされています", "panic", r)
+				}
+			}()
+			close(subscriber)
+		}()
 	}
 	c.notificationSubscribers = nil
 	c.subscribersMutex.Unlock()
@@ -198,7 +210,11 @@ func (c *HandlerCore) SubscribeNotifications(bufferSize int) <-chan DeviceNotifi
 }
 
 // fanoutNotifications は、内部NotificationChから購読者へ通知を配信する
+// スナップショット方式を採用し、チャネル送信中のロック保持を最小化することで
+// 遅いsubscriberがいても他のsubscriber追加/削除がブロックされないようにしている
 func (c *HandlerCore) fanoutNotifications() {
+	defer c.fanoutWg.Done()
+
 	for {
 		select {
 		case notification, ok := <-c.NotificationCh:
@@ -207,22 +223,39 @@ func (c *HandlerCore) fanoutNotifications() {
 				return
 			}
 
-			// 全購読者に通知を配信（バッファフルの購読者は切断）
-			c.subscribersMutex.Lock()
-			activeSubscribers := make([]chan DeviceNotification, 0, len(c.notificationSubscribers))
-			for _, subscriber := range c.notificationSubscribers {
+			// 購読者リストのスナップショットを取得（読み取りロックのみ）
+			c.subscribersMutex.RLock()
+			snapshot := make([]chan DeviceNotification, len(c.notificationSubscribers))
+			copy(snapshot, c.notificationSubscribers)
+			c.subscribersMutex.RUnlock()
+
+			// ロックを保持せずに通知を配信
+			// staleSubscribersはmapで管理してO(n)で検索できるようにする
+			staleSubscribers := make(map[chan DeviceNotification]struct{})
+			for _, subscriber := range snapshot {
 				select {
 				case subscriber <- notification:
 					// 送信成功
-					activeSubscribers = append(activeSubscribers, subscriber)
 				default:
-					// バッファがフルの購読者は切断
+					// バッファがフルの購読者は切断対象
 					slog.Warn("通知購読者のバッファがフルのため切断します", "notificationType", notification.Type, "device", notification.Device.Specifier())
 					close(subscriber)
+					staleSubscribers[subscriber] = struct{}{}
 				}
 			}
-			c.notificationSubscribers = activeSubscribers
-			c.subscribersMutex.Unlock()
+
+			// バッファフルの購読者がいた場合のみ、書き込みロックでリストを更新
+			if len(staleSubscribers) > 0 {
+				c.subscribersMutex.Lock()
+				activeSubscribers := make([]chan DeviceNotification, 0, len(c.notificationSubscribers)-len(staleSubscribers))
+				for _, subscriber := range c.notificationSubscribers {
+					if _, isStale := staleSubscribers[subscriber]; !isStale {
+						activeSubscribers = append(activeSubscribers, subscriber)
+					}
+				}
+				c.notificationSubscribers = activeSubscribers
+				c.subscribersMutex.Unlock()
+			}
 
 		case <-c.ctx.Done():
 			// コンテキストがキャンセルされた場合は終了
