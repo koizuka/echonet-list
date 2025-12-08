@@ -207,18 +207,22 @@ func (c *HandlerCore) fanoutNotifications() {
 				return
 			}
 
-			// 全購読者に通知を配信
-			c.subscribersMutex.RLock()
+			// 全購読者に通知を配信（バッファフルの購読者は切断）
+			c.subscribersMutex.Lock()
+			activeSubscribers := make([]chan DeviceNotification, 0, len(c.notificationSubscribers))
 			for _, subscriber := range c.notificationSubscribers {
 				select {
 				case subscriber <- notification:
 					// 送信成功
+					activeSubscribers = append(activeSubscribers, subscriber)
 				default:
-					// バッファがフルの場合はスキップ（データロスを防ぐため）
-					slog.Warn("通知購読者のバッファがフルです", "notificationType", notification.Type, "device", notification.Device.Specifier())
+					// バッファがフルの購読者は切断
+					slog.Warn("通知購読者のバッファがフルのため切断します", "notificationType", notification.Type, "device", notification.Device.Specifier())
+					close(subscriber)
 				}
 			}
-			c.subscribersMutex.RUnlock()
+			c.notificationSubscribers = activeSubscribers
+			c.subscribersMutex.Unlock()
 
 		case <-c.ctx.Done():
 			// コンテキストがキャンセルされた場合は終了

@@ -1,0 +1,160 @@
+package handler
+
+import (
+	"context"
+	"net"
+	"testing"
+	"time"
+
+	"echonet-list/echonet_lite"
+)
+
+func TestFanoutNotifications_DisconnectsFullBufferSubscribers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	core := NewHandlerCore(ctx, cancel, false)
+	defer core.Close()
+
+	// バッファサイズ1の購読者を2つ作成
+	subscriber1 := core.SubscribeNotifications(1)
+	subscriber2 := core.SubscribeNotifications(1)
+
+	// subscriber1のバッファを埋める（読み取らない）
+	testDevice := IPAndEOJ{
+		IP:  net.ParseIP("192.168.0.1"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 1),
+	}
+	notification1 := DeviceNotification{
+		Device: testDevice,
+		Type:   DeviceAdded,
+	}
+
+	// 最初の通知を送信（両方のsubscriberに届く）
+	core.notify(notification1)
+
+	// subscriber1から読み取らずにバッファをフルにしておく
+	// subscriber2からは読み取る
+	select {
+	case <-subscriber2:
+		// OK
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("subscriber2 should have received notification1")
+	}
+
+	// 2番目の通知を送信
+	// subscriber1はバッファフルなので切断されるはず
+	notification2 := DeviceNotification{
+		Device: testDevice,
+		Type:   DeviceTimeout,
+	}
+	core.notify(notification2)
+
+	// subscriber1は切断されているので、チャネルが閉じられているはず
+	// 少し待ってからチェック
+	time.Sleep(50 * time.Millisecond)
+
+	// subscriber2は2番目の通知を受信できるはず
+	select {
+	case n := <-subscriber2:
+		if n.Type != DeviceTimeout {
+			t.Errorf("Expected DeviceTimeout, got %v", n.Type)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("subscriber2 should have received notification2")
+	}
+
+	// subscriber1は閉じられているはず（最初の通知は読み取り可能だが、その後閉じられる）
+	// まず最初の通知を読み取る
+	select {
+	case <-subscriber1:
+		// OK - 最初の通知
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("subscriber1 should have the first notification in buffer")
+	}
+
+	// 次の読み取りでチャネルが閉じられていることを確認
+	select {
+	case _, ok := <-subscriber1:
+		if ok {
+			t.Error("subscriber1 should be closed after buffer full")
+		}
+		// チャネルが閉じられている（ok == false）- 期待通り
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("subscriber1 channel should be closed")
+	}
+}
+
+func TestFanoutNotifications_ActiveSubscribersReceiveNotifications(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	core := NewHandlerCore(ctx, cancel, false)
+	defer core.Close()
+
+	// バッファサイズ10の購読者を作成
+	subscriber := core.SubscribeNotifications(10)
+
+	testDevice := IPAndEOJ{
+		IP:  net.ParseIP("192.168.0.1"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 1),
+	}
+
+	// 複数の通知を送信
+	notificationTypes := []NotificationType{DeviceAdded, DeviceTimeout, DeviceOffline, DeviceOnline}
+	for _, notifType := range notificationTypes {
+		core.notify(DeviceNotification{
+			Device: testDevice,
+			Type:   notifType,
+		})
+	}
+
+	// すべての通知を受信できることを確認
+	for i, expectedType := range notificationTypes {
+		select {
+		case n := <-subscriber:
+			if n.Type != expectedType {
+				t.Errorf("Notification %d: Expected %v, got %v", i, expectedType, n.Type)
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Fatalf("Failed to receive notification %d", i)
+		}
+	}
+}
+
+func TestSubscribeNotifications_MultipleSubscribers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	core := NewHandlerCore(ctx, cancel, false)
+	defer core.Close()
+
+	// 3つの購読者を作成
+	subscriber1 := core.SubscribeNotifications(10)
+	subscriber2 := core.SubscribeNotifications(10)
+	subscriber3 := core.SubscribeNotifications(10)
+
+	testDevice := IPAndEOJ{
+		IP:  net.ParseIP("192.168.0.1"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 1),
+	}
+
+	// 通知を送信
+	core.notify(DeviceNotification{
+		Device: testDevice,
+		Type:   DeviceAdded,
+	})
+
+	// すべての購読者が通知を受信できることを確認
+	subscribers := []<-chan DeviceNotification{subscriber1, subscriber2, subscriber3}
+	for i, sub := range subscribers {
+		select {
+		case n := <-sub:
+			if n.Type != DeviceAdded {
+				t.Errorf("Subscriber %d: Expected DeviceAdded, got %v", i+1, n.Type)
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Fatalf("Subscriber %d failed to receive notification", i+1)
+		}
+	}
+}

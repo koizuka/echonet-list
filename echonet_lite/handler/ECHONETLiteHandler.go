@@ -17,7 +17,6 @@ type ECHONETLiteHandler struct {
 	comm             *CommunicationHandler           // 通信機能
 	data             *DataManagementHandler          // データ管理機能
 	historyFilePath  string                          // 履歴ファイルパス
-	NotificationCh   chan DeviceNotification         // デバイス通知用チャネル
 	PropertyChangeCh chan PropertyChangeNotification // プロパティ変化通知用チャネル
 }
 
@@ -330,16 +329,13 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 		comm:             comm,
 		data:             data,
 		historyFilePath:  historyOpts.HistoryFilePath,
-		NotificationCh:   make(chan DeviceNotification, 100),
 		PropertyChangeCh: core.PropertyChangeCh,
 	}
 
-	// NotificationCh を中継用にラップし、タイムアウト時にオフライン状態を設定
+	// タイムアウト時にオフライン状態を設定するgoroutineを起動
 	// SubscribeNotifications を使用して専用チャンネルを取得
 	subscribedCh := core.SubscribeNotifications(100)
 	go func() {
-		defer close(handler.NotificationCh)
-
 		for ev := range subscribedCh {
 			if ev.Type == DeviceTimeout {
 				handleDeviceTimeout(ev.Device, data)
@@ -347,7 +343,6 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 			if ev.Type == DeviceOnline {
 				handleDeviceOnline(ev.Device, handler)
 			}
-			handler.NotificationCh <- ev
 		}
 	}()
 
