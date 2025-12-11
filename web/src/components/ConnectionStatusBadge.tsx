@@ -27,15 +27,15 @@ export function ConnectionStatusBadge({ connectionState }: ConnectionStatusBadge
   const getConnectionColor = (state: ConnectionState) => {
     switch (state) {
       case 'connected':
-        return 'bg-green-500 text-white dark:bg-green-900 dark:text-green-100';
+        return 'bg-teal-500 text-white shadow-sm shadow-teal-500/30 dark:bg-teal-600 dark:text-teal-50';
       case 'connecting':
-        return 'bg-yellow-500 text-black dark:bg-yellow-900 dark:text-yellow-100';
+        return 'bg-amber-500 text-white dark:bg-amber-600 dark:text-amber-50';
       case 'disconnected':
-        return 'bg-gray-500 text-white dark:bg-gray-800 dark:text-gray-100';
+        return 'bg-slate-500 text-white dark:bg-slate-700 dark:text-slate-200';
       case 'error':
-        return 'bg-red-500 text-white dark:bg-red-900 dark:text-red-100';
+        return 'bg-red-500 text-white shadow-sm shadow-red-500/30 dark:bg-red-600 dark:text-red-50';
       default:
-        return 'bg-gray-500 text-white dark:bg-gray-800 dark:text-gray-100';
+        return 'bg-slate-500 text-white dark:bg-slate-700 dark:text-slate-200';
     }
   };
 

@@ -80,9 +80,11 @@ export function DashboardCard({
   return (
     <Card
       className={cn(
-        'py-1 px-2 border-2',
+        'py-1.5 px-2.5 border transition-all duration-200',
         isOffline && 'opacity-50',
-        isOperational ? 'border-green-500/60' : 'border-border'
+        isOperational
+          ? 'border-teal-500/50 shadow-sm shadow-teal-500/10'
+          : 'border-border/60'
       )}
       data-testid={`dashboard-card-${device.ip}-${device.eoj}`}
     >

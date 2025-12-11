@@ -79,9 +79,9 @@ export function getDeviceIconColor(
     if (isFaulty) {
       return 'text-red-500';
     }
-    return 'text-gray-400'; // No status coloring for non-controllable devices
+    return 'text-muted-foreground/60'; // No status coloring for non-controllable devices
   }
-  
+
   // For controllable devices, show full status coloring
   if (isOffline) {
     return 'text-muted-foreground';
@@ -90,7 +90,7 @@ export function getDeviceIconColor(
     return 'text-red-500';
   }
   if (isOperational) {
-    return 'text-green-500';
+    return 'text-teal-500';
   }
-  return 'text-gray-400';
+  return 'text-muted-foreground/60';
 }

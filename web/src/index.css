@@ -1,62 +1,71 @@
 @import "tailwindcss";
 
+/* Google Fonts - Space Grotesk (display) + IBM Plex Sans (body) */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @theme {
-  --radius: 0.5rem;
-  
-  /* Color definitions in v4 format */
-  --color-border: hsl(240 5.9% 90%);
-  --color-input: hsl(240 5.9% 90%);
-  --color-ring: hsl(240 5.9% 10%);
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(240 10% 3.9%);
-  --color-primary: hsl(240 9% 10%);
-  --color-primary-foreground: hsl(0 0% 98%);
-  --color-secondary: hsl(240 4.8% 95.9%);
-  --color-secondary-foreground: hsl(240 5.9% 10%);
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-destructive-foreground: hsl(0 0% 98%);
-  --color-muted: hsl(240 4.8% 95.9%);
-  --color-muted-foreground: hsl(240 3.8% 46.1%);
-  --color-accent: hsl(240 4.8% 95.9%);
-  --color-accent-foreground: hsl(240 5.9% 10%);
+  --radius: 0.625rem;
+
+  /* Typography */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+
+  /* Teal/Cyan accent palette - Light Theme */
+  --color-border: hsl(180 15% 85%);
+  --color-input: hsl(180 10% 88%);
+  --color-ring: hsl(175 70% 40%);
+  --color-background: hsl(200 20% 98%);
+  --color-foreground: hsl(200 25% 10%);
+  --color-primary: hsl(175 70% 38%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(200 15% 94%);
+  --color-secondary-foreground: hsl(200 20% 20%);
+  --color-destructive: hsl(0 80% 55%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-muted: hsl(200 15% 94%);
+  --color-muted-foreground: hsl(200 10% 45%);
+  --color-accent: hsl(180 20% 92%);
+  --color-accent-foreground: hsl(175 70% 30%);
   --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(240 10% 3.9%);
+  --color-popover-foreground: hsl(200 25% 10%);
   --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(240 10% 3.9%);
-  --color-chart-1: hsl(12 76% 61%);
-  --color-chart-2: hsl(173 58% 39%);
-  --color-chart-3: hsl(197 37% 24%);
-  --color-chart-4: hsl(43 74% 66%);
-  --color-chart-5: hsl(27 87% 67%);
+  --color-card-foreground: hsl(200 25% 10%);
+  /* Chart colors */
+  --color-chart-1: hsl(175 70% 45%);
+  --color-chart-2: hsl(200 60% 50%);
+  --color-chart-3: hsl(30 80% 55%);
+  --color-chart-4: hsl(280 60% 55%);
+  --color-chart-5: hsl(340 70% 55%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Dark theme colors */
-    --color-border: hsl(240 3.7% 25%);
-    --color-input: hsl(240 3.7% 15.9%);
-    --color-ring: hsl(240 4.9% 83.9%);
-    --color-background: hsl(240 10% 3.9%);
-    --color-foreground: hsl(0 0% 98%);
-    --color-primary: hsl(0 0% 98%);
-    --color-primary-foreground: hsl(240 5.9% 10%);
-    --color-secondary: hsl(240 3.7% 15.9%);
-    --color-secondary-foreground: hsl(0 0% 98%);
-    --color-destructive: hsl(0 75% 45%);
-    --color-destructive-foreground: hsl(0 0% 98%);
-    --color-muted: hsl(240 3.7% 15.9%);
-    --color-muted-foreground: hsl(240 5% 64.9%);
-    --color-accent: hsl(240 3.7% 15.9%);
-    --color-accent-foreground: hsl(0 0% 98%);
-    --color-popover: hsl(240 10% 3.9%);
-    --color-popover-foreground: hsl(0 0% 98%);
-    --color-card: hsl(240 10% 3.9%);
-    --color-card-foreground: hsl(0 0% 98%);
-    --color-chart-1: hsl(220 70% 50%);
-    --color-chart-2: hsl(160 60% 45%);
-    --color-chart-3: hsl(30 80% 55%);
-    --color-chart-4: hsl(280 65% 60%);
-    --color-chart-5: hsl(340 75% 55%);
+    /* Dark theme colors - Teal/Cyan accent */
+    --color-border: hsl(200 20% 22%);
+    --color-input: hsl(200 20% 15%);
+    --color-ring: hsl(175 60% 50%);
+    --color-background: hsl(210 25% 8%);
+    --color-foreground: hsl(180 15% 95%);
+    --color-primary: hsl(175 65% 50%);
+    --color-primary-foreground: hsl(200 25% 8%);
+    --color-secondary: hsl(200 20% 15%);
+    --color-secondary-foreground: hsl(180 15% 90%);
+    --color-destructive: hsl(0 70% 50%);
+    --color-destructive-foreground: hsl(0 0% 100%);
+    --color-muted: hsl(200 20% 15%);
+    --color-muted-foreground: hsl(200 15% 55%);
+    --color-accent: hsl(180 25% 18%);
+    --color-accent-foreground: hsl(175 65% 60%);
+    --color-popover: hsl(210 22% 12%);
+    --color-popover-foreground: hsl(180 15% 95%);
+    --color-card: hsl(210 22% 12%);
+    --color-card-foreground: hsl(180 15% 95%);
+    /* Chart colors - Dark */
+    --color-chart-1: hsl(175 70% 55%);
+    --color-chart-2: hsl(200 65% 55%);
+    --color-chart-3: hsl(30 85% 60%);
+    --color-chart-4: hsl(280 65% 65%);
+    --color-chart-5: hsl(340 75% 60%);
   }
 }
 
@@ -66,6 +75,13 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  /* Display font for headings */
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
   
   /* Optimize touch interactions on mobile */
@@ -135,4 +151,21 @@
   }
 }
 
+@layer components {
+  /* Status glow effects for device cards */
+  .glow-on {
+    box-shadow: 0 0 0 1px hsl(160 75% 42% / 0.3), 0 4px 12px hsl(160 75% 42% / 0.15);
+  }
+  .glow-error {
+    box-shadow: 0 0 0 1px hsl(0 80% 55% / 0.3), 0 4px 12px hsl(0 80% 55% / 0.15);
+  }
+}
 
+@media (prefers-color-scheme: dark) {
+  .glow-on {
+    box-shadow: 0 0 0 1px hsl(160 80% 50% / 0.4), 0 4px 20px hsl(160 80% 50% / 0.2);
+  }
+  .glow-error {
+    box-shadow: 0 0 0 1px hsl(0 75% 55% / 0.4), 0 4px 20px hsl(0 75% 55% / 0.2);
+  }
+}

@@ -435,10 +435,10 @@ function App() {
   return (
     <div className="min-h-screen bg-background text-foreground" style={{ scrollBehavior: 'smooth', scrollPaddingTop: '4rem' }}>
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm backdrop-saturate-150 border-b border-border transition-all duration-200" style={{ willChange: 'transform' }}>
+      <div className="sticky top-0 z-50 bg-background/70 backdrop-blur-md backdrop-saturate-150 border-b border-border/50 shadow-sm transition-all duration-200" style={{ willChange: 'transform' }}>
         <div className="container mx-auto px-4 py-2">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl sm:text-3xl font-bold">ECHONET List</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight bg-gradient-to-r from-primary to-teal-400 bg-clip-text text-transparent">ECHONET List</h1>
             <div className="flex items-center gap-1 sm:gap-2">
               {/* Refresh All Offline Button */}
               <RefreshAllOfflineButton
@@ -496,23 +496,23 @@ function App() {
                   <TabsTrigger
                     key={tabId}
                     value={tabId}
-                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary border-2 border-muted-foreground/30 bg-background px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30"
                     data-testid={`tab-${tabId}`}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       {showStatusIndicators && (
                         <div className="flex items-center gap-1">
                           <div
-                            className={`w-2 h-2 rounded-full ${
+                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
                               hasOperationalDevice
-                                ? 'bg-green-500'
-                                : 'border-2 border-gray-400 bg-transparent'
+                                ? 'bg-teal-400 shadow-[0_0_6px_2px_hsl(160_75%_50%/0.5)]'
+                                : 'border border-muted-foreground/40 bg-transparent'
                             }`}
                             title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
                           />
                           {hasFaultyDevice && (
                             <div
-                              className="w-2 h-2 rounded-full bg-red-500"
+                              className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_2px_hsl(0_80%_55%/0.5)]"
                               title="At least one device has a fault"
                             />
                           )}
@@ -520,7 +520,7 @@ function App() {
                       )}
                       <span>{displayName}</span>
                       {showDeviceCount && (
-                        <span className="ml-1 text-[10px] sm:text-xs">({tabDevices.length})</span>
+                        <span className="ml-1 text-[10px] sm:text-xs opacity-70">({tabDevices.length})</span>
                       )}
                     </div>
                   </TabsTrigger>
