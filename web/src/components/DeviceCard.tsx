@@ -72,10 +72,10 @@ export function DeviceCard({
       return 'border-muted-foreground/30';
     }
     if (isFaulty) {
-      return 'border-red-500/60';
+      return 'border-red-500/60 glow-error';
     }
     if (isOperational && isControllable) {
-      return 'border-green-500/60';
+      return 'border-teal-500/60 glow-on';
     }
     return 'border-border'; // Default border
   };

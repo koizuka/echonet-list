@@ -42,9 +42,9 @@ describe('ConnectionStatusBadge', () => {
   it('should apply correct color classes for each state', () => {
     const states: ConnectionState[] = ['connected', 'disconnected', 'connecting', 'error'];
     const expectedColors = {
-      connected: 'bg-green-500',
-      disconnected: 'bg-gray-500',
-      connecting: 'bg-yellow-500',
+      connected: 'bg-teal-500',
+      disconnected: 'bg-slate-500',
+      connecting: 'bg-amber-500',
       error: 'bg-red-500'
     };
 

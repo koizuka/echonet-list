@@ -394,10 +394,10 @@ describe('DashboardCard', () => {
       );
 
       const card = screen.getByTestId('dashboard-card-192.168.1.100-0130:1');
-      expect(card).toHaveClass('border-green-500/60');
+      expect(card).toHaveClass('border-teal-500/50');
     });
 
-    it('should not have green border when device is off', () => {
+    it('should not have teal border when device is off', () => {
       const offDevice = createDevice({
         properties: {
           '80': { string: 'off' },
@@ -419,7 +419,7 @@ describe('DashboardCard', () => {
       );
 
       const card = screen.getByTestId('dashboard-card-192.168.1.100-0130:1');
-      expect(card).not.toHaveClass('border-green-500/60');
+      expect(card).not.toHaveClass('border-teal-500/50');
     });
   });
 });

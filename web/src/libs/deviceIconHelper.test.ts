@@ -66,16 +66,16 @@ describe('deviceIconHelper', () => {
       expect(getDeviceIconColor(false, true, false)).toBe('text-red-500');
     });
 
-    it('should return green color for operational controllable device', () => {
-      expect(getDeviceIconColor(true, false, false, true)).toBe('text-green-500');
+    it('should return teal color for operational controllable device', () => {
+      expect(getDeviceIconColor(true, false, false, true)).toBe('text-teal-500');
     });
 
-    it('should return gray color for operational non-controllable device', () => {
-      expect(getDeviceIconColor(true, false, false, false)).toBe('text-gray-400');
+    it('should return muted color for operational non-controllable device', () => {
+      expect(getDeviceIconColor(true, false, false, false)).toBe('text-muted-foreground/60');
     });
 
-    it('should return gray color for non-operational device', () => {
-      expect(getDeviceIconColor(false, false, false)).toBe('text-gray-400');
+    it('should return muted color for non-operational device', () => {
+      expect(getDeviceIconColor(false, false, false)).toBe('text-muted-foreground/60');
     });
 
     it('should show fault state even for non-controllable devices', () => {
