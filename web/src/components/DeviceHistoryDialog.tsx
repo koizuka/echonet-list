@@ -484,6 +484,7 @@ export function DeviceHistoryDialog({
                         key={rowIndex}
                         className={serverStartupColorClass}
                         data-testid="history-server-startup"
+                        aria-label={texts.serverStarted}
                       >
                         {/* Timestamp */}
                         <TableCell className={`font-mono text-xs sticky left-0 z-20 border-r py-1 px-0.5 ${serverStartupColorClass}`}>
@@ -557,7 +558,7 @@ export function DeviceHistoryDialog({
                         </TableCell>
 
                         {/* Event description spans all property columns */}
-                        <TableCell colSpan={propertyColumns.length} className="font-semibold py-1 px-0.5">
+                        <TableCell colSpan={propertyColumns.length || 1} className="font-semibold py-1 px-0.5">
                           {eventDescription}
                         </TableCell>
                       </TableRow>
