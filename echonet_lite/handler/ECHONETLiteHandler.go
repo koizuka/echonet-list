@@ -305,6 +305,10 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 	}
 
 	data := NewDataManagementHandler(devices, aliases, groups, history, core)
+
+	// オフラインチェッカーを設定（重複通知防止のため）
+	core.SetOfflineChecker(data)
+
 	var comm *CommunicationHandler
 	if !options.TestMode && session != nil {
 		comm = NewCommunicationHandler(handlerCtx, session, localDevices, data, core, options.Debug)

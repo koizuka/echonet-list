@@ -261,6 +261,10 @@ func (d Devices) SetOffline(device IPAndEOJ, offline bool) {
 	defer d.mu.Unlock()
 	key := device.Key()
 	if offline {
+		// すでにオフラインの場合は何もしない（重複チェック）
+		if _, alreadyOffline := d.offlineDevices[key]; alreadyOffline {
+			return
+		}
 		d.offlineDevices[key] = struct{}{}
 		slog.Info("デバイスをオフライン状態に設定", "device", device.Specifier())
 
