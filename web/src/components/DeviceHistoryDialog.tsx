@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { RefreshCw, Loader2, CheckCircle, XCircle, Edit, Eye, Binary, X } from 'lucide-react';
+import { RefreshCw, Loader2, CheckCircle, XCircle, Edit, Eye, Binary, X, Power } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +27,8 @@ import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 
 // Special key used to store event entries (online/offline) in the property map
 const EVENT_KEY = '__event__' as const;
+// Special key used to store server startup marker in the property map
+const SERVER_STARTUP_KEY = '__server_startup__' as const;
 
 /**
  * Represents a group of history entries that occurred at the same time with the same origin and settable status.
@@ -56,6 +58,8 @@ type DialogMessages = {
   originOffline: string;
   eventOnline: string;
   eventOffline: string;
+  serverStarted: string;
+  originServerStartup: string;
 };
 
 interface DeviceHistoryDialogProps {
@@ -68,6 +72,7 @@ interface DeviceHistoryDialogProps {
   isConnected: boolean;
   aliases?: Record<string, string>;
   allDevices?: Record<string, Device>;
+  serverStartupTime?: Date | null;
 }
 
 // Helper function to format timestamp as HH:MM:SS
@@ -89,6 +94,7 @@ export function DeviceHistoryDialog({
   isConnected,
   aliases = {},
   allDevices = {},
+  serverStartupTime,
 }: DeviceHistoryDialogProps) {
   const [settableOnly, setSettableOnly] = useState(false);
   const [selectedHexData, setSelectedHexData] = useState<{ epc: string; edt: string; propertyName: string; timestamp: string } | null>(null);
@@ -160,6 +166,8 @@ export function DeviceHistoryDialog({
       originOffline: 'Offline',
       eventOnline: 'Device came online',
       eventOffline: 'Device went offline',
+      serverStarted: 'Server started',
+      originServerStartup: 'Startup',
     },
     ja: {
       title: 'デバイス履歴',
@@ -178,6 +186,8 @@ export function DeviceHistoryDialog({
       originOffline: 'オフライン',
       eventOnline: 'デバイスがオンラインになりました',
       eventOffline: 'デバイスがオフラインになりました',
+      serverStarted: 'サーバー起動',
+      originServerStartup: '起動',
     },
   };
 
@@ -235,12 +245,31 @@ export function DeviceHistoryDialog({
    *   - propertyNames: Map of EPC to human-readable property names
    */
   const { groupedEntries, propertyColumns, propertyNames } = useMemo(() => {
+    // Create working entries that may include server startup marker
+    const workingEntries: DeviceHistoryEntry[] = [...entries];
+
+    // Add server startup marker as a pseudo-entry if there are entries older than startup time
+    if (serverStartupTime) {
+      const startupTimeMs = serverStartupTime.getTime();
+      const hasOlderEntries = entries.some(e => new Date(e.timestamp).getTime() < startupTimeMs);
+      if (hasOlderEntries) {
+        workingEntries.push({
+          timestamp: serverStartupTime.toISOString(),
+          epc: SERVER_STARTUP_KEY,
+          value: {},
+          origin: 'online', // placeholder, detected by epc === SERVER_STARTUP_KEY
+          settable: false,
+        });
+      }
+    }
+
     // Group entries by timestamp (truncated to seconds), origin, AND settable (for non-event entries)
-    // Events (online/offline) always get their own row
+    // Events (online/offline) and server startup marker always get their own row
     const groupMap = new Map<string, HistoryGroup>();
     const uniqueProperties = new Set<string>();
 
-    entries.forEach((entry) => {
+    workingEntries.forEach((entry) => {
+      const isServerStartup = entry.epc === SERVER_STARTUP_KEY;
       const isEvent = entry.origin === 'online' || entry.origin === 'offline';
 
       // Truncate timestamp to seconds (remove milliseconds) in local timezone
@@ -254,10 +283,10 @@ export function DeviceHistoryDialog({
       const seconds = String(date.getSeconds()).padStart(2, '0');
       const timestampSeconds = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 
-      // Create a grouping key: for events, use timestamp only (they always get their own row)
+      // Create a grouping key: for events and server startup, use timestamp only (they always get their own row)
       // For properties, use timestamp (truncated to seconds in local time) + origin + settable to ensure
       // settable and non-settable properties are never mixed in the same row
-      const groupKey = isEvent ? entry.timestamp : `${timestampSeconds}:${entry.origin}:${entry.settable}`;
+      const groupKey = (isEvent || isServerStartup) ? entry.timestamp : `${timestampSeconds}:${entry.origin}:${entry.settable}`;
 
       if (!groupMap.has(groupKey)) {
         groupMap.set(groupKey, {
@@ -276,7 +305,10 @@ export function DeviceHistoryDialog({
         return;
       }
 
-      if (!isEvent && entry.epc && typeof entry.epc === 'string') {
+      if (isServerStartup) {
+        // Store server startup marker with a special key
+        group.properties.set(SERVER_STARTUP_KEY, entry);
+      } else if (!isEvent && entry.epc && typeof entry.epc === 'string') {
         uniqueProperties.add(entry.epc);
         // If the same property already exists, keep the latest entry by comparing timestamps
         const existing = group.properties.get(entry.epc);
@@ -324,6 +356,7 @@ export function DeviceHistoryDialog({
     const sortedProperties = [...sortedPrimary, ...secondaryEPCs];
 
     // Convert to array and sort by timestamp (newest first), then by origin
+    // Server startup marker is included as a pseudo-entry and sorted naturally
     const grouped = Array.from(groupMap.values())
       .sort((a, b) => {
         const timeDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
@@ -338,7 +371,7 @@ export function DeviceHistoryDialog({
       propertyColumns: sortedProperties,
       propertyNames: propertyNameMap,
     };
-  }, [entries, propertyDescriptions, classCode]);
+  }, [entries, propertyDescriptions, classCode, serverStartupTime]);
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
@@ -437,10 +470,44 @@ export function DeviceHistoryDialog({
               </TableHeader>
               <TableBody>
                 {groupedEntries.map((group, rowIndex) => {
+                  const hasServerStartup = group.properties.has(SERVER_STARTUP_KEY);
                   const hasEvent = group.properties.has(EVENT_KEY);
                   const eventEntry = hasEvent ? group.properties.get(EVENT_KEY) : null;
                   const isOnline = eventEntry?.origin === 'online';
                   const isOffline = eventEntry?.origin === 'offline';
+
+                  // For server startup marker row
+                  if (hasServerStartup) {
+                    const serverStartupColorClass = 'bg-purple-200 dark:bg-purple-900 text-purple-900 dark:text-purple-200 font-semibold';
+                    return (
+                      <TableRow
+                        key={rowIndex}
+                        className={serverStartupColorClass}
+                        data-testid="history-server-startup"
+                        aria-label={texts.serverStarted}
+                      >
+                        {/* Timestamp */}
+                        <TableCell className={`font-mono text-xs sticky left-0 z-20 border-r py-1 px-0.5 ${serverStartupColorClass}`}>
+                          {formatTimestamp(group.timestamp)}
+                        </TableCell>
+
+                        {/* Origin with icon */}
+                        <TableCell className="text-xs py-1 px-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <Power className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            <span className="px-1.5 py-0.5 rounded bg-muted/70 whitespace-nowrap text-xs">
+                              {texts.originServerStartup}
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        {/* Server startup description spans all property columns */}
+                        <TableCell colSpan={propertyColumns.length || 1} className="font-semibold py-1 px-0.5">
+                          {texts.serverStarted}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
 
                   // Determine row color based on event type or settable status
                   // Priority: online (green) > offline (red) > settable (blue) > default (no color)
@@ -491,7 +558,7 @@ export function DeviceHistoryDialog({
                         </TableCell>
 
                         {/* Event description spans all property columns */}
-                        <TableCell colSpan={propertyColumns.length} className="font-semibold py-1 px-0.5">
+                        <TableCell colSpan={propertyColumns.length || 1} className="font-semibold py-1 px-0.5">
                           {eventDescription}
                         </TableCell>
                       </TableRow>

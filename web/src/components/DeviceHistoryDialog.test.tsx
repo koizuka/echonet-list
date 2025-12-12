@@ -1541,4 +1541,184 @@ describe('DeviceHistoryDialog', () => {
       expect(a5Index).toBeLessThan(b9Index);
     });
   });
+
+  describe('server startup time marker', () => {
+    it('should display server startup marker when serverStartupTime is provided and there are older entries', () => {
+      const serverStartupTime = new Date('2024-05-01T12:02:00.000Z');
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:03:00.000Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:01:00.000Z',
+          epc: '80',
+          value: { string: 'off', EDT: 'MzE=' },
+          origin: 'notification',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+          serverStartupTime={serverStartupTime}
+        />
+      );
+
+      // Should show server startup marker
+      expect(screen.getByTestId('history-server-startup')).toBeInTheDocument();
+      expect(screen.getByText(/Server started/i)).toBeInTheDocument();
+    });
+
+    it('should not display server startup marker when serverStartupTime is null', () => {
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:03:00.000Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+          serverStartupTime={null}
+        />
+      );
+
+      // Should not show server startup marker
+      expect(screen.queryByTestId('history-server-startup')).not.toBeInTheDocument();
+    });
+
+    it('should not display server startup marker when all entries are newer than startup time', () => {
+      const serverStartupTime = new Date('2024-05-01T12:00:00.000Z');
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:03:00.000Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:01:00.000Z',
+          epc: '80',
+          value: { string: 'off', EDT: 'MzE=' },
+          origin: 'notification',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+          serverStartupTime={serverStartupTime}
+        />
+      );
+
+      // Should not show server startup marker since all entries are newer
+      expect(screen.queryByTestId('history-server-startup')).not.toBeInTheDocument();
+    });
+
+    it('should position server startup marker between newer and older entries', () => {
+      const serverStartupTime = new Date('2024-05-01T12:02:00.000Z');
+      const mockEntries: DeviceHistoryEntry[] = [
+        {
+          timestamp: '2024-05-01T12:03:00.000Z',
+          epc: '80',
+          value: { string: 'on', EDT: 'MzA=' },
+          origin: 'set',
+          settable: true,
+        },
+        {
+          timestamp: '2024-05-01T12:01:00.000Z',
+          epc: '80',
+          value: { string: 'off', EDT: 'MzE=' },
+          origin: 'notification',
+          settable: true,
+        },
+      ];
+
+      vi.mocked(useDeviceHistory).mockReturnValue({
+        entries: mockEntries,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+          serverStartupTime={serverStartupTime}
+        />
+      );
+
+      // Get all rows in the table body
+      const table = screen.getByRole('table');
+      const rows = table.querySelectorAll('tbody tr');
+
+      // Should have 3 rows: newer entry, server startup marker, older entry
+      expect(rows.length).toBe(3);
+
+      // First row should be the newer entry (12:03)
+      expect(rows[0]).not.toHaveAttribute('data-testid', 'history-server-startup');
+
+      // Second row should be the server startup marker
+      expect(rows[1]).toHaveAttribute('data-testid', 'history-server-startup');
+
+      // Third row should be the older entry (12:01)
+      expect(rows[2]).not.toHaveAttribute('data-testid', 'history-server-startup');
+    });
+  });
 });
