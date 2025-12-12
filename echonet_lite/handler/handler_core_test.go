@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -155,6 +156,175 @@ func TestSubscribeNotifications_MultipleSubscribers(t *testing.T) {
 			}
 		case <-time.After(100 * time.Millisecond):
 			t.Fatalf("Subscriber %d failed to receive notification", i+1)
+		}
+	}
+}
+
+// mockOfflineChecker はテスト用のOfflineChecker実装（スレッドセーフ）
+type mockOfflineChecker struct {
+	mu             sync.RWMutex
+	offlineDevices map[string]bool
+}
+
+func newMockOfflineChecker() *mockOfflineChecker {
+	return &mockOfflineChecker{
+		offlineDevices: make(map[string]bool),
+	}
+}
+
+func (m *mockOfflineChecker) IsOffline(device IPAndEOJ) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.offlineDevices[device.Key()]
+}
+
+func (m *mockOfflineChecker) setOffline(device IPAndEOJ, offline bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.offlineDevices[device.Key()] = offline
+}
+
+func TestRelaySessionTimeoutEvent_SkipsOfflineDevices(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	core := NewHandlerCore(ctx, cancel, false)
+	defer core.Close()
+
+	// モックオフラインチェッカーを設定
+	checker := newMockOfflineChecker()
+	core.SetOfflineChecker(checker)
+
+	// 購読者を作成
+	subscriber := core.SubscribeNotifications(10)
+
+	testDevice := IPAndEOJ{
+		IP:  net.ParseIP("192.168.0.1"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 1),
+	}
+
+	// デバイスがオンラインの状態でタイムアウトイベントを送信 - 通知されるはず
+	core.RelaySessionTimeoutEvent(SessionTimeoutEvent{
+		Device: testDevice,
+		Type:   SessionTimeoutMaxRetries,
+	})
+
+	select {
+	case n := <-subscriber:
+		if n.Type != DeviceTimeout {
+			t.Errorf("Expected DeviceTimeout, got %v", n.Type)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Expected DeviceTimeout notification for online device")
+	}
+
+	// デバイスをオフラインに設定
+	checker.setOffline(testDevice, true)
+
+	// オフラインのデバイスにタイムアウトイベントを送信 - 通知されないはず
+	core.RelaySessionTimeoutEvent(SessionTimeoutEvent{
+		Device: testDevice,
+		Type:   SessionTimeoutMaxRetries,
+	})
+
+	select {
+	case n := <-subscriber:
+		t.Errorf("Expected no notification for offline device, but got %v", n.Type)
+	case <-time.After(100 * time.Millisecond):
+		// 期待される動作: 通知なし
+	}
+}
+
+func TestRelaySessionTimeoutEvent_WorksWithoutOfflineChecker(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	core := NewHandlerCore(ctx, cancel, false)
+	defer core.Close()
+
+	// オフラインチェッカーを設定しない（nil）
+
+	// 購読者を作成
+	subscriber := core.SubscribeNotifications(10)
+
+	testDevice := IPAndEOJ{
+		IP:  net.ParseIP("192.168.0.1"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 1),
+	}
+
+	// タイムアウトイベントを送信 - チェッカーがなくても通知されるはず
+	core.RelaySessionTimeoutEvent(SessionTimeoutEvent{
+		Device: testDevice,
+		Type:   SessionTimeoutMaxRetries,
+	})
+
+	select {
+	case n := <-subscriber:
+		if n.Type != DeviceTimeout {
+			t.Errorf("Expected DeviceTimeout, got %v", n.Type)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Expected DeviceTimeout notification even without offline checker")
+	}
+}
+
+func TestRelaySessionTimeoutEvent_ConcurrentAccess(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	core := NewHandlerCore(ctx, cancel, false)
+	defer core.Close()
+
+	checker := newMockOfflineChecker()
+	core.SetOfflineChecker(checker)
+
+	// 購読者を作成（大きなバッファで通知を受け取る）
+	subscriber := core.SubscribeNotifications(1000)
+
+	// 複数のデバイスを作成
+	devices := make([]IPAndEOJ, 10)
+	for i := 0; i < 10; i++ {
+		devices[i] = IPAndEOJ{
+			IP:  net.ParseIP("192.168.0.1"),
+			EOJ: echonet_lite.MakeEOJ(0x0130, echonet_lite.EOJInstanceCode(i+1)),
+		}
+	}
+
+	// 複数のゴルーチンから同時にタイムアウトイベントを送信
+	done := make(chan struct{})
+	for i := 0; i < 10; i++ {
+		go func(idx int) {
+			for j := 0; j < 100; j++ {
+				core.RelaySessionTimeoutEvent(SessionTimeoutEvent{
+					Device: devices[idx],
+					Type:   SessionTimeoutMaxRetries,
+				})
+				// オフライン状態を切り替え
+				if j%2 == 0 {
+					checker.setOffline(devices[idx], true)
+				} else {
+					checker.setOffline(devices[idx], false)
+				}
+			}
+			done <- struct{}{}
+		}(i)
+	}
+
+	// 全ゴルーチンの完了を待つ
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+
+	// 通知を消費（パニックが発生しないことを確認）
+	consumeCount := 0
+	for {
+		select {
+		case <-subscriber:
+			consumeCount++
+		case <-time.After(100 * time.Millisecond):
+			// タイムアウト - これ以上通知がない
+			t.Logf("Received %d notifications without panic (concurrent access test passed)", consumeCount)
+			return
 		}
 	}
 }

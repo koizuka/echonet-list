@@ -850,6 +850,26 @@ func TestDevices_SetOfflineEvents(t *testing.T) {
 	default:
 		// 期待される動作: イベントなし
 	}
+
+	// 再度オフラインに設定 - イベントが送信されるはず
+	devices.SetOffline(device, true)
+	select {
+	case event := <-eventCh:
+		if event.Type != DeviceEventOffline {
+			t.Errorf("Expected DeviceEventOffline, got %v", event.Type)
+		}
+	default:
+		t.Errorf("Expected DeviceEventOffline event to be sent")
+	}
+
+	// 既にオフラインのデバイスをオフラインに設定 - イベントは送信されないはず（重複チェック）
+	devices.SetOffline(device, true)
+	select {
+	case event := <-eventCh:
+		t.Errorf("Expected no event for already offline device, but got %v", event.Type)
+	default:
+		// 期待される動作: イベントなし
+	}
 }
 
 // TestDeviceProperties_SetPropertyMap は SetPropertyMap の動的生成をテストします

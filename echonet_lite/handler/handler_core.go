@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+// OfflineChecker はデバイスがオフラインかどうかをチェックするインターフェース
+type OfflineChecker interface {
+	IsOffline(device IPAndEOJ) bool
+}
+
 // HandlerCore は、ECHONETLiteHandlerのコア機能を担当する構造体
 type HandlerCore struct {
 	ctx                     context.Context                 // コンテキスト
@@ -19,6 +24,7 @@ type HandlerCore struct {
 	notificationSubscribers []chan DeviceNotification       // 通知購読者のリスト
 	subscribersMutex        sync.RWMutex                    // 購読者リストの保護
 	fanoutWg                sync.WaitGroup                  // fanoutNotifications()の終了待機用
+	offlineChecker          OfflineChecker                  // オフラインチェッカー
 }
 
 // NewHandlerCore は、HandlerCoreの新しいインスタンスを作成する
@@ -94,6 +100,11 @@ func (c *HandlerCore) Close() error {
 	return nil
 }
 
+// SetOfflineChecker は、オフラインチェッカーを設定する
+func (c *HandlerCore) SetOfflineChecker(checker OfflineChecker) {
+	c.offlineChecker = checker
+}
+
 // SetDebug は、デバッグモードを設定する
 func (c *HandlerCore) SetDebug(debug bool) {
 	c.Debug = debug
@@ -146,6 +157,12 @@ func (c *HandlerCore) RelayDeviceEvent(event DeviceEvent) {
 
 // RelaySessionTimeoutEvent は、SessionTimeoutEventをDeviceNotificationに変換して中継する
 func (c *HandlerCore) RelaySessionTimeoutEvent(event SessionTimeoutEvent) {
+	// すでにオフラインなら通知をスキップ（重複通知防止）
+	if c.offlineChecker != nil && c.offlineChecker.IsOffline(event.Device) {
+		slog.Debug("デバイスはすでにオフラインのためタイムアウト通知をスキップ", "device", event.Device.Specifier())
+		return
+	}
+
 	// SessionTimeoutEventをDeviceNotificationに変換して中継
 	c.notify(DeviceNotification{
 		Device: event.Device,
