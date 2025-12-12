@@ -285,30 +285,30 @@ func (d Devices) SetOffline(device IPAndEOJ, offline bool) {
 			slog.Warn("デバイスオフラインイベントチャンネルが設定されていません", "device", device.Specifier())
 		}
 	} else {
-		// オフライン状態からオンラインに変わったかチェック
-		wasOffline := d.isOfflineNoLock(key)
+		// すでにオンラインの場合は何もしない（重複チェック）
+		if !d.isOfflineNoLock(key) {
+			return
+		}
 		delete(d.offlineDevices, key)
 
-		// 以前オフラインだった場合のみオンラインイベントを送信
-		if wasOffline {
-			slog.Info("デバイスをオンライン状態に設定", "device", device.Specifier())
+		// オフライン状態からオンラインに変わった
+		slog.Info("デバイスをオンライン状態に設定", "device", device.Specifier())
 
-			// イベントをチャンネルに送信
-			if d.EventCh != nil {
-				select {
-				case d.EventCh <- DeviceEvent{
-					Device: device,
-					Type:   DeviceEventOnline,
-				}:
-					// 送信成功
-					slog.Info("デバイスオンラインイベントを送信", "device", device.Specifier())
-				default:
-					// チャンネルがブロックされている場合は無視
-					slog.Warn("デバイスオンラインイベントチャンネルがブロックされています", "device", device.Specifier())
-				}
-			} else {
-				slog.Warn("デバイスオンラインイベントチャンネルが設定されていません", "device", device.Specifier())
+		// イベントをチャンネルに送信
+		if d.EventCh != nil {
+			select {
+			case d.EventCh <- DeviceEvent{
+				Device: device,
+				Type:   DeviceEventOnline,
+			}:
+				// 送信成功
+				slog.Info("デバイスオンラインイベントを送信", "device", device.Specifier())
+			default:
+				// チャンネルがブロックされている場合は無視
+				slog.Warn("デバイスオンラインイベントチャンネルがブロックされています", "device", device.Specifier())
 			}
+		} else {
+			slog.Warn("デバイスオンラインイベントチャンネルが設定されていません", "device", device.Specifier())
 		}
 	}
 }
