@@ -282,6 +282,18 @@ Web UI のビルド結果は `web/bundle/` に出力され、Go サーバーがH
 - systemdの場合は `journalctl -u echonet-list -f` でもログ確認可能
 - 権限エラーの場合は、書き込み可能なパスを `-pidfile` で指定
 
+### 実サーバーのログ参照
+
+実サーバーのログを参照するには、環境変数 `ECHONET_SERVER_HOST` で定義されたホストに SSH 接続して sudo でログファイルにアクセスします。
+
+```bash
+ssh $ECHONET_SERVER_HOST sudo cat /var/log/echonet-list.log
+ssh $ECHONET_SERVER_HOST sudo tail -f /var/log/echonet-list.log
+```
+
+- 環境変数 `ECHONET_SERVER_HOST` は `.claude/settings.local.json` で定義されています
+- ログファイルは root 権限が必要なため `sudo` を使用します
+
 ## Console UI のコマンド
 
 Console UI では、ECHONET Lite デバイスの制御とデバッグを行うための各種コマンドが利用できます。
