@@ -32,6 +32,7 @@ interface DeviceCardProps {
   onDeleteDevice?: (target: string) => Promise<void>;
   isDeletingDevice?: boolean;
   connection?: WebSocketConnection;
+  serverStartupTime?: Date | null;
 }
 
 export function DeviceCard({
@@ -51,7 +52,8 @@ export function DeviceCard({
   isConnected = true,
   onDeleteDevice,
   isDeletingDevice = false,
-  connection
+  connection,
+  serverStartupTime,
 }: DeviceCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -330,6 +332,7 @@ export function DeviceCard({
           isConnected={isConnected}
           aliases={aliases}
           allDevices={devices}
+          serverStartupTime={serverStartupTime}
         />
       )}
     </Card>

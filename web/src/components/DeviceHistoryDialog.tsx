@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { RefreshCw, Loader2, CheckCircle, XCircle, Edit, Eye, Binary, X } from 'lucide-react';
+import { RefreshCw, Loader2, CheckCircle, XCircle, Edit, Eye, Binary, X, Power } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +27,8 @@ import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 
 // Special key used to store event entries (online/offline) in the property map
 const EVENT_KEY = '__event__' as const;
+// Special key used to store server startup marker in the property map
+const SERVER_STARTUP_KEY = '__server_startup__' as const;
 
 /**
  * Represents a group of history entries that occurred at the same time with the same origin and settable status.
@@ -56,6 +58,8 @@ type DialogMessages = {
   originOffline: string;
   eventOnline: string;
   eventOffline: string;
+  serverStarted: string;
+  originServerStartup: string;
 };
 
 interface DeviceHistoryDialogProps {
@@ -68,6 +72,7 @@ interface DeviceHistoryDialogProps {
   isConnected: boolean;
   aliases?: Record<string, string>;
   allDevices?: Record<string, Device>;
+  serverStartupTime?: Date | null;
 }
 
 // Helper function to format timestamp as HH:MM:SS
@@ -89,6 +94,7 @@ export function DeviceHistoryDialog({
   isConnected,
   aliases = {},
   allDevices = {},
+  serverStartupTime,
 }: DeviceHistoryDialogProps) {
   const [settableOnly, setSettableOnly] = useState(false);
   const [selectedHexData, setSelectedHexData] = useState<{ epc: string; edt: string; propertyName: string; timestamp: string } | null>(null);
@@ -160,6 +166,8 @@ export function DeviceHistoryDialog({
       originOffline: 'Offline',
       eventOnline: 'Device came online',
       eventOffline: 'Device went offline',
+      serverStarted: 'Server started',
+      originServerStartup: 'Startup',
     },
     ja: {
       title: 'デバイス履歴',
@@ -178,6 +186,8 @@ export function DeviceHistoryDialog({
       originOffline: 'オフライン',
       eventOnline: 'デバイスがオンラインになりました',
       eventOffline: 'デバイスがオフラインになりました',
+      serverStarted: 'サーバー起動',
+      originServerStartup: '起動',
     },
   };
 
@@ -333,12 +343,45 @@ export function DeviceHistoryDialog({
         return originOrder[a.origin] - originOrder[b.origin];
       });
 
+    // Insert server startup marker at the appropriate position
+    if (serverStartupTime) {
+      const startupTimeMs = serverStartupTime.getTime();
+
+      // Find the position where server startup time should be inserted
+      // The array is sorted newest first, so we find the first entry that is older than startup time
+      let insertIndex = grouped.length; // Default: insert at the end
+      for (let i = 0; i < grouped.length; i++) {
+        const entryTime = new Date(grouped[i].timestamp).getTime();
+        if (entryTime < startupTimeMs) {
+          insertIndex = i;
+          break;
+        }
+      }
+
+      // Only insert if there are entries before the startup time (i.e., old entries exist)
+      if (insertIndex < grouped.length) {
+        // Create a special marker group for server startup
+        const serverStartupGroup: HistoryGroup = {
+          timestamp: serverStartupTime.toISOString(),
+          origin: 'online', // Use 'online' as a placeholder, we'll detect it by SERVER_STARTUP_KEY
+          settable: false,
+          properties: new Map([[SERVER_STARTUP_KEY, {
+            timestamp: serverStartupTime.toISOString(),
+            value: {},
+            origin: 'online',
+            settable: false,
+          }]]),
+        };
+        grouped.splice(insertIndex, 0, serverStartupGroup);
+      }
+    }
+
     return {
       groupedEntries: grouped,
       propertyColumns: sortedProperties,
       propertyNames: propertyNameMap,
     };
-  }, [entries, propertyDescriptions, classCode]);
+  }, [entries, propertyDescriptions, classCode, serverStartupTime]);
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
@@ -437,10 +480,43 @@ export function DeviceHistoryDialog({
               </TableHeader>
               <TableBody>
                 {groupedEntries.map((group, rowIndex) => {
+                  const hasServerStartup = group.properties.has(SERVER_STARTUP_KEY);
                   const hasEvent = group.properties.has(EVENT_KEY);
                   const eventEntry = hasEvent ? group.properties.get(EVENT_KEY) : null;
                   const isOnline = eventEntry?.origin === 'online';
                   const isOffline = eventEntry?.origin === 'offline';
+
+                  // For server startup marker row
+                  if (hasServerStartup) {
+                    const serverStartupColorClass = 'bg-purple-200 dark:bg-purple-900 text-purple-900 dark:text-purple-200 font-semibold';
+                    return (
+                      <TableRow
+                        key={rowIndex}
+                        className={serverStartupColorClass}
+                        data-testid="history-server-startup"
+                      >
+                        {/* Timestamp */}
+                        <TableCell className={`font-mono text-xs sticky left-0 z-20 border-r py-1 px-0.5 ${serverStartupColorClass}`}>
+                          {formatTimestamp(group.timestamp)}
+                        </TableCell>
+
+                        {/* Origin with icon */}
+                        <TableCell className="text-xs py-1 px-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <Power className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            <span className="px-1.5 py-0.5 rounded bg-muted/70 whitespace-nowrap text-xs">
+                              {texts.originServerStartup}
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        {/* Server startup description spans all property columns */}
+                        <TableCell colSpan={propertyColumns.length || 1} className="font-semibold py-1 px-0.5">
+                          {texts.serverStarted}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
 
                   // Determine row color based on event type or settable status
                   // Priority: online (green) > offline (red) > settable (blue) > default (no color)

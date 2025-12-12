@@ -670,6 +670,7 @@ function App() {
                         onDeleteDevice={handleDeleteDevice}
                         isDeletingDevice={deletingDevices.has(deviceKey)}
                         connection={echonet.connection}
+                        serverStartupTime={echonet.serverStartupTime}
                       />
                     );
                   })}
