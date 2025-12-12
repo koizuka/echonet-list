@@ -246,7 +246,7 @@ export function DeviceHistoryDialog({
    */
   const { groupedEntries, propertyColumns, propertyNames } = useMemo(() => {
     // Create working entries that may include server startup marker
-    let workingEntries: DeviceHistoryEntry[] = [...entries];
+    const workingEntries: DeviceHistoryEntry[] = [...entries];
 
     // Add server startup marker as a pseudo-entry if there are entries older than startup time
     if (serverStartupTime) {
