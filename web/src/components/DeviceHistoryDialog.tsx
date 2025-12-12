@@ -245,12 +245,31 @@ export function DeviceHistoryDialog({
    *   - propertyNames: Map of EPC to human-readable property names
    */
   const { groupedEntries, propertyColumns, propertyNames } = useMemo(() => {
+    // Create working entries that may include server startup marker
+    let workingEntries: DeviceHistoryEntry[] = [...entries];
+
+    // Add server startup marker as a pseudo-entry if there are entries older than startup time
+    if (serverStartupTime) {
+      const startupTimeMs = serverStartupTime.getTime();
+      const hasOlderEntries = entries.some(e => new Date(e.timestamp).getTime() < startupTimeMs);
+      if (hasOlderEntries) {
+        workingEntries.push({
+          timestamp: serverStartupTime.toISOString(),
+          epc: SERVER_STARTUP_KEY,
+          value: {},
+          origin: 'online', // placeholder, detected by epc === SERVER_STARTUP_KEY
+          settable: false,
+        });
+      }
+    }
+
     // Group entries by timestamp (truncated to seconds), origin, AND settable (for non-event entries)
-    // Events (online/offline) always get their own row
+    // Events (online/offline) and server startup marker always get their own row
     const groupMap = new Map<string, HistoryGroup>();
     const uniqueProperties = new Set<string>();
 
-    entries.forEach((entry) => {
+    workingEntries.forEach((entry) => {
+      const isServerStartup = entry.epc === SERVER_STARTUP_KEY;
       const isEvent = entry.origin === 'online' || entry.origin === 'offline';
 
       // Truncate timestamp to seconds (remove milliseconds) in local timezone
@@ -264,10 +283,10 @@ export function DeviceHistoryDialog({
       const seconds = String(date.getSeconds()).padStart(2, '0');
       const timestampSeconds = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 
-      // Create a grouping key: for events, use timestamp only (they always get their own row)
+      // Create a grouping key: for events and server startup, use timestamp only (they always get their own row)
       // For properties, use timestamp (truncated to seconds in local time) + origin + settable to ensure
       // settable and non-settable properties are never mixed in the same row
-      const groupKey = isEvent ? entry.timestamp : `${timestampSeconds}:${entry.origin}:${entry.settable}`;
+      const groupKey = (isEvent || isServerStartup) ? entry.timestamp : `${timestampSeconds}:${entry.origin}:${entry.settable}`;
 
       if (!groupMap.has(groupKey)) {
         groupMap.set(groupKey, {
@@ -286,7 +305,10 @@ export function DeviceHistoryDialog({
         return;
       }
 
-      if (!isEvent && entry.epc && typeof entry.epc === 'string') {
+      if (isServerStartup) {
+        // Store server startup marker with a special key
+        group.properties.set(SERVER_STARTUP_KEY, entry);
+      } else if (!isEvent && entry.epc && typeof entry.epc === 'string') {
         uniqueProperties.add(entry.epc);
         // If the same property already exists, keep the latest entry by comparing timestamps
         const existing = group.properties.get(entry.epc);
@@ -334,6 +356,7 @@ export function DeviceHistoryDialog({
     const sortedProperties = [...sortedPrimary, ...secondaryEPCs];
 
     // Convert to array and sort by timestamp (newest first), then by origin
+    // Server startup marker is included as a pseudo-entry and sorted naturally
     const grouped = Array.from(groupMap.values())
       .sort((a, b) => {
         const timeDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
@@ -342,39 +365,6 @@ export function DeviceHistoryDialog({
         const originOrder: Record<HistoryOrigin, number> = { online: 0, offline: 1, set: 2, notification: 3 };
         return originOrder[a.origin] - originOrder[b.origin];
       });
-
-    // Insert server startup marker at the appropriate position
-    if (serverStartupTime) {
-      const startupTimeMs = serverStartupTime.getTime();
-
-      // Find the position where server startup time should be inserted
-      // The array is sorted newest first, so we find the first entry that is older than startup time
-      let insertIndex = grouped.length; // Default: insert at the end
-      for (let i = 0; i < grouped.length; i++) {
-        const entryTime = new Date(grouped[i].timestamp).getTime();
-        if (entryTime < startupTimeMs) {
-          insertIndex = i;
-          break;
-        }
-      }
-
-      // Only insert if there are entries before the startup time (i.e., old entries exist)
-      if (insertIndex < grouped.length) {
-        // Create a special marker group for server startup
-        const serverStartupGroup: HistoryGroup = {
-          timestamp: serverStartupTime.toISOString(),
-          origin: 'online', // Use 'online' as a placeholder, we'll detect it by SERVER_STARTUP_KEY
-          settable: false,
-          properties: new Map([[SERVER_STARTUP_KEY, {
-            timestamp: serverStartupTime.toISOString(),
-            value: {},
-            origin: 'online',
-            settable: false,
-          }]]),
-        };
-        grouped.splice(insertIndex, 0, serverStartupGroup);
-      }
-    }
 
     return {
       groupedEntries: grouped,
