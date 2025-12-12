@@ -158,3 +158,106 @@ func TestSubscribeNotifications_MultipleSubscribers(t *testing.T) {
 		}
 	}
 }
+
+// mockOfflineChecker はテスト用のOfflineChecker実装
+type mockOfflineChecker struct {
+	offlineDevices map[string]bool
+}
+
+func newMockOfflineChecker() *mockOfflineChecker {
+	return &mockOfflineChecker{
+		offlineDevices: make(map[string]bool),
+	}
+}
+
+func (m *mockOfflineChecker) IsOffline(device IPAndEOJ) bool {
+	return m.offlineDevices[device.Key()]
+}
+
+func (m *mockOfflineChecker) setOffline(device IPAndEOJ, offline bool) {
+	m.offlineDevices[device.Key()] = offline
+}
+
+func TestRelaySessionTimeoutEvent_SkipsOfflineDevices(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	core := NewHandlerCore(ctx, cancel, false)
+	defer core.Close()
+
+	// モックオフラインチェッカーを設定
+	checker := newMockOfflineChecker()
+	core.SetOfflineChecker(checker)
+
+	// 購読者を作成
+	subscriber := core.SubscribeNotifications(10)
+
+	testDevice := IPAndEOJ{
+		IP:  net.ParseIP("192.168.0.1"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 1),
+	}
+
+	// デバイスがオンラインの状態でタイムアウトイベントを送信 - 通知されるはず
+	core.RelaySessionTimeoutEvent(SessionTimeoutEvent{
+		Device: testDevice,
+		Type:   SessionTimeoutMaxRetries,
+	})
+
+	select {
+	case n := <-subscriber:
+		if n.Type != DeviceTimeout {
+			t.Errorf("Expected DeviceTimeout, got %v", n.Type)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Expected DeviceTimeout notification for online device")
+	}
+
+	// デバイスをオフラインに設定
+	checker.setOffline(testDevice, true)
+
+	// オフラインのデバイスにタイムアウトイベントを送信 - 通知されないはず
+	core.RelaySessionTimeoutEvent(SessionTimeoutEvent{
+		Device: testDevice,
+		Type:   SessionTimeoutMaxRetries,
+	})
+
+	select {
+	case n := <-subscriber:
+		t.Errorf("Expected no notification for offline device, but got %v", n.Type)
+	case <-time.After(100 * time.Millisecond):
+		// 期待される動作: 通知なし
+	}
+}
+
+func TestRelaySessionTimeoutEvent_WorksWithoutOfflineChecker(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	core := NewHandlerCore(ctx, cancel, false)
+	defer core.Close()
+
+	// オフラインチェッカーを設定しない（nil）
+
+	// 購読者を作成
+	subscriber := core.SubscribeNotifications(10)
+
+	testDevice := IPAndEOJ{
+		IP:  net.ParseIP("192.168.0.1"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 1),
+	}
+
+	// タイムアウトイベントを送信 - チェッカーがなくても通知されるはず
+	core.RelaySessionTimeoutEvent(SessionTimeoutEvent{
+		Device: testDevice,
+		Type:   SessionTimeoutMaxRetries,
+	})
+
+	select {
+	case n := <-subscriber:
+		if n.Type != DeviceTimeout {
+			t.Errorf("Expected DeviceTimeout, got %v", n.Type)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Expected DeviceTimeout notification even without offline checker")
+	}
+}
