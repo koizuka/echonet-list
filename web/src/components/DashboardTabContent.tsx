@@ -2,6 +2,7 @@ import { DashboardCard } from './DashboardCard';
 import { getDashboardDevicesGroupedByLocation, getLocationDisplayName } from '@/libs/locationHelper';
 import { arrangeDashboardDevices, isPlaceholder } from '@/libs/dashboardLayoutHelper';
 import { useDashboardCardExpansion } from '@/hooks/useDashboardCardExpansion';
+import { cn } from '@/libs/utils';
 import type { Device, PropertyDescriptionData, DeviceAlias } from '@/hooks/types';
 
 interface DashboardTabContentProps {
@@ -36,7 +37,7 @@ export function DashboardTabContent({
       className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start pb-16 safe-area-bottom"
       data-testid="dashboard-content"
     >
-      {locationIds.map(locationId => {
+      {locationIds.map((locationId, index) => {
         const locationDevices = groupedDevices[locationId];
         const locationName = getLocationDisplayName(locationId, devices, propertyDescriptions);
 
@@ -52,7 +53,14 @@ export function DashboardTabContent({
         return (
           <div
             key={locationId}
-            className="md:rounded-lg md:border md:bg-card md:p-3 md:shadow-sm"
+            className={cn(
+              // Mobile: left accent line + alternating background
+              'border-l-2 border-l-primary/40 pl-2',
+              index % 2 === 1 && 'bg-muted/60',
+              // Tablet+: reset mobile styles and apply card container
+              'md:border-l-0 md:pl-0 md:bg-card',
+              'md:rounded-lg md:border md:p-3 md:shadow-sm'
+            )}
             data-testid={`dashboard-location-${locationId}`}
           >
             {/* Location header - only show outside grid if first item is not a placeholder */}
