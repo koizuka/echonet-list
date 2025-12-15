@@ -183,7 +183,7 @@ func TestOnInstanceList_AddDevices(t *testing.T) {
 		notifier:      mockNotifier,
 		ctx:           ctx,
 		Debug:         false,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	ip := net.ParseIP("192.168.1.100")
@@ -234,7 +234,7 @@ func TestOnInstanceList_RemoveDevices(t *testing.T) {
 		notifier:      mockNotifier,
 		ctx:           ctx,
 		Debug:         false,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	ip := net.ParseIP("192.168.1.100")
@@ -299,7 +299,7 @@ func TestOnInstanceList_MixedAddRemove(t *testing.T) {
 		notifier:      mockNotifier,
 		ctx:           ctx,
 		Debug:         false,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	ip := net.ParseIP("192.168.1.100")
@@ -363,7 +363,7 @@ func TestOnInstanceList_NodeProfileAlwaysPresent(t *testing.T) {
 		notifier:      mockNotifier,
 		ctx:           ctx,
 		Debug:         false,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	ip := net.ParseIP("192.168.1.100")
@@ -414,7 +414,7 @@ func TestOnInstanceList_OfflineToOnlineRecovery(t *testing.T) {
 		notifier:      mockNotifier,
 		ctx:           ctx,
 		Debug:         false,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	ip := net.ParseIP("192.168.1.100")
@@ -483,7 +483,7 @@ func TestOnInstanceList_OnlineDevicesStayOnline(t *testing.T) {
 		notifier:      mockNotifier,
 		ctx:           ctx,
 		Debug:         false,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	ip := net.ParseIP("192.168.1.100")
@@ -547,7 +547,7 @@ func TestProcessPropertyUpdateHooks_NodeProfileInstanceList(t *testing.T) {
 		notifier:      mockNotifier,
 		ctx:           ctx,
 		Debug:         false,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	ip := net.ParseIP("192.168.1.100")
@@ -604,7 +604,7 @@ func TestProcessPropertyUpdateHooks_NonNodeProfile(t *testing.T) {
 		notifier:      mockNotifier,
 		ctx:           ctx,
 		Debug:         false,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	ip := net.ParseIP("192.168.1.100")
@@ -637,7 +637,7 @@ func TestProcessPropertyUpdateHooks_NodeProfileNonInstanceList(t *testing.T) {
 		notifier:      mockNotifier,
 		ctx:           ctx,
 		Debug:         false,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	ip := net.ParseIP("192.168.1.100")

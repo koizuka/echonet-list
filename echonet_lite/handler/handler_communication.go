@@ -13,16 +13,22 @@ import (
 	"time"
 )
 
+// activeUpdateEntry はアクティブな更新処理のエントリ
+type activeUpdateEntry struct {
+	startTime time.Time          // 更新開始時刻
+	cancel    context.CancelFunc // キャンセル関数（nilの場合もある）
+}
+
 // CommunicationHandler は、ECHONET Lite 通信機能を担当する構造体
 type CommunicationHandler struct {
-	session         *Session             // セッション
-	localDevices    DeviceProperties     // 自ノードが所有するデバイスのプロパティ
-	dataAccessor    DataAccessor         // データアクセス機能
-	notifier        NotificationRelay    // 通知中継
-	ctx             context.Context      // コンテキスト
-	Debug           bool                 // デバッグモード
-	activeUpdatesMu sync.RWMutex         // アクティブな更新処理の排他制御
-	activeUpdates   map[string]time.Time // IP+EOJ別のアクティブな更新処理 (key: "IP:ClassCode:InstanceCode")
+	session         *Session                      // セッション
+	localDevices    DeviceProperties              // 自ノードが所有するデバイスのプロパティ
+	dataAccessor    DataAccessor                  // データアクセス機能
+	notifier        NotificationRelay             // 通知中継
+	ctx             context.Context               // コンテキスト
+	Debug           bool                          // デバッグモード
+	activeUpdatesMu sync.RWMutex                  // アクティブな更新処理の排他制御
+	activeUpdates   map[string]*activeUpdateEntry // IP+EOJ別のアクティブな更新処理 (key: "IP:ClassCode:InstanceCode")
 }
 
 // NewCommunicationHandler は、CommunicationHandlerの新しいインスタンスを作成する
@@ -41,7 +47,7 @@ func NewCommunicationHandler(
 		notifier:      notifier,
 		ctx:           ctx,
 		Debug:         debug,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	// バックグラウンドクリーンアップを開始
@@ -56,15 +62,24 @@ func (h *CommunicationHandler) SetDebug(debug bool) {
 	h.session.Debug = debug
 }
 
+// makeDeviceKey はデバイスのキー文字列を生成する
+func makeDeviceKey(device IPAndEOJ) string {
+	return fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
+}
+
 // isUpdateActive は指定されたデバイス(IP+EOJ)の更新処理がアクティブかどうかを確認する
+// force=trueの場合、既存の更新処理をキャンセルしてfalseを返す
 func (h *CommunicationHandler) isUpdateActive(device IPAndEOJ, force bool) bool {
+	deviceKey := makeDeviceKey(device)
+
 	if force {
-		return false // force=trueの場合は常に実行
+		// force=trueの場合、既存の更新処理をキャンセルする
+		h.cancelExistingUpdate(deviceKey)
+		return false
 	}
 
-	deviceKey := fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
 	h.activeUpdatesMu.RLock()
-	startTime, exists := h.activeUpdates[deviceKey]
+	entry, exists := h.activeUpdates[deviceKey]
 	h.activeUpdatesMu.RUnlock()
 
 	if !exists {
@@ -72,10 +87,13 @@ func (h *CommunicationHandler) isUpdateActive(device IPAndEOJ, force bool) bool 
 	}
 
 	// 古いエントリは無効とする
-	if time.Since(startTime) > MaxUpdateAge {
+	if time.Since(entry.startTime) > MaxUpdateAge {
 		h.activeUpdatesMu.Lock()
 		// 再度チェックして、まだ古い場合のみ削除（Double-checked locking pattern）
-		if startTime2, exists2 := h.activeUpdates[deviceKey]; exists2 && time.Since(startTime2) > MaxUpdateAge {
+		if entry2, exists2 := h.activeUpdates[deviceKey]; exists2 && time.Since(entry2.startTime) > MaxUpdateAge {
+			if entry2.cancel != nil {
+				entry2.cancel()
+			}
 			delete(h.activeUpdates, deviceKey)
 		}
 		h.activeUpdatesMu.Unlock()
@@ -85,17 +103,34 @@ func (h *CommunicationHandler) isUpdateActive(device IPAndEOJ, force bool) bool 
 	return true
 }
 
-// markUpdateActive は指定されたデバイス(IP+EOJ)の更新処理をアクティブとしてマークする
-func (h *CommunicationHandler) markUpdateActive(device IPAndEOJ) {
-	deviceKey := fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
+// cancelExistingUpdate は既存の更新処理をキャンセルする
+func (h *CommunicationHandler) cancelExistingUpdate(deviceKey string) {
 	h.activeUpdatesMu.Lock()
-	h.activeUpdates[deviceKey] = time.Now()
+	defer h.activeUpdatesMu.Unlock()
+
+	if entry, exists := h.activeUpdates[deviceKey]; exists {
+		if entry.cancel != nil {
+			slog.Info("既存の更新処理をキャンセル", "device", deviceKey)
+			entry.cancel()
+		}
+		delete(h.activeUpdates, deviceKey)
+	}
+}
+
+// markUpdateActive は指定されたデバイス(IP+EOJ)の更新処理をアクティブとしてマークする
+func (h *CommunicationHandler) markUpdateActive(device IPAndEOJ, cancel context.CancelFunc) {
+	deviceKey := makeDeviceKey(device)
+	h.activeUpdatesMu.Lock()
+	h.activeUpdates[deviceKey] = &activeUpdateEntry{
+		startTime: time.Now(),
+		cancel:    cancel,
+	}
 	h.activeUpdatesMu.Unlock()
 }
 
 // markUpdateInactive は指定されたデバイス(IP+EOJ)の更新処理を非アクティブとしてマークする
 func (h *CommunicationHandler) markUpdateInactive(device IPAndEOJ) {
-	deviceKey := fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
+	deviceKey := makeDeviceKey(device)
 	h.activeUpdatesMu.Lock()
 	delete(h.activeUpdates, deviceKey)
 	h.activeUpdatesMu.Unlock()
@@ -122,10 +157,13 @@ func (h *CommunicationHandler) cleanupStaleActiveUpdates() {
 	h.activeUpdatesMu.Lock()
 	defer h.activeUpdatesMu.Unlock()
 
-	for deviceKey, startTime := range h.activeUpdates {
-		if now.Sub(startTime) > MaxUpdateAge {
+	for deviceKey, entry := range h.activeUpdates {
+		if now.Sub(entry.startTime) > MaxUpdateAge {
+			if entry.cancel != nil {
+				entry.cancel()
+			}
 			delete(h.activeUpdates, deviceKey)
-			slog.Debug("Cleaned up stale active update entry", "device", deviceKey, "age", now.Sub(startTime))
+			slog.Debug("Cleaned up stale active update entry", "device", deviceKey, "age", now.Sub(entry.startTime))
 		}
 	}
 }
@@ -729,9 +767,13 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		go func(devices []IPAndEOJ, force bool) {
 			defer wg.Done()
 
+			// グループ固有のcontextを作成
+			ctx, cancel := context.WithCancel(h.ctx)
+			defer cancel()
+
 			// グループ内の全デバイスをアクティブとしてマーク（処理開始前に実行）
 			for _, device := range devices {
-				h.markUpdateActive(device)
+				h.markUpdateActive(device, cancel)
 			}
 			defer func() {
 				for _, device := range devices {
@@ -739,7 +781,7 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 				}
 			}()
 
-			h.processBroadcastGroup(devices, force, &errMutex, &firstErr)
+			h.processBroadcastGroup(ctx, devices, force, &errMutex, &firstErr)
 		}(group, force)
 	}
 
@@ -780,15 +822,19 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 		wg.Add(1)
 
 		// 各デバイスに対して並列処理を実行
-		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration, force bool) {
+		go func(device IPAndEOJ, propMap PropertyMap, delay time.Duration) {
 			defer wg.Done()
 
+			// デバイス固有のcontextを作成
+			ctx, cancel := context.WithCancel(h.ctx)
+			defer cancel()
+
 			// デバイスをアクティブとしてマーク（遅延前に実行）
-			h.markUpdateActive(device)
+			h.markUpdateActive(device, cancel)
 			defer h.markUpdateInactive(device)
 
-			h.processIndividualDevice(device, propMap, delay, storeError)
-		}(device, propMap, delay, force)
+			h.processIndividualDevice(ctx, device, propMap, delay, storeError)
+		}(device, propMap, delay)
 	}
 
 	// 全てのデバイスの更新が完了するまで待つ
@@ -842,7 +888,7 @@ func calculateRequestDelay(requestIndex int, baseDelay time.Duration) time.Durat
 }
 
 // processBroadcastGroup はブロードキャスト対象のデバイスグループを処理する
-func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force bool, errMutex *sync.Mutex, errPtr *error) {
+func (h *CommunicationHandler) processBroadcastGroup(ctx context.Context, devices []IPAndEOJ, force bool, errMutex *sync.Mutex, errPtr *error) {
 	if len(devices) == 0 {
 		return
 	}
@@ -856,6 +902,13 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 			*errPtr = err
 		}
 		errMutex.Unlock()
+	}
+
+	// キャンセルチェック
+	select {
+	case <-ctx.Done():
+		return
+	default:
 	}
 
 	// グループ内の各デバイスのプロパティマップを確認し、有効なデバイスのみでブロードキャスト
@@ -903,7 +956,7 @@ func (h *CommunicationHandler) processBroadcastGroup(devices []IPAndEOJ, force b
 
 	// ブロードキャストでプロパティ取得
 	results, err := h.session.GetPropertiesBroadcast(
-		h.ctx,
+		ctx,
 		devices,
 		propMap.EPCs(),
 	)
@@ -984,18 +1037,23 @@ func (h *CommunicationHandler) tryGetPropertyMap(device IPAndEOJ) (PropertyMap, 
 }
 
 // processIndividualDevice は個別デバイスを処理する
-func (h *CommunicationHandler) processIndividualDevice(device IPAndEOJ, propMap PropertyMap, delay time.Duration, storeError func(error)) {
+func (h *CommunicationHandler) processIndividualDevice(ctx context.Context, device IPAndEOJ, propMap PropertyMap, delay time.Duration, storeError func(error)) {
 	deviceName := h.dataAccessor.DeviceStringWithAlias(device)
 
 	// 同じIPアドレスのデバイスに対して遅延を追加
 	if delay > 0 {
-		time.Sleep(delay)
+		select {
+		case <-ctx.Done():
+			return // キャンセルされた場合は即座に終了
+		case <-time.After(delay):
+			// 遅延完了
+		}
 	}
 
 	// デバイスのアクティブマークはgoroutine開始時に既に実行済み
 
 	success, properties, failedEPCs, err := h.session.GetProperties(
-		h.ctx,
+		ctx,
 		device,
 		propMap.EPCs(),
 	)
