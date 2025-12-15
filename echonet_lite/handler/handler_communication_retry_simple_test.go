@@ -19,7 +19,7 @@ func TestActiveUpdatesTracking(t *testing.T) {
 	// テスト用のCommunicationHandlerを作成（依存関係はnilで問題ない）
 	handler := &CommunicationHandler{
 		ctx:           ctx,
-		activeUpdates: make(map[string]time.Time),
+		activeUpdates: make(map[string]*activeUpdateEntry),
 	}
 
 	// バックグラウンドクリーンアップを開始
@@ -35,8 +35,8 @@ func TestActiveUpdatesTracking(t *testing.T) {
 		// 最初はアクティブではない
 		assert.False(t, handler.isUpdateActive(device, false))
 
-		// アクティブにマーク
-		handler.markUpdateActive(device)
+		// アクティブにマーク（テストではキャンセル関数はnilで良い）
+		handler.markUpdateActive(device, nil)
 
 		// アクティブになったことを確認
 		assert.True(t, handler.isUpdateActive(device, false))
@@ -48,29 +48,32 @@ func TestActiveUpdatesTracking(t *testing.T) {
 		assert.False(t, handler.isUpdateActive(device, false))
 	})
 
-	t.Run("force flag bypasses active check", func(t *testing.T) {
+	t.Run("force flag cancels existing update and bypasses active check", func(t *testing.T) {
 		// アクティブにマーク
-		handler.markUpdateActive(device)
+		handler.markUpdateActive(device, nil)
 
 		// force=falseの場合はアクティブ
 		assert.True(t, handler.isUpdateActive(device, false))
 
-		// force=trueの場合は非アクティブとして扱われる
+		// force=trueの場合は既存の更新をキャンセルして非アクティブとして扱われる
 		assert.False(t, handler.isUpdateActive(device, true))
 
-		// クリーンアップ
-		handler.markUpdateInactive(device)
+		// force=trueでキャンセル後はエントリが削除されている
+		assert.False(t, handler.isUpdateActive(device, false))
 	})
 
 	t.Run("old entries are cleaned up automatically", func(t *testing.T) {
 		// アクティブにマーク
-		handler.markUpdateActive(device)
+		handler.markUpdateActive(device, nil)
 		assert.True(t, handler.isUpdateActive(device, false))
 
 		// 古いエントリを手動で設定（テスト用）
 		handler.activeUpdatesMu.Lock()
-		deviceKey := fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
-		handler.activeUpdates[deviceKey] = time.Now().Add(-MaxUpdateAge - time.Minute)
+		deviceKey := makeDeviceKey(device)
+		handler.activeUpdates[deviceKey] = &activeUpdateEntry{
+			startTime: time.Now().Add(-MaxUpdateAge - time.Minute),
+			cancel:    nil,
+		}
 		handler.activeUpdatesMu.Unlock()
 
 		// 古いエントリは自動的にクリーンアップされる
@@ -92,7 +95,7 @@ func TestActiveUpdatesTracking(t *testing.T) {
 				testDevice := IPAndEOJ{IP: testIP, EOJ: echonet_lite.MakeEOJ(0x0291, 0x01)}
 
 				for j := 0; j < iterations; j++ {
-					handler.markUpdateActive(testDevice)
+					handler.markUpdateActive(testDevice, nil)
 					handler.isUpdateActive(testDevice, false)
 					handler.markUpdateInactive(testDevice)
 				}
@@ -112,15 +115,21 @@ func TestActiveUpdatesTracking(t *testing.T) {
 		}
 
 		for _, device := range devices {
-			handler.markUpdateActive(device)
+			handler.markUpdateActive(device, nil)
 		}
 
 		// 一部を古いエントリに設定
 		handler.activeUpdatesMu.Lock()
-		deviceKey0 := fmt.Sprintf("%s:%04X:%02X", devices[0].IP.String(), uint16(devices[0].EOJ.ClassCode()), devices[0].EOJ.InstanceCode())
-		deviceKey1 := fmt.Sprintf("%s:%04X:%02X", devices[1].IP.String(), uint16(devices[1].EOJ.ClassCode()), devices[1].EOJ.InstanceCode())
-		handler.activeUpdates[deviceKey0] = time.Now().Add(-MaxUpdateAge - time.Minute)
-		handler.activeUpdates[deviceKey1] = time.Now().Add(-MaxUpdateAge - time.Minute)
+		deviceKey0 := makeDeviceKey(devices[0])
+		deviceKey1 := makeDeviceKey(devices[1])
+		handler.activeUpdates[deviceKey0] = &activeUpdateEntry{
+			startTime: time.Now().Add(-MaxUpdateAge - time.Minute),
+			cancel:    nil,
+		}
+		handler.activeUpdates[deviceKey1] = &activeUpdateEntry{
+			startTime: time.Now().Add(-MaxUpdateAge - time.Minute),
+			cancel:    nil,
+		}
 		handler.activeUpdatesMu.Unlock()
 
 		// バックグラウンドクリーンアップを手動実行
@@ -139,13 +148,16 @@ func TestActiveUpdatesTracking(t *testing.T) {
 		testDevice := IPAndEOJ{IP: net.ParseIP("192.168.1.200"), EOJ: echonet_lite.MakeEOJ(0x0291, 0x01)}
 
 		// アクティブにマーク
-		handler.markUpdateActive(testDevice)
+		handler.markUpdateActive(testDevice, nil)
 		assert.True(t, handler.isUpdateActive(testDevice, false))
 
 		// 古いエントリを設定
 		handler.activeUpdatesMu.Lock()
-		deviceKey := fmt.Sprintf("%s:%04X:%02X", testDevice.IP.String(), uint16(testDevice.EOJ.ClassCode()), testDevice.EOJ.InstanceCode())
-		handler.activeUpdates[deviceKey] = time.Now().Add(-MaxUpdateAge - time.Minute)
+		deviceKey := makeDeviceKey(testDevice)
+		handler.activeUpdates[deviceKey] = &activeUpdateEntry{
+			startTime: time.Now().Add(-MaxUpdateAge - time.Minute),
+			cancel:    nil,
+		}
 		handler.activeUpdatesMu.Unlock()
 
 		// isUpdateActiveを呼び出すと、double-checked lockingによって古いエントリが削除される
@@ -156,5 +168,26 @@ func TestActiveUpdatesTracking(t *testing.T) {
 		_, exists := handler.activeUpdates[deviceKey]
 		handler.activeUpdatesMu.RUnlock()
 		assert.False(t, exists)
+	})
+
+	t.Run("force flag calls cancel function", func(t *testing.T) {
+		testDevice := IPAndEOJ{IP: net.ParseIP("192.168.1.201"), EOJ: echonet_lite.MakeEOJ(0x0291, 0x01)}
+
+		// キャンセルが呼ばれたかどうかを追跡
+		cancelCalled := false
+		testCancel := func() {
+			cancelCalled = true
+		}
+
+		// アクティブにマーク（キャンセル関数付き）
+		handler.markUpdateActive(testDevice, testCancel)
+		assert.True(t, handler.isUpdateActive(testDevice, false))
+
+		// force=trueでキャンセルが呼ばれることを確認
+		assert.False(t, handler.isUpdateActive(testDevice, true))
+		assert.True(t, cancelCalled)
+
+		// エントリが削除されていることを確認
+		assert.False(t, handler.isUpdateActive(testDevice, false))
 	})
 }
