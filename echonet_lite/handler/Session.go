@@ -118,8 +118,13 @@ func (s *Session) IsLocalIP(ip net.IP) bool {
 
 // makeAliveKey はデバイスの生存確認用キー文字列を生成する
 // 形式: "IP:ClassCode:InstanceCode" (例: "192.168.1.100:0291:01")
+// IPv4-mapped IPv6アドレスはIPv4に正規化される
 func makeAliveKey(device echonet_lite.IPAndEOJ) string {
-	return fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
+	ip := device.IP
+	if ip4 := ip.To4(); ip4 != nil {
+		ip = ip4
+	}
+	return fmt.Sprintf("%s:%04X:%02X", ip.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
 }
 
 // SignalDeviceAlive はデバイスが生存していることを記録する
@@ -129,7 +134,7 @@ func (s *Session) SignalDeviceAlive(device echonet_lite.IPAndEOJ) {
 	defer s.aliveMu.Unlock()
 	key := makeAliveKey(device)
 	s.lastAliveTime[key] = time.Now()
-	slog.Debug("デバイス生存確認を記録", "device", device.Specifier())
+	slog.Info("デバイス生存確認を記録", "key", key)
 }
 
 // getLastAliveTime はデバイスの最終生存確認時刻を取得する
