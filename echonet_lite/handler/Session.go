@@ -105,11 +105,40 @@ type Session struct {
 	failedEPCs      map[string][]echonet_lite.EPCType // 失敗したEPCsを保持するマップ
 	IsOfflineFunc   func(echonet_lite.IPAndEOJ) bool  // デバイスがオフラインかどうかを判定する関数（オプショナル）
 	rng             *mathrand.Rand                    // スレッドセーフな乱数生成器
+
+	// INFメッセージ受信によるデバイス生存確認
+	aliveMu       sync.RWMutex         // lastAliveTime用の排他制御
+	lastAliveTime map[string]time.Time // デバイスキー -> 最終生存確認時刻
 }
 
 // IsLocalIP は指定されたIPアドレスが自身のローカルIPのいずれかと一致するかを確認します
 func (s *Session) IsLocalIP(ip net.IP) bool {
 	return s.conn.IsLocalIP(ip)
+}
+
+// makeAliveKey はデバイスの生存確認用キー文字列を生成する
+// 形式: "IP:ClassCode:InstanceCode" (例: "192.168.1.100:0291:01")
+func makeAliveKey(device echonet_lite.IPAndEOJ) string {
+	return fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
+}
+
+// SignalDeviceAlive はデバイスが生存していることを記録する
+// INFメッセージを受信した際に呼び出され、リトライ中のタイムアウト判定に使用される
+func (s *Session) SignalDeviceAlive(device echonet_lite.IPAndEOJ) {
+	s.aliveMu.Lock()
+	defer s.aliveMu.Unlock()
+	key := makeAliveKey(device)
+	s.lastAliveTime[key] = time.Now()
+	slog.Debug("デバイス生存確認を記録", "device", device.Specifier())
+}
+
+// getLastAliveTime はデバイスの最終生存確認時刻を取得する
+// 記録がない場合はゼロ値を返す
+func (s *Session) getLastAliveTime(device echonet_lite.IPAndEOJ) time.Time {
+	s.aliveMu.RLock()
+	defer s.aliveMu.RUnlock()
+	key := makeAliveKey(device)
+	return s.lastAliveTime[key]
 }
 
 // calculateRetryIntervalWithJitter は、再送間隔にジッタを加えた値を返します
@@ -192,6 +221,7 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug b
 		RetryInterval: 3 * time.Second, // デフォルトの再送間隔
 		failedEPCs:    make(map[string][]echonet_lite.EPCType),
 		IsOfflineFunc: isOfflineFunc,
+		lastAliveTime: make(map[string]time.Time),
 	}, nil
 }
 
@@ -615,6 +645,7 @@ func (s *Session) waitForResponseWithRetry(
 	// 再送カウンタと時間追跡
 	retryCount := 0
 	startTime := time.Now()
+	lastRetryTime := startTime // 最後のリトライ試行時刻（INFによるリセット判定用）
 
 	// 初回のタイマーをジッタ付きで作成
 	intervalWithJitter := s.calculateRetryIntervalWithJitter(0)
@@ -636,7 +667,18 @@ func (s *Session) waitForResponseWithRetry(
 
 		case <-timer.C:
 			// タイムアウトした場合
-			retryCount++
+			now := time.Now()
+
+			// INFメッセージによる生存確認をチェック
+			// 最後のリトライ以降にデバイスからINFを受信していればリトライカウントをリセット
+			lastAlive := s.getLastAliveTime(device)
+			if !lastAlive.IsZero() && lastAlive.After(lastRetryTime) {
+				slog.Info("INF受信によりリトライカウントをリセット", "device", device, "retryCount", retryCount, "lastAlive", lastAlive)
+				retryCount = 0
+			} else {
+				retryCount++
+			}
+			lastRetryTime = now
 
 			if retryCount >= s.MaxRetries {
 				// 最大再送回数に達した場合
