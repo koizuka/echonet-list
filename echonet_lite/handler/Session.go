@@ -188,7 +188,7 @@ func CreateSession(ctx context.Context, ip net.IP, EOJ echonet_lite.EOJ, debug b
 		Debug:         debug,
 		ctx:           sessionCtx,
 		cancel:        cancel,
-		MaxRetries:    7,               // デフォルトの最大再送回数
+		MaxRetries:    7,               // デフォルトの最大再送回数（指数バックオフで約2分のタイムアウト、応答の遅い冷蔵庫などに対応）
 		RetryInterval: 3 * time.Second, // デフォルトの再送間隔
 		failedEPCs:    make(map[string][]echonet_lite.EPCType),
 		IsOfflineFunc: isOfflineFunc,

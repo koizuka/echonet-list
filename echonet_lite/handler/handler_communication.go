@@ -63,6 +63,7 @@ func (h *CommunicationHandler) SetDebug(debug bool) {
 }
 
 // makeDeviceKey はデバイスのキー文字列を生成する
+// 形式: "IP:ClassCode:InstanceCode" (例: "192.168.1.100:0291:01")
 func makeDeviceKey(device IPAndEOJ) string {
 	return fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
 }
@@ -110,7 +111,7 @@ func (h *CommunicationHandler) cancelExistingUpdate(deviceKey string) {
 
 	if entry, exists := h.activeUpdates[deviceKey]; exists {
 		if entry.cancel != nil {
-			slog.Info("既存の更新処理をキャンセル", "device", deviceKey)
+			slog.Debug("既存の更新処理をキャンセル", "device", deviceKey)
 			entry.cancel()
 		}
 		delete(h.activeUpdates, deviceKey)
@@ -772,6 +773,8 @@ func (h *CommunicationHandler) UpdateProperties(criteria FilterCriteria, force b
 			defer cancel()
 
 			// グループ内の全デバイスをアクティブとしてマーク（処理開始前に実行）
+			// 全デバイスが同じcontextを共有するため、いずれかのデバイスへの強制更新で
+			// グループ全体がキャンセルされる（ブロードキャストは単一リクエストなので適切な動作）
 			for _, device := range devices {
 				h.markUpdateActive(device, cancel)
 			}
@@ -907,6 +910,7 @@ func (h *CommunicationHandler) processBroadcastGroup(ctx context.Context, device
 	// キャンセルチェック
 	select {
 	case <-ctx.Done():
+		slog.Debug("ブロードキャストグループの更新処理がキャンセルされました", "device", firstDevice.Specifier(), "reason", ctx.Err())
 		return
 	default:
 	}
@@ -1044,7 +1048,8 @@ func (h *CommunicationHandler) processIndividualDevice(ctx context.Context, devi
 	if delay > 0 {
 		select {
 		case <-ctx.Done():
-			return // キャンセルされた場合は即座に終了
+			slog.Debug("個別デバイスの更新処理がキャンセルされました", "device", deviceName, "reason", ctx.Err())
+			return
 		case <-time.After(delay):
 			// 遅延完了
 		}
