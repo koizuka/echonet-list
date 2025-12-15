@@ -75,7 +75,8 @@ func handleDeviceTimeout(device IPAndEOJ, manager OfflineManager) {
 }
 
 // handleDeviceOnline processes device online events to potentially recover NodeProfile
-// For non-NodeProfile devices: if the NodeProfile of the same IP is offline, try to recover it by UpdateProperties
+// For non-NodeProfile devices: if the NodeProfile of the same IP is offline, set it online directly
+// (since receiving INF from a device at that IP proves the NodeProfile is alive)
 func handleDeviceOnline(device IPAndEOJ, handler *ECHONETLiteHandler) {
 	// NodeProfile以外のデバイスがオンラインになった場合
 	if device.EOJ.ClassCode() != echonet_lite.NodeProfile_ClassCode {
@@ -84,27 +85,11 @@ func handleDeviceOnline(device IPAndEOJ, handler *ECHONETLiteHandler) {
 			EOJ: echonet_lite.NodeProfileObject,
 		}
 
-		// NodeProfileがオフラインの場合、復活を試みる
+		// NodeProfileがオフラインの場合、直接オンラインに設定
+		// （同じIPからINFを受信できたということは、NodeProfileも生きている）
 		if handler.IsOffline(nodeProfile) {
-			slog.Info("デバイスオンライン: NodeProfileがオフラインのため復活を試行", "device", device.Specifier(), "nodeProfile", nodeProfile.Specifier())
-
-			// NodeProfileのプロパティを更新することで生存確認
-			nodeProfileClassCode := echonet_lite.NodeProfile_ClassCode
-			criteria := FilterCriteria{
-				Device: DeviceSpecifier{
-					IP:           &device.IP,
-					ClassCode:    &nodeProfileClassCode,
-					InstanceCode: nil, // 全インスタンス
-				},
-				ExcludeOffline: false, // オフラインデバイスも対象に含める
-			}
-
-			err := handler.UpdateProperties(criteria, true) // forceフラグをtrueで実行
-			if err != nil {
-				slog.Warn("NodeProfile復活の試行に失敗", "nodeProfile", nodeProfile.Specifier(), "error", err)
-			} else {
-				slog.Info("NodeProfile復活処理を実行", "nodeProfile", nodeProfile.Specifier())
-			}
+			slog.Info("デバイスオンライン: NodeProfileも同時にオンラインに設定", "device", device.Specifier(), "nodeProfile", nodeProfile.Specifier())
+			handler.GetDataManagementHandler().SetOffline(nodeProfile, false)
 		}
 	}
 }
