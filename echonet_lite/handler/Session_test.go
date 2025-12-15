@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Helper function to create a dummy Session for testing
@@ -20,11 +21,12 @@ func createTestSession() *Session {
 	// Create a minimal Session struct for testing updateFailedEPCs
 	// We don't need a real connection for this specific test
 	return &Session{
-		mu:         sync.RWMutex{},
-		eoj:        eoj,
-		ctx:        ctx,
-		cancel:     cancel,
-		failedEPCs: make(map[string][]echonet_lite.EPCType),
+		mu:            sync.RWMutex{},
+		eoj:           eoj,
+		ctx:           ctx,
+		cancel:        cancel,
+		failedEPCs:    make(map[string][]echonet_lite.EPCType),
+		lastAliveTime: make(map[string]time.Time),
 	}
 }
 
@@ -230,5 +232,122 @@ func TestSession_updateFailedEPCs(t *testing.T) {
 			// Clean up context
 			s.cancel()
 		})
+	}
+}
+
+// TestSession_SignalDeviceAlive tests the device alive signaling mechanism
+func TestSession_SignalDeviceAlive(t *testing.T) {
+	s := createTestSession()
+	defer s.cancel()
+
+	// Test device
+	deviceIP := net.ParseIP("192.168.1.100")
+	deviceEOJ := echonet_lite.MakeEOJ(0x03B7, 0x01) // Refrigerator
+	device := echonet_lite.IPAndEOJ{IP: deviceIP, EOJ: deviceEOJ}
+
+	// Initially, lastAliveTime should be zero
+	aliveTime := s.getLastAliveTime(device)
+	if !aliveTime.IsZero() {
+		t.Errorf("Expected zero time for untracked device, got %v", aliveTime)
+	}
+
+	// Signal the device is alive
+	beforeSignal := time.Now()
+	s.SignalDeviceAlive(device)
+	afterSignal := time.Now()
+
+	// Check the recorded time
+	aliveTime = s.getLastAliveTime(device)
+	if aliveTime.IsZero() {
+		t.Error("Expected non-zero time after SignalDeviceAlive")
+	}
+	if aliveTime.Before(beforeSignal) || aliveTime.After(afterSignal) {
+		t.Errorf("Alive time %v should be between %v and %v", aliveTime, beforeSignal, afterSignal)
+	}
+
+	// Signal again and check it updates
+	time.Sleep(10 * time.Millisecond)
+	s.SignalDeviceAlive(device)
+	newAliveTime := s.getLastAliveTime(device)
+	if !newAliveTime.After(aliveTime) {
+		t.Errorf("Expected new alive time %v to be after previous %v", newAliveTime, aliveTime)
+	}
+}
+
+// TestSession_makeAliveKey tests the key generation for device alive tracking
+func TestSession_makeAliveKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		device   echonet_lite.IPAndEOJ
+		expected string
+	}{
+		{
+			name: "Refrigerator",
+			device: echonet_lite.IPAndEOJ{
+				IP:  net.ParseIP("192.168.0.83"),
+				EOJ: echonet_lite.MakeEOJ(0x03B7, 0x01),
+			},
+			expected: "192.168.0.83:03B7:01",
+		},
+		{
+			name: "Air Conditioner instance 2",
+			device: echonet_lite.IPAndEOJ{
+				IP:  net.ParseIP("10.0.0.1"),
+				EOJ: echonet_lite.MakeEOJ(0x0130, 0x02),
+			},
+			expected: "10.0.0.1:0130:02",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key := makeAliveKey(tt.device)
+			if key != tt.expected {
+				t.Errorf("makeAliveKey() = %v, want %v", key, tt.expected)
+			}
+		})
+	}
+}
+
+// TestSession_AliveSignalDifferentDevices tests that alive signals are tracked separately per device
+func TestSession_AliveSignalDifferentDevices(t *testing.T) {
+	s := createTestSession()
+	defer s.cancel()
+
+	// Two different devices
+	device1 := echonet_lite.IPAndEOJ{
+		IP:  net.ParseIP("192.168.0.83"),
+		EOJ: echonet_lite.MakeEOJ(0x03B7, 0x01),
+	}
+	device2 := echonet_lite.IPAndEOJ{
+		IP:  net.ParseIP("192.168.0.84"),
+		EOJ: echonet_lite.MakeEOJ(0x0130, 0x01),
+	}
+
+	// Signal device1
+	s.SignalDeviceAlive(device1)
+	time1 := s.getLastAliveTime(device1)
+	time2 := s.getLastAliveTime(device2)
+
+	if time1.IsZero() {
+		t.Error("device1 should have non-zero alive time")
+	}
+	if !time2.IsZero() {
+		t.Error("device2 should have zero alive time (not signaled)")
+	}
+
+	// Signal device2
+	time.Sleep(10 * time.Millisecond)
+	s.SignalDeviceAlive(device2)
+	newTime1 := s.getLastAliveTime(device1)
+	newTime2 := s.getLastAliveTime(device2)
+
+	// device1's time should be unchanged
+	if newTime1 != time1 {
+		t.Errorf("device1 time should be unchanged, got %v, want %v", newTime1, time1)
+	}
+	// device2's time should be set now
+	if newTime2.IsZero() {
+		t.Error("device2 should have non-zero alive time after signaling")
 	}
 }

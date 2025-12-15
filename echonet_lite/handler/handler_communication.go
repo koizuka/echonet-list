@@ -292,6 +292,10 @@ func (h *CommunicationHandler) onInfMessage(ip net.IP, msg *echonet_lite.ECHONET
 	slog.Info("INFメッセージを受信", "ip", ip, "SEOJ", msg.SEOJ, "DEOJ", msg.DEOJ, "ESV", msg.ESV, "Properties", msg.Properties.String(msg.SEOJ.ClassCode()))
 	// fmt.Printf("INFメッセージを受信: %v %v, DEOJ:%v\n", ip, msg.SEOJ, msg.DEOJ) // DEBUG
 
+	// デバイスの生存確認を記録（リトライ中のタイムアウト判定に使用）
+	sourceDevice := echonet_lite.IPAndEOJ{IP: ip, EOJ: msg.SEOJ}
+	h.session.SignalDeviceAlive(sourceDevice)
+
 	// DEOJ は instanceCode = 0 (ワイルドカード) の場合がある
 	if found := h.localDevices.FindEOJ(msg.DEOJ); len(found) == 0 {
 		// 許容できないDEOJをもつmsgは破棄
