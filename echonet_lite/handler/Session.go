@@ -118,13 +118,8 @@ func (s *Session) IsLocalIP(ip net.IP) bool {
 
 // makeAliveKey はデバイスの生存確認用キー文字列を生成する
 // 形式: "IP:ClassCode:InstanceCode" (例: "192.168.1.100:0291:01")
-// IPv4-mapped IPv6アドレスはIPv4に正規化される
 func makeAliveKey(device echonet_lite.IPAndEOJ) string {
-	ip := device.IP
-	if ip4 := ip.To4(); ip4 != nil {
-		ip = ip4
-	}
-	return fmt.Sprintf("%s:%04X:%02X", ip.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
+	return fmt.Sprintf("%s:%04X:%02X", device.IP.String(), uint16(device.EOJ.ClassCode()), device.EOJ.InstanceCode())
 }
 
 // SignalDeviceAlive はデバイスが生存していることを記録する
