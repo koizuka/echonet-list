@@ -70,6 +70,20 @@ func TestHandleManageLocationAliasFromClient_Add(t *testing.T) {
 	// Verify the alias was added
 	aliases, _ := handlerInstance.GetLocationSettings()
 	assert.Equal(t, "room2", aliases["#2F寝室"])
+
+	// Verify broadcast notification content
+	require.Len(t, mockTransport.broadcastMessages, 1)
+	var broadcastMsg protocol.Message
+	err = json.Unmarshal(mockTransport.broadcastMessages[0], &broadcastMsg)
+	require.NoError(t, err)
+	assert.Equal(t, protocol.MessageTypeLocationSettingsChanged, broadcastMsg.Type)
+
+	var payload protocol.LocationSettingsChangedPayload
+	err = json.Unmarshal(broadcastMsg.Payload, &payload)
+	require.NoError(t, err)
+	assert.Equal(t, protocol.LocationSettingsChangeTypeAliasAdded, payload.ChangeType)
+	assert.Equal(t, "#2F寝室", payload.Alias)
+	assert.Equal(t, "room2", payload.Value)
 }
 
 func TestHandleManageLocationAliasFromClient_Delete(t *testing.T) {
@@ -114,6 +128,19 @@ func TestHandleManageLocationAliasFromClient_Delete(t *testing.T) {
 	aliases, _ := handlerInstance.GetLocationSettings()
 	_, exists := aliases["#リビング"]
 	assert.False(t, exists)
+
+	// Verify broadcast notification content
+	require.Len(t, mockTransport.broadcastMessages, 1)
+	var broadcastMsg protocol.Message
+	err = json.Unmarshal(mockTransport.broadcastMessages[0], &broadcastMsg)
+	require.NoError(t, err)
+	assert.Equal(t, protocol.MessageTypeLocationSettingsChanged, broadcastMsg.Type)
+
+	var payload protocol.LocationSettingsChangedPayload
+	err = json.Unmarshal(broadcastMsg.Payload, &payload)
+	require.NoError(t, err)
+	assert.Equal(t, protocol.LocationSettingsChangeTypeAliasDeleted, payload.ChangeType)
+	assert.Equal(t, "#リビング", payload.Alias)
 }
 
 func TestHandleManageLocationAliasFromClient_InvalidAlias(t *testing.T) {
@@ -189,6 +216,19 @@ func TestHandleSetLocationOrderFromClient(t *testing.T) {
 	// Verify the order was set
 	_, order := handlerInstance.GetLocationSettings()
 	assert.Equal(t, []string{"living", "room2", "kitchen"}, order)
+
+	// Verify broadcast notification content
+	require.Len(t, mockTransport.broadcastMessages, 1)
+	var broadcastMsg protocol.Message
+	err = json.Unmarshal(mockTransport.broadcastMessages[0], &broadcastMsg)
+	require.NoError(t, err)
+	assert.Equal(t, protocol.MessageTypeLocationSettingsChanged, broadcastMsg.Type)
+
+	var payload protocol.LocationSettingsChangedPayload
+	err = json.Unmarshal(broadcastMsg.Payload, &payload)
+	require.NoError(t, err)
+	assert.Equal(t, protocol.LocationSettingsChangeTypeOrderChanged, payload.ChangeType)
+	assert.Equal(t, []string{"living", "room2", "kitchen"}, payload.Order)
 }
 
 func TestHandleSetLocationOrderFromClient_Reset(t *testing.T) {

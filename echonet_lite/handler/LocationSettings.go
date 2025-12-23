@@ -46,7 +46,7 @@ func (e LocationAliasNotFoundError) Error() string {
 // ロケーションエイリアスは # プレフィックスで始まる必要があります
 func ValidateLocationAlias(alias string) error {
 	if alias == "" {
-		return &InvalidLocationAliasError{Alias: alias, Reason: "empty alias is not allowed"}
+		return &InvalidLocationAliasError{Alias: alias, Reason: "alias cannot be empty"}
 	}
 
 	if !strings.HasPrefix(alias, LocationAliasPrefix) {

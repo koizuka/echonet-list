@@ -803,7 +803,7 @@ var CommandTable = []CommandDefinition{
 
 					cmd := newCommand(CmdLocationAliasAdd)
 					cmd.DeviceAlias = &alias
-					cmd.DebugMode = &rawValue // rawValue を DebugMode フィールドに格納
+					cmd.RawValue = &rawValue
 					return cmd, nil
 
 				case "delete":

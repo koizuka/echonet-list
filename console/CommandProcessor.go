@@ -809,7 +809,7 @@ func (p *CommandProcessor) processLocationAliasListCommand() error {
 // processLocationAliasAddCommand は、ロケーションエイリアスを追加する
 func (p *CommandProcessor) processLocationAliasAddCommand(cmd *Command) error {
 	alias := *cmd.DeviceAlias
-	value := *cmd.DebugMode // rawValue は DebugMode フィールドに格納されている
+	value := *cmd.RawValue
 
 	err := p.handler.LocationAliasAdd(alias, value)
 	if err != nil {
