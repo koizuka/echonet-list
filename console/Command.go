@@ -35,6 +35,12 @@ const (
 	CmdGroupRemove
 	CmdGroupDelete
 	CmdGroupList
+	CmdLocationList
+	CmdLocationAliasList
+	CmdLocationAliasAdd
+	CmdLocationAliasDelete
+	CmdLocationOrderList
+	CmdLocationOrderReset
 )
 
 // プロパティ表示モードを表す型

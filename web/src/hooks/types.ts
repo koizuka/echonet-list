@@ -29,6 +29,15 @@ export type DeviceHistoryEntry = {
 export type DeviceAlias = Record<string, string>; // alias -> device ID string
 export type DeviceGroup = Record<string, string[]>; // group name -> device ID strings
 
+// Location Settings Types
+export type LocationAlias = Record<string, string>; // "#alias" -> "rawLocationValue"
+export type LocationOrder = string[]; // ordered location IDs
+
+export type LocationSettings = {
+  aliases: LocationAlias;
+  order: LocationOrder;
+};
+
 export type ErrorInfo = {
   code: string;
   message: string;
@@ -41,6 +50,7 @@ export type InitialState = {
     devices: Record<string, Device>;
     aliases: DeviceAlias;
     groups: DeviceGroup;
+    locationSettings?: LocationSettings;
     serverStartupTime: string; // ISO 8601 format
   };
 };
@@ -114,6 +124,16 @@ export type GroupChanged = {
   };
 };
 
+export type LocationSettingsChanged = {
+  type: 'location_settings_changed';
+  payload: {
+    change_type: 'alias_added' | 'alias_updated' | 'alias_deleted' | 'order_changed';
+    alias?: string; // for alias changes
+    value?: string; // for alias add/update
+    order?: string[]; // for order changes
+  };
+};
+
 export type ErrorNotification = {
   type: 'error_notification';
   payload: ErrorInfo;
@@ -129,7 +149,7 @@ export type LogNotification = {
   };
 };
 
-export type ServerMessage = 
+export type ServerMessage =
   | InitialState
   | DeviceAdded
   | AliasChanged
@@ -139,6 +159,7 @@ export type ServerMessage =
   | DeviceOnline
   | DeviceDeleted
   | GroupChanged
+  | LocationSettingsChanged
   | ErrorNotification
   | LogNotification;
 
@@ -193,7 +214,17 @@ export type GetDeviceHistoryRequest = BaseRequest<{
   settableOnly?: boolean;
 }>;
 
-export type ClientMessage = 
+export type ManageLocationAliasRequest = BaseRequest<{
+  action: 'add' | 'delete';
+  alias: string;
+  value?: string; // required for 'add' action
+}>;
+
+export type SetLocationOrderRequest = BaseRequest<{
+  order: string[];
+}>;
+
+export type ClientMessage =
   | GetPropertiesRequest
   | SetPropertiesRequest
   | UpdatePropertiesRequest
@@ -202,7 +233,9 @@ export type ClientMessage =
   | DiscoverDevicesRequest
   | GetPropertyDescriptionRequest
   | DeleteDeviceRequest
-  | GetDeviceHistoryRequest;
+  | GetDeviceHistoryRequest
+  | ManageLocationAliasRequest
+  | SetLocationOrderRequest;
 
 // Command Result Response
 export type CommandResult = {
@@ -257,6 +290,7 @@ export type ECHONETState = {
   devices: Record<string, Device>;
   aliases: DeviceAlias;
   groups: DeviceGroup;
+  locationSettings: LocationSettings;
   connectionState: ConnectionState;
   propertyDescriptions: Record<string, PropertyDescriptionData>; // classCode -> PropertyDescriptionData
   initialStateReceived: boolean;

@@ -603,6 +603,12 @@ func (ws *WebSocketServer) handleClientMessage(connID string, message []byte) er
 		return handle(ws.handleDebugSetOfflineFromClient)
 	case protocol.MessageTypeGetDeviceHistory:
 		return handle(ws.handleGetDeviceHistoryFromClient)
+	case protocol.MessageTypeGetLocationSettings:
+		return handle(ws.handleGetLocationSettingsFromClient)
+	case protocol.MessageTypeManageLocationAlias:
+		return handle(ws.handleManageLocationAliasFromClient)
+	case protocol.MessageTypeSetLocationOrder:
+		return handle(ws.handleSetLocationOrderFromClient)
 
 	default:
 		slog.Error("Unknown message type", "type", msg.Type)
@@ -1097,11 +1103,27 @@ func (ws *WebSocketServer) generateAndSendInitialState(connID string) error {
 		slog.Debug("Group list processing completed", "connID", connID, "groupCount", len(groups))
 	}
 
+	// Get location settings
+	var locationSettings *protocol.LocationSettingsData
+	if locAliases, locOrder := ws.handler.GetLocationSettings(); locAliases != nil || locOrder != nil {
+		locationSettings = &protocol.LocationSettingsData{
+			Aliases: locAliases,
+			Order:   locOrder,
+		}
+		if locationSettings.Aliases == nil {
+			locationSettings.Aliases = make(map[string]string)
+		}
+		if locationSettings.Order == nil {
+			locationSettings.Order = []string{}
+		}
+	}
+
 	// Create initial state payload
 	payload := protocol.InitialStatePayload{
 		Devices:           protoDevices,
 		Aliases:           aliases,
 		Groups:            groups,
+		LocationSettings:  locationSettings,
 		ServerStartupTime: ws.serverStartupTime,
 	}
 

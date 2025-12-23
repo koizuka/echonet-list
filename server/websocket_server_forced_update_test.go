@@ -188,6 +188,23 @@ func (m *MockECHONETClientWithForceTracking) Close() error {
 	return nil
 }
 
+// LocationSettingsManager interface methods
+func (m *MockECHONETClientWithForceTracking) GetLocationSettings() (map[string]string, []string) {
+	return map[string]string{}, []string{}
+}
+
+func (m *MockECHONETClientWithForceTracking) LocationAliasAdd(alias, value string) error {
+	return nil
+}
+
+func (m *MockECHONETClientWithForceTracking) LocationAliasDelete(alias string) error {
+	return nil
+}
+
+func (m *MockECHONETClientWithForceTracking) SetLocationOrder(order []string) error {
+	return nil
+}
+
 // createTestServerWithTiming creates a WebSocketServer with configurable timing for testing
 func createTestServerWithTiming(periodicInterval, forcedInterval time.Duration) (*WebSocketServer, *MockECHONETClientWithForceTracking, error) {
 	ctx := context.Background()

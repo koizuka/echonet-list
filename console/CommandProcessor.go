@@ -149,6 +149,18 @@ func (p *CommandProcessor) processCommands() {
 			cmd.Error = p.processGroupListCommand(cmd)
 		case CmdHistory:
 			cmd.Error = p.processHistoryCommand(cmd)
+		case CmdLocationList:
+			cmd.Error = p.processLocationListCommand()
+		case CmdLocationAliasList:
+			cmd.Error = p.processLocationAliasListCommand()
+		case CmdLocationAliasAdd:
+			cmd.Error = p.processLocationAliasAddCommand(cmd)
+		case CmdLocationAliasDelete:
+			cmd.Error = p.processLocationAliasDeleteCommand(cmd)
+		case CmdLocationOrderList:
+			cmd.Error = p.processLocationOrderListCommand()
+		case CmdLocationOrderReset:
+			cmd.Error = p.processLocationOrderResetCommand()
 		default:
 			panic("unhandled default case")
 		}
@@ -721,5 +733,130 @@ func (p *CommandProcessor) processGroupListCommand(cmd *Command) error {
 			}
 		}
 	}
+	return nil
+}
+
+// processLocationListCommand は、設置場所の一覧を表示する
+func (p *CommandProcessor) processLocationListCommand() error {
+	aliases, order := p.handler.GetLocationSettings()
+
+	fmt.Println("設置場所一覧:")
+	if len(aliases) == 0 && len(order) == 0 {
+		fmt.Println("  設置場所の設定はありません")
+		return nil
+	}
+
+	// エイリアス一覧を表示
+	if len(aliases) > 0 {
+		fmt.Println("  エイリアス:")
+		sortedAliases := make([]string, 0, len(aliases))
+		for alias := range aliases {
+			sortedAliases = append(sortedAliases, alias)
+		}
+		sort.Strings(sortedAliases)
+		for _, alias := range sortedAliases {
+			fmt.Printf("    %s -> %s\n", alias, aliases[alias])
+		}
+	}
+
+	// 表示順を表示
+	if len(order) > 0 {
+		fmt.Println("  表示順:")
+		for i, loc := range order {
+			// エイリアスがあれば一緒に表示
+			aliasStr := ""
+			for alias, value := range aliases {
+				if value == loc {
+					if aliasStr != "" {
+						aliasStr += ", "
+					}
+					aliasStr += alias
+				}
+			}
+			if aliasStr != "" {
+				fmt.Printf("    %d. %s (%s)\n", i+1, loc, aliasStr)
+			} else {
+				fmt.Printf("    %d. %s\n", i+1, loc)
+			}
+		}
+	}
+
+	return nil
+}
+
+// processLocationAliasListCommand は、ロケーションエイリアスの一覧を表示する
+func (p *CommandProcessor) processLocationAliasListCommand() error {
+	aliases, _ := p.handler.GetLocationSettings()
+
+	if len(aliases) == 0 {
+		fmt.Println("ロケーションエイリアスは登録されていません")
+		return nil
+	}
+
+	fmt.Println("ロケーションエイリアス一覧:")
+	sortedAliases := make([]string, 0, len(aliases))
+	for alias := range aliases {
+		sortedAliases = append(sortedAliases, alias)
+	}
+	sort.Strings(sortedAliases)
+	for _, alias := range sortedAliases {
+		fmt.Printf("  %s -> %s\n", alias, aliases[alias])
+	}
+
+	return nil
+}
+
+// processLocationAliasAddCommand は、ロケーションエイリアスを追加する
+func (p *CommandProcessor) processLocationAliasAddCommand(cmd *Command) error {
+	alias := *cmd.DeviceAlias
+	value := *cmd.DebugMode // rawValue は DebugMode フィールドに格納されている
+
+	err := p.handler.LocationAliasAdd(alias, value)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("ロケーションエイリアス %s を追加しました (値: %s)\n", alias, value)
+	return nil
+}
+
+// processLocationAliasDeleteCommand は、ロケーションエイリアスを削除する
+func (p *CommandProcessor) processLocationAliasDeleteCommand(cmd *Command) error {
+	alias := *cmd.DeviceAlias
+
+	err := p.handler.LocationAliasDelete(alias)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("ロケーションエイリアス %s を削除しました\n", alias)
+	return nil
+}
+
+// processLocationOrderListCommand は、表示順の一覧を表示する
+func (p *CommandProcessor) processLocationOrderListCommand() error {
+	_, order := p.handler.GetLocationSettings()
+
+	if len(order) == 0 {
+		fmt.Println("表示順は設定されていません")
+		return nil
+	}
+
+	fmt.Println("設置場所の表示順:")
+	for i, loc := range order {
+		fmt.Printf("  %d. %s\n", i+1, loc)
+	}
+
+	return nil
+}
+
+// processLocationOrderResetCommand は、表示順をリセットする
+func (p *CommandProcessor) processLocationOrderResetCommand() error {
+	err := p.handler.SetLocationOrder([]string{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("設置場所の表示順をリセットしました")
 	return nil
 }

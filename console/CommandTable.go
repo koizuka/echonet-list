@@ -722,6 +722,129 @@ var CommandTable = []CommandDefinition{
 		},
 	},
 	{
+		Name:    "location",
+		Summary: "設置場所のエイリアスと表示順の管理",
+		Syntax:  "location list | location alias list|add|delete [#alias] [rawValue] | location order list|reset",
+		Description: []string{
+			"設置場所のエイリアス（別名）と表示順を管理します。",
+			"",
+			"サブコマンド:",
+			"  location list: 設置場所の一覧を表示（エイリアス付き）",
+			"  location alias list: エイリアスの一覧を表示",
+			"  location alias add #alias rawValue: エイリアスを追加",
+			"    #alias: エイリアス名（#で始まる必要があります）",
+			"    rawValue: 設置場所の生の値（例: living, room2）",
+			"  location alias delete #alias: エイリアスを削除",
+			"  location order list: 表示順の一覧を表示",
+			"  location order reset: 表示順をリセット（デフォルトの順序に戻す）",
+			"",
+			"例: location list",
+			"例: location alias list",
+			"例: location alias add #2F寝室 room2",
+			"例: location alias delete #2F寝室",
+			"例: location order list",
+			"例: location order reset",
+		},
+		GetCandidatesFunc: func(c client.ECHONETListClient, d prompt.Document) []prompt.Suggest {
+			words := splitWords(d.TextBeforeCursor())
+			wordCount := len(words)
+			suggestions := []prompt.Suggest{}
+
+			if wordCount == 2 { // サブコマンド (list, alias, order)
+				suggestions = []prompt.Suggest{
+					{Text: "list", Description: "設置場所の一覧を表示"},
+					{Text: "alias", Description: "エイリアスの管理"},
+					{Text: "order", Description: "表示順の管理"},
+				}
+			} else if wordCount == 3 && words[1] == "alias" { // alias サブコマンド
+				suggestions = []prompt.Suggest{
+					{Text: "list", Description: "エイリアスの一覧を表示"},
+					{Text: "add", Description: "エイリアスを追加"},
+					{Text: "delete", Description: "エイリアスを削除"},
+				}
+			} else if wordCount == 3 && words[1] == "order" { // order サブコマンド
+				suggestions = []prompt.Suggest{
+					{Text: "list", Description: "表示順の一覧を表示"},
+					{Text: "reset", Description: "表示順をリセット"},
+				}
+			} else if wordCount == 4 && words[1] == "alias" && words[2] == "delete" {
+				// エイリアスの削除候補を表示
+				suggestions = getLocationAliasCandidates(c)
+			}
+			return suggestions
+		},
+		ParseFunc: func(p CommandParser, parts []string, debug bool) (*Command, error) {
+			if len(parts) < 2 {
+				return nil, fmt.Errorf("location コマンドにはサブコマンドが必要です")
+			}
+
+			switch parts[1] {
+			case "list":
+				return newCommand(CmdLocationList), nil
+
+			case "alias":
+				if len(parts) < 3 {
+					return nil, fmt.Errorf("location alias コマンドにはサブコマンドが必要です（list, add, delete）")
+				}
+
+				switch parts[2] {
+				case "list":
+					return newCommand(CmdLocationAliasList), nil
+
+				case "add":
+					if len(parts) != 5 {
+						return nil, fmt.Errorf("location alias add コマンドにはエイリアス名と設置場所の値が必要です（例: location alias add #2F寝室 room2）")
+					}
+					alias := parts[3]
+					if err := handler.ValidateLocationAlias(alias); err != nil {
+						return nil, err
+					}
+					rawValue := parts[4]
+
+					cmd := newCommand(CmdLocationAliasAdd)
+					cmd.DeviceAlias = &alias
+					cmd.DebugMode = &rawValue // rawValue を DebugMode フィールドに格納
+					return cmd, nil
+
+				case "delete":
+					if len(parts) != 4 {
+						return nil, fmt.Errorf("location alias delete コマンドにはエイリアス名が必要です")
+					}
+					alias := parts[3]
+					if err := handler.ValidateLocationAlias(alias); err != nil {
+						return nil, err
+					}
+
+					cmd := newCommand(CmdLocationAliasDelete)
+					cmd.DeviceAlias = &alias
+					return cmd, nil
+
+				default:
+					return nil, fmt.Errorf("不明なサブコマンド: location alias %s", parts[2])
+				}
+
+			case "order":
+				if len(parts) < 3 {
+					return nil, fmt.Errorf("location order コマンドにはサブコマンドが必要です（list, reset）")
+				}
+
+				switch parts[2] {
+				case "list":
+					return newCommand(CmdLocationOrderList), nil
+
+				case "reset":
+					return newCommand(CmdLocationOrderReset), nil
+
+				default:
+					return nil, fmt.Errorf("不明なサブコマンド: location order %s", parts[2])
+				}
+
+			default:
+				return nil, fmt.Errorf("不明なサブコマンド: location %s", parts[1])
+			}
+		},
+	},
+	{
 		Name:    "quit",
 		Summary: "終了",
 		Syntax:  "quit",

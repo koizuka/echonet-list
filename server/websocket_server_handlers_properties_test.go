@@ -160,6 +160,22 @@ func (m *mockECHONETListClient) GetIDString(_ echonet_lite.IPAndEOJ) handler.IDS
 	return ""
 }
 
+func (m *mockECHONETListClient) GetLocationSettings() (map[string]string, []string) {
+	return nil, nil
+}
+
+func (m *mockECHONETListClient) LocationAliasAdd(_ string, _ string) error {
+	return nil
+}
+
+func (m *mockECHONETListClient) LocationAliasDelete(_ string) error {
+	return nil
+}
+
+func (m *mockECHONETListClient) SetLocationOrder(_ []string) error {
+	return nil
+}
+
 // MockDecoderOnly implements PropertyDecoder but not PropertyEncoder
 type MockDecoderOnly struct{}
 

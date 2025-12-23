@@ -198,6 +198,13 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
       "@living_room": ["013001:00000B:ABCDEF0123456789ABCDEF012345", "029001:000005:FEDCBA9876543210FEDCBA987654"], // 例
       "@bedroom": ["013001:000008:FEDCBA9876543210ABCDEF012345"] // 例
     },
+    "locationSettings": {
+      "aliases": {
+        "#2F寝室": "room2",
+        "#リビング": "living"
+      },
+      "order": ["living", "room2", "kitchen"]
+    },
     "serverStartupTime": "2023-04-01T12:00:00Z" // サーバーの起動時刻（ISO 8601形式）
   }
 }
@@ -378,6 +385,40 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
 - `change_type`: 変更の種類（"added"=追加, "updated"=更新, "deleted"=削除）
 - `group`: グループ名（"@" で始まる文字列）
 - `devices`: グループに含まれるデバイスIDString文字列の配列（change_type が "deleted" の場合は省略可能）
+
+### location_settings_changed
+
+設置場所のエイリアスまたは表示順が変更されたことを通知します。
+
+```json
+// エイリアス追加の例
+{
+  "type": "location_settings_changed",
+  "payload": {
+    "change_type": "alias_added",  // "alias_added", "alias_updated", "alias_deleted", "order_changed" のいずれか
+    "alias": "#2F寝室",
+    "value": "room2"
+  }
+}
+
+// 表示順変更の例
+{
+  "type": "location_settings_changed",
+  "payload": {
+    "change_type": "order_changed",
+    "order": ["living", "room2", "kitchen"]
+  }
+}
+```
+
+- `change_type`: 変更の種類
+  - `"alias_added"`: エイリアスが追加された
+  - `"alias_updated"`: エイリアスが更新された
+  - `"alias_deleted"`: エイリアスが削除された
+  - `"order_changed"`: 表示順が変更された
+- `alias`: エイリアス名（"#" で始まる文字列、alias変更時のみ）
+- `value`: エイリアスの値（alias_added/alias_updated時のみ）
+- `order`: 表示順の配列（order_changed時のみ）
 
 ### error_notification
 
@@ -612,6 +653,51 @@ case 'device_added':
   - "list": グループ一覧または特定グループの情報を取得
 - `group`: グループ名（"@" で始まる文字列）
 - `devices`: デバイスIDString文字列（EOJ:ManufacturerCode:UniqueIdentifier形式）の配列（`action` が "add" または "remove" の場合必須）
+
+### manage_location_alias
+
+設置場所のエイリアス（別名）の追加・削除を行います。
+
+```json
+{
+  "type": "manage_location_alias",
+  "payload": {
+    "action": "add",  // "add" または "delete"
+    "alias": "#2F寝室",
+    "value": "room2"  // action が "add" の場合必須
+  },
+  "requestId": "req-130"
+}
+```
+
+- `action`: "add"（追加）または "delete"（削除）
+- `alias`: エイリアス名（"#" で始まる文字列、必須）
+- `value`: 設置場所の値（`action` が "add" の場合必須）
+
+**注意事項:**
+- エイリアス名は必ず "#" で始まる必要があります
+- 同名のエイリアスが存在する場合、"add" アクションは値を更新します
+
+### set_location_order
+
+設置場所の表示順を設定します。
+
+```json
+{
+  "type": "set_location_order",
+  "payload": {
+    "order": ["living", "room2", "kitchen"]
+  },
+  "requestId": "req-131"
+}
+```
+
+- `order`: 表示順を示す設置場所値の配列
+
+**表示順のロジック:**
+1. `order` リストにある場所を先頭に表示（リスト順）
+2. `order` にない場所はアルファベット順で末尾に追加
+3. 空の配列 `[]` を指定すると表示順をリセット（デフォルトの順序に戻す）
 
 ### discover_devices
 

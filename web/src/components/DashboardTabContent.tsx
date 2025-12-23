@@ -1,14 +1,15 @@
 import { DashboardCard } from './DashboardCard';
-import { getDashboardDevicesGroupedByLocation, getLocationDisplayName } from '@/libs/locationHelper';
+import { getDashboardDevicesGroupedByLocation, getLocationDisplayName, sortLocationIds } from '@/libs/locationHelper';
 import { arrangeDashboardDevices, isPlaceholder } from '@/libs/dashboardLayoutHelper';
 import { useDashboardCardExpansion } from '@/hooks/useDashboardCardExpansion';
 import { cn } from '@/libs/utils';
-import type { Device, PropertyDescriptionData, DeviceAlias } from '@/hooks/types';
+import type { Device, PropertyDescriptionData, DeviceAlias, LocationSettings } from '@/hooks/types';
 
 interface DashboardTabContentProps {
   devices: Record<string, Device>;
   aliases: DeviceAlias;
   propertyDescriptions: Record<string, PropertyDescriptionData>;
+  locationSettings: LocationSettings;
   onPropertyChange: (target: string, epc: string, value: { string: string }) => Promise<void>;
   isConnected: boolean;
 }
@@ -17,12 +18,13 @@ export function DashboardTabContent({
   devices,
   aliases,
   propertyDescriptions,
+  locationSettings,
   onPropertyChange,
   isConnected
 }: DashboardTabContentProps) {
   const { isExpanded, toggleExpansion } = useDashboardCardExpansion();
   const groupedDevices = getDashboardDevicesGroupedByLocation(devices);
-  const locationIds = Object.keys(groupedDevices).sort();
+  const locationIds = sortLocationIds(Object.keys(groupedDevices), locationSettings);
 
   if (locationIds.length === 0) {
     return (
@@ -39,7 +41,7 @@ export function DashboardTabContent({
     >
       {locationIds.map((locationId, index) => {
         const locationDevices = groupedDevices[locationId];
-        const locationName = getLocationDisplayName(locationId, devices, propertyDescriptions);
+        const locationName = getLocationDisplayName(locationId, devices, propertyDescriptions, locationSettings);
 
         const arranged = arrangeDashboardDevices(locationDevices);
         const firstIsPlaceholder = arranged.length > 0 && isPlaceholder(arranged[0]);

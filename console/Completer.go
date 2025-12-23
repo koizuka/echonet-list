@@ -106,6 +106,19 @@ func getGroupCandidates(c client.ECHONETListClient) []prompt.Suggest {
 	return suggests
 }
 
+// getLocationAliasCandidates はロケーションエイリアスの候補を返す
+func getLocationAliasCandidates(c client.ECHONETListClient) []prompt.Suggest {
+	aliases, _ := c.GetLocationSettings()
+	suggests := make([]prompt.Suggest, 0, len(aliases))
+	for alias, value := range aliases {
+		suggests = append(suggests, prompt.Suggest{
+			Text:        alias,
+			Description: value,
+		})
+	}
+	return suggests
+}
+
 // splitWords は入力行を単語に分割する補助関数
 // go-prompt の Document.GetWordBeforeCursor や Document.TextBeforeCursor と組み合わせて使う
 func splitWords(line string) []string {

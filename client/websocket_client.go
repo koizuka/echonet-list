@@ -22,22 +22,25 @@ type WebSocketDeviceAndProperties struct {
 
 // WebSocketClient implements the ECHONETListClient interface using WebSocket
 type WebSocketClient struct {
-	ctx             context.Context
-	cancel          context.CancelFunc
-	transport       WebSocketClientTransport
-	debug           bool
-	devices         map[string]WebSocketDeviceAndProperties
-	devicesMutex    sync.RWMutex
-	lastSeenTimes   map[string]time.Time
-	lastSeenMutex   sync.RWMutex
-	aliases         map[string]IDString
-	aliasesMutex    sync.RWMutex
-	groups          []GroupDevicePair
-	groupsMutex     sync.RWMutex
-	requestID       int
-	requestIDMutex  sync.Mutex
-	responseCh      map[string]chan *protocol.Message
-	responseChMutex sync.Mutex
+	ctx                   context.Context
+	cancel                context.CancelFunc
+	transport             WebSocketClientTransport
+	debug                 bool
+	devices               map[string]WebSocketDeviceAndProperties
+	devicesMutex          sync.RWMutex
+	lastSeenTimes         map[string]time.Time
+	lastSeenMutex         sync.RWMutex
+	aliases               map[string]IDString
+	aliasesMutex          sync.RWMutex
+	groups                []GroupDevicePair
+	groupsMutex           sync.RWMutex
+	locationAliases       map[string]string
+	locationOrder         []string
+	locationSettingsMutex sync.RWMutex
+	requestID             int
+	requestIDMutex        sync.Mutex
+	responseCh            map[string]chan *protocol.Message
+	responseChMutex       sync.Mutex
 }
 
 // NewWebSocketClient creates a new WebSocket client
@@ -52,15 +55,17 @@ func NewWebSocketClient(ctx context.Context, serverURL string, debug bool) (*Web
 	}
 
 	client := &WebSocketClient{
-		ctx:           clientCtx,
-		cancel:        cancel,
-		transport:     transport,
-		debug:         debug,
-		devices:       make(map[string]WebSocketDeviceAndProperties),
-		lastSeenTimes: make(map[string]time.Time),
-		aliases:       make(map[string]IDString),
-		groups:        make([]GroupDevicePair, 0),
-		responseCh:    make(map[string]chan *protocol.Message),
+		ctx:             clientCtx,
+		cancel:          cancel,
+		transport:       transport,
+		debug:           debug,
+		devices:         make(map[string]WebSocketDeviceAndProperties),
+		lastSeenTimes:   make(map[string]time.Time),
+		aliases:         make(map[string]IDString),
+		groups:          make([]GroupDevicePair, 0),
+		locationAliases: make(map[string]string),
+		locationOrder:   make([]string, 0),
+		responseCh:      make(map[string]chan *protocol.Message),
 	}
 
 	return client, nil
@@ -458,4 +463,111 @@ func (c *WebSocketClient) sendRequest(msgType protocol.MessageType, payload inte
 	case <-c.ctx.Done():
 		return nil, fmt.Errorf("context canceled")
 	}
+}
+
+// LocationSettingsManager インターフェースの実装
+
+// GetLocationSettings returns the current location aliases and order
+func (c *WebSocketClient) GetLocationSettings() (map[string]string, []string) {
+	c.locationSettingsMutex.RLock()
+	defer c.locationSettingsMutex.RUnlock()
+
+	// Copy the aliases map
+	aliases := make(map[string]string)
+	for k, v := range c.locationAliases {
+		aliases[k] = v
+	}
+
+	// Copy the order slice
+	order := make([]string, len(c.locationOrder))
+	copy(order, c.locationOrder)
+
+	return aliases, order
+}
+
+// LocationAliasAdd adds a location alias
+func (c *WebSocketClient) LocationAliasAdd(alias, value string) error {
+	payload := protocol.ManageLocationAliasPayload{
+		Action: protocol.LocationAliasActionAdd,
+		Alias:  alias,
+		Value:  value,
+	}
+
+	response, err := c.sendRequest(protocol.MessageTypeManageLocationAlias, payload)
+	if err != nil {
+		return err
+	}
+
+	// Check for command_result
+	if response.Type == protocol.MessageTypeCommandResult {
+		var result protocol.CommandResultPayload
+		if err := protocol.ParsePayload(response, &result); err != nil {
+			return err
+		}
+		if !result.Success {
+			if result.Error != nil {
+				return fmt.Errorf("%s: %s", result.Error.Code, result.Error.Message)
+			}
+			return fmt.Errorf("failed to add location alias")
+		}
+	}
+
+	return nil
+}
+
+// LocationAliasDelete deletes a location alias
+func (c *WebSocketClient) LocationAliasDelete(alias string) error {
+	payload := protocol.ManageLocationAliasPayload{
+		Action: protocol.LocationAliasActionDelete,
+		Alias:  alias,
+	}
+
+	response, err := c.sendRequest(protocol.MessageTypeManageLocationAlias, payload)
+	if err != nil {
+		return err
+	}
+
+	// Check for command_result
+	if response.Type == protocol.MessageTypeCommandResult {
+		var result protocol.CommandResultPayload
+		if err := protocol.ParsePayload(response, &result); err != nil {
+			return err
+		}
+		if !result.Success {
+			if result.Error != nil {
+				return fmt.Errorf("%s: %s", result.Error.Code, result.Error.Message)
+			}
+			return fmt.Errorf("failed to delete location alias")
+		}
+	}
+
+	return nil
+}
+
+// SetLocationOrder sets the location display order
+func (c *WebSocketClient) SetLocationOrder(order []string) error {
+	payload := protocol.SetLocationOrderPayload{
+		Order: order,
+	}
+
+	response, err := c.sendRequest(protocol.MessageTypeSetLocationOrder, payload)
+	if err != nil {
+		return err
+	}
+
+	// Check for command_result
+	if response.Type == protocol.MessageTypeCommandResult {
+		var result protocol.CommandResultPayload
+		if err := protocol.ParsePayload(response, &result); err != nil {
+			return err
+		}
+		if !result.Success {
+			if result.Error != nil {
+				return fmt.Errorf("%s: %s", result.Error.Code, result.Error.Message)
+			}
+			return fmt.Errorf("failed to set location order")
+		}
+	}
+
+	return nil
 }
