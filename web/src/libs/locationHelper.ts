@@ -1,6 +1,6 @@
 // Utility functions for managing device locations
 
-import type { Device, DeviceAlias, DeviceGroup, PropertyDescriptionData } from '@/hooks/types';
+import type { Device, DeviceAlias, DeviceGroup, PropertyDescriptionData, LocationSettings } from '@/hooks/types';
 import { getDeviceIdentifierForAlias } from './deviceIdHelper';
 import { sortDevicesByEOJAndLocation } from './deviceSortHelper';
 import { isDeviceOperational, isOperationStatusSettable, isDeviceFaulty, getPropertyDescriptor, formatPropertyValue } from './propertyHelper';
@@ -121,27 +121,49 @@ export function extractRawLocationFromDevice(device: Device): string {
 }
 
 /**
- * Get all unique locations from devices, sorted alphabetically
+ * Sort location IDs by locationSettings.order if provided, otherwise alphabetically
+ * Locations in the order come first, then any unordered locations alphabetically
+ */
+export function sortLocationIds(
+  locationIds: string[],
+  locationSettings?: LocationSettings
+): string[] {
+  if (locationSettings?.order && locationSettings.order.length > 0) {
+    const orderSet = new Set(locationSettings.order);
+    const orderedLocations = locationSettings.order.filter(id => locationIds.includes(id));
+    const unorderedLocations = locationIds
+      .filter(id => !orderSet.has(id))
+      .sort();
+    return [...orderedLocations, ...unorderedLocations];
+  }
+  return [...locationIds].sort();
+}
+
+/**
+ * Get all unique locations from devices, sorted by locationSettings.order if provided
  * with "All" as the first option
  * Excludes Node Profile devices from location detection
  * Returns location IDs for internal use
  */
 export function getAllLocations(
-  devices: Record<string, Device>
+  devices: Record<string, Device>,
+  locationSettings?: LocationSettings
 ): string[] {
   const locationIds = new Set<string>();
-  
+
   Object.values(devices).forEach(device => {
     // Skip Node Profile devices for location detection
     if (isNodeProfileDevice(device)) {
       return;
     }
-    
+
     const locationId = extractRawLocationFromDevice(device);
     locationIds.add(locationId);
   });
-  
-  const sortedLocationIds = Array.from(locationIds).sort();
+
+  // Sort locations using the helper function
+  const sortedLocationIds = sortLocationIds(Array.from(locationIds), locationSettings);
+
   return ['All', ...sortedLocationIds];
 }
 
@@ -160,30 +182,42 @@ export function translateLocationId(locationId: string): string {
 }
 
 /**
- * Get display name for a location tab using server-side translations
- * Looks for a device with the given location ID and uses its translated value
+ * Get display name for a location tab using location aliases or server-side translations
+ * Priority: location alias > server translation > capitalized ID
  */
 export function getLocationDisplayName(
   locationId: string,
   devices: Record<string, Device>,
   propertyDescriptions: Record<string, PropertyDescriptionData>,
+  locationSettings?: LocationSettings,
   lang?: string
 ): string {
   if (locationId === 'All') {
     return locationId;
   }
-  
-  // Find a device with this location ID to get the translated value
+
+  // First priority: Check for location alias
+  if (locationSettings?.aliases) {
+    // Find an alias that maps to this locationId
+    const aliasEntry = Object.entries(locationSettings.aliases).find(
+      ([, value]) => value === locationId
+    );
+    if (aliasEntry) {
+      return aliasEntry[0]; // Return the alias name (e.g., "#2F寝室")
+    }
+  }
+
+  // Second priority: Find a device with this location ID to get the translated value
   const devicesInLocation = Object.values(devices).filter(device => {
     const rawLocation = extractRawLocationFromDevice(device);
     return rawLocation === locationId;
   });
-  
+
   if (devicesInLocation.length > 0) {
     // Get the first device and use its translated location value
     const device = devicesInLocation[0];
     const installationLocationProperty = device.properties[EPC_INSTALLATION_LOCATION];
-    
+
     if (installationLocationProperty?.string) {
       // Get property descriptor for Installation Location
       const classCode = device.eoj.split(':')[0];
@@ -193,20 +227,20 @@ export function getLocationDisplayName(
         classCode,
         lang
       );
-      
+
       // Format the value with translations
       const translatedValue = formatPropertyValue(
         installationLocationProperty,
         descriptor,
         lang
       );
-      
+
       if (translatedValue && translatedValue !== 'Raw data') {
         return translatedValue;
       }
     }
   }
-  
+
   // Fallback to capitalized ID
   return locationId.charAt(0).toUpperCase() + locationId.slice(1);
 }
@@ -219,10 +253,11 @@ export function getLocationDisplayName(
  */
 export function getAllTabs(
   devices: Record<string, Device>,
-  groups: DeviceGroup
+  groups: DeviceGroup,
+  locationSettings?: LocationSettings
 ): string[] {
   // Get location tab IDs (includes 'All' as first element)
-  const locationTabIds = getAllLocations(devices);
+  const locationTabIds = getAllLocations(devices, locationSettings);
 
   // Get group tab IDs (prefixed with "@")
   const groupTabIds = Object.keys(groups)
@@ -402,12 +437,13 @@ export function hasAnyFaultyDevice(devices: Device[]): boolean {
  * Get display name for a tab
  * - Dashboard and All tabs return their name as-is
  * - Group tabs (starting with @) return their name as-is
- * - Location tabs use getLocationDisplayName for translation
+ * - Location tabs use getLocationDisplayName for translation (with alias support)
  */
 export function getTabDisplayName(
   tabId: string,
   devices: Record<string, Device>,
   propertyDescriptions: Record<string, PropertyDescriptionData>,
+  locationSettings?: LocationSettings,
   lang?: string
 ): string {
   // Dashboard and All tabs return their name as-is
@@ -420,6 +456,6 @@ export function getTabDisplayName(
     return tabId;
   }
 
-  // Location tabs use getLocationDisplayName for translation
-  return getLocationDisplayName(tabId, devices, propertyDescriptions, lang);
+  // Location tabs use getLocationDisplayName for translation (with alias support)
+  return getLocationDisplayName(tabId, devices, propertyDescriptions, locationSettings, lang);
 }

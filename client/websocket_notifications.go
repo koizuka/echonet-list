@@ -33,6 +33,8 @@ func (c *WebSocketClient) handleNotification(msg *protocol.Message) {
 		c.handleDeviceOnline(msg)
 	case protocol.MessageTypeErrorNotification:
 		c.handleErrorNotification(msg)
+	case protocol.MessageTypeLocationSettingsChanged:
+		c.handleLocationSettingsChanged(msg)
 	}
 }
 
@@ -96,6 +98,18 @@ func (c *WebSocketClient) handleInitialState(msg *protocol.Message) {
 		})
 	}
 	c.groupsMutex.Unlock()
+
+	// Update location settings
+	c.locationSettingsMutex.Lock()
+	c.locationAliases = make(map[string]string)
+	c.locationOrder = make([]string, 0)
+	if payload.LocationSettings != nil {
+		for alias, value := range payload.LocationSettings.Aliases {
+			c.locationAliases[alias] = value
+		}
+		c.locationOrder = append(c.locationOrder, payload.LocationSettings.Order...)
+	}
+	c.locationSettingsMutex.Unlock()
 }
 
 // handleDeviceAdded handles a device_added message
@@ -363,5 +377,32 @@ func (c *WebSocketClient) handleErrorNotification(msg *protocol.Message) {
 			"code", payload.Code,
 			"message", payload.Message,
 		)
+	}
+}
+
+// handleLocationSettingsChanged handles a location_settings_changed message
+func (c *WebSocketClient) handleLocationSettingsChanged(msg *protocol.Message) {
+	var payload protocol.LocationSettingsChangedPayload
+	if err := protocol.ParsePayload(msg, &payload); err != nil {
+		slog.Error("WebSocketClient.handleLocationSettingsChanged: Error parsing location_settings_changed payload", "err", err)
+		return
+	}
+
+	c.locationSettingsMutex.Lock()
+	defer c.locationSettingsMutex.Unlock()
+
+	switch payload.ChangeType {
+	case protocol.LocationSettingsChangeTypeAliasAdded, protocol.LocationSettingsChangeTypeAliasUpdated:
+		// Add or update the alias
+		c.locationAliases[payload.Alias] = payload.Value
+
+	case protocol.LocationSettingsChangeTypeAliasDeleted:
+		// Remove the alias
+		delete(c.locationAliases, payload.Alias)
+
+	case protocol.LocationSettingsChangeTypeOrderChanged:
+		// Update the order
+		c.locationOrder = make([]string, len(payload.Order))
+		copy(c.locationOrder, payload.Order)
 	}
 }

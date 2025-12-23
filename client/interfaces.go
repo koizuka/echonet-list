@@ -43,3 +43,10 @@ type GroupManager interface {
 	GroupDelete(groupName string) error
 	GetDevicesByGroup(groupName string) ([]IDString, bool)
 }
+
+type LocationSettingsManager interface {
+	GetLocationSettings() (aliases map[string]string, order []string)
+	LocationAliasAdd(alias, value string) error
+	LocationAliasDelete(alias string) error
+	SetLocationOrder(order []string) error
+}

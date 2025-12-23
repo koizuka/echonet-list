@@ -60,6 +60,11 @@ describe('DashboardTabContent', () => {
 
   const mockOnPropertyChange = vi.fn().mockResolvedValue(undefined);
 
+  const mockLocationSettings = {
+    aliases: {},
+    order: [],
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -71,6 +76,7 @@ describe('DashboardTabContent', () => {
           devices={{}}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={true}
         />
@@ -91,6 +97,7 @@ describe('DashboardTabContent', () => {
           devices={devices}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={true}
         />
@@ -113,6 +120,7 @@ describe('DashboardTabContent', () => {
           devices={devices}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={true}
         />
@@ -134,6 +142,7 @@ describe('DashboardTabContent', () => {
           devices={devices}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={true}
         />
@@ -157,6 +166,7 @@ describe('DashboardTabContent', () => {
           devices={devices}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={true}
         />
@@ -186,6 +196,7 @@ describe('DashboardTabContent', () => {
           devices={devices}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={true}
         />
@@ -210,6 +221,7 @@ describe('DashboardTabContent', () => {
           devices={devices}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={true}
         />
@@ -233,6 +245,7 @@ describe('DashboardTabContent', () => {
           devices={devices}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={true}
         />
@@ -254,6 +267,7 @@ describe('DashboardTabContent', () => {
           devices={devices}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={true}
         />
@@ -269,6 +283,7 @@ describe('DashboardTabContent', () => {
           devices={devices}
           aliases={{}}
           propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
           onPropertyChange={mockOnPropertyChange}
           isConnected={false}
         />

@@ -142,3 +142,21 @@ func (c *ECHONETListClientProxy) FindDeviceByIDString(id IDString) *IPAndEOJ {
 func (c *ECHONETListClientProxy) GetIDString(device IPAndEOJ) IDString {
 	return c.handler.GetIDString(device)
 }
+
+// LocationSettingsManager インターフェースの実装
+
+func (c *ECHONETListClientProxy) GetLocationSettings() (map[string]string, []string) {
+	return c.handler.GetLocationSettings()
+}
+
+func (c *ECHONETListClientProxy) LocationAliasAdd(alias, value string) error {
+	return c.handler.LocationAliasAdd(alias, value)
+}
+
+func (c *ECHONETListClientProxy) LocationAliasDelete(alias string) error {
+	return c.handler.LocationAliasDelete(alias)
+}
+
+func (c *ECHONETListClientProxy) SetLocationOrder(order []string) error {
+	return c.handler.SetLocationOrder(order)
+}

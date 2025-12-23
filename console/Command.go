@@ -35,6 +35,12 @@ const (
 	CmdGroupRemove
 	CmdGroupDelete
 	CmdGroupList
+	CmdLocationList
+	CmdLocationAliasList
+	CmdLocationAliasAdd
+	CmdLocationAliasDelete
+	CmdLocationOrderList
+	CmdLocationOrderReset
 )
 
 // プロパティ表示モードを表す型
@@ -59,6 +65,7 @@ type Command struct {
 	Properties     client.Properties           // set/devicesコマンドのプロパティリスト
 	GroupByEPC     *client.EPCType             // devicesコマンドのグループ化に使用するEPC
 	DebugMode      *string                     // debugコマンドのモード ("on" または "off")
+	RawValue       *string                     // location alias add コマンドの生値
 	ForceUpdate    bool                        // updateコマンドの強制更新フラグ
 	HistoryOptions client.DeviceHistoryOptions // historyコマンドのオプション
 	Done           chan struct{}               // コマンド実行完了を通知するチャネル

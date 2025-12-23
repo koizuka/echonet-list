@@ -48,5 +48,6 @@ type ECHONETListClient interface {
 	DeviceManager
 	PropertyDescProvider
 	GroupManager
+	LocationSettingsManager
 	Close() error
 }

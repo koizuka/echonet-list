@@ -670,4 +670,189 @@ describe('useECHONET', () => {
     // Should make a new request (not reuse the cleared pending request)
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
   });
+
+  it('should initialize locationSettings with empty state', () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    expect(result.current.locationSettings).toEqual({ aliases: {}, order: [] });
+  });
+
+  it('should handle initial_state with locationSettings', () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    const testDevice: Device = {
+      ip: '192.168.1.10',
+      eoj: '0130:1',
+      name: 'HomeAirConditioner',
+      id: '013001:00000B:ABCDEF0123456789ABCDEF012345',
+      properties: {},
+      lastSeen: '2023-04-01T12:34:56Z',
+    };
+
+    const initialStateMessage: ServerMessage = {
+      type: 'initial_state',
+      payload: {
+        devices: { '192.168.1.10 0130:1': testDevice },
+        aliases: {},
+        groups: {},
+        locationSettings: {
+          aliases: { '#2F寝室': 'room2', '#リビング': 'living' },
+          order: ['living', 'room2', 'kitchen']
+        },
+        serverStartupTime: '2023-04-01T11:00:00Z',
+      },
+    };
+
+    act(() => {
+      capturedCallbacks.onMessage?.(initialStateMessage);
+    });
+
+    expect(result.current.locationSettings.aliases).toEqual({
+      '#2F寝室': 'room2',
+      '#リビング': 'living'
+    });
+    expect(result.current.locationSettings.order).toEqual(['living', 'room2', 'kitchen']);
+  });
+
+  it('should handle location_settings_changed message for alias_added', () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    const aliasAddedMessage: ServerMessage = {
+      type: 'location_settings_changed',
+      payload: {
+        change_type: 'alias_added',
+        alias: '#テスト',
+        value: 'test_location',
+      },
+    };
+
+    act(() => {
+      capturedCallbacks.onMessage?.(aliasAddedMessage);
+    });
+
+    expect(result.current.locationSettings.aliases['#テスト']).toBe('test_location');
+  });
+
+  it('should handle location_settings_changed message for alias_updated', () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    // First add an alias
+    const aliasAddedMessage: ServerMessage = {
+      type: 'location_settings_changed',
+      payload: {
+        change_type: 'alias_added',
+        alias: '#テスト',
+        value: 'old_value',
+      },
+    };
+
+    act(() => {
+      capturedCallbacks.onMessage?.(aliasAddedMessage);
+    });
+
+    expect(result.current.locationSettings.aliases['#テスト']).toBe('old_value');
+
+    // Then update it
+    const aliasUpdatedMessage: ServerMessage = {
+      type: 'location_settings_changed',
+      payload: {
+        change_type: 'alias_updated',
+        alias: '#テスト',
+        value: 'new_value',
+      },
+    };
+
+    act(() => {
+      capturedCallbacks.onMessage?.(aliasUpdatedMessage);
+    });
+
+    expect(result.current.locationSettings.aliases['#テスト']).toBe('new_value');
+  });
+
+  it('should handle location_settings_changed message for alias_deleted', () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    // First add an alias
+    const aliasAddedMessage: ServerMessage = {
+      type: 'location_settings_changed',
+      payload: {
+        change_type: 'alias_added',
+        alias: '#削除用',
+        value: 'to_be_deleted',
+      },
+    };
+
+    act(() => {
+      capturedCallbacks.onMessage?.(aliasAddedMessage);
+    });
+
+    expect(result.current.locationSettings.aliases['#削除用']).toBe('to_be_deleted');
+
+    // Then delete it
+    const aliasDeletedMessage: ServerMessage = {
+      type: 'location_settings_changed',
+      payload: {
+        change_type: 'alias_deleted',
+        alias: '#削除用',
+      },
+    };
+
+    act(() => {
+      capturedCallbacks.onMessage?.(aliasDeletedMessage);
+    });
+
+    expect(result.current.locationSettings.aliases['#削除用']).toBeUndefined();
+  });
+
+  it('should handle location_settings_changed message for order_changed', () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    const orderChangedMessage: ServerMessage = {
+      type: 'location_settings_changed',
+      payload: {
+        change_type: 'order_changed',
+        order: ['kitchen', 'living', 'bedroom'],
+      },
+    };
+
+    act(() => {
+      capturedCallbacks.onMessage?.(orderChangedMessage);
+    });
+
+    expect(result.current.locationSettings.order).toEqual(['kitchen', 'living', 'bedroom']);
+  });
+
+  it('should handle location_settings_changed with empty order to reset', () => {
+    const { result } = renderHook(() => useECHONET(testUrl));
+
+    // First set an order
+    const orderChangedMessage: ServerMessage = {
+      type: 'location_settings_changed',
+      payload: {
+        change_type: 'order_changed',
+        order: ['living', 'kitchen'],
+      },
+    };
+
+    act(() => {
+      capturedCallbacks.onMessage?.(orderChangedMessage);
+    });
+
+    expect(result.current.locationSettings.order).toEqual(['living', 'kitchen']);
+
+    // Then reset it with empty array
+    const orderResetMessage: ServerMessage = {
+      type: 'location_settings_changed',
+      payload: {
+        change_type: 'order_changed',
+        order: [],
+      },
+    };
+
+    act(() => {
+      capturedCallbacks.onMessage?.(orderResetMessage);
+    });
+
+    expect(result.current.locationSettings.order).toEqual([]);
+  });
 });

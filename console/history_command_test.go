@@ -139,6 +139,10 @@ func (s *historyClientStub) GroupRemove(string, []client.IDString) error        
 func (s *historyClientStub) GroupDelete(string) error                           { return nil }
 func (s *historyClientStub) GetDevicesByGroup(string) ([]client.IDString, bool) { return nil, false }
 func (s *historyClientStub) Close() error                                       { return nil }
+func (s *historyClientStub) GetLocationSettings() (map[string]string, []string) { return nil, nil }
+func (s *historyClientStub) LocationAliasAdd(string, string) error              { return nil }
+func (s *historyClientStub) LocationAliasDelete(string) error                   { return nil }
+func (s *historyClientStub) SetLocationOrder([]string) error                    { return nil }
 
 func TestProcessHistoryCommand(t *testing.T) {
 	device := client.IPAndEOJ{

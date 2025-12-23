@@ -339,3 +339,60 @@ debugoffline 192.168.1.100 0291:1
 - WebSocket接続が必要です（Console UIでWebSocketサーバーに接続している場合のみ動作）
 - オフライン状態に設定したデバイスは、実際のネットワーク通信は継続しますが、システム内でオフライン扱いされます
 - Web UIでオフラインデバイスとして表示され、更新ボタンでオンライン復帰のテストが可能です
+
+### 設置場所管理コマンド
+
+#### location - 設置場所のエイリアスと表示順の管理
+
+設置場所のエイリアス（別名）と表示順を管理するコマンドです。Web UIでの設置場所タブの表示名や順序をカスタマイズできます。
+
+**構文:**
+
+```
+location list
+location alias list
+location alias add #alias rawValue
+location alias delete #alias
+location order list
+location order reset
+```
+
+**サブコマンド:**
+
+- `location list`: 設置場所の一覧を表示（エイリアスと表示順を含む）
+- `location alias list`: エイリアスの一覧を表示
+- `location alias add #alias rawValue`: エイリアスを追加
+  - `#alias`: エイリアス名（"#" で始まる必要があります、例: `#2F寝室`）
+  - `rawValue`: 設置場所の生の値（例: `room2`, `living`）
+- `location alias delete #alias`: エイリアスを削除
+- `location order list`: 表示順の一覧を表示
+- `location order reset`: 表示順をリセット（デフォルトの順序に戻す）
+
+**使用例:**
+
+```bash
+# 設置場所の一覧を表示
+location list
+
+# エイリアス一覧を表示
+location alias list
+
+# エイリアスを追加（"room2" に "#2F寝室" という別名を付ける）
+location alias add #2F寝室 room2
+
+# エイリアスを削除
+location alias delete #2F寝室
+
+# 表示順の一覧を表示
+location order list
+
+# 表示順をリセット
+location order reset
+```
+
+**注意事項:**
+
+- エイリアス名は必ず "#" で始まる必要があります
+- エイリアスはWeb UIの設置場所タブに表示されます
+- 表示順はWeb UIで設置場所タブの並び順に影響します
+- Console UIでは表示順の変更はできません（Web UIで編集してください）

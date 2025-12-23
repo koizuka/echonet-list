@@ -27,9 +27,10 @@ type ECHONETLieHandlerOptions struct {
 	UniqueIdentifier     []byte                        // 13バイトのユニーク識別子, nilの場合はMACアドレスから生成
 	NetworkMonitorConfig *network.NetworkMonitorConfig // ネットワーク監視設定
 	// カスタムファイルパス（空文字の場合はデフォルトファイルを使用）
-	DevicesFile string // デバイスファイルパス
-	AliasesFile string // エイリアスファイルパス
-	GroupsFile  string // グループファイルパス
+	DevicesFile          string // デバイスファイルパス
+	AliasesFile          string // エイリアスファイルパス
+	GroupsFile           string // グループファイルパス
+	LocationSettingsFile string // ロケーション設定ファイルパス
 	// 履歴設定
 	HistoryOptions HistoryOptions // 履歴ストアのオプション
 	// テスト用設定（CI環境での実行時にファイルアクセスやネットワーク通信を避ける）
@@ -151,6 +152,21 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 			return nil, fmt.Errorf("グループ情報の読み込みに失敗 (file: %s): %w", groupsFile, err)
 		}
 		slog.Info("グループ情報の読み込み完了", "file", groupsFile, "groupCount", groups.Count())
+	}
+
+	locationSettings := NewLocationSettings()
+
+	// ロケーション設定を読み込む（テストモードでは省略）
+	if !options.TestMode {
+		locationSettingsFile := getFileOrDefault(options.LocationSettingsFile, LocationSettingsFileName)
+		slog.Info("ロケーション設定ファイルを使用", "file", locationSettingsFile)
+		err := locationSettings.LoadFromFile(locationSettingsFile)
+		if err != nil {
+			cancel() // エラーの場合はコンテキストをキャンセル
+			slog.Error("ロケーション設定の読み込みに失敗", "file", locationSettingsFile, "error", err)
+			return nil, fmt.Errorf("ロケーション設定の読み込みに失敗 (file: %s): %w", locationSettingsFile, err)
+		}
+		slog.Info("ロケーション設定の読み込み完了", "file", locationSettingsFile, "aliasCount", locationSettings.Aliases.Count())
 	}
 
 	// 自ノードのセッションを作成（テストモードでは省略）
@@ -289,7 +305,7 @@ func NewECHONETLiteHandler(ctx context.Context, options ECHONETLieHandlerOptions
 		}
 	}
 
-	data := NewDataManagementHandler(devices, aliases, groups, history, core)
+	data := NewDataManagementHandler(devices, aliases, groups, locationSettings, history, core)
 
 	// オフラインチェッカーを設定（重複通知防止のため）
 	core.SetOfflineChecker(data)
@@ -528,6 +544,31 @@ func (h *ECHONETLiteHandler) GroupDelete(groupName string) error {
 // GetDevicesByGroup は、グループ名に対応するデバイスリストを返す
 func (h *ECHONETLiteHandler) GetDevicesByGroup(groupName string) ([]IDString, bool) {
 	return h.data.GetDevicesByGroup(groupName)
+}
+
+// GetLocationSettings は、ロケーション設定を取得する
+func (h *ECHONETLiteHandler) GetLocationSettings() (map[string]string, []string) {
+	return h.data.GetLocationSettings()
+}
+
+// LocationAliasAdd は、ロケーションエイリアスを追加する
+func (h *ECHONETLiteHandler) LocationAliasAdd(alias, value string) error {
+	return h.data.LocationAliasAdd(alias, value)
+}
+
+// LocationAliasUpdate は、ロケーションエイリアスを更新する
+func (h *ECHONETLiteHandler) LocationAliasUpdate(alias, value string) error {
+	return h.data.LocationAliasUpdate(alias, value)
+}
+
+// LocationAliasDelete は、ロケーションエイリアスを削除する
+func (h *ECHONETLiteHandler) LocationAliasDelete(alias string) error {
+	return h.data.LocationAliasDelete(alias)
+}
+
+// SetLocationOrder は、ロケーションの表示順を設定する
+func (h *ECHONETLiteHandler) SetLocationOrder(order []string) error {
+	return h.data.SetLocationOrder(order)
 }
 
 // FindDeviceByIDString は、IDStringからデバイスを検索する

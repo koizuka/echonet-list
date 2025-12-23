@@ -14,23 +14,25 @@ import (
 
 // DataManagementHandler は、データ管理機能を担当する構造体
 type DataManagementHandler struct {
-	devices       Devices                     // デバイス情報
-	DeviceAliases *DeviceAliases              // デバイスエイリアス
-	DeviceGroups  *DeviceGroups               // デバイスグループ
-	DeviceHistory DeviceHistoryStore          // デバイス履歴
-	propMutex     sync.RWMutex                // プロパティの排他制御用ミューテックス
-	notifier      NotificationRelay           // 通知中継
-	hookProcessor PropertyUpdateHookProcessor // プロパティ更新後処理
+	devices          Devices                     // デバイス情報
+	DeviceAliases    *DeviceAliases              // デバイスエイリアス
+	DeviceGroups     *DeviceGroups               // デバイスグループ
+	LocationSettings *LocationSettings           // ロケーション設定
+	DeviceHistory    DeviceHistoryStore          // デバイス履歴
+	propMutex        sync.RWMutex                // プロパティの排他制御用ミューテックス
+	notifier         NotificationRelay           // 通知中継
+	hookProcessor    PropertyUpdateHookProcessor // プロパティ更新後処理
 }
 
 // NewDataManagementHandler は、DataManagementHandlerの新しいインスタンスを作成する
-func NewDataManagementHandler(devices Devices, aliases *DeviceAliases, groups *DeviceGroups, history DeviceHistoryStore, notifier NotificationRelay) *DataManagementHandler {
+func NewDataManagementHandler(devices Devices, aliases *DeviceAliases, groups *DeviceGroups, locationSettings *LocationSettings, history DeviceHistoryStore, notifier NotificationRelay) *DataManagementHandler {
 	return &DataManagementHandler{
-		devices:       devices,
-		DeviceAliases: aliases,
-		DeviceGroups:  groups,
-		DeviceHistory: history,
-		notifier:      notifier,
+		devices:          devices,
+		DeviceAliases:    aliases,
+		DeviceGroups:     groups,
+		LocationSettings: locationSettings,
+		DeviceHistory:    history,
+		notifier:         notifier,
 	}
 }
 
@@ -431,4 +433,80 @@ func (h *DataManagementHandler) RemoveDevice(device IPAndEOJ) error {
 
 	// Devicesからデバイスを削除
 	return h.devices.RemoveDevice(device)
+}
+
+// SaveLocationSettingsFile は、ロケーション設定をファイルに保存する
+func (h *DataManagementHandler) SaveLocationSettingsFile() error {
+	if h.LocationSettings == nil {
+		return nil
+	}
+	err := h.LocationSettings.SaveToFile(LocationSettingsFileName)
+	if err != nil {
+		return fmt.Errorf("ロケーション設定の保存に失敗しました: %w", err)
+	}
+	return nil
+}
+
+// LocationAliasAdd は、ロケーションエイリアスを追加する
+func (h *DataManagementHandler) LocationAliasAdd(alias, value string) error {
+	if h.LocationSettings == nil {
+		return errors.New("LocationSettings is not initialized")
+	}
+	if err := h.LocationSettings.Aliases.Add(alias, value); err != nil {
+		return err
+	}
+	return h.SaveLocationSettingsFile()
+}
+
+// LocationAliasUpdate は、ロケーションエイリアスを更新する
+func (h *DataManagementHandler) LocationAliasUpdate(alias, value string) error {
+	if h.LocationSettings == nil {
+		return errors.New("LocationSettings is not initialized")
+	}
+	if err := h.LocationSettings.Aliases.Update(alias, value); err != nil {
+		return err
+	}
+	return h.SaveLocationSettingsFile()
+}
+
+// LocationAliasDelete は、ロケーションエイリアスを削除する
+func (h *DataManagementHandler) LocationAliasDelete(alias string) error {
+	if h.LocationSettings == nil {
+		return errors.New("LocationSettings is not initialized")
+	}
+	if err := h.LocationSettings.Aliases.Delete(alias); err != nil {
+		return err
+	}
+	return h.SaveLocationSettingsFile()
+}
+
+// GetLocationSettings は、ロケーション設定を取得する
+func (h *DataManagementHandler) GetLocationSettings() (map[string]string, []string) {
+	if h.LocationSettings == nil {
+		return nil, nil
+	}
+	return h.LocationSettings.Aliases.GetAll(), h.LocationSettings.Order.Get()
+}
+
+// SetLocationOrder は、ロケーションの表示順を設定する
+func (h *DataManagementHandler) SetLocationOrder(order []string) error {
+	if h.LocationSettings == nil {
+		return errors.New("LocationSettings is not initialized")
+	}
+	h.LocationSettings.Order.Set(order)
+	return h.SaveLocationSettingsFile()
+}
+
+// EnsureLocationInOrder は、指定されたロケーションが順序リストに含まれていることを保証する
+func (h *DataManagementHandler) EnsureLocationInOrder(location string) (bool, error) {
+	if h.LocationSettings == nil {
+		return false, errors.New("LocationSettings is not initialized")
+	}
+	added := h.LocationSettings.Order.EnsureLocation(location)
+	if added {
+		if err := h.SaveLocationSettingsFile(); err != nil {
+			return added, err
+		}
+	}
+	return added, nil
 }

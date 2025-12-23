@@ -19,7 +19,8 @@ import { ConnectionStatusBadge } from '@/components/ConnectionStatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
+import { LocationSettingsDialog } from '@/components/LocationSettingsDialog';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { PropertyValue } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
@@ -227,16 +228,17 @@ function App() {
   const [groupOperationLoading, setGroupOperationLoading] = useState(false);
   const [newGroupTabName, setNewGroupTabName] = useState<string | null>(null);
   const [pendingGroupName, setPendingGroupName] = useState<string | null>(null);
+  const [isLocationSettingsOpen, setIsLocationSettingsOpen] = useState(false);
   const isAutoSelectingRef = useRef(false);
 
   // Get all tab IDs (location IDs + groups + new group tab if creating)
   const tabIds = useMemo(() => {
-    const baseTabIds = getAllTabs(echonet.devices, echonet.groups);
+    const baseTabIds = getAllTabs(echonet.devices, echonet.groups, echonet.locationSettings);
     const additionalTabs = [];
     if (newGroupTabName) additionalTabs.push(newGroupTabName);
     if (pendingGroupName && !baseTabIds.includes(pendingGroupName)) additionalTabs.push(pendingGroupName);
     return [...baseTabIds, ...additionalTabs];
-  }, [echonet.devices, echonet.groups, newGroupTabName, pendingGroupName]);
+  }, [echonet.devices, echonet.groups, echonet.locationSettings, newGroupTabName, pendingGroupName]);
   
   // Use persistent tab selection
   const { selectedTab, selectTab } = usePersistedTab(tabIds, 'All');
@@ -432,6 +434,19 @@ function App() {
   // Get all offline devices
   const allOfflineDevices = Object.values(echonet.devices).filter(device => device.isOffline);
 
+  // Get unique location values from all devices for the location settings dropdown
+  const availableLocations = useMemo(() => {
+    const locationSet = new Set<string>();
+    Object.values(echonet.devices).forEach(device => {
+      // EPC 0x81 is Installation location
+      const locationProp = device.properties['81'];
+      if (locationProp?.string) {
+        locationSet.add(locationProp.string);
+      }
+    });
+    return Array.from(locationSet).sort();
+  }, [echonet.devices]);
+
   return (
     <div className="min-h-screen bg-background text-foreground" style={{ scrollBehavior: 'smooth', scrollPaddingTop: '4rem' }}>
       {/* Sticky Header */}
@@ -447,6 +462,17 @@ function App() {
                 isUpdating={isUpdatingAllOffline}
                 isConnected={isConnected}
               />
+
+              {/* Location Settings Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 sm:h-8 px-2 sm:px-3"
+                onClick={() => setIsLocationSettingsOpen(true)}
+              >
+                <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+
               <ConnectionStatusBadge connectionState={echonet.connectionState} />
 
               {/* Notification Bell */}
@@ -488,7 +514,7 @@ function App() {
                 const tabDevices = getDevicesForTab(tabId);
                 const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
                 const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
-                const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions);
+                const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions, echonet.locationSettings);
                 // Hide status indicators for Dashboard and All tabs
                 const showStatusIndicators = tabId !== 'Dashboard' && tabId !== 'All';
                 const showDeviceCount = tabId !== 'Dashboard' && tabId !== 'All';
@@ -556,6 +582,7 @@ function App() {
                     devices={echonet.devices}
                     aliases={echonet.aliases}
                     propertyDescriptions={echonet.propertyDescriptions}
+                    locationSettings={echonet.locationSettings}
                     onPropertyChange={handlePropertyChange}
                     isConnected={isConnected}
                   />
@@ -697,6 +724,20 @@ function App() {
           </Tabs>
         )}
       </div>
+
+      {/* Location Settings Dialog */}
+      <LocationSettingsDialog
+        isOpen={isLocationSettingsOpen}
+        onOpenChange={setIsLocationSettingsOpen}
+        locationSettings={echonet.locationSettings}
+        availableLocations={availableLocations}
+        devices={echonet.devices}
+        propertyDescriptions={echonet.propertyDescriptions}
+        onAddLocationAlias={echonet.addLocationAlias}
+        onDeleteLocationAlias={echonet.deleteLocationAlias}
+        onSetLocationOrder={echonet.setLocationOrder}
+        isConnected={isConnected}
+      />
     </div>
   );
 }

@@ -91,6 +91,12 @@ const (
 	MessageTypeDeleteDevice           MessageType = "delete_device"
 	MessageTypeDebugSetOffline        MessageType = "debug_set_offline"
 	MessageTypeGetDeviceHistory       MessageType = "get_device_history"
+
+	// Location settings message types
+	MessageTypeGetLocationSettings     MessageType = "get_location_settings"
+	MessageTypeManageLocationAlias     MessageType = "manage_location_alias"
+	MessageTypeSetLocationOrder        MessageType = "set_location_order"
+	MessageTypeLocationSettingsChanged MessageType = "location_settings_changed" // Server -> Client
 )
 
 // AliasChangeType defines the type of alias change
@@ -161,6 +167,7 @@ type InitialStatePayload struct {
 	Devices           map[string]Device             `json:"devices"`
 	Aliases           map[string]handler.IDString   `json:"aliases"`
 	Groups            map[string][]handler.IDString `json:"groups"`
+	LocationSettings  *LocationSettingsData         `json:"locationSettings,omitempty"`
 	ServerStartupTime time.Time                     `json:"serverStartupTime"`
 }
 
@@ -286,6 +293,51 @@ type ManageGroupPayload struct {
 	Action  GroupAction        `json:"action"`
 	Group   string             `json:"group"`
 	Devices []handler.IDString `json:"devices,omitempty"`
+}
+
+// LocationAliasAction defines the action to perform on a location alias
+type LocationAliasAction string
+
+const (
+	LocationAliasActionAdd    LocationAliasAction = "add"
+	LocationAliasActionUpdate LocationAliasAction = "update"
+	LocationAliasActionDelete LocationAliasAction = "delete"
+)
+
+// LocationSettingsChangeType defines the type of location settings change
+type LocationSettingsChangeType string
+
+const (
+	LocationSettingsChangeTypeAliasAdded   LocationSettingsChangeType = "alias_added"
+	LocationSettingsChangeTypeAliasUpdated LocationSettingsChangeType = "alias_updated"
+	LocationSettingsChangeTypeAliasDeleted LocationSettingsChangeType = "alias_deleted"
+	LocationSettingsChangeTypeOrderChanged LocationSettingsChangeType = "order_changed"
+)
+
+// LocationSettingsData is the response data for get_location_settings
+type LocationSettingsData struct {
+	Aliases map[string]string `json:"aliases"` // "#alias" -> "rawLocationValue"
+	Order   []string          `json:"order"`   // ordered location IDs
+}
+
+// ManageLocationAliasPayload is the payload for the manage_location_alias message
+type ManageLocationAliasPayload struct {
+	Action LocationAliasAction `json:"action"`          // "add", "update", or "delete"
+	Alias  string              `json:"alias"`           // "#alias" (with prefix)
+	Value  string              `json:"value,omitempty"` // "rawLocationValue" (for add/update)
+}
+
+// SetLocationOrderPayload is the payload for the set_location_order message
+type SetLocationOrderPayload struct {
+	Order []string `json:"order"` // ordered location IDs, empty to reset
+}
+
+// LocationSettingsChangedPayload is the payload for the location_settings_changed message
+type LocationSettingsChangedPayload struct {
+	ChangeType LocationSettingsChangeType `json:"change_type"`
+	Alias      string                     `json:"alias,omitempty"` // for alias changes
+	Value      string                     `json:"value,omitempty"` // for alias add/update
+	Order      []string                   `json:"order,omitempty"` // for order changes
 }
 
 // DiscoverDevicesPayload is the payload for the discover_devices message

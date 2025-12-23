@@ -38,7 +38,7 @@ var invalidFirstChar = regexp.MustCompile(`^[!"#$%&'()*+,./:;<=>?@\[\\\]^_{|}~\-
 func ValidateDeviceAlias(alias string) error {
 	// 空文字列は禁止
 	if alias == "" {
-		return &InvalidAliasError{Alias: alias, Reason: "empty alias is not allowed"}
+		return &InvalidAliasError{Alias: alias, Reason: "alias cannot be empty"}
 	}
 
 	// 2桁の倍数の16進数として読み取れる値は禁止

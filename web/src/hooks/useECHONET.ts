@@ -6,6 +6,7 @@ import type {
   Device,
   DeviceAlias,
   DeviceGroup,
+  LocationSettings,
   PropertyDescriptionData,
   ServerMessage,
   ConnectionState,
@@ -16,7 +17,7 @@ import type {
 type PendingPropertyDescriptionRequests = Map<string, Promise<PropertyDescriptionData>>;
 
 type ECHONETAction =
-  | { type: 'SET_INITIAL_STATE'; payload: { devices: Record<string, Device>; aliases: DeviceAlias; groups: DeviceGroup; serverStartupTime?: string } }
+  | { type: 'SET_INITIAL_STATE'; payload: { devices: Record<string, Device>; aliases: DeviceAlias; groups: DeviceGroup; locationSettings?: LocationSettings; serverStartupTime?: string } }
   | { type: 'ADD_DEVICE'; payload: { device: Device } }
   | { type: 'MARK_DEVICE_OFFLINE'; payload: { ip: string; eoj: string } }
   | { type: 'MARK_DEVICE_ONLINE'; payload: { ip: string; eoj: string } }
@@ -24,6 +25,7 @@ type ECHONETAction =
   | { type: 'UPDATE_PROPERTY'; payload: { ip: string; eoj: string; epc: string; value: PropertyValue } }
   | { type: 'SET_ALIAS'; payload: { alias: string; target?: string; changeType: 'added' | 'updated' | 'deleted' } }
   | { type: 'SET_GROUP'; payload: { group: string; devices?: string[]; changeType: 'added' | 'updated' | 'deleted' } }
+  | { type: 'SET_LOCATION_SETTINGS'; payload: { alias?: string; value?: string; order?: string[]; changeType: 'alias_added' | 'alias_updated' | 'alias_deleted' | 'order_changed' } }
   | { type: 'SET_PROPERTY_DESCRIPTION'; payload: { classCode: string; data: PropertyDescriptionData } }
   | { type: 'SET_CONNECTION_STATE'; payload: { state: ConnectionState } };
 
@@ -35,6 +37,7 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
         devices: action.payload.devices,
         aliases: action.payload.aliases,
         groups: action.payload.groups,
+        locationSettings: action.payload.locationSettings ?? { aliases: {}, order: [] },
         serverStartupTime: action.payload.serverStartupTime ? new Date(action.payload.serverStartupTime) : null,
         initialStateReceived: true,
       };
@@ -152,6 +155,28 @@ function echonetReducer(state: ECHONETState, action: ECHONETAction): ECHONETStat
       };
     }
 
+    case 'SET_LOCATION_SETTINGS': {
+      const { alias, value, order, changeType } = action.payload;
+      const newLocationSettings = { ...state.locationSettings };
+
+      if (changeType === 'order_changed') {
+        newLocationSettings.order = order ?? [];
+      } else {
+        const newAliases = { ...newLocationSettings.aliases };
+        if (changeType === 'alias_deleted' && alias) {
+          delete newAliases[alias];
+        } else if (alias && value) {
+          newAliases[alias] = value;
+        }
+        newLocationSettings.aliases = newAliases;
+      }
+
+      return {
+        ...state,
+        locationSettings: newLocationSettings,
+      };
+    }
+
     case 'SET_PROPERTY_DESCRIPTION':
       return {
         ...state,
@@ -176,6 +201,7 @@ const initialState: ECHONETState = {
   devices: {},
   aliases: {},
   groups: {},
+  locationSettings: { aliases: {}, order: [] },
   connectionState: 'disconnected',
   propertyDescriptions: {},
   initialStateReceived: false,
@@ -187,6 +213,7 @@ export type ECHONETHook = {
   devices: Record<string, Device>;
   aliases: DeviceAlias;
   groups: DeviceGroup;
+  locationSettings: LocationSettings;
   connectionState: ConnectionState;
   propertyDescriptions: Record<string, PropertyDescriptionData>;
   initialStateReceived: boolean;
@@ -211,6 +238,11 @@ export type ECHONETHook = {
   removeFromGroup: (group: string, devices: string[]) => Promise<unknown>;
   deleteGroup: (group: string) => Promise<unknown>;
   listGroups: (group: string) => Promise<unknown>;
+
+  // Location settings operations
+  addLocationAlias: (alias: string, value: string) => Promise<unknown>;
+  deleteLocationAlias: (alias: string) => Promise<unknown>;
+  setLocationOrder: (order: string[]) => Promise<unknown>;
 
   // Property description operations
   getPropertyDescription: (classCode: string, lang?: string) => Promise<PropertyDescriptionData>;
@@ -252,6 +284,7 @@ export function useECHONET(
             devices: message.payload.devices,
             aliases: message.payload.aliases,
             groups: message.payload.groups,
+            locationSettings: message.payload.locationSettings,
             serverStartupTime: message.payload.serverStartupTime,
           },
         });
@@ -378,6 +411,18 @@ export function useECHONET(
           payload: {
             group: message.payload.group,
             devices: message.payload.devices,
+            changeType: message.payload.change_type,
+          },
+        });
+        break;
+
+      case 'location_settings_changed':
+        dispatch({
+          type: 'SET_LOCATION_SETTINGS',
+          payload: {
+            alias: message.payload.alias,
+            value: message.payload.value,
+            order: message.payload.order,
             changeType: message.payload.change_type,
           },
         });
@@ -538,6 +583,31 @@ export function useECHONET(
     });
   }, [connection]);
 
+  // Location settings operations
+  const addLocationAlias = useCallback(async (alias: string, value: string) => {
+    return connection.sendMessage({
+      type: 'manage_location_alias',
+      payload: { action: 'add', alias, value },
+      requestId: '',
+    });
+  }, [connection]);
+
+  const deleteLocationAlias = useCallback(async (alias: string) => {
+    return connection.sendMessage({
+      type: 'manage_location_alias',
+      payload: { action: 'delete', alias },
+      requestId: '',
+    });
+  }, [connection]);
+
+  const setLocationOrder = useCallback(async (order: string[]) => {
+    return connection.sendMessage({
+      type: 'set_location_order',
+      payload: { order },
+      requestId: '',
+    });
+  }, [connection]);
+
   // Property description operations
   // Track in-progress requests to prevent duplicate requests (e.g., from React Strict Mode double mounting)
   const pendingPropertyDescriptionRequestsRef = useRef<PendingPropertyDescriptionRequests>(new Map());
@@ -598,6 +668,7 @@ export function useECHONET(
     devices: state.devices,
     aliases: state.aliases,
     groups: state.groups,
+    locationSettings: state.locationSettings,
     connectionState: state.connectionState,
     propertyDescriptions: state.propertyDescriptions,
     initialStateReceived: state.initialStateReceived,
@@ -622,6 +693,11 @@ export function useECHONET(
     removeFromGroup,
     deleteGroup,
     listGroups,
+
+    // Location settings operations
+    addLocationAlias,
+    deleteLocationAlias,
+    setLocationOrder,
 
     // Property description operations
     getPropertyDescription,
