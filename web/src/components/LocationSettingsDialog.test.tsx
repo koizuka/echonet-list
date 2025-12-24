@@ -148,7 +148,7 @@ describe('LocationSettingsDialog', () => {
       expect(aliasInput).toHaveAttribute('maxLength', '32');
     });
 
-    it('should trim input to max length when auto-inserting # prefix', () => {
+    it('should trim input to max length when auto-inserting # prefix and show warning', () => {
       render(<LocationSettingsDialog {...defaultProps} />);
 
       const aliasInput = screen.getByPlaceholderText(/Alias/);
@@ -158,6 +158,8 @@ describe('LocationSettingsDialog', () => {
 
       // Should be trimmed to 32 chars total (including auto-inserted #)
       expect(aliasInput).toHaveValue('#1234567890123456789012345678901'); // 32 chars
+      // Should show truncation warning
+      expect(screen.getByText(/truncated to 32 characters/i)).toBeInTheDocument();
     });
 
     it('should disable add button when no alias or value is selected', () => {

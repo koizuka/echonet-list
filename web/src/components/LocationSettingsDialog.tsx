@@ -57,6 +57,7 @@ type DialogMessages = {
   aliasErrorTooLong: string;
   aliasErrorMultipleHash: string;
   aliasErrorProhibitedChars: string;
+  aliasWarningTruncated: string;
 };
 
 // Validation constants (must match backend)
@@ -194,6 +195,7 @@ export function LocationSettingsDialog({
       aliasErrorTooLong: `Alias must be ${MAX_LOCATION_ALIAS_LENGTH} characters or less`,
       aliasErrorMultipleHash: 'Alias cannot contain # after the first character',
       aliasErrorProhibitedChars: 'Alias contains prohibited characters',
+      aliasWarningTruncated: `Input truncated to ${MAX_LOCATION_ALIAS_LENGTH} characters`,
     },
     ja: {
       title: '設置場所設定',
@@ -214,6 +216,7 @@ export function LocationSettingsDialog({
       aliasErrorTooLong: `エイリアスは${MAX_LOCATION_ALIAS_LENGTH}文字以内で入力してください`,
       aliasErrorMultipleHash: 'エイリアスの2文字目以降に#は使用できません',
       aliasErrorProhibitedChars: 'エイリアスに使用できない文字が含まれています',
+      aliasWarningTruncated: `入力が${MAX_LOCATION_ALIAS_LENGTH}文字に切り詰められました`,
     },
   };
 
@@ -261,11 +264,14 @@ export function LocationSettingsDialog({
       value = '#' + value;
     }
     // Trim to max length (handles paste of long strings)
+    let wasTruncated = false;
     if (value.length > MAX_LOCATION_ALIAS_LENGTH) {
       value = value.slice(0, MAX_LOCATION_ALIAS_LENGTH);
+      wasTruncated = true;
     }
     setNewAliasName(value);
-    setAliasError('');
+    // Show warning if truncated, otherwise clear error
+    setAliasError(wasTruncated ? texts.aliasWarningTruncated : '');
   };
 
   // Clear state when dialog closes
