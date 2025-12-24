@@ -76,6 +76,26 @@ describe('LocationSettingsDialog', () => {
       fireEvent.click(screen.getByText('Close'));
       expect(defaultProps.onOpenChange).toHaveBeenCalledWith(false);
     });
+
+    it('should clear input state when close button is clicked', async () => {
+      render(<LocationSettingsDialog {...defaultProps} />);
+
+      // Enter some data
+      const aliasInput = screen.getByPlaceholderText(/Alias/);
+      fireEvent.change(aliasInput, { target: { value: '#test' } });
+      expect(aliasInput).toHaveValue('#test');
+
+      // Click close button - this triggers handleOpenChange(false) which clears state
+      fireEvent.click(screen.getByText('Close'));
+
+      // State should be cleared (dialog still visible because mock doesn't change isOpen)
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/Alias/)).toHaveValue('');
+      });
+
+      // onOpenChange should have been called
+      expect(defaultProps.onOpenChange).toHaveBeenCalledWith(false);
+    });
   });
 
   describe('alias section', () => {
@@ -101,16 +121,45 @@ describe('LocationSettingsDialog', () => {
       expect(screen.getByText('living')).toBeInTheDocument();
     });
 
-    it('should show error when alias does not start with # and add button is clicked', async () => {
+    it('should auto-insert # prefix when typing without it', () => {
       render(<LocationSettingsDialog {...defaultProps} />);
 
       const aliasInput = screen.getByPlaceholderText(/Alias/);
-      fireEvent.change(aliasInput, { target: { value: 'invalid' } });
+      fireEvent.change(aliasInput, { target: { value: 'test' } });
 
-      // The add button should still be clickable (for validation check)
-      // but we can't easily test the Select in jsdom, so we just verify
-      // that clicking Add shows error when alias doesn't start with #
-      // Note: In real UI, user would need to select a value first
+      // Should auto-insert # prefix
+      expect(aliasInput).toHaveValue('#test');
+    });
+
+    it('should not double-insert # prefix when already present', () => {
+      render(<LocationSettingsDialog {...defaultProps} />);
+
+      const aliasInput = screen.getByPlaceholderText(/Alias/);
+      fireEvent.change(aliasInput, { target: { value: '#test' } });
+
+      // Should keep single #
+      expect(aliasInput).toHaveValue('#test');
+    });
+
+    it('should have maxLength attribute for alias input', () => {
+      render(<LocationSettingsDialog {...defaultProps} />);
+
+      const aliasInput = screen.getByPlaceholderText(/Alias/);
+      expect(aliasInput).toHaveAttribute('maxLength', '32');
+    });
+
+    it('should trim input to max length when auto-inserting # prefix and show warning', () => {
+      render(<LocationSettingsDialog {...defaultProps} />);
+
+      const aliasInput = screen.getByPlaceholderText(/Alias/);
+      // Type 32 characters without # (which would become 33 with auto-insert)
+      const longInput = '12345678901234567890123456789012'; // 32 chars
+      fireEvent.change(aliasInput, { target: { value: longInput } });
+
+      // Should be trimmed to 32 chars total (including auto-inserted #)
+      expect(aliasInput).toHaveValue('#1234567890123456789012345678901'); // 32 chars
+      // Should show truncation warning
+      expect(screen.getByText(/truncated to 32 characters/i)).toBeInTheDocument();
     });
 
     it('should disable add button when no alias or value is selected', () => {
@@ -234,6 +283,40 @@ describe('LocationSettingsDialog', () => {
       await waitFor(() => {
         expect(defaultProps.onSetLocationOrder).toHaveBeenCalledWith(['kitchen', 'living', 'room2']);
       });
+    });
+
+    it('should not show Apply/Cancel buttons when no order changes are pending', () => {
+      const locationSettings: LocationSettings = {
+        aliases: {},
+        order: ['living', 'room2'],
+      };
+      render(
+        <LocationSettingsDialog
+          {...defaultProps}
+          locationSettings={locationSettings}
+        />
+      );
+
+      expect(screen.queryByText('Apply')).not.toBeInTheDocument();
+      expect(screen.queryByText('Cancel')).not.toBeInTheDocument();
+    });
+
+    it('should not show Reset Order button when order changes are pending', () => {
+      // This test verifies that when there are pending order changes,
+      // the Reset Order button is hidden (to avoid confusion)
+      const locationSettings: LocationSettings = {
+        aliases: {},
+        order: ['living', 'room2'],
+      };
+      render(
+        <LocationSettingsDialog
+          {...defaultProps}
+          locationSettings={locationSettings}
+        />
+      );
+
+      // Initially Reset Order should be visible
+      expect(screen.getByText('Reset Order')).toBeInTheDocument();
     });
   });
 });

@@ -4,15 +4,45 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 const (
 	LocationSettingsFileName = "location_settings.json"
 	LocationAliasPrefix      = "#"
+	// MaxLocationAliasLength は#を含めたエイリアスの最大長
+	MaxLocationAliasLength = 32
 )
+
+// locationAliasProhibitedChars は禁止文字のパターン（#プレフィックス後に適用）
+//
+// 禁止理由:
+//   - Console UIでのトークン解析との衝突防止
+//   - シェルインジェクション防止
+//   - パス操作との混乱防止
+//
+// 禁止文字カテゴリ:
+//   - 空白系: スペース( ), タブ(\t), 改行(\n, \r)
+//   - シェル特殊文字: $, `, |, ;, &, <, >
+//   - 引用符・区切り: ", ', ,
+//   - パス区切り: /, \
+//   - 括弧類: [, ], {, }, (, )
+//   - その他記号: !, @, *, ?, =, ^, ~, %
+//
+// 許可される記号: -, _, ., : （日本語文字も許可）
+//
+// 正規表現の内訳:
+//
+//	[\t\n\r ]     - 空白系（タブ、改行、スペース）
+//	"!$%&'()*,   - 各種記号（引用符含む）
+//	/;<=>?@      - 演算子・パス関連
+//	\\[\\\\\\]   - [, \, ] （エスケープ必要）
+//	^`{|}~       - その他の特殊文字
+var locationAliasProhibitedChars = regexp.MustCompile("[\t\n\r \"!$%&'()*,/;<=>?@\\[\\\\\\]^`{|}~]")
 
 // LocationAliasAlreadyExistsError はロケーションエイリアスが既に存在する場合のエラーです
 type LocationAliasAlreadyExistsError struct {
@@ -56,6 +86,24 @@ func ValidateLocationAlias(alias string) error {
 	// プレフィックス後に少なくとも1文字必要
 	if len(alias) <= len(LocationAliasPrefix) {
 		return &InvalidLocationAliasError{Alias: alias, Reason: fmt.Sprintf("location alias must have at least one character after '%s'", LocationAliasPrefix)}
+	}
+
+	// 長さ制限チェック（文字数ベース、日本語などのマルチバイト文字に対応）
+	if utf8.RuneCountInString(alias) > MaxLocationAliasLength {
+		return &InvalidLocationAliasError{Alias: alias, Reason: fmt.Sprintf("location alias must be %d characters or less", MaxLocationAliasLength)}
+	}
+
+	// プレフィックス以降の部分を取得
+	afterPrefix := alias[len(LocationAliasPrefix):]
+
+	// 二文字目以降に#が含まれていないかチェック
+	if strings.Contains(afterPrefix, LocationAliasPrefix) {
+		return &InvalidLocationAliasError{Alias: alias, Reason: fmt.Sprintf("location alias cannot contain '%s' after the first character", LocationAliasPrefix)}
+	}
+
+	// 禁止文字チェック
+	if locationAliasProhibitedChars.MatchString(afterPrefix) {
+		return &InvalidLocationAliasError{Alias: alias, Reason: "location alias contains prohibited characters"}
 	}
 
 	return nil

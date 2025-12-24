@@ -12,14 +12,72 @@ func TestValidateLocationAlias(t *testing.T) {
 		alias   string
 		wantErr bool
 	}{
+		// 既存の有効なケース
 		{"valid alias", "#2F寝室", false},
 		{"valid alias with number", "#room1", false},
 		{"valid alias english", "#living", false},
+
+		// 既存の無効なケース
 		{"empty string", "", true},
 		{"no prefix", "2F寝室", true},
 		{"only prefix", "#", true},
 		{"wrong prefix @", "@living", true},
 		{"wrong prefix ~", "~living", true},
+
+		// 新規: 二文字目以降の#禁止
+		{"alias with hash in middle", "#foo#bar", true},
+		{"alias with multiple hashes", "#a#b#c", true},
+
+		// 新規: 長さ制限 (最大32文字、文字数ベース)
+		{"alias at max length", "#1234567890123456789012345678901", false},          // #含めて32文字
+		{"alias too long", "#12345678901234567890123456789012", true},               // #含めて33文字
+		{"japanese alias at max length", "#あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほま", false}, // #含めて32文字
+		{"japanese alias too long", "#あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみ", true},      // #含めて33文字
+
+		// 新規: 空白文字の禁止
+		{"alias with space", "#foo bar", true},
+		{"alias with tab", "#foo\tbar", true},
+		{"alias with newline", "#foo\nbar", true},
+
+		// 新規: シェル特殊文字の禁止
+		{"alias with dollar", "#foo$bar", true},
+		{"alias with backtick", "#foo`bar", true},
+		{"alias with pipe", "#foo|bar", true},
+		{"alias with semicolon", "#foo;bar", true},
+		{"alias with ampersand", "#foo&bar", true},
+		{"alias with less than", "#foo<bar", true},
+		{"alias with greater than", "#foo>bar", true},
+
+		// 新規: 区切り記号の禁止
+		{"alias with double quote", "#foo\"bar", true},
+		{"alias with single quote", "#foo'bar", true},
+		{"alias with comma", "#foo,bar", true},
+		{"alias with slash", "#foo/bar", true},
+		{"alias with backslash", "#foo\\bar", true},
+		{"alias with bracket", "#foo[bar", true},
+		{"alias with brace", "#foo{bar", true},
+		{"alias with paren", "#foo(bar", true},
+
+		// 新規: その他の禁止文字
+		{"alias with exclamation", "#foo!bar", true},
+		{"alias with at sign", "#foo@bar", true},
+		{"alias with asterisk", "#foo*bar", true},
+		{"alias with question", "#foo?bar", true},
+		{"alias with equals", "#foo=bar", true},
+		{"alias with caret", "#foo^bar", true},
+		{"alias with tilde", "#foo~bar", true},
+		{"alias with percent", "#foo%bar", true},
+
+		// 新規: 許可される記号
+		{"alias with hyphen", "#room-1", false},
+		{"alias with underscore", "#room_1", false},
+		{"alias with dot", "#room.1", false},
+		{"alias with colon", "#room:1", false},
+		{"alias with allowed symbols combined", "#room-1_a.b:c", false},
+
+		// 新規: 日本語との組み合わせ
+		{"japanese with allowed symbols", "#2F-寝室_A", false},
+		{"mixed japanese english", "#2FRoom寝室", false},
 	}
 
 	for _, tt := range tests {
