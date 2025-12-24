@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 const (
@@ -68,8 +69,8 @@ func ValidateLocationAlias(alias string) error {
 		return &InvalidLocationAliasError{Alias: alias, Reason: fmt.Sprintf("location alias must have at least one character after '%s'", LocationAliasPrefix)}
 	}
 
-	// 長さ制限チェック
-	if len(alias) > MaxLocationAliasLength {
+	// 長さ制限チェック（文字数ベース、日本語などのマルチバイト文字に対応）
+	if utf8.RuneCountInString(alias) > MaxLocationAliasLength {
 		return &InvalidLocationAliasError{Alias: alias, Reason: fmt.Sprintf("location alias must be %d characters or less", MaxLocationAliasLength)}
 	}
 

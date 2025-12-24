@@ -28,9 +28,11 @@ func TestValidateLocationAlias(t *testing.T) {
 		{"alias with hash in middle", "#foo#bar", true},
 		{"alias with multiple hashes", "#a#b#c", true},
 
-		// 新規: 長さ制限 (最大32文字)
-		{"alias at max length", "#1234567890123456789012345678901", false}, // #含めて32文字
-		{"alias too long", "#12345678901234567890123456789012", true},      // #含めて33文字
+		// 新規: 長さ制限 (最大32文字、文字数ベース)
+		{"alias at max length", "#1234567890123456789012345678901", false},          // #含めて32文字
+		{"alias too long", "#12345678901234567890123456789012", true},               // #含めて33文字
+		{"japanese alias at max length", "#あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほま", false}, // #含めて32文字
+		{"japanese alias too long", "#あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみ", true},      // #含めて33文字
 
 		// 新規: 空白文字の禁止
 		{"alias with space", "#foo bar", true},
