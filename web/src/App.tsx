@@ -20,8 +20,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Settings } from 'lucide-react';
-import { LocationSettingsDialog } from '@/components/LocationSettingsDialog';
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
+
+// Lazy load heavy dialog to reduce initial bundle size
+const LocationSettingsDialog = lazy(() =>
+  import('@/components/LocationSettingsDialog').then(m => ({ default: m.LocationSettingsDialog }))
+);
 import type { PropertyValue } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
 
@@ -726,18 +730,20 @@ function App() {
       </div>
 
       {/* Location Settings Dialog */}
-      <LocationSettingsDialog
-        isOpen={isLocationSettingsOpen}
-        onOpenChange={setIsLocationSettingsOpen}
-        locationSettings={echonet.locationSettings}
-        availableLocations={availableLocations}
-        devices={echonet.devices}
-        propertyDescriptions={echonet.propertyDescriptions}
-        onAddLocationAlias={echonet.addLocationAlias}
-        onDeleteLocationAlias={echonet.deleteLocationAlias}
-        onSetLocationOrder={echonet.setLocationOrder}
-        isConnected={isConnected}
-      />
+      <Suspense fallback={null}>
+        <LocationSettingsDialog
+          isOpen={isLocationSettingsOpen}
+          onOpenChange={setIsLocationSettingsOpen}
+          locationSettings={echonet.locationSettings}
+          availableLocations={availableLocations}
+          devices={echonet.devices}
+          propertyDescriptions={echonet.propertyDescriptions}
+          onAddLocationAlias={echonet.addLocationAlias}
+          onDeleteLocationAlias={echonet.deleteLocationAlias}
+          onSetLocationOrder={echonet.setLocationOrder}
+          isConnected={isConnected}
+        />
+      </Suspense>
     </div>
   );
 }
