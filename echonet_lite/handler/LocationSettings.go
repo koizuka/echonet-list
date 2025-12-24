@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -12,7 +13,16 @@ import (
 const (
 	LocationSettingsFileName = "location_settings.json"
 	LocationAliasPrefix      = "#"
+	// MaxLocationAliasLength は#を含めたエイリアスの最大長
+	MaxLocationAliasLength = 32
 )
+
+// 禁止文字のパターン（#プレフィックス後に適用）
+// 空白系: スペース、タブ、改行
+// シェル特殊文字: $, `, |, ;, &, <, >
+// 区切り記号: ", ', ,, /, \, [, ], {, }, (, )
+// その他: !, @, *, ?, =, ^, ~, %
+var locationAliasProhibitedChars = regexp.MustCompile("[\t\n\r \"!$%&'()*,/;<=>?@\\[\\\\\\]^`{|}~]")
 
 // LocationAliasAlreadyExistsError はロケーションエイリアスが既に存在する場合のエラーです
 type LocationAliasAlreadyExistsError struct {
@@ -56,6 +66,24 @@ func ValidateLocationAlias(alias string) error {
 	// プレフィックス後に少なくとも1文字必要
 	if len(alias) <= len(LocationAliasPrefix) {
 		return &InvalidLocationAliasError{Alias: alias, Reason: fmt.Sprintf("location alias must have at least one character after '%s'", LocationAliasPrefix)}
+	}
+
+	// 長さ制限チェック
+	if len(alias) > MaxLocationAliasLength {
+		return &InvalidLocationAliasError{Alias: alias, Reason: fmt.Sprintf("location alias must be %d characters or less", MaxLocationAliasLength)}
+	}
+
+	// プレフィックス以降の部分を取得
+	afterPrefix := alias[len(LocationAliasPrefix):]
+
+	// 二文字目以降に#が含まれていないかチェック
+	if strings.Contains(afterPrefix, LocationAliasPrefix) {
+		return &InvalidLocationAliasError{Alias: alias, Reason: fmt.Sprintf("location alias cannot contain '%s' after the first character", LocationAliasPrefix)}
+	}
+
+	// 禁止文字チェック
+	if locationAliasProhibitedChars.MatchString(afterPrefix) {
+		return &InvalidLocationAliasError{Alias: alias, Reason: "location alias contains prohibited characters"}
 	}
 
 	return nil

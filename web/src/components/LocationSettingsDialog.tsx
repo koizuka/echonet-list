@@ -51,8 +51,36 @@ type DialogMessages = {
   initializeOrder: string;
   resetOrder: string;
   close: string;
+  cancel: string;
+  apply: string;
   aliasError: string;
+  aliasErrorTooLong: string;
+  aliasErrorMultipleHash: string;
+  aliasErrorProhibitedChars: string;
 };
+
+// Validation constants (must match backend)
+const MAX_LOCATION_ALIAS_LENGTH = 32;
+const PROHIBITED_CHARS_PATTERN = /[\t\n\r "!$%&'()*,/;<=>?@[\\\]^`{|}~]/;
+
+function validateLocationAlias(alias: string, texts: DialogMessages): { valid: boolean; error?: string } {
+  if (!alias.startsWith('#')) {
+    return { valid: false, error: texts.aliasError };
+  }
+  if (alias.length <= 1) {
+    return { valid: false, error: texts.aliasError };
+  }
+  if (alias.length > MAX_LOCATION_ALIAS_LENGTH) {
+    return { valid: false, error: texts.aliasErrorTooLong };
+  }
+  if (alias.slice(1).includes('#')) {
+    return { valid: false, error: texts.aliasErrorMultipleHash };
+  }
+  if (PROHIBITED_CHARS_PATTERN.test(alias.slice(1))) {
+    return { valid: false, error: texts.aliasErrorProhibitedChars };
+  }
+  return { valid: true };
+}
 
 interface SortableItemProps {
   id: string;
@@ -72,25 +100,34 @@ function SortableItem({ id, displayName, disabled }: SortableItemProps) {
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    transition: transition ?? 'transform 150ms ease, box-shadow 150ms ease',
   };
 
+  // Enhanced draggable card with better visual feedback
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 text-sm bg-background rounded px-1 py-0.5"
+      className={`
+        flex items-center gap-3 text-sm rounded-md px-3 py-2.5 select-none touch-none
+        border border-transparent
+        transition-all duration-150 ease-out
+        ${isDragging
+          ? 'bg-accent shadow-lg scale-[1.02] border-primary/20 z-10 relative'
+          : 'bg-muted/50 hover:bg-muted hover:border-border'
+        }
+        ${disabled
+          ? 'opacity-50 cursor-not-allowed'
+          : 'cursor-grab active:cursor-grabbing'
+        }
+      `}
+      {...attributes}
+      {...listeners}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className={`touch-none p-1 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
-        disabled={disabled}
-      >
-        <GripVertical className="h-3 w-3 text-muted-foreground" />
-      </button>
-      <span className="font-mono flex-1 truncate">{displayName}</span>
+      <GripVertical className={`h-4 w-4 flex-shrink-0 transition-colors ${
+        isDragging ? 'text-primary' : 'text-muted-foreground/60'
+      }`} />
+      <span className="flex-1 truncate font-medium">{displayName}</span>
     </div>
   );
 }
@@ -124,6 +161,11 @@ export function LocationSettingsDialog({
   const [newAliasValue, setNewAliasValue] = useState('');
   const [aliasError, setAliasError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Phase 3: Pending order for OK/Cancel pattern
+  const [pendingOrder, setPendingOrder] = useState<string[] | null>(null);
+  const hasOrderChanges = pendingOrder !== null;
+  // Use pending order if available, otherwise use current settings
+  const displayOrder = pendingOrder ?? locationSettings.order;
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -146,7 +188,12 @@ export function LocationSettingsDialog({
       initializeOrder: 'Customize Order',
       resetOrder: 'Reset Order',
       close: 'Close',
+      cancel: 'Cancel',
+      apply: 'Apply',
       aliasError: 'Alias must start with #',
+      aliasErrorTooLong: `Alias must be ${MAX_LOCATION_ALIAS_LENGTH} characters or less`,
+      aliasErrorMultipleHash: 'Alias cannot contain # after the first character',
+      aliasErrorProhibitedChars: 'Alias contains prohibited characters',
     },
     ja: {
       title: '設置場所設定',
@@ -161,7 +208,12 @@ export function LocationSettingsDialog({
       initializeOrder: '順序をカスタマイズ',
       resetOrder: '順序リセット',
       close: '閉じる',
+      cancel: 'キャンセル',
+      apply: '適用',
       aliasError: 'エイリアスは # で始まる必要があります',
+      aliasErrorTooLong: `エイリアスは${MAX_LOCATION_ALIAS_LENGTH}文字以内で入力してください`,
+      aliasErrorMultipleHash: 'エイリアスの2文字目以降に#は使用できません',
+      aliasErrorProhibitedChars: 'エイリアスに使用できない文字が含まれています',
     },
   };
 
@@ -180,11 +232,13 @@ export function LocationSettingsDialog({
   };
 
   const handleAddAlias = async () => {
-    if (!newAliasName.startsWith('#')) {
-      setAliasError(texts.aliasError);
+    if (!newAliasName || !newAliasValue) {
       return;
     }
-    if (!newAliasName || !newAliasValue) {
+
+    const validation = validateLocationAlias(newAliasName, texts);
+    if (!validation.valid) {
+      setAliasError(validation.error ?? '');
       return;
     }
 
@@ -197,6 +251,17 @@ export function LocationSettingsDialog({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Auto-insert # prefix when user types without it
+  const handleAliasNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    // Auto-insert # if the first character is not #
+    if (value.length > 0 && !value.startsWith('#')) {
+      value = '#' + value;
+    }
+    setNewAliasName(value);
+    setAliasError('');
   };
 
   const handleDeleteAlias = async (alias: string) => {
@@ -212,6 +277,7 @@ export function LocationSettingsDialog({
     setIsLoading(true);
     try {
       await onSetLocationOrder([]);
+      setPendingOrder(null);
     } finally {
       setIsLoading(false);
     }
@@ -221,64 +287,89 @@ export function LocationSettingsDialog({
     setIsLoading(true);
     try {
       // Initialize with all available locations sorted
-      await onSetLocationOrder([...availableLocations].sort());
+      const newOrder = [...availableLocations].sort();
+      await onSetLocationOrder(newOrder);
+      setPendingOrder(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  // Phase 3: Drag now updates local state only
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = locationSettings.order.indexOf(active.id as string);
-      const newIndex = locationSettings.order.indexOf(over.id as string);
-      const newOrder = arrayMove(locationSettings.order, oldIndex, newIndex);
+      const currentOrder = pendingOrder ?? locationSettings.order;
+      const oldIndex = currentOrder.indexOf(active.id as string);
+      const newIndex = currentOrder.indexOf(over.id as string);
+      const newOrder = arrayMove(currentOrder, oldIndex, newIndex);
+      setPendingOrder(newOrder);
+    }
+  };
 
+  // Phase 3: Apply pending order changes
+  const handleApplyOrderChanges = async () => {
+    if (pendingOrder) {
       setIsLoading(true);
       try {
-        await onSetLocationOrder(newOrder);
+        await onSetLocationOrder(pendingOrder);
+        setPendingOrder(null);
       } finally {
         setIsLoading(false);
       }
     }
   };
 
+  // Phase 3: Cancel pending order changes
+  const handleCancelOrderChanges = () => {
+    setPendingOrder(null);
+  };
+
   const aliasEntries = Object.entries(locationSettings.aliases);
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-        <AlertDialogHeader>
-          <AlertDialogTitle>{texts.title}</AlertDialogTitle>
+      <AlertDialogContent className="max-w-lg max-h-[80vh] flex flex-col gap-0 p-0 overflow-hidden">
+        {/* Header with subtle background */}
+        <AlertDialogHeader className="flex-shrink-0 px-6 py-4 border-b bg-muted/30">
+          <AlertDialogTitle className="text-lg font-semibold tracking-tight">
+            {texts.title}
+          </AlertDialogTitle>
           <AlertDialogDescription className="sr-only">
             {texts.title}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-6">
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-6">
           {/* Alias Section */}
-          <div>
-            <h3 className="text-sm font-medium mb-2">{texts.aliasSection}</h3>
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground/80 uppercase tracking-wider">
+              {texts.aliasSection}
+            </h3>
 
             {/* Alias List */}
-            <div className="space-y-2 mb-3">
+            <div className="space-y-2">
               {aliasEntries.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{texts.noAliases}</p>
+                <p className="text-sm text-muted-foreground py-2">{texts.noAliases}</p>
               ) : (
                 aliasEntries.map(([alias, value]) => (
-                  <div key={alias} className="flex items-center gap-2 text-sm">
-                    <span className="font-mono flex-1 truncate">{alias}</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span className="font-mono flex-1 truncate">{getTranslatedLocationName(value)}</span>
+                  <div
+                    key={alias}
+                    className="flex items-center gap-3 text-sm bg-muted/40 rounded-md px-3 py-2 group hover:bg-muted/60 transition-colors"
+                  >
+                    <span className="font-medium text-primary/90 flex-1 truncate">{alias}</span>
+                    <span className="text-muted-foreground/60 text-xs">→</span>
+                    <span className="text-muted-foreground flex-1 truncate">{getTranslatedLocationName(value)}</span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0"
+                      className="h-7 w-7 p-0 opacity-60 hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
                       onClick={() => handleDeleteAlias(alias)}
                       disabled={isLoading || !isConnected}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 ))
@@ -286,23 +377,21 @@ export function LocationSettingsDialog({
             </div>
 
             {/* Add Alias Form */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-1">
               <Input
                 placeholder={texts.aliasName}
                 value={newAliasName}
-                onChange={(e) => {
-                  setNewAliasName(e.target.value);
-                  setAliasError('');
-                }}
-                className="flex-1 h-8 text-sm"
+                onChange={handleAliasNameChange}
+                className="flex-1 h-9 text-sm"
                 disabled={isLoading || !isConnected}
+                maxLength={MAX_LOCATION_ALIAS_LENGTH}
               />
               <Select
                 value={newAliasValue}
                 onValueChange={setNewAliasValue}
                 disabled={isLoading || !isConnected || availableLocations.length === 0}
               >
-                <SelectTrigger className="flex-1 h-8 text-sm">
+                <SelectTrigger className="flex-1 h-9 text-sm">
                   <SelectValue placeholder={texts.selectLocation} />
                 </SelectTrigger>
                 <SelectContent>
@@ -324,38 +413,46 @@ export function LocationSettingsDialog({
                 size="sm"
                 onClick={handleAddAlias}
                 disabled={isLoading || !isConnected || !newAliasName || !newAliasValue}
-                className="h-8"
+                className="h-9 px-3"
               >
-                <Plus className="h-3 w-3 mr-1" />
+                <Plus className="h-4 w-4 mr-1.5" />
                 {texts.addAlias}
               </Button>
             </div>
             {aliasError && (
-              <p className="text-xs text-destructive mt-1">{aliasError}</p>
+              <p className="text-xs text-destructive font-medium mt-1.5 flex items-center gap-1">
+                <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
+                {aliasError}
+              </p>
             )}
-          </div>
+          </section>
+
+          {/* Divider */}
+          <div className="border-t border-border/50" />
 
           {/* Order Section */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium">{texts.orderSection}</h3>
-              {locationSettings.order.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground/80 uppercase tracking-wider">
+                {texts.orderSection}
+              </h3>
+              {locationSettings.order.length > 0 && !hasOrderChanges && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleResetOrder}
                   disabled={isLoading || !isConnected}
-                  className="h-6 text-xs"
+                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
                 >
-                  <RotateCcw className="h-3 w-3 mr-1" />
+                  <RotateCcw className="h-3 w-3 mr-1.5" />
                   {texts.resetOrder}
                 </Button>
               )}
             </div>
 
-            <div className="space-y-1">
-              {locationSettings.order.length === 0 ? (
-                <div className="space-y-2">
+            <div className="space-y-1.5">
+              {displayOrder.length === 0 ? (
+                <div className="space-y-3 py-2">
                   <p className="text-sm text-muted-foreground">{texts.noOrder}</p>
                   {availableLocations.length > 0 && (
                     <Button
@@ -363,9 +460,9 @@ export function LocationSettingsDialog({
                       size="sm"
                       onClick={handleInitializeOrder}
                       disabled={isLoading || !isConnected}
-                      className="h-7 text-xs"
+                      className="h-8 text-xs"
                     >
-                      <Plus className="h-3 w-3 mr-1" />
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
                       {texts.initializeOrder}
                     </Button>
                   )}
@@ -377,10 +474,10 @@ export function LocationSettingsDialog({
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext
-                    items={locationSettings.order}
+                    items={displayOrder}
                     strategy={verticalListSortingStrategy}
                   >
-                    {locationSettings.order.map((item) => (
+                    {displayOrder.map((item) => (
                       <SortableItem
                         key={item}
                         id={item}
@@ -392,11 +489,35 @@ export function LocationSettingsDialog({
                 </DndContext>
               )}
             </div>
-          </div>
+          </section>
         </div>
 
-        <AlertDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        {/* Fixed footer */}
+        <AlertDialogFooter className="flex-shrink-0 border-t bg-muted/20 px-6 py-4 gap-2">
+          {hasOrderChanges && (
+            <>
+              <Button
+                variant="ghost"
+                onClick={handleCancelOrderChanges}
+                disabled={isLoading}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                {texts.cancel}
+              </Button>
+              <Button
+                onClick={handleApplyOrderChanges}
+                disabled={isLoading}
+                className="min-w-[80px]"
+              >
+                {texts.apply}
+              </Button>
+            </>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isLoading && hasOrderChanges}
+          >
             {texts.close}
           </Button>
         </AlertDialogFooter>
