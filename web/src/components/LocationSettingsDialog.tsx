@@ -260,8 +260,23 @@ export function LocationSettingsDialog({
     if (value.length > 0 && !value.startsWith('#')) {
       value = '#' + value;
     }
+    // Trim to max length (handles paste of long strings)
+    if (value.length > MAX_LOCATION_ALIAS_LENGTH) {
+      value = value.slice(0, MAX_LOCATION_ALIAS_LENGTH);
+    }
     setNewAliasName(value);
     setAliasError('');
+  };
+
+  // Clear state when dialog closes
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setPendingOrder(null);
+      setNewAliasName('');
+      setNewAliasValue('');
+      setAliasError('');
+    }
+    onOpenChange(open);
   };
 
   const handleDeleteAlias = async (alias: string) => {
@@ -329,7 +344,7 @@ export function LocationSettingsDialog({
   const aliasEntries = Object.entries(locationSettings.aliases);
 
   return (
-    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+    <AlertDialog open={isOpen} onOpenChange={handleOpenChange}>
       <AlertDialogContent className="max-w-lg max-h-[80vh] flex flex-col gap-0 p-0 overflow-hidden">
         {/* Header with subtle background */}
         <AlertDialogHeader className="flex-shrink-0 px-6 py-4 border-b bg-muted/30">
@@ -515,7 +530,7 @@ export function LocationSettingsDialog({
           )}
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={isLoading && hasOrderChanges}
           >
             {texts.close}

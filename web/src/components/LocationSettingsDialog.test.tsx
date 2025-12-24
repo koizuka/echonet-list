@@ -76,6 +76,26 @@ describe('LocationSettingsDialog', () => {
       fireEvent.click(screen.getByText('Close'));
       expect(defaultProps.onOpenChange).toHaveBeenCalledWith(false);
     });
+
+    it('should clear input state when close button is clicked', async () => {
+      render(<LocationSettingsDialog {...defaultProps} />);
+
+      // Enter some data
+      const aliasInput = screen.getByPlaceholderText(/Alias/);
+      fireEvent.change(aliasInput, { target: { value: '#test' } });
+      expect(aliasInput).toHaveValue('#test');
+
+      // Click close button - this triggers handleOpenChange(false) which clears state
+      fireEvent.click(screen.getByText('Close'));
+
+      // State should be cleared (dialog still visible because mock doesn't change isOpen)
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/Alias/)).toHaveValue('');
+      });
+
+      // onOpenChange should have been called
+      expect(defaultProps.onOpenChange).toHaveBeenCalledWith(false);
+    });
   });
 
   describe('alias section', () => {
@@ -126,6 +146,18 @@ describe('LocationSettingsDialog', () => {
 
       const aliasInput = screen.getByPlaceholderText(/Alias/);
       expect(aliasInput).toHaveAttribute('maxLength', '32');
+    });
+
+    it('should trim input to max length when auto-inserting # prefix', () => {
+      render(<LocationSettingsDialog {...defaultProps} />);
+
+      const aliasInput = screen.getByPlaceholderText(/Alias/);
+      // Type 32 characters without # (which would become 33 with auto-insert)
+      const longInput = '12345678901234567890123456789012'; // 32 chars
+      fireEvent.change(aliasInput, { target: { value: longInput } });
+
+      // Should be trimmed to 32 chars total (including auto-inserted #)
+      expect(aliasInput).toHaveValue('#1234567890123456789012345678901'); // 32 chars
     });
 
     it('should disable add button when no alias or value is selected', () => {
