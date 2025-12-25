@@ -28,8 +28,7 @@ Merge all safe dependabot PRs efficiently and automatically:
 6. **Kick off the oldest PR**: Run `gh pr update-branch` on the lowest-numbered (oldest) PR to start the chain. The oldest PR typically has the most up-to-date CI results and is most likely to merge immediately.
 
 7. **Monitor until all PRs are processed**:
-   - Check every 30-60 seconds: `gh pr list --author app/dependabot --json number,state,mergeable`
-   - For each remaining PR, check status with `gh pr view <PR#> --json state,mergeStateStatus`
+   - Check every 30-60 seconds: `gh pr list --author app/dependabot --json number,state,mergeable,mergeStateStatus,statusCheckRollup`
    - Handle issues as they arise:
      - **Conflicts**: `gh pr comment <PR#> --body "@dependabot recreate"`
      - **CI failures**: Disable auto-merge on that PR (`gh pr merge --disable-auto <PR#>`), report to user, continue with remaining PRs
