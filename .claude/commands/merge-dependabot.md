@@ -20,9 +20,7 @@ Merge all safe dependabot PRs efficiently and automatically:
 5. **Set auto-merge on approved PRs**:
 
    ```bash
-   for pr in <approved PR numbers>; do
-     gh pr merge $pr --squash --auto
-   done
+   echo "<approved PR numbers>" | xargs -n1 gh pr merge --squash --auto
    ```
 
 6. **Kick off the oldest PR**: Run `gh pr update-branch` on the lowest-numbered (oldest) PR to start the chain. The oldest PR typically has the most up-to-date CI results and is most likely to merge immediately.
