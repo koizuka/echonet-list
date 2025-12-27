@@ -442,7 +442,7 @@ function App() {
   };
 
   // Helper function to render tab triggers (reduces code duplication)
-  const renderTabTrigger = useCallback((tabId: string, showStatusIndicators: boolean, showDeviceCount: boolean) => {
+  const renderTabTrigger = useCallback((tabId: string, showStatusIndicators: boolean, showDeviceCount: boolean, additionalClassName?: string) => {
     // Inline helper call to avoid stale closure issues with getDevicesForTab
     const tabDevices = getDevicesForTabHelper(tabId, echonet.devices, echonet.groups);
     const hasOperational = hasAnyOperationalDevice(tabDevices);
@@ -453,7 +453,10 @@ function App() {
       <TabsTrigger
         key={tabId}
         value={tabId}
-        className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30"
+        className={cn(
+          "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30",
+          additionalClassName
+        )}
         data-testid={`tab-${tabId}`}
       >
         <div className="flex items-center gap-1.5">
@@ -564,9 +567,17 @@ function App() {
                 "sm:flex-wrap sm:overflow-visible sm:justify-between"
               )}>
               {/* Location tabs (non-group tabs) - Dashboard and All hide status indicators */}
+              {/* When Dashboard is selected, hide location-specific tabs on mobile (md:flex to show on desktop) */}
               {locationTabs.map((tabId) => {
                 const showIndicators = tabId !== 'Dashboard' && tabId !== 'All';
-                return renderTabTrigger(tabId, showIndicators, showIndicators);
+                const isLocationSpecificTab = tabId !== 'Dashboard' && tabId !== 'All';
+                const hideOnMobileWhenDashboard = selectedTab === 'Dashboard' && isLocationSpecificTab;
+                return renderTabTrigger(
+                  tabId,
+                  showIndicators,
+                  showIndicators,
+                  hideOnMobileWhenDashboard ? "hidden md:flex" : undefined
+                );
               })}
               {/* Location Settings Button - after location tabs, before group tabs */}
               <Button
@@ -616,6 +627,7 @@ function App() {
                     locationSettings={echonet.locationSettings}
                     onPropertyChange={handlePropertyChange}
                     isConnected={isConnected}
+                    onSelectTab={selectTab}
                   />
                 )}
 

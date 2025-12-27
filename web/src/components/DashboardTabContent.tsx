@@ -4,6 +4,7 @@ import { getDashboardDevicesGroupedByLocation, getLocationDisplayName, sortLocat
 import { arrangeDashboardDevices, isPlaceholder } from '@/libs/dashboardLayoutHelper';
 import { useDashboardCardExpansion } from '@/hooks/useDashboardCardExpansion';
 import { cn } from '@/libs/utils';
+import { isJapanese } from '@/libs/languageHelper';
 import type { Device, PropertyDescriptionData, DeviceAlias, LocationSettings } from '@/hooks/types';
 
 interface DashboardTabContentProps {
@@ -13,6 +14,7 @@ interface DashboardTabContentProps {
   locationSettings: LocationSettings;
   onPropertyChange: (target: string, epc: string, value: { string: string }) => Promise<void>;
   isConnected: boolean;
+  onSelectTab?: (tabId: string) => void;
 }
 
 export function DashboardTabContent({
@@ -21,7 +23,8 @@ export function DashboardTabContent({
   propertyDescriptions,
   locationSettings,
   onPropertyChange,
-  isConnected
+  isConnected,
+  onSelectTab
 }: DashboardTabContentProps) {
   const { isExpanded, toggleExpansion } = useDashboardCardExpansion();
   const groupedDevices = getDashboardDevicesGroupedByLocation(devices);
@@ -48,8 +51,20 @@ export function DashboardTabContent({
         const arranged = arrangeDashboardDevices(locationDevices);
         const firstIsPlaceholder = arranged.length > 0 && isPlaceholder(arranged[0]);
 
-        const locationLabel = (
-          <h3 className="text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0">
+        const locationLabelClassName = "text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0";
+        const buttonLabel = isJapanese() ? `${locationName} タブを開く` : `Open ${locationName} tab`;
+        const locationLabel = onSelectTab ? (
+          <button
+            type="button"
+            onClick={() => onSelectTab(locationId)}
+            className={cn(locationLabelClassName, "cursor-pointer hover:text-primary transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded")}
+            aria-label={buttonLabel}
+            title={buttonLabel}
+          >
+            {locationName}
+          </button>
+        ) : (
+          <h3 className={locationLabelClassName}>
             {locationName}
           </h3>
         );
