@@ -47,7 +47,7 @@ export function DashboardTabContent({
         const firstIsPlaceholder = arranged.length > 0 && isPlaceholder(arranged[0]);
 
         const locationLabel = (
-          <h3 className="text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0">
+          <h3 className="text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0">
             {locationName}
           </h3>
         );
