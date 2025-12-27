@@ -443,7 +443,8 @@ function App() {
 
   // Helper function to render tab triggers (reduces code duplication)
   const renderTabTrigger = useCallback((tabId: string, showStatusIndicators: boolean, showDeviceCount: boolean) => {
-    const tabDevices = getDevicesForTab(tabId);
+    // Inline helper call to avoid stale closure issues with getDevicesForTab
+    const tabDevices = getDevicesForTabHelper(tabId, echonet.devices, echonet.groups);
     const hasOperational = hasAnyOperationalDevice(tabDevices);
     const hasFaulty = hasAnyFaultyDevice(tabDevices);
     const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions, echonet.locationSettings);
@@ -481,7 +482,6 @@ function App() {
         </div>
       </TabsTrigger>
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [echonet.devices, echonet.groups, echonet.propertyDescriptions, echonet.locationSettings]);
 
   // Get all offline devices
@@ -551,7 +551,7 @@ function App() {
           </Card>
         ) : (
           <Tabs value={selectedTab} onValueChange={selectTab} className="w-full" data-testid="device-tabs">
-            <div className="w-full mb-4">
+            <div className={cn("w-full mb-4", selectedTab === 'Dashboard' && "scroll-fade-right")}>
               <TabsList className={cn(
                 "w-full h-auto p-2 bg-muted flex gap-2",
                 // Mobile scroll behavior:

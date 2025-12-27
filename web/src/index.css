@@ -121,6 +121,34 @@
     display: none;
   }
 
+  /**
+   * Scroll fade indicator
+   *
+   * Shows a fade gradient on the right edge to indicate more content is
+   * available via horizontal scroll. Use on a wrapper element around the
+   * scrollable container. Only visible on mobile (< sm breakpoint).
+   */
+  .scroll-fade-right {
+    position: relative;
+  }
+  .scroll-fade-right::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 2rem;
+    background: linear-gradient(to right, transparent, hsl(var(--muted)));
+    pointer-events: none;
+    border-radius: 0 0.5rem 0.5rem 0;
+  }
+  /* Hide fade indicator on desktop where tabs wrap */
+  @media (min-width: 640px) {
+    .scroll-fade-right::after {
+      display: none;
+    }
+  }
+
   /* Scrollbar styling */
   .scrollbar-visible {
     scrollbar-width: thin;
