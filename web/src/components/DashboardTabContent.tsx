@@ -13,6 +13,7 @@ interface DashboardTabContentProps {
   locationSettings: LocationSettings;
   onPropertyChange: (target: string, epc: string, value: { string: string }) => Promise<void>;
   isConnected: boolean;
+  onSelectTab?: (tabId: string) => void;
 }
 
 export function DashboardTabContent({
@@ -21,7 +22,8 @@ export function DashboardTabContent({
   propertyDescriptions,
   locationSettings,
   onPropertyChange,
-  isConnected
+  isConnected,
+  onSelectTab
 }: DashboardTabContentProps) {
   const { isExpanded, toggleExpansion } = useDashboardCardExpansion();
   const groupedDevices = getDashboardDevicesGroupedByLocation(devices);
@@ -48,7 +50,15 @@ export function DashboardTabContent({
         const arranged = arrangeDashboardDevices(locationDevices);
         const firstIsPlaceholder = arranged.length > 0 && isPlaceholder(arranged[0]);
 
-        const locationLabel = (
+        const locationLabel = onSelectTab ? (
+          <button
+            type="button"
+            onClick={() => onSelectTab(locationId)}
+            className="text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0 cursor-pointer hover:text-primary transition-colors duration-200"
+          >
+            {locationName}
+          </button>
+        ) : (
           <h3 className="text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0">
             {locationName}
           </h3>
