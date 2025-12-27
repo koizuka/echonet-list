@@ -22,6 +22,9 @@ Description: create a pull request
      - `git diff HEAD` の結果から `protocol/protocol.go` または `server/websocket_server_handlers_*.go` に変更があるか確認
      - 変更がある場合、`docs/websocket_client_protocol.md` も更新されているか確認
      - プロトコルドキュメントが更新されていない場合、ユーザーに警告して確認を求める
+   - **CLAUDE.md更新チェック**:
+     - 新機能を追加した場合、`CLAUDE.md` の「実装済み機能」セクションが更新されているか確認
+     - 更新されていない場合、ユーザーに警告して確認を求める
 
    ※エラーがあった場合のみ、ユーザーに報告して中断してください。
 
