@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeviceIcon } from '@/components/DeviceIcon';
 import { PropertySwitchControl } from './PropertyEditControls/PropertySwitchControl';
 import { getDashboardStatusProperties } from '@/libs/deviceTypeHelper';
@@ -91,31 +92,38 @@ export function DashboardCard({
       {/* Line 1: Icon + Status + On/Off control */}
       <div className="flex items-center justify-between gap-2">
         {/* Expandable area: Icon + Status */}
-        <div
-          className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
-          onClick={onToggleExpand}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onToggleExpand?.(); } }}
-          onKeyUp={(e) => { if (e.key === ' ') { e.preventDefault(); onToggleExpand?.(); } }}
-          role="button"
-          tabIndex={0}
-          aria-expanded={isExpanded}
-          aria-label={`${deviceName}: ${isExpanded ? 'collapse' : 'expand'}`}
-          data-testid={`dashboard-card-expandable-${device.ip}-${device.eoj}`}
-        >
-          <DeviceIcon device={device} classCode={classCode} className="flex-shrink-0" />
-          <span className="text-xs truncate flex-1">
-            {statusItems.length > 0 ? (
-              statusItems.map((item, index) => (
-                <span key={index}>
-                  {index > 0 && <span className="text-muted-foreground" aria-hidden="true"> / </span>}
-                  <span className={item.colorClass} aria-label={`Status: ${item.value}`}>{item.value}</span>
-                </span>
-              ))
-            ) : (
-              <span className="text-muted-foreground" aria-label="No status data">---</span>
-            )}
-          </span>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+              onClick={onToggleExpand}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onToggleExpand?.(); } }}
+              onKeyUp={(e) => { if (e.key === ' ') { e.preventDefault(); onToggleExpand?.(); } }}
+              role="button"
+              tabIndex={0}
+              aria-expanded={isExpanded}
+              aria-label={`${deviceName}: ${isExpanded ? 'collapse' : 'expand'}`}
+              data-testid={`dashboard-card-expandable-${device.ip}-${device.eoj}`}
+            >
+              <DeviceIcon device={device} classCode={classCode} className="flex-shrink-0" />
+              <span className="text-xs truncate flex-1">
+                {statusItems.length > 0 ? (
+                  statusItems.map((item, index) => (
+                    <span key={index}>
+                      {index > 0 && <span className="text-muted-foreground" aria-hidden="true"> / </span>}
+                      <span className={item.colorClass} aria-label={`Status: ${item.value}`}>{item.value}</span>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground" aria-label="No status data">---</span>
+                )}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{deviceName}</p>
+          </TooltipContent>
+        </Tooltip>
 
         {isOperationSettable && operationStatus && (
           <PropertySwitchControl

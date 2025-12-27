@@ -1,8 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DashboardCard } from './DashboardCard';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 import * as deviceIdHelper from '@/libs/deviceIdHelper';
+
+// Wrapper component for TooltipProvider
+const renderWithTooltip = (ui: React.ReactElement) => {
+  return render(<TooltipProvider>{ui}</TooltipProvider>);
+};
 
 // Mock ResizeObserver for tests
 global.ResizeObserver = vi.fn(() => ({
@@ -83,7 +89,7 @@ describe('DashboardCard', () => {
 
   describe('rendering', () => {
     it('should not render device name by default (collapsed state)', () => {
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -99,7 +105,7 @@ describe('DashboardCard', () => {
     });
 
     it('should render device name when expanded', () => {
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -116,7 +122,7 @@ describe('DashboardCard', () => {
 
     it('should call onToggleExpand when expandable area is clicked', () => {
       const mockToggle = vi.fn();
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -137,7 +143,7 @@ describe('DashboardCard', () => {
 
     it('should call onToggleExpand when Enter key is pressed', () => {
       const mockToggle = vi.fn();
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -158,7 +164,7 @@ describe('DashboardCard', () => {
 
     it('should call onToggleExpand when Space key is released', () => {
       const mockToggle = vi.fn();
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -184,7 +190,7 @@ describe('DashboardCard', () => {
         deviceIdentifier: '192.168.1.100 0130:1'
       });
 
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -200,7 +206,7 @@ describe('DashboardCard', () => {
     });
 
     it('should render status property values', () => {
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -226,7 +232,7 @@ describe('DashboardCard', () => {
         }
       });
 
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={deviceWithoutStatus}
           onPropertyChange={mockOnPropertyChange}
@@ -243,7 +249,7 @@ describe('DashboardCard', () => {
 
   describe('on/off switch', () => {
     it('should render switch when operation status is settable', () => {
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -268,7 +274,7 @@ describe('DashboardCard', () => {
         }
       });
 
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={deviceNotSettable}
           onPropertyChange={mockOnPropertyChange}
@@ -283,7 +289,7 @@ describe('DashboardCard', () => {
     });
 
     it('should call onPropertyChange when switch is toggled', async () => {
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -305,7 +311,7 @@ describe('DashboardCard', () => {
     });
 
     it('should disable switch when not connected', () => {
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -323,7 +329,7 @@ describe('DashboardCard', () => {
     it('should disable switch when device is offline', () => {
       const offlineDevice = createDevice({ isOffline: true });
 
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={offlineDevice}
           onPropertyChange={mockOnPropertyChange}
@@ -340,7 +346,7 @@ describe('DashboardCard', () => {
 
     it('should not call onToggleExpand when switch is clicked', () => {
       const mockToggle = vi.fn();
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -366,7 +372,7 @@ describe('DashboardCard', () => {
     it('should have opacity-50 when device is offline', () => {
       const offlineDevice = createDevice({ isOffline: true });
 
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={offlineDevice}
           onPropertyChange={mockOnPropertyChange}
@@ -382,7 +388,7 @@ describe('DashboardCard', () => {
     });
 
     it('should have green border when device is operational (on)', () => {
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={createDevice()}
           onPropertyChange={mockOnPropertyChange}
@@ -407,7 +413,7 @@ describe('DashboardCard', () => {
         }
       });
 
-      render(
+      renderWithTooltip(
         <DashboardCard
           device={offDevice}
           onPropertyChange={mockOnPropertyChange}

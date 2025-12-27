@@ -1,4 +1,5 @@
 import { DashboardCard } from './DashboardCard';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { getDashboardDevicesGroupedByLocation, getLocationDisplayName, sortLocationIds } from '@/libs/locationHelper';
 import { arrangeDashboardDevices, isPlaceholder } from '@/libs/dashboardLayoutHelper';
 import { useDashboardCardExpansion } from '@/hooks/useDashboardCardExpansion';
@@ -35,11 +36,12 @@ export function DashboardTabContent({
   }
 
   return (
-    <div
-      className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start pb-16 safe-area-bottom"
-      data-testid="dashboard-content"
-    >
-      {locationIds.map((locationId, index) => {
+    <TooltipProvider delayDuration={300}>
+      <div
+        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start pb-16 safe-area-bottom"
+        data-testid="dashboard-content"
+      >
+        {locationIds.map((locationId, index) => {
         const locationDevices = groupedDevices[locationId];
         const locationName = getLocationDisplayName(locationId, devices, propertyDescriptions, locationSettings);
 
@@ -102,7 +104,8 @@ export function DashboardTabContent({
             </div>
           </div>
         );
-      })}
-    </div>
+        })}
+      </div>
+    </TooltipProvider>
   );
 }
