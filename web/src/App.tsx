@@ -441,6 +441,48 @@ function App() {
     return getDevicesForTabHelper(tabId, echonet.devices, echonet.groups);
   };
 
+  // Helper function to render tab triggers (reduces code duplication)
+  const renderTabTrigger = useCallback((tabId: string, showStatusIndicators: boolean, showDeviceCount: boolean) => {
+    const tabDevices = getDevicesForTab(tabId);
+    const hasOperational = hasAnyOperationalDevice(tabDevices);
+    const hasFaulty = hasAnyFaultyDevice(tabDevices);
+    const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions, echonet.locationSettings);
+
+    return (
+      <TabsTrigger
+        key={tabId}
+        value={tabId}
+        className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30"
+        data-testid={`tab-${tabId}`}
+      >
+        <div className="flex items-center gap-1.5">
+          {showStatusIndicators && (
+            <div className="flex items-center gap-1">
+              <div
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  hasOperational
+                    ? 'bg-teal-400 shadow-[0_0_6px_2px_hsl(160_75%_50%/0.5)]'
+                    : 'border border-muted-foreground/40 bg-transparent'
+                }`}
+                title={`Power Status: ${hasOperational ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
+              />
+              {hasFaulty && (
+                <div
+                  className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_2px_hsl(0_80%_55%/0.5)]"
+                  title="At least one device has a fault"
+                />
+              )}
+            </div>
+          )}
+          <span>{displayName}</span>
+          {showDeviceCount && (
+            <span className="ml-1 text-[10px] sm:text-xs opacity-70">({tabDevices.length})</span>
+          )}
+        </div>
+      </TabsTrigger>
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [echonet.devices, echonet.groups, echonet.propertyDescriptions, echonet.locationSettings]);
 
   // Get all offline devices
   const allOfflineDevices = Object.values(echonet.devices).filter(device => device.isOffline);
@@ -512,55 +554,19 @@ function App() {
             <div className="w-full mb-4">
               <TabsList className={cn(
                 "w-full h-auto p-2 bg-muted flex gap-2",
-                // Mobile: horizontal scroll when Dashboard selected, wrap otherwise
+                // Mobile scroll behavior:
+                // - Dashboard: horizontal scroll (一覧性重視 - prioritizes overview)
+                // - Other tabs: wrap (詳細重視 - prioritizes detailed view)
                 selectedTab === 'Dashboard'
                   ? "flex-nowrap overflow-x-auto justify-start scrollbar-hide"
                   : "flex-wrap justify-between",
                 // Desktop (sm and above): always wrap
                 "sm:flex-wrap sm:overflow-visible sm:justify-between"
               )}>
-              {/* Location tabs (non-group tabs) */}
+              {/* Location tabs (non-group tabs) - Dashboard and All hide status indicators */}
               {locationTabs.map((tabId) => {
-                const tabDevices = getDevicesForTab(tabId);
-                const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
-                const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
-                const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions, echonet.locationSettings);
-                // Hide status indicators for Dashboard and All tabs
-                const showStatusIndicators = tabId !== 'Dashboard' && tabId !== 'All';
-                const showDeviceCount = tabId !== 'Dashboard' && tabId !== 'All';
-                return (
-                  <TabsTrigger
-                    key={tabId}
-                    value={tabId}
-                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30"
-                    data-testid={`tab-${tabId}`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      {showStatusIndicators && (
-                        <div className="flex items-center gap-1">
-                          <div
-                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                              hasOperationalDevice
-                                ? 'bg-teal-400 shadow-[0_0_6px_2px_hsl(160_75%_50%/0.5)]'
-                                : 'border border-muted-foreground/40 bg-transparent'
-                            }`}
-                            title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
-                          />
-                          {hasFaultyDevice && (
-                            <div
-                              className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_2px_hsl(0_80%_55%/0.5)]"
-                              title="At least one device has a fault"
-                            />
-                          )}
-                        </div>
-                      )}
-                      <span>{displayName}</span>
-                      {showDeviceCount && (
-                        <span className="ml-1 text-[10px] sm:text-xs opacity-70">({tabDevices.length})</span>
-                      )}
-                    </div>
-                  </TabsTrigger>
-                );
+                const showIndicators = tabId !== 'Dashboard' && tabId !== 'All';
+                return renderTabTrigger(tabId, showIndicators, showIndicators);
               })}
               {/* Location Settings Button - after location tabs, before group tabs */}
               <Button
@@ -575,42 +581,8 @@ function App() {
                 <Settings className="h-3 w-3 sm:mr-1" />
                 <span className="hidden sm:inline">設置場所</span>
               </Button>
-              {/* Group tabs (@prefix) */}
-              {groupTabs.map((tabId) => {
-                const tabDevices = getDevicesForTab(tabId);
-                const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
-                const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
-                const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions, echonet.locationSettings);
-                return (
-                  <TabsTrigger
-                    key={tabId}
-                    value={tabId}
-                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30"
-                    data-testid={`tab-${tabId}`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex items-center gap-1">
-                        <div
-                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                            hasOperationalDevice
-                              ? 'bg-teal-400 shadow-[0_0_6px_2px_hsl(160_75%_50%/0.5)]'
-                              : 'border border-muted-foreground/40 bg-transparent'
-                          }`}
-                          title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
-                        />
-                        {hasFaultyDevice && (
-                          <div
-                            className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_2px_hsl(0_80%_55%/0.5)]"
-                            title="At least one device has a fault"
-                          />
-                        )}
-                      </div>
-                      <span>{displayName}</span>
-                      <span className="ml-1 text-[10px] sm:text-xs opacity-70">({tabDevices.length})</span>
-                    </div>
-                  </TabsTrigger>
-                );
-              })}
+              {/* Group tabs (@prefix) - always show status indicators */}
+              {groupTabs.map((tabId) => renderTabTrigger(tabId, true, true))}
               {/* Add Group Button */}
               <Button
                 variant="ghost"
