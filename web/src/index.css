@@ -101,13 +101,24 @@
     touch-action: manipulation;
   }
 
-  /* Hide scrollbar utility */
+  /**
+   * Hide scrollbar utility
+   *
+   * Use this class on horizontally scrollable containers where you want to
+   * hide the scrollbar while maintaining scroll functionality (e.g., tab lists
+   * on mobile). The content remains scrollable via touch/drag.
+   *
+   * Cross-browser support:
+   * - IE/Edge: -ms-overflow-style
+   * - Firefox: scrollbar-width
+   * - Chrome/Safari/Opera: ::-webkit-scrollbar
+   */
   .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
   .scrollbar-hide::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari, Opera */
+    display: none;
   }
 
   /* Scrollbar styling */

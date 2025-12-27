@@ -244,7 +244,13 @@ function App() {
     if (pendingGroupName && !baseTabIds.includes(pendingGroupName)) additionalTabs.push(pendingGroupName);
     return [...baseTabIds, ...additionalTabs];
   }, [echonet.devices, echonet.groups, echonet.locationSettings, newGroupTabName, pendingGroupName]);
-  
+
+  // Split tabs into location tabs and group tabs for rendering
+  const { locationTabs, groupTabs } = useMemo(() => ({
+    locationTabs: tabIds.filter(tabId => !tabId.startsWith('@')),
+    groupTabs: tabIds.filter(tabId => tabId.startsWith('@')),
+  }), [tabIds]);
+
   // Use persistent tab selection
   const { selectedTab, selectTab } = usePersistedTab(tabIds, 'All');
 
@@ -513,76 +519,98 @@ function App() {
                 // Desktop (sm and above): always wrap
                 "sm:flex-wrap sm:overflow-visible sm:justify-between"
               )}>
-              {/* Render tab trigger - shared logic for location and group tabs */}
-              {(() => {
-                const renderTabTrigger = (tabId: string) => {
-                  const tabDevices = getDevicesForTab(tabId);
-                  const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
-                  const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
-                  const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions, echonet.locationSettings);
-                  // Hide status indicators for Dashboard and All tabs
-                  const showStatusIndicators = tabId !== 'Dashboard' && tabId !== 'All';
-                  const showDeviceCount = tabId !== 'Dashboard' && tabId !== 'All';
-                  return (
-                    <TabsTrigger
-                      key={tabId}
-                      value={tabId}
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30"
-                      data-testid={`tab-${tabId}`}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        {showStatusIndicators && (
-                          <div className="flex items-center gap-1">
+              {/* Location tabs (non-group tabs) */}
+              {locationTabs.map((tabId) => {
+                const tabDevices = getDevicesForTab(tabId);
+                const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
+                const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
+                const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions, echonet.locationSettings);
+                // Hide status indicators for Dashboard and All tabs
+                const showStatusIndicators = tabId !== 'Dashboard' && tabId !== 'All';
+                const showDeviceCount = tabId !== 'Dashboard' && tabId !== 'All';
+                return (
+                  <TabsTrigger
+                    key={tabId}
+                    value={tabId}
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30"
+                    data-testid={`tab-${tabId}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {showStatusIndicators && (
+                        <div className="flex items-center gap-1">
+                          <div
+                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                              hasOperationalDevice
+                                ? 'bg-teal-400 shadow-[0_0_6px_2px_hsl(160_75%_50%/0.5)]'
+                                : 'border border-muted-foreground/40 bg-transparent'
+                            }`}
+                            title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
+                          />
+                          {hasFaultyDevice && (
                             <div
-                              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                hasOperationalDevice
-                                  ? 'bg-teal-400 shadow-[0_0_6px_2px_hsl(160_75%_50%/0.5)]'
-                                  : 'border border-muted-foreground/40 bg-transparent'
-                              }`}
-                              title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
+                              className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_2px_hsl(0_80%_55%/0.5)]"
+                              title="At least one device has a fault"
                             />
-                            {hasFaultyDevice && (
-                              <div
-                                className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_2px_hsl(0_80%_55%/0.5)]"
-                                title="At least one device has a fault"
-                              />
-                            )}
-                          </div>
-                        )}
-                        <span>{displayName}</span>
-                        {showDeviceCount && (
-                          <span className="ml-1 text-[10px] sm:text-xs opacity-70">({tabDevices.length})</span>
+                          )}
+                        </div>
+                      )}
+                      <span>{displayName}</span>
+                      {showDeviceCount && (
+                        <span className="ml-1 text-[10px] sm:text-xs opacity-70">({tabDevices.length})</span>
+                      )}
+                    </div>
+                  </TabsTrigger>
+                );
+              })}
+              {/* Location Settings Button - after location tabs, before group tabs */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsLocationSettingsOpen(true)}
+                className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
+                title="Location Settings"
+                aria-label="設置場所の設定"
+                data-testid="location-settings-button"
+              >
+                <Settings className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">設置場所</span>
+              </Button>
+              {/* Group tabs (@prefix) */}
+              {groupTabs.map((tabId) => {
+                const tabDevices = getDevicesForTab(tabId);
+                const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
+                const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
+                const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions, echonet.locationSettings);
+                return (
+                  <TabsTrigger
+                    key={tabId}
+                    value={tabId}
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30"
+                    data-testid={`tab-${tabId}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1">
+                        <div
+                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            hasOperationalDevice
+                              ? 'bg-teal-400 shadow-[0_0_6px_2px_hsl(160_75%_50%/0.5)]'
+                              : 'border border-muted-foreground/40 bg-transparent'
+                          }`}
+                          title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
+                        />
+                        {hasFaultyDevice && (
+                          <div
+                            className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_2px_hsl(0_80%_55%/0.5)]"
+                            title="At least one device has a fault"
+                          />
                         )}
                       </div>
-                    </TabsTrigger>
-                  );
-                };
-
-                const locationTabs = tabIds.filter(tabId => !tabId.startsWith('@'));
-                const groupTabs = tabIds.filter(tabId => tabId.startsWith('@'));
-
-                return (
-                  <>
-                    {/* Location tabs (non-group tabs) */}
-                    {locationTabs.map(renderTabTrigger)}
-                    {/* Location Settings Button - after location tabs, before group tabs */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsLocationSettingsOpen(true)}
-                      className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
-                      title="Location Settings"
-                      aria-label="設置場所の設定"
-                      data-testid="location-settings-button"
-                    >
-                      <Settings className="h-3 w-3 sm:mr-1" />
-                      <span className="hidden sm:inline">設置場所</span>
-                    </Button>
-                    {/* Group tabs (@prefix) */}
-                    {groupTabs.map(renderTabTrigger)}
-                  </>
+                      <span>{displayName}</span>
+                      <span className="ml-1 text-[10px] sm:text-xs opacity-70">({tabDevices.length})</span>
+                    </div>
+                  </TabsTrigger>
                 );
-              })()}
+              })}
               {/* Add Group Button */}
               <Button
                 variant="ghost"
