@@ -314,7 +314,8 @@ describe('DashboardTabContent', () => {
         />
       );
 
-      const locationButton = screen.getByRole('button', { name: /living.*タブを開く/i });
+      // isJapanese is mocked to return false, so we expect English label
+      const locationButton = screen.getByRole('button', { name: /Open.*living.*tab/i });
       fireEvent.click(locationButton);
       expect(mockOnSelectTab).toHaveBeenCalledWith('living');
     });
@@ -337,7 +338,7 @@ describe('DashboardTabContent', () => {
 
       const locationDiv = screen.getByTestId('dashboard-location-living');
       expect(locationDiv.querySelector('h3')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /タブを開く/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Open.*tab/i })).not.toBeInTheDocument();
     });
 
     it('should have accessibility attributes when clickable', () => {
@@ -358,7 +359,8 @@ describe('DashboardTabContent', () => {
         />
       );
 
-      const locationButton = screen.getByRole('button', { name: /living.*タブを開く/i });
+      // isJapanese is mocked to return false, so we expect English label
+      const locationButton = screen.getByRole('button', { name: /Open.*living.*tab/i });
       expect(locationButton).toHaveAttribute('aria-label');
       expect(locationButton).toHaveAttribute('title');
     });
