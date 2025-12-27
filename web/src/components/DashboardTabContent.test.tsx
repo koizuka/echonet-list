@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { DashboardTabContent } from './DashboardTabContent';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 
@@ -292,6 +292,75 @@ describe('DashboardTabContent', () => {
       // Switch should be disabled when disconnected
       switchElement = screen.getByRole('switch');
       expect(switchElement).toBeDisabled();
+    });
+  });
+
+  describe('location label navigation', () => {
+    it('should call onSelectTab when location label is clicked', () => {
+      const mockOnSelectTab = vi.fn();
+      const devices = {
+        'd1': createDevice('192.168.1.1', '0130:1', 'living')
+      };
+
+      render(
+        <DashboardTabContent
+          devices={devices}
+          aliases={{}}
+          propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
+          onPropertyChange={mockOnPropertyChange}
+          isConnected={true}
+          onSelectTab={mockOnSelectTab}
+        />
+      );
+
+      const locationButton = screen.getByRole('button', { name: /living.*タブを開く/i });
+      fireEvent.click(locationButton);
+      expect(mockOnSelectTab).toHaveBeenCalledWith('living');
+    });
+
+    it('should render as h3 when onSelectTab is not provided', () => {
+      const devices = {
+        'd1': createDevice('192.168.1.1', '0130:1', 'living')
+      };
+
+      render(
+        <DashboardTabContent
+          devices={devices}
+          aliases={{}}
+          propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
+          onPropertyChange={mockOnPropertyChange}
+          isConnected={true}
+        />
+      );
+
+      const locationDiv = screen.getByTestId('dashboard-location-living');
+      expect(locationDiv.querySelector('h3')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /タブを開く/i })).not.toBeInTheDocument();
+    });
+
+    it('should have accessibility attributes when clickable', () => {
+      const mockOnSelectTab = vi.fn();
+      const devices = {
+        'd1': createDevice('192.168.1.1', '0130:1', 'living')
+      };
+
+      render(
+        <DashboardTabContent
+          devices={devices}
+          aliases={{}}
+          propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
+          onPropertyChange={mockOnPropertyChange}
+          isConnected={true}
+          onSelectTab={mockOnSelectTab}
+        />
+      );
+
+      const locationButton = screen.getByRole('button', { name: /living.*タブを開く/i });
+      expect(locationButton).toHaveAttribute('aria-label');
+      expect(locationButton).toHaveAttribute('title');
     });
   });
 });

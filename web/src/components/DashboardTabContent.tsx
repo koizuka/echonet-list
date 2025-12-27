@@ -50,16 +50,19 @@ export function DashboardTabContent({
         const arranged = arrangeDashboardDevices(locationDevices);
         const firstIsPlaceholder = arranged.length > 0 && isPlaceholder(arranged[0]);
 
+        const locationLabelClassName = "text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0";
         const locationLabel = onSelectTab ? (
           <button
             type="button"
             onClick={() => onSelectTab(locationId)}
-            className="text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0 cursor-pointer hover:text-primary transition-colors duration-200"
+            className={cn(locationLabelClassName, "cursor-pointer hover:text-primary transition-colors duration-200")}
+            aria-label={`${locationName} タブを開く`}
+            title={`${locationName} タブを開く`}
           >
             {locationName}
           </button>
         ) : (
-          <h3 className="text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0">
+          <h3 className={locationLabelClassName}>
             {locationName}
           </h3>
         );
