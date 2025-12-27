@@ -4,6 +4,7 @@ import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import { generateLogEntryId } from '@/libs/idHelper';
+import { cn } from '@/libs/utils';
 import { useCardExpansion } from '@/hooks/useCardExpansion';
 import { usePersistedTab } from '@/hooks/usePersistedTab';
 import { useAutoReconnect } from '@/hooks/useAutoReconnect';
@@ -467,16 +468,6 @@ function App() {
                 isConnected={isConnected}
               />
 
-              {/* Location Settings Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 sm:h-8 px-2 sm:px-3"
-                onClick={() => setIsLocationSettingsOpen(true)}
-              >
-                <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
-              </Button>
-
               <ConnectionStatusBadge connectionState={echonet.connectionState} />
 
               {/* Notification Bell */}
@@ -513,8 +504,17 @@ function App() {
         ) : (
           <Tabs value={selectedTab} onValueChange={selectTab} className="w-full" data-testid="device-tabs">
             <div className="w-full mb-4">
-              <TabsList className="w-full h-auto p-2 bg-muted flex flex-wrap justify-between gap-2">
-              {tabIds.map((tabId) => {
+              <TabsList className={cn(
+                "w-full h-auto p-2 bg-muted flex gap-2",
+                // Mobile: horizontal scroll when Dashboard selected, wrap otherwise
+                selectedTab === 'Dashboard'
+                  ? "flex-nowrap overflow-x-auto justify-start scrollbar-hide"
+                  : "flex-wrap justify-between",
+                // Desktop (sm and above): always wrap
+                "sm:flex-wrap sm:overflow-visible sm:justify-between"
+              )}>
+              {/* Location tabs (non-group tabs) */}
+              {tabIds.filter(tabId => !tabId.startsWith('@')).map((tabId) => {
                 const tabDevices = getDevicesForTab(tabId);
                 const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
                 const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
@@ -522,6 +522,59 @@ function App() {
                 // Hide status indicators for Dashboard and All tabs
                 const showStatusIndicators = tabId !== 'Dashboard' && tabId !== 'All';
                 const showDeviceCount = tabId !== 'Dashboard' && tabId !== 'All';
+                return (
+                  <TabsTrigger
+                    key={tabId}
+                    value={tabId}
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 border border-border/50 bg-card/50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-xl transition-all duration-200 hover:bg-accent/30"
+                    data-testid={`tab-${tabId}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {showStatusIndicators && (
+                        <div className="flex items-center gap-1">
+                          <div
+                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                              hasOperationalDevice
+                                ? 'bg-teal-400 shadow-[0_0_6px_2px_hsl(160_75%_50%/0.5)]'
+                                : 'border border-muted-foreground/40 bg-transparent'
+                            }`}
+                            title={`Power Status: ${hasOperationalDevice ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
+                          />
+                          {hasFaultyDevice && (
+                            <div
+                              className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_2px_hsl(0_80%_55%/0.5)]"
+                              title="At least one device has a fault"
+                            />
+                          )}
+                        </div>
+                      )}
+                      <span>{displayName}</span>
+                      {showDeviceCount && (
+                        <span className="ml-1 text-[10px] sm:text-xs opacity-70">({tabDevices.length})</span>
+                      )}
+                    </div>
+                  </TabsTrigger>
+                );
+              })}
+              {/* Location Settings Button - after location tabs, before group tabs */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsLocationSettingsOpen(true)}
+                className="h-8 px-2 text-xs sm:text-sm"
+                title="Location Settings"
+                data-testid="location-settings-button"
+              >
+                <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+              {/* Group tabs (@prefix) */}
+              {tabIds.filter(tabId => tabId.startsWith('@')).map((tabId) => {
+                const tabDevices = getDevicesForTab(tabId);
+                const hasOperationalDevice = hasAnyOperationalDevice(tabDevices);
+                const hasFaultyDevice = hasAnyFaultyDevice(tabDevices);
+                const displayName = getTabDisplayName(tabId, echonet.devices, echonet.propertyDescriptions, echonet.locationSettings);
+                const showStatusIndicators = true; // Always show for group tabs
+                const showDeviceCount = true;
                 return (
                   <TabsTrigger
                     key={tabId}
