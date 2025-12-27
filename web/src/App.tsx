@@ -572,6 +572,7 @@ function App() {
                       onClick={() => setIsLocationSettingsOpen(true)}
                       className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
                       title="Location Settings"
+                      aria-label="設置場所の設定"
                       data-testid="location-settings-button"
                     >
                       <Settings className="h-3 w-3 sm:mr-1" />
