@@ -408,12 +408,11 @@ export function LocationSettingsDialog({
   };
 
   // Convert order array to unique IDs for SortableContext
-  // Separators get unique IDs like "---:0", "---:1" to allow multiple separators
+  // Separators get unique IDs based on array index (e.g., "---:0", "---:3") for deterministic generation
   const orderToUniqueIds = (order: string[]): string[] => {
-    let separatorCount = 0;
-    return order.map(item => {
+    return order.map((item, index) => {
       if (isSeparator(item)) {
-        return `${LOCATION_SEPARATOR}:${separatorCount++}`;
+        return `${LOCATION_SEPARATOR}:${index}`;
       }
       return item;
     });
