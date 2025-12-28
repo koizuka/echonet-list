@@ -66,23 +66,32 @@ export function splitLocationsBySepar(
 }
 
 /**
+ * Discriminated union type for tab entries with separators.
+ * - 'tab' entries have a required id property
+ * - 'separator' entries have no id property
+ */
+export type TabOrSeparator =
+  | { type: 'tab'; id: string }
+  | { type: 'separator' };
+
+/**
  * Get tabs with separator markers for tab bar rendering.
  * Returns an array of tab entries with type 'tab' or 'separator'.
  *
  * @param locationTabs - Array of location tab IDs
  * @param order - Order array that may contain separator markers
- * @returns Array of tab entries with type and optional id
+ * @returns Array of tab entries with type and id (for tabs)
  */
 export function getTabsWithSeparators(
   locationTabs: string[],
   order: string[]
-): Array<{ type: 'tab' | 'separator'; id?: string }> {
+): TabOrSeparator[] {
   if (order.length === 0) {
     return locationTabs.map(id => ({ type: 'tab' as const, id }));
   }
 
   const tabSet = new Set(locationTabs);
-  const result: Array<{ type: 'tab' | 'separator'; id?: string }> = [];
+  const result: TabOrSeparator[] = [];
   const usedTabs = new Set<string>();
 
   for (const item of order) {

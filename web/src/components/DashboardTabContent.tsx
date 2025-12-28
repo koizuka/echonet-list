@@ -34,6 +34,15 @@ export function DashboardTabContent({
   // Split locations into groups based on separator positions
   const locationGroups = splitLocationsBySepar(locationIds, locationSettings.order);
 
+  // Pre-compute global indices for alternating backgrounds (avoids mutable variable in render)
+  const globalIndexMap = new Map<string, number>();
+  let idx = 0;
+  for (const group of locationGroups) {
+    for (const locationId of group) {
+      globalIndexMap.set(locationId, idx++);
+    }
+  }
+
   if (locationIds.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-8" data-testid="dashboard-empty">
@@ -41,9 +50,6 @@ export function DashboardTabContent({
       </div>
     );
   }
-
-  // Track global index for alternating backgrounds
-  let globalIndex = 0;
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -78,7 +84,7 @@ export function DashboardTabContent({
               </h3>
             );
 
-            const currentIndex = globalIndex++;
+            const globalIndex = globalIndexMap.get(locationId) ?? 0;
 
             return (
               <div
@@ -86,7 +92,7 @@ export function DashboardTabContent({
                 className={cn(
                   // Mobile: left accent line + alternating background
                   'border-l-2 border-l-primary/40 pl-2',
-                  currentIndex % 2 === 1 && 'bg-muted/60',
+                  globalIndex % 2 === 1 && 'bg-muted/60',
                   // Tablet+: reset mobile styles and apply card container
                   'md:border-l-0 md:pl-0 md:bg-card',
                   'md:rounded-lg md:border md:p-3 md:shadow-sm'

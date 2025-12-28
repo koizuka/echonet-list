@@ -585,6 +585,8 @@ function App() {
                   return (
                     <div
                       key={`separator-${index}`}
+                      role="separator"
+                      aria-orientation="vertical"
                       className={cn(
                         "w-px mx-0.5 self-stretch flex-shrink-0 bg-border",
                         hideOnMobileWhenDashboard && "hidden md:block"
@@ -592,10 +594,10 @@ function App() {
                     />
                   );
                 }
-                const tabId = item.id!;
+                // Type narrowing: item.type === 'tab' guarantees item.id exists
                 const hideOnMobileWhenDashboard = selectedTab === 'Dashboard';
                 return renderTabTrigger(
-                  tabId,
+                  item.id,
                   true,
                   true,
                   hideOnMobileWhenDashboard ? "hidden md:flex" : undefined
