@@ -138,11 +138,12 @@ export function DashboardTabContent({
             );
           });
 
-          // Return group elements with optional separator
+          // Return group elements with separator between groups
+          // Show separator even for empty groups to help users notice configuration issues
           return (
             <React.Fragment key={`group-${groupIndex}`}>
               {groupElements}
-              {!isLastGroup && group.length > 0 && (
+              {!isLastGroup && (
                 <div className="col-span-full my-2">
                   <div className="h-px bg-border" />
                 </div>
