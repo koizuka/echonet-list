@@ -9,6 +9,109 @@ import { isNodeProfileDevice } from './deviceTypeHelper';
 // ECHONET Installation Location EPC
 const EPC_INSTALLATION_LOCATION = '81';
 
+// Location separator marker
+export const LOCATION_SEPARATOR = '---';
+
+/**
+ * Check if a string is a location separator marker
+ */
+export function isSeparator(item: string): boolean {
+  return item === LOCATION_SEPARATOR;
+}
+
+/**
+ * Filter out separator markers from an order array
+ */
+export function filterSeparators(order: string[]): string[] {
+  return order.filter(item => !isSeparator(item));
+}
+
+/**
+ * Split locations into groups based on separator positions in the order array.
+ * Used for Dashboard rendering where locations are grouped visually.
+ *
+ * @param locationIds - Array of location IDs to display
+ * @param order - Order array that may contain separator markers
+ * @returns Array of location groups, split at separator positions
+ */
+export function splitLocationsBySepar(
+  locationIds: string[],
+  order: string[]
+): string[][] {
+  if (order.length === 0) {
+    return [locationIds];
+  }
+
+  const locationSet = new Set(locationIds);
+  const groups: string[][] = [];
+  let currentGroup: string[] = [];
+  const usedLocations = new Set<string>();
+
+  for (const item of order) {
+    if (isSeparator(item)) {
+      groups.push(currentGroup);
+      currentGroup = [];
+    } else if (locationSet.has(item)) {
+      currentGroup.push(item);
+      usedLocations.add(item);
+    }
+  }
+
+  // Add remaining locations not in order to the last group
+  const unorderedLocations = locationIds.filter(id => !usedLocations.has(id));
+  currentGroup.push(...unorderedLocations);
+  groups.push(currentGroup);
+
+  return groups;
+}
+
+/**
+ * Discriminated union type for tab entries with separators.
+ * - 'tab' entries have a required id property
+ * - 'separator' entries have no id property
+ */
+export type TabOrSeparator =
+  | { type: 'tab'; id: string }
+  | { type: 'separator' };
+
+/**
+ * Get tabs with separator markers for tab bar rendering.
+ * Returns an array of tab entries with type 'tab' or 'separator'.
+ *
+ * @param locationTabs - Array of location tab IDs
+ * @param order - Order array that may contain separator markers
+ * @returns Array of tab entries with type and id (for tabs)
+ */
+export function getTabsWithSeparators(
+  locationTabs: string[],
+  order: string[]
+): TabOrSeparator[] {
+  if (order.length === 0) {
+    return locationTabs.map(id => ({ type: 'tab' as const, id }));
+  }
+
+  const tabSet = new Set(locationTabs);
+  const result: TabOrSeparator[] = [];
+  const usedTabs = new Set<string>();
+
+  for (const item of order) {
+    if (isSeparator(item)) {
+      result.push({ type: 'separator' });
+    } else if (tabSet.has(item)) {
+      result.push({ type: 'tab', id: item });
+      usedTabs.add(item);
+    }
+  }
+
+  // Add remaining tabs not in order
+  const unorderedTabs = locationTabs.filter(id => !usedTabs.has(id));
+  for (const id of unorderedTabs) {
+    result.push({ type: 'tab', id });
+  }
+
+  return result;
+}
+
 
 
 /**
