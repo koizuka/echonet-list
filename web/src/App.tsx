@@ -578,16 +578,19 @@ function App() {
                 renderTabTrigger(tabId, false, false)
               )}
               {/* Location-specific tabs with separators */}
-              {/* When Dashboard is selected, hide location-specific tabs on mobile (md:flex to show on desktop) */}
-              {/* Separators are always visible to maintain visual grouping context */}
+              {/* When Dashboard is selected, hide location-specific tabs and separators on mobile */}
               {locationTabsWithSeparators.map((item, index) => {
                 if (item.type === 'separator') {
+                  const hideOnMobileWhenDashboard = selectedTab === 'Dashboard';
                   return (
                     <div
                       key={`separator-${index}`}
                       role="separator"
                       aria-orientation="vertical"
-                      className="w-px mx-0.5 self-stretch flex-shrink-0 bg-border"
+                      className={cn(
+                        "w-px mx-0.5 self-stretch flex-shrink-0 bg-border",
+                        hideOnMobileWhenDashboard && "hidden md:block"
+                      )}
                     />
                   );
                 }
