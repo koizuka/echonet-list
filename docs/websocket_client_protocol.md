@@ -401,12 +401,12 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   }
 }
 
-// 表示順変更の例
+// 表示順変更の例（セパレータ含む）
 {
   "type": "location_settings_changed",
   "payload": {
     "change_type": "order_changed",
-    "order": ["living", "room2", "kitchen"]
+    "order": ["living", "kitchen", "---", "room1", "room2"]
   }
 }
 ```
@@ -418,7 +418,7 @@ wss://hostname:port/ws     // SSL/TLS暗号化接続
   - `"order_changed"`: 表示順が変更された
 - `alias`: エイリアス名（"#" で始まる文字列、alias変更時のみ）
 - `value`: エイリアスの値（alias_added/alias_updated時のみ）
-- `order`: 表示順の配列（order_changed時のみ）
+- `order`: 表示順の配列（order_changed時のみ、セパレータ `"---"` を含む場合あり）
 
 ### error_notification
 
@@ -698,6 +698,25 @@ case 'device_added':
 1. `order` リストにある場所を先頭に表示（リスト順）
 2. `order` にない場所はアルファベット順で末尾に追加
 3. 空の配列 `[]` を指定すると表示順をリセット（デフォルトの順序に戻す）
+
+**セパレータ:**
+
+`order` 配列には特殊なマーカー文字列 `"---"` を含めることができます。これはセパレータとして機能し、UIで視覚的なグループ分けを表現します。
+
+```json
+{
+  "type": "set_location_order",
+  "payload": {
+    "order": ["living", "kitchen", "---", "room1", "room2"]
+  },
+  "requestId": "req-132"
+}
+```
+
+- セパレータは `order` 配列内の任意の位置に複数配置可能
+- サーバーはセパレータをそのまま保存し、クライアントに返却
+- クライアントは `"---"` を認識し、ダッシュボードでは水平線、タブバーでは縦線として表示
+- セパレータは有効な設置場所IDとしては扱われない（`order` 以外の処理では無視される）
 
 ### discover_devices
 

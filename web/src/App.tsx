@@ -1,5 +1,5 @@
 import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
-import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getTabDisplayName } from '@/libs/locationHelper';
+import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getTabDisplayName, getTabsWithSeparators } from '@/libs/locationHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
@@ -250,6 +250,13 @@ function App() {
     locationTabs: tabIds.filter(tabId => !tabId.startsWith('@')),
     groupTabs: tabIds.filter(tabId => tabId.startsWith('@')),
   }), [tabIds]);
+
+  // Get location tabs with separator markers for tab bar rendering
+  // Filter out Dashboard and All first, then get pure location tabs with separators
+  const locationTabsWithSeparators = useMemo(() => {
+    const pureLocationTabs = locationTabs.filter(tabId => tabId !== 'Dashboard' && tabId !== 'All');
+    return getTabsWithSeparators(pureLocationTabs, echonet.locationSettings.order);
+  }, [locationTabs, echonet.locationSettings.order]);
 
   // Use persistent tab selection
   const { selectedTab, selectTab } = usePersistedTab(tabIds, 'All');
@@ -566,16 +573,31 @@ function App() {
                 // Desktop (sm and above): always wrap
                 "sm:flex-wrap sm:overflow-visible sm:justify-between"
               )}>
-              {/* Location tabs (non-group tabs) - Dashboard and All hide status indicators */}
+              {/* Dashboard and All tabs - no status indicators */}
+              {locationTabs.filter(tabId => tabId === 'Dashboard' || tabId === 'All').map((tabId) =>
+                renderTabTrigger(tabId, false, false)
+              )}
+              {/* Location-specific tabs with separators */}
               {/* When Dashboard is selected, hide location-specific tabs on mobile (md:flex to show on desktop) */}
-              {locationTabs.map((tabId) => {
-                const showIndicators = tabId !== 'Dashboard' && tabId !== 'All';
-                const isLocationSpecificTab = tabId !== 'Dashboard' && tabId !== 'All';
-                const hideOnMobileWhenDashboard = selectedTab === 'Dashboard' && isLocationSpecificTab;
+              {locationTabsWithSeparators.map((item, index) => {
+                if (item.type === 'separator') {
+                  const hideOnMobileWhenDashboard = selectedTab === 'Dashboard';
+                  return (
+                    <div
+                      key={`separator-${index}`}
+                      className={cn(
+                        "w-px mx-0.5 self-stretch flex-shrink-0 bg-border",
+                        hideOnMobileWhenDashboard && "hidden md:block"
+                      )}
+                    />
+                  );
+                }
+                const tabId = item.id!;
+                const hideOnMobileWhenDashboard = selectedTab === 'Dashboard';
                 return renderTabTrigger(
                   tabId,
-                  showIndicators,
-                  showIndicators,
+                  true,
+                  true,
                   hideOnMobileWhenDashboard ? "hidden md:flex" : undefined
                 );
               })}

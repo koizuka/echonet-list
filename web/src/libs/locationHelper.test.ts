@@ -1,4 +1,4 @@
-import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getAllTabs, getDashboardDevicesGroupedByLocation, getDevicesForTab, translateLocationId, getTabDisplayName, isDashboardDevice } from './locationHelper';
+import { hasAnyOperationalDevice, hasAnyFaultyDevice, groupDevicesByLocation, getAllLocations, getAllTabs, getDashboardDevicesGroupedByLocation, getDevicesForTab, translateLocationId, getTabDisplayName, isDashboardDevice, LOCATION_SEPARATOR, isSeparator, filterSeparators, splitLocationsBySepar, getTabsWithSeparators } from './locationHelper';
 import type { Device, DeviceAlias, DeviceGroup } from '@/hooks/types';
 
 describe('locationHelper', () => {
@@ -425,6 +425,209 @@ describe('locationHelper', () => {
     it('should return capitalized location ID when no device found', () => {
       const result = getTabDisplayName('unknown', {}, {});
       expect(result).toBe('Unknown');
+    });
+  });
+
+  describe('LOCATION_SEPARATOR', () => {
+    it('should be "---"', () => {
+      expect(LOCATION_SEPARATOR).toBe('---');
+    });
+  });
+
+  describe('isSeparator', () => {
+    it('should return true for separator marker', () => {
+      expect(isSeparator('---')).toBe(true);
+    });
+
+    it('should return false for regular location IDs', () => {
+      expect(isSeparator('living')).toBe(false);
+      expect(isSeparator('kitchen')).toBe(false);
+      expect(isSeparator('unknown')).toBe(false);
+    });
+
+    it('should return false for location aliases', () => {
+      expect(isSeparator('#2F寝室')).toBe(false);
+      expect(isSeparator('#リビング')).toBe(false);
+    });
+
+    it('should return false for similar strings', () => {
+      expect(isSeparator('--')).toBe(false);
+      expect(isSeparator('----')).toBe(false);
+      expect(isSeparator('- - -')).toBe(false);
+    });
+  });
+
+  describe('filterSeparators', () => {
+    it('should filter out separators from order array', () => {
+      const order = ['living', '---', 'kitchen', '---', 'room1'];
+      expect(filterSeparators(order)).toEqual(['living', 'kitchen', 'room1']);
+    });
+
+    it('should return unchanged array if no separators', () => {
+      const order = ['living', 'kitchen', 'room1'];
+      expect(filterSeparators(order)).toEqual(['living', 'kitchen', 'room1']);
+    });
+
+    it('should return empty array for empty input', () => {
+      expect(filterSeparators([])).toEqual([]);
+    });
+
+    it('should return empty array if only separators', () => {
+      expect(filterSeparators(['---', '---', '---'])).toEqual([]);
+    });
+  });
+
+  describe('splitLocationsBySepar', () => {
+    it('should split locations into groups at separator positions', () => {
+      const order = ['living', 'kitchen', '---', 'room1', 'room2'];
+      const locations = ['living', 'kitchen', 'room1', 'room2'];
+
+      const groups = splitLocationsBySepar(locations, order);
+      expect(groups).toEqual([
+        ['living', 'kitchen'],
+        ['room1', 'room2']
+      ]);
+    });
+
+    it('should handle multiple separators', () => {
+      const order = ['living', '---', 'kitchen', '---', 'room1'];
+      const locations = ['living', 'kitchen', 'room1'];
+
+      const groups = splitLocationsBySepar(locations, order);
+      expect(groups).toEqual([
+        ['living'],
+        ['kitchen'],
+        ['room1']
+      ]);
+    });
+
+    it('should handle no separators', () => {
+      const order = ['living', 'kitchen', 'room1'];
+      const locations = ['living', 'kitchen', 'room1'];
+
+      const groups = splitLocationsBySepar(locations, order);
+      expect(groups).toEqual([
+        ['living', 'kitchen', 'room1']
+      ]);
+    });
+
+    it('should handle consecutive separators', () => {
+      const order = ['living', '---', '---', 'kitchen'];
+      const locations = ['living', 'kitchen'];
+
+      const groups = splitLocationsBySepar(locations, order);
+      expect(groups).toEqual([
+        ['living'],
+        [],
+        ['kitchen']
+      ]);
+    });
+
+    it('should handle leading separator', () => {
+      const order = ['---', 'living', 'kitchen'];
+      const locations = ['living', 'kitchen'];
+
+      const groups = splitLocationsBySepar(locations, order);
+      expect(groups).toEqual([
+        [],
+        ['living', 'kitchen']
+      ]);
+    });
+
+    it('should handle trailing separator', () => {
+      const order = ['living', 'kitchen', '---'];
+      const locations = ['living', 'kitchen'];
+
+      const groups = splitLocationsBySepar(locations, order);
+      expect(groups).toEqual([
+        ['living', 'kitchen'],
+        []
+      ]);
+    });
+
+    it('should handle empty order', () => {
+      const order: string[] = [];
+      const locations = ['living', 'kitchen'];
+
+      const groups = splitLocationsBySepar(locations, order);
+      expect(groups).toEqual([
+        ['living', 'kitchen']
+      ]);
+    });
+
+    it('should handle locations not in order', () => {
+      const order = ['living', '---', 'kitchen'];
+      const locations = ['living', 'kitchen', 'extra'];
+
+      const groups = splitLocationsBySepar(locations, order);
+      expect(groups).toEqual([
+        ['living'],
+        ['kitchen', 'extra']
+      ]);
+    });
+  });
+
+  describe('getTabsWithSeparators', () => {
+    it('should return tabs with separator markers', () => {
+      const locationTabs = ['living', 'kitchen', 'room1'];
+      const order = ['living', '---', 'kitchen', 'room1'];
+
+      const result = getTabsWithSeparators(locationTabs, order);
+      expect(result).toEqual([
+        { type: 'tab', id: 'living' },
+        { type: 'separator' },
+        { type: 'tab', id: 'kitchen' },
+        { type: 'tab', id: 'room1' }
+      ]);
+    });
+
+    it('should handle no separators', () => {
+      const locationTabs = ['living', 'kitchen'];
+      const order = ['living', 'kitchen'];
+
+      const result = getTabsWithSeparators(locationTabs, order);
+      expect(result).toEqual([
+        { type: 'tab', id: 'living' },
+        { type: 'tab', id: 'kitchen' }
+      ]);
+    });
+
+    it('should handle multiple separators', () => {
+      const locationTabs = ['living', 'kitchen', 'room1'];
+      const order = ['living', '---', 'kitchen', '---', 'room1'];
+
+      const result = getTabsWithSeparators(locationTabs, order);
+      expect(result).toEqual([
+        { type: 'tab', id: 'living' },
+        { type: 'separator' },
+        { type: 'tab', id: 'kitchen' },
+        { type: 'separator' },
+        { type: 'tab', id: 'room1' }
+      ]);
+    });
+
+    it('should handle empty order', () => {
+      const locationTabs = ['living', 'kitchen'];
+      const order: string[] = [];
+
+      const result = getTabsWithSeparators(locationTabs, order);
+      expect(result).toEqual([
+        { type: 'tab', id: 'living' },
+        { type: 'tab', id: 'kitchen' }
+      ]);
+    });
+
+    it('should handle tabs not in order (appear at end without separators)', () => {
+      const locationTabs = ['living', 'kitchen', 'extra'];
+      const order = ['living', '---', 'kitchen'];
+
+      const result = getTabsWithSeparators(locationTabs, order);
+      expect(result).toEqual([
+        { type: 'tab', id: 'living' },
+        { type: 'separator' },
+        { type: 'tab', id: 'kitchen' },
+        { type: 'tab', id: 'extra' }
+      ]);
     });
   });
 });
