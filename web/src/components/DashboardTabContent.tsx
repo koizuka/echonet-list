@@ -99,20 +99,20 @@ export function DashboardTabContent({
                 )}
                 data-testid={`dashboard-location-${locationId}`}
               >
-                {/* Location header - only show outside grid if first item is not a placeholder */}
-                {!firstIsPlaceholder && (
-                  <div className="mb-2">{locationLabel}</div>
-                )}
+                {/* Location header - always show on PC, hide on mobile when first is placeholder */}
+                <div className={cn("mb-2", firstIsPlaceholder && "hidden md:block")}>
+                  {locationLabel}
+                </div>
 
                 {/* Device grid within location */}
                 <div className="grid grid-cols-2 gap-2">
                   {arranged.map((item, itemIndex) => {
                     if (isPlaceholder(item)) {
-                      // First placeholder becomes the location label
+                      // First placeholder: show label on mobile only, keep empty placeholder on PC
                       if (itemIndex === 0) {
                         return (
                           <div key={`label-${locationId}`} className="flex items-start">
-                            {locationLabel}
+                            <span className="md:hidden">{locationLabel}</span>
                           </div>
                         );
                       }
