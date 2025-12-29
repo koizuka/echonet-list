@@ -1,6 +1,6 @@
 ---
 description: Merge safe dependabot PRs efficiently with auto-merge
-allowed-tools: Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr update-branch:*)
+allowed-tools: Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr update-branch:*), Bash(git pull)
 ---
 
 Merge all safe dependabot PRs efficiently and automatically:
@@ -23,7 +23,10 @@ Merge all safe dependabot PRs efficiently and automatically:
    echo "<approved PR numbers>" | xargs -n1 gh pr merge --squash --auto
    ```
 
-6. **Kick off the oldest PR**: Run `gh pr update-branch` on the lowest-numbered (oldest) PR to start the chain. The oldest PR typically has the most up-to-date CI results and is most likely to merge immediately.
+6. **Kick off the merge chain**:
+   - Check remaining open PRs with `gh pr list --author app/dependabot --json number,state`
+   - If PRs remain, run `gh pr update-branch` on the lowest-numbered (oldest) open PR
+   - Note: Some PRs may merge immediately after auto-merge is set if already up-to-date
 
 7. **Monitor until all PRs are processed**:
    - Check every 30-60 seconds: `gh pr list --author app/dependabot --json number,state,mergeable,mergeStateStatus,statusCheckRollup`
@@ -31,10 +34,13 @@ Merge all safe dependabot PRs efficiently and automatically:
      - **Conflicts**: `gh pr comment <PR#> --body "@dependabot recreate"`
      - **CI failures**: Disable auto-merge on that PR (`gh pr merge --disable-auto <PR#>`), report to user, continue with remaining PRs
      - **Blocked**: May need manual `gh pr update-branch`
+   - When a PR merges, update the next oldest open PR's branch if needed
    - If a PR is stuck for >10 minutes, investigate manually
    - Continue until no open PRs remain
 
 8. **Verify completion**: `gh pr list --author app/dependabot` should show no results (or only skipped PRs)
+
+9. **Sync local repository**: Run `git pull` to update the local main branch with all merged changes
 
 ## Safety criteria
 
