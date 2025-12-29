@@ -172,24 +172,20 @@ describe('DashboardTabContent', () => {
         />
       );
 
-      const locationDiv = screen.getByTestId('dashboard-location-living');
-      const gridContainer = locationDiv.querySelector('.grid');
-      expect(gridContainer).toBeInTheDocument();
+      // PC label: outside grid, hidden on mobile (hidden md:block)
+      const pcLabel = screen.getByTestId('location-label-pc-living');
+      expect(pcLabel).toBeInTheDocument();
+      expect(pcLabel).toHaveClass('hidden', 'md:block');
+      expect(pcLabel.querySelector('h3')).toHaveTextContent(/living/i);
 
-      // Mobile: label inside grid with md:hidden (visible on mobile, hidden on PC)
-      const labelInGrid = gridContainer?.querySelector('span.md\\:hidden');
-      expect(labelInGrid).toBeInTheDocument();
-      expect(labelInGrid?.querySelector('h3')).toHaveTextContent(/living/i);
-
-      // PC: label outside grid with hidden md:block (hidden on mobile, visible on PC)
-      const labelOutsideGrid = locationDiv.querySelector(':scope > div.hidden.md\\:block');
-      expect(labelOutsideGrid).toBeInTheDocument();
-      expect(labelOutsideGrid?.querySelector('h3')).toHaveTextContent(/living/i);
+      // Mobile label: inside grid placeholder, hidden on PC (md:hidden on inner span)
+      const mobileLabel = screen.getByTestId('location-label-mobile-living');
+      expect(mobileLabel).toBeInTheDocument();
+      expect(mobileLabel.querySelector('span')).toHaveClass('md:hidden');
+      expect(mobileLabel.querySelector('h3')).toHaveTextContent(/living/i);
 
       // Placeholder div stays visible on PC to maintain grid layout
-      const placeholderDiv = gridContainer?.querySelector('div.flex.items-start');
-      expect(placeholderDiv).toBeInTheDocument();
-      expect(placeholderDiv).not.toHaveClass('md:hidden');
+      expect(mobileLabel).not.toHaveClass('md:hidden');
     });
 
     it('should render location label outside grid when AC exists', () => {

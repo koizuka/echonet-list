@@ -99,8 +99,14 @@ export function DashboardTabContent({
                 )}
                 data-testid={`dashboard-location-${locationId}`}
               >
-                {/* Location header - always show on PC, hide on mobile when first is placeholder */}
-                <div className={cn("mb-2", firstIsPlaceholder && "hidden md:block")}>
+                {/* Location header - intentionally duplicated for responsive layout:
+                    - This div: visible on PC (md:block), hidden on mobile when placeholder exists
+                    - Placeholder span below: visible on mobile (md:hidden), hidden on PC
+                    Only one is visible at a time based on viewport */}
+                <div
+                  className={cn("mb-2", firstIsPlaceholder && "hidden md:block")}
+                  data-testid={`location-label-pc-${locationId}`}
+                >
                   {locationLabel}
                 </div>
 
@@ -111,7 +117,11 @@ export function DashboardTabContent({
                       // First placeholder: show label on mobile only, keep empty placeholder on PC
                       if (itemIndex === 0) {
                         return (
-                          <div key={`label-${locationId}`} className="flex items-start">
+                          <div
+                            key={`label-${locationId}`}
+                            className="flex items-start"
+                            data-testid={`location-label-mobile-${locationId}`}
+                          >
                             <span className="md:hidden">{locationLabel}</span>
                           </div>
                         );
