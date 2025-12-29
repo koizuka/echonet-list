@@ -155,7 +155,7 @@ describe('DashboardTabContent', () => {
       expect(locationKitchen.querySelector('h3')).toHaveTextContent(/kitchen/i);
     });
 
-    it('should render location label inside grid when only floor heaters exist (no AC)', () => {
+    it('should render location label inside grid on mobile when only floor heaters exist (no AC)', () => {
       // Floor heater class code is 027B
       const devices = {
         'd1': createDevice('192.168.1.1', '027B:1', 'living')
@@ -175,14 +175,68 @@ describe('DashboardTabContent', () => {
       const locationDiv = screen.getByTestId('dashboard-location-living');
       const gridContainer = locationDiv.querySelector('.grid');
 
-      // When only floor heaters exist, the label should be inside the grid (first cell)
-      // instead of being in a separate row above the grid
+      // When only floor heaters exist, the label should be inside the grid (first cell) on mobile
       expect(gridContainer).toBeInTheDocument();
-      expect(gridContainer?.querySelector('h3')).toHaveTextContent(/living/i);
 
-      // The label should NOT be outside the grid (as a direct child of locationDiv)
-      const directH3Children = locationDiv.querySelectorAll(':scope > h3');
-      expect(directH3Children.length).toBe(0);
+      // The label inside the grid should have md:hidden class (visible on mobile, hidden on PC)
+      const labelInGrid = gridContainer?.querySelector('span.md\\:hidden');
+      expect(labelInGrid).toBeInTheDocument();
+      expect(labelInGrid?.querySelector('h3')).toHaveTextContent(/living/i);
+    });
+
+    it('should render location label outside grid on PC when only floor heaters exist (no AC)', () => {
+      // Floor heater class code is 027B
+      const devices = {
+        'd1': createDevice('192.168.1.1', '027B:1', 'living')
+      };
+
+      render(
+        <DashboardTabContent
+          devices={devices}
+          aliases={{}}
+          propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
+          onPropertyChange={mockOnPropertyChange}
+          isConnected={true}
+        />
+      );
+
+      const locationDiv = screen.getByTestId('dashboard-location-living');
+
+      // On PC, the label should be outside the grid with hidden md:block classes
+      // (hidden on mobile, visible on PC)
+      const labelOutsideGrid = locationDiv.querySelector(':scope > div.hidden.md\\:block');
+      expect(labelOutsideGrid).toBeInTheDocument();
+      expect(labelOutsideGrid?.querySelector('h3')).toHaveTextContent(/living/i);
+    });
+
+    it('should keep placeholder visible on PC to maintain floor heater position', () => {
+      // Floor heater class code is 027B
+      const devices = {
+        'd1': createDevice('192.168.1.1', '027B:1', 'living')
+      };
+
+      render(
+        <DashboardTabContent
+          devices={devices}
+          aliases={{}}
+          propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
+          onPropertyChange={mockOnPropertyChange}
+          isConnected={true}
+        />
+      );
+
+      const locationDiv = screen.getByTestId('dashboard-location-living');
+      const gridContainer = locationDiv.querySelector('.grid');
+
+      // The placeholder div should exist to maintain the 2-column grid layout
+      // It contains a span with md:hidden that hides the label on PC
+      const placeholderDiv = gridContainer?.querySelector('div.flex.items-start');
+      expect(placeholderDiv).toBeInTheDocument();
+
+      // The placeholder div itself should NOT have md:hidden (it stays visible on PC)
+      expect(placeholderDiv).not.toHaveClass('md:hidden');
     });
 
     it('should render location label outside grid when AC exists', () => {
