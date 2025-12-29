@@ -155,7 +155,7 @@ describe('DashboardTabContent', () => {
       expect(locationKitchen.querySelector('h3')).toHaveTextContent(/kitchen/i);
     });
 
-    it('should render location label inside grid when only floor heaters exist (no AC)', () => {
+    it('should render responsive location label for floor heaters only (mobile: inside grid, PC: outside grid)', () => {
       // Floor heater class code is 027B
       const devices = {
         'd1': createDevice('192.168.1.1', '027B:1', 'living')
@@ -172,17 +172,20 @@ describe('DashboardTabContent', () => {
         />
       );
 
-      const locationDiv = screen.getByTestId('dashboard-location-living');
-      const gridContainer = locationDiv.querySelector('.grid');
+      // PC label: outside grid, hidden on mobile (hidden md:block)
+      const pcLabel = screen.getByTestId('location-label-pc-living');
+      expect(pcLabel).toBeInTheDocument();
+      expect(pcLabel).toHaveClass('hidden', 'md:block');
+      expect(pcLabel.querySelector('h3')).toHaveTextContent(/living/i);
 
-      // When only floor heaters exist, the label should be inside the grid (first cell)
-      // instead of being in a separate row above the grid
-      expect(gridContainer).toBeInTheDocument();
-      expect(gridContainer?.querySelector('h3')).toHaveTextContent(/living/i);
+      // Mobile label: inside grid placeholder, hidden on PC (md:hidden on inner span)
+      const mobileLabel = screen.getByTestId('location-label-mobile-living');
+      expect(mobileLabel).toBeInTheDocument();
+      expect(mobileLabel.querySelector('span')).toHaveClass('md:hidden');
+      expect(mobileLabel.querySelector('h3')).toHaveTextContent(/living/i);
 
-      // The label should NOT be outside the grid (as a direct child of locationDiv)
-      const directH3Children = locationDiv.querySelectorAll(':scope > h3');
-      expect(directH3Children.length).toBe(0);
+      // Placeholder div stays visible on PC to maintain grid layout
+      expect(mobileLabel).not.toHaveClass('md:hidden');
     });
 
     it('should render location label outside grid when AC exists', () => {
