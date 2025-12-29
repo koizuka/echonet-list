@@ -1,6 +1,6 @@
 ---
 description: Merge safe dependabot PRs efficiently with auto-merge
-allowed-tools: Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr update-branch:*), Bash(git checkout:*), Bash(git pull)
+allowed-tools: Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr update-branch:*), Bash(git pull)
 ---
 
 Merge all safe dependabot PRs efficiently and automatically:
@@ -40,7 +40,7 @@ Merge all safe dependabot PRs efficiently and automatically:
 
 8. **Verify completion**: `gh pr list --author app/dependabot` should show no results (or only skipped PRs)
 
-9. **Sync local repository**: Switch to main branch and pull latest changes: `git checkout main && git pull`
+9. **Sync local repository**: If on main branch, run `git pull` to update with merged changes
 
 ## Safety criteria
 
