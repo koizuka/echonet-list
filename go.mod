@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.1
 
 require (
-	github.com/BurntSushi/toml v1.5.0
+	github.com/BurntSushi/toml v1.6.0
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/google/go-cmp v0.7.0
 	github.com/gorilla/websocket v1.5.3
