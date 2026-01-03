@@ -1,27 +1,22 @@
 # Quick Start Guide
 
 Get up and running with the ECHONET Lite controller in just a few minutes.
+For Raspberry Pi / long-running installs, use
+[docs/installation.md](installation.md) for the maintained systemd workflow.
 
-## 1. Build and Run
+## 1. Build
 
 ```bash
 # Clone and build
 git clone https://github.com/koizuka/echonet-list.git
 cd echonet-list
-go build
-
-# Build Web UI
-cd web && npm install && npm run build && cd ..
-
-# Run with Web UI
-./echonet-list -websocket -http-enabled
+./script/build.sh
 ```
 
-Open your browser to `http://localhost:8080`
+## 2. TLS Setup (Required for browsers)
 
-## 2. Secure Setup (Recommended)
-
-For a secure setup with HTTPS:
+TLS is required even on a trusted LAN because modern browsers (especially on
+mobile) block non-secure WebSocket connections from secure pages.
 
 ```bash
 # Install mkcert (macOS)
@@ -38,7 +33,7 @@ mkcert -cert-file certs/localhost+2.pem -key-file certs/localhost+2-key.pem loca
   -ws-key-file=certs/localhost+2-key.pem
 ```
 
-Open your browser to `https://localhost:8080`
+Open your browser to `https://localhost:8080`.
 
 ## 3. Basic Usage
 
@@ -78,8 +73,7 @@ Common commands:
 # Create configuration
 cp config.toml.sample config.toml
 
-# Edit config.toml to enable WebSocket and HTTP
-# Then run:
+# Edit config.toml to enable WebSocket/HTTP and TLS, then run:
 ./echonet-list -config config.toml
 ```
 
@@ -98,13 +92,9 @@ cd web && npm run dev
 ### Background Service (Linux/macOS)
 
 ```bash
-# Run as daemon
-./echonet-list -daemon -websocket -http-enabled
-
-# Or use systemd (Linux)
-sudo cp systemd/echonet-list.service /etc/systemd/system/
-sudo systemctl start echonet-list
-sudo systemctl enable echonet-list
+# Use the maintained systemd installer
+./script/build.sh
+sudo ./script/install-systemd.sh
 ```
 
 ## 5. Supported Devices

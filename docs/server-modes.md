@@ -51,7 +51,9 @@ For protocol details, see [WebSocket Client Protocol](websocket_client_protocol.
 Combines the WebSocket API server with an HTTP static file server, providing both the API and web UI from a single port.
 
 ```bash
-./echonet-list -websocket -http-enabled
+./echonet-list -websocket -http-enabled -ws-tls \
+  -ws-cert-file=certs/localhost+2.pem \
+  -ws-key-file=certs/localhost+2-key.pem
 ```
 
 Features:
@@ -62,13 +64,8 @@ Features:
 - Eliminates CORS issues
 - Simplified deployment
 
-### With TLS (Recommended)
-
-```bash
-./echonet-list -websocket -http-enabled -ws-tls \
-  -ws-cert-file=certs/localhost+2.pem \
-  -ws-key-file=certs/localhost+2-key.pem
-```
+TLS is required for browsers (HTTPS/WSS). Non-TLS is only suitable for
+non-browser clients on a trusted network.
 
 URLs:
 
@@ -80,7 +77,7 @@ URLs:
 Connects to another instance running in WebSocket server mode. Useful for distributed setups or testing.
 
 ```bash
-./echonet-list -ws-client -ws-client-addr ws://192.168.1.100:8080/ws
+./echonet-list -ws-client -ws-client-addr wss://192.168.1.100:8080/ws
 ```
 
 Features:
@@ -94,7 +91,9 @@ Features:
 Runs the application as a background service without console UI. Requires WebSocket server to be enabled for control.
 
 ```bash
-./echonet-list -daemon -websocket -http-enabled
+./echonet-list -daemon -websocket -http-enabled -ws-tls \
+  -ws-cert-file=certs/localhost+2.pem \
+  -ws-key-file=certs/localhost+2-key.pem
 ```
 
 Features:

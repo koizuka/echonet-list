@@ -23,7 +23,7 @@ import React from 'react';
 import { useECHONET } from './hooks/useECHONET';
 
 function App() {
-  const echonet = useECHONET('ws://localhost:8080/ws');
+  const echonet = useECHONET('wss://localhost:8080/ws');
 
   // 接続状態の確認
   if (echonet.connectionState === 'connecting') {
@@ -45,8 +45,8 @@ function App() {
 ### 接続先URL
 
 接続先URLの形式：
-- 開発環境: `ws://localhost:8080/ws`
-- 本番環境: `wss://hostname:port/ws` (HTTPS/SSL環境)
+- 推奨: `wss://hostname:port/ws` (HTTPS/WSS)
+- `ws://` はHTTPで提供するローカル開発時のみ利用可能（モバイルは非対応のことがあります）
 
 ## デバイス操作
 
