@@ -36,14 +36,19 @@ cd echonet-list
 # Build everything (server + web UI)
 ./script/build.sh
 
-# Run with Web UI + HTTP proxy
-./echonet-list -websocket -http-enabled
+# Install mkcert and generate certificates
+# See docs/installation.md#3-prepare-tls-with-mkcert for details.
+mkcert -install
+mkdir -p certs
+mkcert -cert-file certs/localhost+2.pem -key-file certs/localhost+2-key.pem localhost 127.0.0.1 ::1
+
+# Run with Web UI + HTTP proxy (TLS)
+./echonet-list -websocket -http-enabled -ws-tls \
+  -ws-cert-file=certs/localhost+2.pem \
+  -ws-key-file=certs/localhost+2-key.pem
 ```
 
-Before opening the UI, enable TLS in `config.toml` and generate certificates
-with mkcert (see [docs/installation.md](docs/installation.md)).
-
-Open your browser to `https://<host>:8080`.
+Open your browser to `https://localhost:8080`.
 
 ### LAN Usage and TLS
 
@@ -72,7 +77,9 @@ authentication and keep HTTPS/WSS enabled there.
 
 ```bash
 # Server with debug logging
-go run ./main.go -debug -websocket -http-enabled
+go run ./main.go -debug -websocket -http-enabled -ws-tls \
+  -ws-cert-file=certs/localhost+2.pem \
+  -ws-key-file=certs/localhost+2-key.pem
 
 # Web UI dev server (separate terminal)
 cd web
@@ -81,7 +88,7 @@ npm run dev
 ```
 
 When running the Vite dev server, set `VITE_WS_URL=wss://<host>/ws` and ensure
-the Go server is running with TLS and a trusted certificate.
+the Go server is running with TLS and a trusted certificate (mkcert).
 
 ## Documentation
 

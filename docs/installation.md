@@ -53,8 +53,8 @@ The systemd install script copies whatever lives in `./certs/` into `/etc/echone
 mkcert -install                       # one-time per host
 mkdir -p certs
 mkcert \
-  -cert-file certs/echonet.pem \
-  -key-file certs/echonet-key.pem \
+  -cert-file certs/localhost+2.pem \
+  -key-file certs/localhost+2-key.pem \
   "$(hostname)" "$(hostname -f)" localhost 127.0.0.1 ::1
 ```
 
@@ -194,7 +194,7 @@ The timer runs as the repository owner (not root) and invokes `sudo ./script/upd
 
   ```bash
   mkcert -install       # only if you need a new CA
-  mkcert -cert-file certs/echonet.pem -key-file certs/echonet-key.pem <hosts...>
+  mkcert -cert-file certs/localhost+2.pem -key-file certs/localhost+2-key.pem <hosts...>
   sudo ./script/update.sh
   sudo systemctl restart echonet-list
   ```

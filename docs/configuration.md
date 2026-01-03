@@ -44,7 +44,7 @@ key_file = "certs/localhost+2-key.pem"
 # WebSocketクライアント設定
 [websocket_client]
 enabled = false
-addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
+addr = "wss://localhost:8080/ws"  # TLS無効時はws://を使用
 
 # HTTP Server設定（WebSocketと統合）
 [http_server]
@@ -68,9 +68,9 @@ enabled = false
 pid_file = ""  # 省略時はプラットフォーム別のデフォルトパスを使用
 ```
 
-If you start from `config.toml.sample`, it defaults to `tls.enabled = false`.
-For the Web UI in modern browsers, enable TLS and generate certificates with
-mkcert (see [mkcert_setup_guide.md](mkcert_setup_guide.md)).
+`config.toml.sample` now defaults to `tls.enabled = true`. For the Web UI in
+modern browsers, keep TLS enabled and generate certificates with mkcert (see
+[mkcert_setup_guide.md](mkcert_setup_guide.md)).
 
 ### Configuration Sections
 
@@ -144,7 +144,7 @@ Command line options take precedence over configuration file settings.
 #### WebSocket Client
 
 - `-ws-client`: Enable WebSocket client mode
-- `-ws-client-addr <address>`: WebSocket server address (default: `ws://localhost:8080/ws`)
+- `-ws-client-addr <address>`: WebSocket server address (default: `ws://localhost:8080/ws`; use `wss://` when TLS is enabled)
 
 #### TLS Options
 

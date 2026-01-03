@@ -20,16 +20,16 @@ enabled = true
 # 定期的なプロパティ更新間隔（例: "1m", "30s", "0" で無効）
 periodic_update_interval = "1m"
 
-# TLS設定（HTTPサーバーとWebSocketサーバーで共通）
+# TLS設定（HTTPサーバーとWebSocketサーバーで共通 / ブラウザUIでは必須）
 [tls]
-enabled = false
+enabled = true
 cert_file = "certs/localhost+2.pem"
 key_file = "certs/localhost+2-key.pem"
 
 # WebSocketクライアント設定
 [websocket_client]
 enabled = false
-addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
+addr = "wss://localhost:8080/ws"  # TLS無効時はws://を使用
 
 # HTTP Server設定（WebSocketと統合）
 [http_server]
