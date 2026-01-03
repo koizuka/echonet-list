@@ -60,6 +60,11 @@ mkcert \
 
 Update `config.toml` (or keep the provided `systemd/config.toml.systemd`) so the WebSocket listener points to the filenames above. You can regenerate the certificates later with the same command; just rerun `sudo ./script/update.sh` afterward so the files are copied into `/etc/echonet-list/certs`.
 
+If you already have certificates with different names (for example,
+`echonet.pem` / `echonet-key.pem`), you can keep using them by updating
+`/etc/echonet-list/config.toml` to match your existing filenames. No
+regeneration is required unless you want to replace the certificates.
+
 TLS is required even on a trusted LAN because modern browsers (especially on
 mobile) block non-secure WebSocket connections from secure pages. Keep TLS
 enabled and distribute the mkcert CA to every client device so HTTPS/WSS works

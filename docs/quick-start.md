@@ -3,6 +3,7 @@
 Get up and running with the ECHONET Lite controller in just a few minutes.
 For Raspberry Pi / long-running installs, use
 [docs/installation.md](installation.md) for the maintained systemd workflow.
+Quick Start is intended for short-lived local evaluation only.
 
 ## 1. Build
 
