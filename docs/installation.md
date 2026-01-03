@@ -53,12 +53,33 @@ The systemd install script copies whatever lives in `./certs/` into `/etc/echone
 mkcert -install                       # one-time per host
 mkdir -p certs
 mkcert \
-  -cert-file certs/echonet.pem \
-  -key-file certs/echonet-key.pem \
+  -cert-file certs/localhost+2.pem \
+  -key-file certs/localhost+2-key.pem \
   "$(hostname)" "$(hostname -f)" localhost 127.0.0.1 ::1
 ```
 
 Update `config.toml` (or keep the provided `systemd/config.toml.systemd`) so the WebSocket listener points to the filenames above. You can regenerate the certificates later with the same command; just rerun `sudo ./script/update.sh` afterward so the files are copied into `/etc/echonet-list/certs`.
+
+If you already have certificates with different names (for example,
+`echonet.pem` / `echonet-key.pem`), you can keep using them by updating
+`/etc/echonet-list/config.toml` to match your existing filenames. No
+regeneration is required unless you want to replace the certificates.
+
+TLS is required even on a trusted LAN because modern browsers (especially on
+mobile) block non-secure WebSocket connections from secure pages. Keep TLS
+enabled and distribute the mkcert CA to every client device so HTTPS/WSS works
+without warnings.
+
+### FAQ: TLS on a LAN
+
+**Why is TLS required on a local network?**  
+Modern browsers enforce secure WebSocket rules: a page loaded over HTTPS cannot
+connect to `ws://`. Mobile browsers are especially strict, so HTTPS/WSS is the
+reliable default.
+
+**What does mkcert do here?**  
+It creates a local CA and a server certificate trusted by devices where you
+install the CA. That avoids browser warnings while keeping traffic encrypted.
 
 ## 4. Install as a systemd service
 
@@ -178,7 +199,7 @@ The timer runs as the repository owner (not root) and invokes `sudo ./script/upd
 
   ```bash
   mkcert -install       # only if you need a new CA
-  mkcert -cert-file certs/echonet.pem -key-file certs/echonet-key.pem <hosts...>
+  mkcert -cert-file certs/localhost+2.pem -key-file certs/localhost+2-key.pem <hosts...>
   sudo ./script/update.sh
   sudo systemctl restart echonet-list
   ```
@@ -186,4 +207,5 @@ The timer runs as the repository owner (not root) and invokes `sudo ./script/upd
 ## 8. Related references
 
 - [websocket_client_protocol.md](websocket_client_protocol.md) — actively updated API contract for custom clients.
+- [../script/README.md](../script/README.md) — what each deployment script does and how to run it.
 - Legacy docs (quick start, daemon, troubleshooting, etc.) remain in this folder for historical reasons but are no longer reviewed; rely on this guide instead for deployment questions.

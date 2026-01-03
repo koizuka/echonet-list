@@ -35,16 +35,16 @@ enabled = true
 # 定期的なプロパティ更新間隔（例: "1m", "30s", "0" で無効）
 periodic_update_interval = "1m"
 
-# TLS設定（HTTPサーバーとWebSocketサーバーで共通）
+# TLS設定（HTTPサーバーとWebSocketサーバーで共通 / ブラウザUIでは必須）
 [tls]
-enabled = false
+enabled = true
 cert_file = "certs/localhost+2.pem"
 key_file = "certs/localhost+2-key.pem"
 
 # WebSocketクライアント設定
 [websocket_client]
 enabled = false
-addr = "ws://localhost:8080/ws"  # TLS有効時はwss://を使用
+addr = "wss://localhost:8080/ws"  # TLS無効時はws://を使用
 
 # HTTP Server設定（WebSocketと統合）
 [http_server]
@@ -68,6 +68,10 @@ enabled = false
 pid_file = ""  # 省略時はプラットフォーム別のデフォルトパスを使用
 ```
 
+`config.toml.sample` now defaults to `tls.enabled = true`. For the Web UI in
+modern browsers, keep TLS enabled and generate certificates with mkcert (see
+[mkcert_setup_guide.md](mkcert_setup_guide.md)).
+
 ### Configuration Sections
 
 #### General Settings
@@ -88,6 +92,7 @@ pid_file = ""  # 省略時はプラットフォーム別のデフォルトパス
 - `enabled`: Enable TLS for both HTTP and WebSocket servers
 - `cert_file`: Path to TLS certificate file
 - `key_file`: Path to TLS private key file
+  - Required for the browser-based UI (HTTPS/WSS)
 
 #### WebSocket Client (`[websocket_client]`)
 
@@ -139,7 +144,7 @@ Command line options take precedence over configuration file settings.
 #### WebSocket Client
 
 - `-ws-client`: Enable WebSocket client mode
-- `-ws-client-addr <address>`: WebSocket server address (default: `ws://localhost:8080/ws`)
+- `-ws-client-addr <address>`: WebSocket server address (default: `ws://localhost:8080/ws`; use `wss://` when TLS is enabled)
 
 #### TLS Options
 
@@ -185,13 +190,7 @@ Command line options take precedence over configuration file settings.
 ./echonet-list -debug
 ```
 
-### Web UI with Integrated Server
-
-```bash
-./echonet-list -websocket -http-enabled
-```
-
-### Web UI with TLS
+### Web UI with Integrated Server (TLS required)
 
 ```bash
 ./echonet-list -websocket -http-enabled -ws-tls \
@@ -199,10 +198,12 @@ Command line options take precedence over configuration file settings.
   -ws-key-file=certs/localhost+2-key.pem
 ```
 
-### Daemon Mode with Web UI
+### Daemon Mode with Web UI (TLS required)
 
 ```bash
-./echonet-list -daemon -websocket -http-enabled
+./echonet-list -daemon -websocket -http-enabled -ws-tls \
+  -ws-cert-file=certs/localhost+2.pem \
+  -ws-key-file=certs/localhost+2-key.pem
 ```
 
 ### Custom Configuration File
@@ -214,7 +215,7 @@ Command line options take precedence over configuration file settings.
 ### WebSocket Client Mode
 
 ```bash
-./echonet-list -ws-client -ws-client-addr ws://192.168.1.100:8080/ws
+./echonet-list -ws-client -ws-client-addr wss://192.168.1.100:8080/ws
 ```
 
 ## Configuration Priority

@@ -27,6 +27,8 @@ This is a Go application for discovering and controlling ECHONET Lite devices on
 
 ## Quick Start
 
+Most users run the server on a target host (e.g., Raspberry Pi) and use `script/` for setup.
+
 ```bash
 git clone https://github.com/koizuka/echonet-list.git
 cd echonet-list
@@ -34,40 +36,66 @@ cd echonet-list
 # Build everything (server + web UI)
 ./script/build.sh
 
-# Run with Web UI + HTTP proxy
-./echonet-list -websocket -http-enabled
+# Install mkcert and generate certificates
+# See docs/installation.md#3-prepare-tls-with-mkcert for details.
+mkcert -install
+mkdir -p certs
+mkcert -cert-file certs/localhost+2.pem -key-file certs/localhost+2-key.pem localhost 127.0.0.1 ::1
+
+# Run with Web UI + HTTP proxy (TLS)
+./echonet-list -websocket -http-enabled -ws-tls \
+  -ws-cert-file=certs/localhost+2.pem \
+  -ws-key-file=certs/localhost+2-key.pem
 ```
 
-Open your browser to `http://localhost:8080`.
+Open your browser to `https://localhost:8080`.
 
-## Deployment workflow (maintained)
+### LAN Usage and TLS
 
-For new installations we recommend the following path:
+TLS is required even on a trusted LAN because modern browsers (especially on
+mobile) block non-secure WebSocket connections from secure pages. The systemd
+config enables TLS by default so the UI uses HTTPS/WSS. Use `mkcert` and install
+the CA on client devices so the browser accepts the certificate.
 
-1. Prepare a systemd-based Linux host with Go 1.23+, Node.js 18+, `mkcert`, and sudo access.
-2. Clone this repository into `/opt/echonet-list` (or similar) and run `./script/build.sh server` + `./script/build.sh web`.
-3. Generate TLS files with `mkcert` under `certs/` so the Web UI/WebSocket endpoint can run over HTTPS/WSS.
-4. Run `sudo ./script/install-systemd.sh` to create the `echonet-list` service and copy binaries/web assets/certificates.
-5. Install the mkcert CA (`mkcert -CAROOT`) on every browser/device that should trust the UI.
-6. Keep the instance up to date with `./script/auto-update.sh` (optionally wired into a systemd timer).
+If you expose the service outside your LAN, put it behind a reverse proxy with
+authentication and keep HTTPS/WSS enabled there.
 
-All of these steps are written out in detail inside [docs/installation.md](docs/installation.md).
+### Requirements
+
+- Go 1.23+
+- Node.js 18+ (only needed for the Web UI build/dev)
+- Multicast-enabled local network (ECHONET Lite devices must be on the same L2 segment)
+
+### First Run Notes
+
+- Discovery uses multicast; if you see no devices, confirm your host network interface allows multicast.
+- The Web UI is bundled to `web/bundle/` and served by the Go binary.
+- To override defaults, copy `config.toml.sample` to `config.toml` and edit as needed.
+- Browser access requires TLS/WSS; keep `tls.enabled = true` and use mkcert.
+
+### Local Development (no build scripts)
+
+```bash
+# Server with debug logging
+go run ./main.go -debug -websocket -http-enabled -ws-tls \
+  -ws-cert-file=certs/localhost+2.pem \
+  -ws-key-file=certs/localhost+2-key.pem
+
+# Web UI dev server (separate terminal)
+cd web
+npm install
+npm run dev
+```
+
+When running the Vite dev server, set `VITE_WS_URL=wss://<host>/ws` and ensure
+the Go server is running with TLS and a trusted certificate (mkcert).
 
 ## Documentation
 
-- [docs/installation.md](docs/installation.md) — deployment + operations guide described above.
+- [docs/installation.md](docs/installation.md) — recommended Raspberry Pi/Linux setup with `script/` (build, install, systemd, TLS, updates).
+- [script/README.md](script/README.md) — what each deployment script does and how to run it.
 - [docs/websocket_client_protocol.md](docs/websocket_client_protocol.md) — reference for anyone building a custom client.
 - Everything else under `docs/` is still relevant but may lag behind recent changes; expect occasional gaps until we finish syncing them back up.
-
-## systemd Management Scripts
-
-For easy setup on Raspberry Pi/Ubuntu systems:
-
-- **Install**: `sudo ./script/install-systemd.sh`
-- **Uninstall**: `sudo ./script/uninstall-systemd.sh`  
-- **Update**: `sudo ./script/update.sh`
-
-See [script/README.md](script/README.md) for details.
 
 ## Contributing
 
