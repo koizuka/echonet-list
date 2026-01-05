@@ -287,10 +287,8 @@ describe('NotificationBell', () => {
 describe('formatLogTime', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    // Set current time to today at 14:30:00 (local time)
-    const now = new Date();
-    now.setHours(14, 30, 0, 0);
-    vi.setSystemTime(now);
+    // Set current time to a fixed date (mid-year to avoid year boundary issues)
+    vi.setSystemTime(new Date(2025, 5, 15, 14, 30, 0, 0)); // 2025-06-15 14:30:00
   });
 
   afterEach(() => {
