@@ -38,6 +38,10 @@ type DataAccessor interface {
 
 	// デバイス削除
 	RemoveDevice(device IPAndEOJ) error
+
+	// IPマイグレーション
+	FindIPsWithSameNodeProfileID(idEDT []byte, excludeIP string) []string
+	RemoveAllDevicesByIP(ip net.IP) []IPAndEOJ
 }
 
 // NotificationRelay は、通知イベントを中継する機能を提供するインターフェース

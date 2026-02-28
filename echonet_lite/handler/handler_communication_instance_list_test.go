@@ -99,6 +99,22 @@ func (m *MockDataAccessorForInstanceList) GetProperty(device IPAndEOJ, epc EPCTy
 	return nil, false
 }
 
+func (m *MockDataAccessorForInstanceList) FindIPsWithSameNodeProfileID(idEDT []byte, excludeIP string) []string {
+	args := m.Called(idEDT, excludeIP)
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).([]string)
+}
+
+func (m *MockDataAccessorForInstanceList) RemoveAllDevicesByIP(ip net.IP) []IPAndEOJ {
+	args := m.Called(ip)
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).([]IPAndEOJ)
+}
+
 // processInstanceListFromPropertyWithoutSession is a test helper for processInstanceListFromProperty that doesn't need a session
 func processInstanceListFromPropertyWithoutSession(h *CommunicationHandler, device IPAndEOJ, property Property) error {
 	// プロパティからInstanceListを抽出
