@@ -81,6 +81,11 @@ func (m *MockDataAccessor) Filter(criteria FilterCriteria) Devices       { retur
 func (m *MockDataAccessor) RegisterDevice(device IPAndEOJ)               {}
 func (m *MockDataAccessor) HasIP(ip net.IP) bool                         { return false }
 func (m *MockDataAccessor) FindByIDString(id IDString) []IPAndEOJ        { return nil }
+func (m *MockDataAccessor) RemoveDevice(device IPAndEOJ) error           { return nil }
+func (m *MockDataAccessor) FindIPsWithSameNodeProfileID(idEDT []byte, excludeIP string) []string {
+	return nil
+}
+func (m *MockDataAccessor) RemoveAllDevicesByIP(ip net.IP) []IPAndEOJ { return nil }
 
 // MockNotificationRelay はテスト用のNotificationRelay実装
 type MockNotificationRelay struct{}

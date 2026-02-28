@@ -1149,17 +1149,18 @@ func (h *CommunicationHandler) sendAnnouncementForChangedProperties(eoj EOJ, pro
 
 // ProcessPropertyUpdateHooks は、プロパティ更新後の追加処理を実行する
 func (h *CommunicationHandler) ProcessPropertyUpdateHooks(device IPAndEOJ, properties Properties) error {
-	// NodeProfile の EPC_NPO_SelfNodeInstanceListS の場合、オフライン復帰処理を実行
 	if device.EOJ == echonet_lite.NodeProfileObject {
 		for _, prop := range properties {
-			if prop.EPC == echonet_lite.EPC_NPO_SelfNodeInstanceListS {
+			switch prop.EPC {
+			case echonet_lite.EPC_NPO_SelfNodeInstanceListS:
+				// NodeProfile の EPC_NPO_SelfNodeInstanceListS の場合、オフライン復帰処理を実行
 				return h.processInstanceListFromProperty(device, prop)
+			case echonet_lite.EPC_NPO_IDNumber:
+				// NodeProfile の識別番号が登録されたとき、旧IPのデバイスをマイグレーション
+				h.migrateDevicesFromOldIP(device, prop.EDT)
 			}
 		}
 	}
-
-	// 将来の追加処理もここに追加可能
-	// if device.EOJ.ClassCode() == 0x0130 && prop.EPC == 0x80 { ... }
 
 	return nil
 }
@@ -1202,4 +1203,42 @@ func (h *CommunicationHandler) processInstanceListForOfflineRecovery(ip net.IP, 
 
 	// プロパティマップ取得は行わない（無限ループ防止のため）
 	return nil
+}
+
+// migrateDevicesFromOldIP は、同じ識別番号を持つ旧IPのオフラインデバイスを削除する
+func (h *CommunicationHandler) migrateDevicesFromOldIP(device IPAndEOJ, idEDT []byte) {
+	if len(idEDT) == 0 {
+		return
+	}
+
+	currentIP := device.IP.String()
+	oldIPs := h.dataAccessor.FindIPsWithSameNodeProfileID(idEDT, currentIP)
+	if len(oldIPs) == 0 {
+		return
+	}
+
+	for _, oldIPStr := range oldIPs {
+		oldIP := net.ParseIP(oldIPStr)
+		if oldIP == nil {
+			continue
+		}
+
+		// 旧IPの NodeProfile がオフラインの場合のみ削除（オンラインなら別の物理ノードの可能性）
+		oldNodeProfile := IPAndEOJ{IP: oldIP, EOJ: echonet_lite.NodeProfileObject}
+		if !h.dataAccessor.IsOffline(oldNodeProfile) {
+			slog.Info("旧IPのNodeProfileはオンラインのためマイグレーションをスキップ",
+				"oldIP", oldIPStr, "newIP", currentIP)
+			continue
+		}
+
+		// 旧IPの全デバイスを削除
+		removed := h.dataAccessor.RemoveAllDevicesByIP(oldIP)
+		if len(removed) > 0 {
+			slog.Info("IPアドレス変更によるデバイスマイグレーション: 旧IPのデバイスを削除",
+				"oldIP", oldIPStr, "newIP", currentIP, "removedCount", len(removed))
+		}
+	}
+
+	// デバイス情報の保存
+	h.dataAccessor.SaveDeviceInfo()
 }

@@ -1061,6 +1061,75 @@ func (d DeviceProperties) IsAnnouncementTarget(eoj EOJ, epc EPCType) bool {
 	return propMap.Has(epc)
 }
 
+// FindIPsWithSameNodeProfileID は同じ識別番号(0x83 EDT)を持つ他のIPを検索する
+func (d Devices) FindIPsWithSameNodeProfileID(idEDT []byte, excludeIP string) []string {
+	if len(idEDT) == 0 {
+		return nil
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	var result []string
+	for ipStr, eojMap := range d.data {
+		if ipStr == excludeIP {
+			continue
+		}
+		// NodeProfile の 0x83 EDT を比較
+		if props, ok := eojMap[echonet_lite.NodeProfileObject]; ok {
+			if prop, ok := props[echonet_lite.EPC_NPO_IDNumber]; ok {
+				if bytes.Equal(prop.EDT, idEDT) {
+					result = append(result, ipStr)
+				}
+			}
+		}
+	}
+	return result
+}
+
+// RemoveAllDevicesByIP は指定IPの全デバイスを削除し、削除したデバイスのリストを返す
+func (d *DevicesImpl) RemoveAllDevicesByIP(ip net.IP) []IPAndEOJ {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	ipKey := ip.String()
+	eojMap, exists := d.data[ipKey]
+	if !exists {
+		return nil
+	}
+
+	var removed []IPAndEOJ
+	for eoj := range eojMap {
+		device := IPAndEOJ{IP: ip, EOJ: eoj}
+		deviceKey := device.Key()
+
+		// タイムスタンプを削除
+		delete(d.timestamps, deviceKey)
+
+		// オフライン状態を削除
+		delete(d.offlineDevices, deviceKey)
+
+		removed = append(removed, device)
+
+		// DeviceEventRemoved イベント送信
+		if d.EventCh != nil {
+			select {
+			case d.EventCh <- DeviceEvent{
+				Device: device,
+				Type:   DeviceEventRemoved,
+			}:
+			default:
+				// チャンネルがフルの場合はイベントをドロップ
+			}
+		}
+	}
+
+	// IPエントリ自体を削除
+	delete(d.data, ipKey)
+
+	return removed
+}
+
 // RemoveDevice は指定されたデバイスをDevicesから削除する
 func (d *DevicesImpl) RemoveDevice(device IPAndEOJ) error {
 	d.mu.Lock()

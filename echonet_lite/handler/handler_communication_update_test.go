@@ -98,6 +98,14 @@ func (m *MockDataAccessorForUpdate) RemoveDevice(device IPAndEOJ) error {
 	return nil // Mock implementation
 }
 
+func (m *MockDataAccessorForUpdate) FindIPsWithSameNodeProfileID(idEDT []byte, excludeIP string) []string {
+	return nil // Mock implementation
+}
+
+func (m *MockDataAccessorForUpdate) RemoveAllDevicesByIP(ip net.IP) []IPAndEOJ {
+	return nil // Mock implementation
+}
+
 // TestIsNodeProfileOnline は、isNodeProfileOnlineメソッドのテストです。
 // このテストは、実装を追加する前に失敗し、実装後に成功することを確認します。
 func TestIsNodeProfileOnline(t *testing.T) {

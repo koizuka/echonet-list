@@ -424,6 +424,16 @@ func (h *DataManagementHandler) ValidateEPCsInPropertyMap(device IPAndEOJ, epcs 
 	return len(invalidEPCs) == 0, invalidEPCs, nil
 }
 
+// FindIPsWithSameNodeProfileID は同じ識別番号(0x83 EDT)を持つ他のIPを検索する
+func (h *DataManagementHandler) FindIPsWithSameNodeProfileID(idEDT []byte, excludeIP string) []string {
+	return h.devices.FindIPsWithSameNodeProfileID(idEDT, excludeIP)
+}
+
+// RemoveAllDevicesByIP は指定IPの全デバイスを削除し、削除したデバイスのリストを返す
+func (h *DataManagementHandler) RemoveAllDevicesByIP(ip net.IP) []IPAndEOJ {
+	return h.devices.RemoveAllDevicesByIP(ip)
+}
+
 // RemoveDevice は、指定されたデバイスをハンドラーから削除する
 func (h *DataManagementHandler) RemoveDevice(device IPAndEOJ) error {
 	// デバイスが存在するか確認
