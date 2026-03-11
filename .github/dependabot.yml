@@ -54,10 +54,12 @@ updates:
           - "tailwindcss"
           - "@tailwindcss/*"
           - "tailwindcss-animate"
-      eslint:
+      eslint-core:
         patterns:
           - "eslint"
           - "@eslint/*"
+      eslint-plugins:
+        patterns:
           - "typescript-eslint"
           - "eslint-plugin-*"
       react:
