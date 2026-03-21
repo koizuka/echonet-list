@@ -73,3 +73,6 @@ web/*.swp
 web/*.swo
 web/*~
 .DS_Store
+
+# Claude Code
+.claude/settings.local.json
