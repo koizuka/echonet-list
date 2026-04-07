@@ -280,13 +280,12 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 
 // handleWebSocket はWebSocket接続を処理する
 func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	slog.Debug("WebSocket upgrade request received",
+	slog.Info("WebSocket upgrade request received",
+		"remote_addr", r.RemoteAddr,
+		"user_agent", r.Header.Get("User-Agent"),
 		"origin", r.Header.Get("Origin"),
 		"host", r.Header.Get("Host"),
-		"upgrade", r.Header.Get("Upgrade"),
-		"connection", r.Header.Get("Connection"),
-		"sec-websocket-key", r.Header.Get("Sec-WebSocket-Key"),
-		"sec-websocket-version", r.Header.Get("Sec-WebSocket-Version"))
+		"tls", r.TLS != nil)
 
 	// Upgrade the HTTP connection to a WebSocket connection
 	conn, err := t.upgrader.Upgrade(w, r, nil)

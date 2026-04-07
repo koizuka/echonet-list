@@ -34,6 +34,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heartbeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdCounterRef = useRef(0);
@@ -78,7 +79,12 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       clearTimeout(connectTimeoutRef.current);
       connectTimeoutRef.current = null;
     }
-    
+
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+
     if (heartbeatIntervalRef.current) {
       clearInterval(heartbeatIntervalRef.current);
       heartbeatIntervalRef.current = null;
@@ -273,9 +279,40 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     try {
       const ws = new WebSocket(options.url);
       wsRef.current = ws;
-      
+
+      // Connection timeout: if WebSocket stays in CONNECTING state for too long,
+      // force close and let the reconnection logic handle retry.
+      // This prevents permanent hang when TLS handshake fails silently (e.g., iOS WKWebView
+      // with untrusted certificates).
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          const isIOS = /iPhone|iPad|iPod/.test(navigator?.userAgent ?? '');
+          console.warn('WebSocket connection timeout - closing and retrying', {
+            url: options.url,
+            isIOS,
+          });
+          sendLogNotification('WARN',
+            isIOS
+              ? 'WebSocket connection timed out. On iOS, this may be caused by an untrusted TLS certificate. Install the CA certificate in iOS Settings > General > VPN & Device Management.'
+              : 'WebSocket connection timed out. Server may be unavailable.',
+            {
+              component: 'WebSocket',
+              event: 'connection_timeout',
+              isIOS,
+            }
+          );
+          ws.close();
+        }
+        connectionTimeoutRef.current = null;
+      }, 10000);
+
       ws.onopen = () => {
         console.log('WebSocket connected');
+        // Clear connection timeout on successful connection
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
         reconnectAttemptsRef.current = 0;
         setConnectedAt(new Date());
         updateConnectionState('connected');
