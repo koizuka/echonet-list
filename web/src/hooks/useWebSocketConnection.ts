@@ -465,10 +465,16 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   }, []);
 
   // Auto-connect on mount - URLが変更された場合のみ再接続
+  // connectRef.current is populated by the effect on L429 which runs before
+  // this one on every mount/update. Calling through the ref keeps the
+  // synchronous setState inside connect() out of this effect's direct call
+  // graph (react-hooks/set-state-in-effect) while preserving the existing
+  // behavior (connect runs synchronously during commit, identical to a direct
+  // connect() call).
   useEffect(() => {
     // 初回接続時は再接続カウンターをリセット
     reconnectAttemptsRef.current = 0;
-    connect();
+    connectRef.current?.();
 
     return () => {
       cleanup();

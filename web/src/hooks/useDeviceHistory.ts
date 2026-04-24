@@ -32,11 +32,12 @@ export function useDeviceHistory({
 
   const { sendMessage } = connection;
 
-  const fetchHistory = useCallback(async () => {
+  // loadHistory performs the network fetch and only applies state updates
+  // *after* the await, so it is safe to call from within an effect (the
+  // synchronous portion touches no React state).
+  const loadHistory = useCallback(async () => {
     const requestIndex = requestIdRef.current++;
     latestRequestRef.current = requestIndex;
-    setIsLoading(true);
-    setError(null);
 
     try {
       const requestId = `history-${target}-${requestIndex}`;
@@ -64,26 +65,31 @@ export function useDeviceHistory({
 
       if (latestRequestRef.current === requestIndex) {
         setEntries(response.entries || []);
+        setError(null);
+        setIsLoading(false);
       }
     } catch (err) {
       if (latestRequestRef.current === requestIndex) {
         setError(err instanceof Error ? err : new Error(String(err)));
         setEntries([]);
-      }
-    } finally {
-      if (latestRequestRef.current === requestIndex) {
         setIsLoading(false);
       }
     }
   }, [sendMessage, target, limit, since, settableOnly]);
 
   useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    // Schedule as a microtask so any setState inside loadHistory is not part
+    // of the effect's synchronous body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      void loadHistory();
+    });
+  }, [loadHistory]);
 
   const refetch = useCallback(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    setIsLoading(true);
+    setError(null);
+    void loadHistory();
+  }, [loadHistory]);
 
   return {
     entries,

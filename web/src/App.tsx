@@ -187,8 +187,11 @@ function App() {
     }
   });
 
-  // Store logManager methods in ref for use in callback
-  logManagerRef.current = logManager;
+  // Store logManager methods in ref for use in callbacks defined above.
+  // Must be in useEffect (not during render) per react-hooks/refs rule.
+  useEffect(() => {
+    logManagerRef.current = logManager;
+  });
 
   const cardExpansion = useCardExpansion();
   
