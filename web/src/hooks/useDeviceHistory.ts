@@ -77,19 +77,19 @@ export function useDeviceHistory({
     }
   }, [sendMessage, target, limit, since, settableOnly]);
 
-  useEffect(() => {
-    // Schedule as a microtask so any setState inside loadHistory is not part
-    // of the effect's synchronous body (react-hooks/set-state-in-effect).
-    queueMicrotask(() => {
-      void loadHistory();
-    });
-  }, [loadHistory]);
-
   const refetch = useCallback(() => {
     setIsLoading(true);
     setError(null);
     void loadHistory();
   }, [loadHistory]);
+
+  useEffect(() => {
+    // Schedule refetch as a microtask so its setState calls are not part of
+    // the effect's synchronous body (react-hooks/set-state-in-effect). Going
+    // through refetch ensures dependency-change reloads also show the loading
+    // state, not just the initial mount.
+    queueMicrotask(refetch);
+  }, [refetch]);
 
   return {
     entries,

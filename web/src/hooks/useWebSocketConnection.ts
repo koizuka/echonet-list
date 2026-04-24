@@ -474,6 +474,14 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   useEffect(() => {
     // 初回接続時は再接続カウンターをリセット
     reconnectAttemptsRef.current = 0;
+    // `?.()` is intentional — effects run in declaration order so the earlier
+    // useEffect has already assigned connectRef.current by now. The optional
+    // chain is a belt-and-braces guard; if a future refactor breaks that
+    // ordering, we prefer a no-op here over a crash in production. The dev
+    // assert below surfaces such a regression loudly.
+    if (import.meta.env.DEV && !connectRef.current) {
+      console.error('[useWebSocketConnection] connectRef.current is null when auto-connect effect ran; check effect ordering.');
+    }
     connectRef.current?.();
 
     return () => {
