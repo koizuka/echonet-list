@@ -88,6 +88,11 @@ export function useDeviceHistory({
     // the effect's synchronous body (react-hooks/set-state-in-effect). Going
     // through refetch ensures dependency-change reloads also show the loading
     // state, not just the initial mount.
+    //
+    // Timing note: the microtask drains before the browser paints, so the
+    // setIsLoading(true)/setError(null) updates are applied together with the
+    // post-await results; users should not see a stale frame between the
+    // effect firing and the loading indicator appearing.
     queueMicrotask(refetch);
   }, [refetch]);
 

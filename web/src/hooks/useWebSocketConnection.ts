@@ -488,7 +488,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [options.url]); // URLが変更された場合のみ再接続、connectとcleanupは安定化済みだが依存に入れると無限ループの可能性
+  }, [options.url]); // URLが変更された場合のみ再接続。connectRef は ref なので React のリアクティブ値ではなく deps に含めない。cleanup も安定化済みのため省略。
 
   return {
     connectionState,

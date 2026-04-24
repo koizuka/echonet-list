@@ -233,4 +233,29 @@ describe('PropertySliderControl', () => {
     // Should not have duplicate value displays
     expect(screen.queryAllByText('75%')).toHaveLength(1);
   });
+
+  it('should update slider when currentValue prop changes (adjust-during-render)', () => {
+    const { rerender } = render(
+      <PropertySliderControl
+        currentValue={{ number: 50 }}
+        descriptor={mockDescriptor}
+        onSave={mockOnSave}
+        disabled={false}
+        testId="illuminance"
+      />
+    );
+    expect(screen.getByText('50%')).toBeInTheDocument();
+
+    rerender(
+      <PropertySliderControl
+        currentValue={{ number: 80 }}
+        descriptor={mockDescriptor}
+        onSave={mockOnSave}
+        disabled={false}
+        testId="illuminance"
+      />
+    );
+    expect(screen.getByText('80%')).toBeInTheDocument();
+    expect(screen.queryByText('50%')).not.toBeInTheDocument();
+  });
 });
