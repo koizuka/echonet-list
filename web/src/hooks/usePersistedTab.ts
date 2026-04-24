@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 const STORAGE_KEY = 'echonet-list-selected-tab';
 
@@ -23,9 +23,6 @@ export function usePersistedTab(availableTabs: string[], defaultTab?: string) {
     return savedTab || defaultTab || 'All';
   });
 
-  // Track if this is the initial render to avoid unnecessary state updates
-  const isInitialMount = useRef(true);
-
   // Compute the valid tab based on available tabs
   const validTab = useMemo(() => {
     if (availableTabs.length === 0) {
@@ -48,27 +45,11 @@ export function usePersistedTab(availableTabs: string[], defaultTab?: string) {
     return defaultTab || availableTabs[0] || 'All';
   }, [availableTabs, getSavedTab, selectedTab, defaultTab]);
 
-  // Update state only when validTab changes and it's different from current
-  useEffect(() => {
-    if (availableTabs.length === 0) {
-      return;
-    }
-
-    // On initial mount, apply the valid tab
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      if (validTab !== selectedTab) {
-        setSelectedTab(validTab);
-      }
-      return;
-    }
-
-    // On subsequent updates, only update if the valid tab changed
-    if (validTab !== selectedTab) {
-      setSelectedTab(validTab);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validTab]); // Only depend on validTab, not on availableTabs or selectedTab directly to avoid infinite loops
+  // Adjust state during render (React recommended pattern), instead of in an
+  // effect, to satisfy react-hooks/set-state-in-effect and avoid extra renders.
+  if (availableTabs.length > 0 && validTab !== selectedTab) {
+    setSelectedTab(validTab);
+  }
 
   // Save to localStorage whenever tab changes
   const selectTab = useCallback((tabName: string) => {

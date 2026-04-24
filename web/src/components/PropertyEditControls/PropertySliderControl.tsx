@@ -38,7 +38,6 @@ export function PropertySliderControl({
   onError
 }: PropertySliderControlProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [sliderValue, setSliderValue] = useState<number[]>([0]);
   const [showLoading, setShowLoading] = useState(false);
   const currentLang = getCurrentLocale();
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -50,10 +49,14 @@ export function PropertySliderControl({
   // Get current value as number
   const currentNum = currentValue.number ?? (numberDesc?.min || 0);
 
-  // Initialize slider value when current value changes
-  React.useEffect(() => {
+  // Sync slider to current value when the prop changes, using React 19's
+  // "adjust state during render" pattern instead of an effect.
+  const [sliderValue, setSliderValue] = useState<number[]>([currentNum]);
+  const [prevCurrentNum, setPrevCurrentNum] = useState(currentNum);
+  if (prevCurrentNum !== currentNum) {
+    setPrevCurrentNum(currentNum);
     setSliderValue([currentNum]);
-  }, [currentNum]);
+  }
 
   const handleValueChange = useCallback((values: number[]) => {
     // Update local slider state during dragging

@@ -32,11 +32,12 @@ export function useDeviceHistory({
 
   const { sendMessage } = connection;
 
-  const fetchHistory = useCallback(async () => {
+  // loadHistory performs the network fetch and only applies state updates
+  // *after* the await, so it is safe to call from within an effect (the
+  // synchronous portion touches no React state).
+  const loadHistory = useCallback(async () => {
     const requestIndex = requestIdRef.current++;
     latestRequestRef.current = requestIndex;
-    setIsLoading(true);
-    setError(null);
 
     try {
       const requestId = `history-${target}-${requestIndex}`;
@@ -64,26 +65,41 @@ export function useDeviceHistory({
 
       if (latestRequestRef.current === requestIndex) {
         setEntries(response.entries || []);
+        setError(null);
+        setIsLoading(false);
       }
     } catch (err) {
       if (latestRequestRef.current === requestIndex) {
         setError(err instanceof Error ? err : new Error(String(err)));
         setEntries([]);
-      }
-    } finally {
-      if (latestRequestRef.current === requestIndex) {
         setIsLoading(false);
       }
     }
   }, [sendMessage, target, limit, since, settableOnly]);
 
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
-
   const refetch = useCallback(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    setIsLoading(true);
+    setError(null);
+    void loadHistory();
+  }, [loadHistory]);
+
+  useEffect(() => {
+    // Schedule refetch as a microtask so its setState calls are not part of
+    // the effect's synchronous body (react-hooks/set-state-in-effect). Going
+    // through refetch ensures dependency-change reloads also show the loading
+    // state, not just the initial mount.
+    //
+    // Timing note: the microtask drains before the browser paints, so the
+    // setIsLoading(true)/setError(null) updates are applied together with the
+    // post-await results; users should not see a stale frame between the
+    // effect firing and the loading indicator appearing.
+    //
+    // Unmount note: if the component unmounts before the microtask fires,
+    // React 18+ silently drops the setState calls in refetch, so no explicit
+    // cleanup is required here. The in-flight fetch itself is guarded by
+    // latestRequestRef so its post-await setState is also a no-op.
+    queueMicrotask(refetch);
+  }, [refetch]);
 
   return {
     entries,

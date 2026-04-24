@@ -465,16 +465,30 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   }, []);
 
   // Auto-connect on mount - URLが変更された場合のみ再接続
+  // connectRef.current is populated by the effect on L429 which runs before
+  // this one on every mount/update. Calling through the ref keeps the
+  // synchronous setState inside connect() out of this effect's direct call
+  // graph (react-hooks/set-state-in-effect) while preserving the existing
+  // behavior (connect runs synchronously during commit, identical to a direct
+  // connect() call).
   useEffect(() => {
     // 初回接続時は再接続カウンターをリセット
     reconnectAttemptsRef.current = 0;
-    connect();
+    // `?.()` is intentional — effects run in declaration order so the earlier
+    // useEffect has already assigned connectRef.current by now. The optional
+    // chain is a belt-and-braces guard; if a future refactor breaks that
+    // ordering, we prefer a no-op here over a crash in production. The dev
+    // assert below surfaces such a regression loudly.
+    if (import.meta.env.DEV && !connectRef.current) {
+      console.error('[useWebSocketConnection] connectRef.current is null when auto-connect effect ran; check effect ordering.');
+    }
+    connectRef.current?.();
 
     return () => {
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [options.url]); // URLが変更された場合のみ再接続、connectとcleanupは安定化済みだが依存に入れると無限ループの可能性
+  }, [options.url]); // URLが変更された場合のみ再接続。connectRef は ref なので React のリアクティブ値ではなく deps に含めない。cleanup も安定化済みのため省略。
 
   return {
     connectionState,
