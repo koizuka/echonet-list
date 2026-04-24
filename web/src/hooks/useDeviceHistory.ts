@@ -93,6 +93,11 @@ export function useDeviceHistory({
     // setIsLoading(true)/setError(null) updates are applied together with the
     // post-await results; users should not see a stale frame between the
     // effect firing and the loading indicator appearing.
+    //
+    // Unmount note: if the component unmounts before the microtask fires,
+    // React 18+ silently drops the setState calls in refetch, so no explicit
+    // cleanup is required here. The in-flight fetch itself is guarded by
+    // latestRequestRef so its post-await setState is also a no-op.
     queueMicrotask(refetch);
   }, [refetch]);
 
