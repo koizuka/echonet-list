@@ -39,8 +39,12 @@ Web UI は `web` ディレクトリで作業する。`cd {フルパス}/web` し
 - 対応ブラウザ: PC Chrome, iPhone Safari, Android Chrome
 - フロントエンド: React 19 + TypeScript + shadcn/ui (Tailwind ベース) + Vite + Vitest
 - WebSocket クライアント層は React Hooks にする
-- ディレクトリ:
-  - `web/{src/{components,hooks,libs},public,bundle}`
+- Web UI ディレクトリ構成:
+  - `web/src/components/`
+  - `web/src/hooks/`
+  - `web/src/libs/`
+  - `web/public/`
+  - `web/bundle/`（ビルド成果物）
 - リアルタイムにプロパティ変更を反映。タブは「設置場所」「デバイスグループ」「@グループ名」で切り替え。プロパティは EPC コードではなく人間可読な名前と適切な UI コントロールで表示・編集する。
 
 ## コーディング規約
