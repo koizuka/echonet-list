@@ -1,11 +1,12 @@
 ---
+name: merged
+description: Cleans up the local repository after a pull request has been merged on GitHub by switching to main, pulling the latest changes, deleting the merged branch locally, and pruning stale remote tracking refs. Use after a PR has been merged on GitHub and the working branch should be reclaimed.
 allowed-tools: Bash(git checkout:*), Bash(git pull:*), Bash(git remote prune:*), Bash(git branch:*), Bash(git status:*), Bash(git log:*)
-description: Clean up after PR merge - switch to main branch and update
 ---
 
 # PR Merge Cleanup
 
-Clean up after a PR has been merged. This command will:
+Clean up after a PR has been merged. This skill will:
 
 1. Switch to main branch
 2. Pull latest changes from origin

@@ -1,6 +1,7 @@
 ---
+name: create-pr
+description: Runs Go and Web UI prechecks (fmt/vet/test/build, lint/typecheck/test/build), commits the working changes on a fresh branch with an auto-generated message, pushes, and opens a pull request against main. Use when the user is ready to ship the current uncommitted work as a PR and wants the full pre-flight pipeline run automatically.
 allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*), Bash(git checkout:*), Bash(git push:*), Bash(gh pr create:*), Bash(go fmt:*), Bash(go vet:*), Bash(go test:*), Bash(go build:*), Bash(npm run:*), Bash(git rev-parse:*)
-Description: create a pull request
 ---
 
 ## Context
@@ -13,34 +14,33 @@ Description: create a pull request
 
 ## Your Task
 
-以下の作業を自動で実行してください（ユーザーの確認なしで進めてください）：
+以下の作業を自動で実行してください（ユーザーの確認なしで進めてください）:
 
-1. **プリチェック（現在のブランチで実行）**：
+1. **プリチェック（現在のブランチで実行）**:
    - Go: プロジェクトルートで `go fmt ./...` `go vet ./...` `go test ./...` `go build` を並列実行
-   - Web UI: webディレクトリに移動してから `npm run lint` `npm run typecheck` `npm run test` `npm run build` を並列実行
-   - **WebSocketプロトコル変更チェック**:
+   - Web UI: web ディレクトリに移動してから `npm run lint` `npm run typecheck` `npm run test` `npm run build` を並列実行
+   - **WebSocket プロトコル変更チェック**:
      - `git diff HEAD` の結果から `protocol/protocol.go` または `server/websocket_server_handlers_*.go` に変更があるか確認
      - 変更がある場合、`docs/websocket_client_protocol.md` も更新されているか確認
      - プロトコルドキュメントが更新されていない場合、ユーザーに警告して確認を求める
-   - **CLAUDE.md更新チェック**:
-     - 新機能を追加した場合、`CLAUDE.md` の「実装済み機能」セクションが更新されているか確認
+   - **ドキュメント更新チェック**:
+     - 機能追加・仕様変更があった場合、関連する `docs/*.md`（例: `docs/web_ui_implementation_guide.md`, `docs/console_ui_usage.md`, `docs/internationalization.md` など）が更新されているか確認
      - 更新されていない場合、ユーザーに警告して確認を求める
 
    ※エラーがあった場合のみ、ユーザーに報告して中断してください。
 
-2. **ブランチ作成とコミット**：
+2. **ブランチ作成とコミット**:
    - 変更内容に基づいて適切なブランチ名を自動生成
    - すべての変更をステージング（`git add .`）
    - 変更内容と目的を分析して適切なコミットメッセージを自動生成
    - コミット実行
 
-3. **PR作成**：
-   - ブランチをリモートにpush
-   - 変更内容を分析してPR説明を自動生成：
+3. **PR 作成**:
+   - ブランチをリモートに push
+   - 変更内容を分析して PR 説明を自動生成:
      - 変更の概要（コミット内容から分析）
      - テスト実行結果の確認
-   - mainブランチに対するPR作成
-   - PR URLを報告
+   - main ブランチに対する PR 作成
+   - PR URL を報告
 
 **重要**: 各ステップでエラーが発生した場合のみユーザーに報告し、成功時は次のステップに自動進行してください。
-
