@@ -38,7 +38,6 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git b
         - 認証情報・鍵: `*.pem`, `*.key`, `id_rsa*`, `credentials*`, `*.p12`
         - ローカル設定: `.claude/settings.local.json`, `*.local.json`
         - ランタイム/ビルド成果物: `*.log`, `*.pid`, `*.seed`, `coverage/`, `dist/`, `web/bundle/`（ただし意図的な配信物は除く）
-        - 巨大バイナリ（数 MB 以上の生成物）
      3. ブロックリスト該当ファイルが含まれていた場合はユーザーに警告して中断（`.gitignore` 漏れの可能性が高い）
      4. 残りのパスを **明示的に列挙して `git add <path1> <path2> ...`** でステージング（`git add .` や `git add -A` は使わない）
    - 変更内容と目的を分析して適切なコミットメッセージを自動生成

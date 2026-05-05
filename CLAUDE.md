@@ -90,19 +90,14 @@ Web UI は `web` ディレクトリで作業する。`cd {フルパス}/web` し
 
 ## 参考ドキュメント
 
+主要なものだけ列挙する。他は `ls docs/` で確認可能（installation, configuration, troubleshooting, integration-testing 等あり）。
+
 - `docs/websocket_client_protocol.md`: WebSocket プロトコル仕様
 - `docs/web_ui_implementation_guide.md`: Web UI 実装ガイド
-- `docs/client_ui_development_guide.md`: クライアント UI 開発ガイド
-- `docs/react_hooks_usage_guide.md`: React Hooks 使用ガイド
 - `docs/console_ui_usage.md`: Console UI コマンド一覧（`debugoffline`, `location` 他）
-- `docs/internationalization.md`: 国際化対応の詳細
-- `docs/daemon-setup.md`: デーモンセットアップ
-- `docs/configuration.md` / `docs/installation.md` / `docs/quick-start.md`
-- `docs/troubleshooting.md` / `docs/error_handling_guide.md`
-- `docs/integration-testing.md` / `docs/network-monitoring.md` / `docs/server-modes.md`
-- `docs/device_types.md`
-- `docs/mkcert_setup_guide.md`
-- `docs/blocking-issue-investigation.md`
+- `docs/device_types.md`: ECHONET デバイスクラスの一覧と仕様
+- `docs/internationalization.md`: 国際化対応の詳細（→ `echonet-i18n` skill）
+- `docs/daemon-setup.md`: デーモンセットアップ（→ `daemon-operations` skill）
 
 ## 環境変数
 
