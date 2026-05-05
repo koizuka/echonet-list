@@ -1,7 +1,6 @@
 ---
 name: daemon-operations
 description: Operates and debugs echonet-list when running as a systemd background daemon, covering PID files, log rotation via SIGHUP, and remote log access through ECHONET_SERVER_HOST. Use when modifying daemon-mode behavior in main.go / config.go, debugging a production server, or investigating live logs on the deployed host.
-allowed-tools: Bash(ssh:*), Bash(journalctl:*)
 ---
 
 # デーモンモード運用
