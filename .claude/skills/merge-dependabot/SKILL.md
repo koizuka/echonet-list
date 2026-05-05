@@ -1,5 +1,6 @@
 ---
-description: Merge safe dependabot PRs efficiently with auto-merge
+name: merge-dependabot
+description: Categorizes open dependabot PRs into safe (patch/minor) versus needs-review (major bumps, Go deps), enables auto-merge on the safe ones, and shepherds the merge chain by handling rebases, conflicts, and CI failures until none remain. Use when there is a backlog of dependabot PRs to clear and the user wants the safe ones merged automatically.
 allowed-tools: Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr update-branch:*), Bash(git pull)
 ---
 
