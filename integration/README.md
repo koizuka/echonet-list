@@ -39,7 +39,7 @@ integration/
 ### Prerequisites
 
 - Go 1.21 or later
-- Node.js 20 or later
+- Node.js 22 or later
 - npm
 
 ### Methods to Run Tests
