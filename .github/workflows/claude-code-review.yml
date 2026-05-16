@@ -10,6 +10,9 @@ on:
     #   - "src/**/*.js"
     #   - "src/**/*.jsx"
 
+# No default permissions; each job grants only what it needs.
+permissions: {}
+
 jobs:
   claude-review:
     # Skip Dependabot PRs (handled by separate security review workflow)
