@@ -233,6 +233,7 @@ jobs:
 
           cd web
           npm run build:vite
+          cd ..
 
           # Verify bundle exists
           if [ ! -d "web/bundle" ]; then
