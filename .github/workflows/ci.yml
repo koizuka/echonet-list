@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -33,7 +33,8 @@ jobs:
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
-          base: main
+          # Use the PR target branch when available; fall back to the current ref for push events.
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name }}
           filters: |
             server:
               - '**.go'
@@ -144,18 +145,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          npm run lint &
-          lint_pid=$!
+          pids=()
+          npm run lint & pids+=("$!")
+          npm run typecheck & pids+=("$!")
+          npm run test -- --run & pids+=("$!")
 
-          npm run typecheck &
-          typecheck_pid=$!
+          status=0
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
+              status=1
+            fi
+          done
 
-          npm test -- --run &
-          test_pid=$!
-
-          wait $lint_pid
-          wait $typecheck_pid
-          wait $test_pid
+          exit "$status"
 
       - name: Build application
         run: npm run build:vite
@@ -185,14 +187,14 @@ jobs:
         env:
           SHELLCHECK_OPTS: -e SC1091
 
-  # Optional: Integration test job that depends on both
+  # Optional: Integration test job
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
     needs: [changes]
-    # Run if any tests ran (server, web, or scripts)
+    # Run when server or web changes exist
     if: |
-      needs.changes.outputs.server == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.scripts == 'true'
+      needs.changes.outputs.server == 'true' || needs.changes.outputs.web == 'true'
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -219,12 +221,17 @@ jobs:
           cache: "npm"
           cache-dependency-path: "./web/package-lock.json"
 
-      - name: Build Web UI (for integration tests)
+      - name: Install web dependencies (for integration tests)
         run: |
           set -euo pipefail
 
           cd web
           npm ci
+      - name: Build Web UI (for integration tests)
+        run: |
+          set -euo pipefail
+
+          cd web
           npm run build:vite
           cd ..
 
