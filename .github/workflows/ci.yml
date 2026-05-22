@@ -33,6 +33,7 @@ jobs:
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
+          # Use the PR target branch when available; fall back to the current ref for push events.
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name }}
           filters: |
             server:
@@ -232,7 +233,6 @@ jobs:
 
           cd web
           npm run build:vite
-          cd ..
 
           # Verify bundle exists
           if [ ! -d "web/bundle" ]; then
