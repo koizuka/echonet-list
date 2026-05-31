@@ -13,6 +13,13 @@ export type WebSocketConnectionOptions = {
   reconnectDelay?: number;
   maxReconnectDelay?: number;
   heartbeatInterval?: number;
+  /**
+   * If no message (including the server's periodic heartbeat) is received within
+   * this many milliseconds while the page is visible, the connection is treated
+   * as a dead "zombie" and a reconnect is forced. Defaults to 70s, which tolerates
+   * a few missed 20s server heartbeats.
+   */
+  stalenessTimeout?: number;
   onMessage?: (message: ServerMessage) => void;
   onConnectionStateChange?: (state: ConnectionState) => void;
   onWebSocketConnected?: () => void;
@@ -36,6 +43,10 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heartbeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timestamp (ms) of the last received frame. Any inbound message – including the
+  // server's periodic heartbeat – refreshes this, so a healthy connection never
+  // looks stale even when no device properties are changing.
+  const lastMessageTimeRef = useRef<number>(0);
   const requestIdCounterRef = useRef(0);
   const pendingRequestsRef = useRef<Map<string, {
     resolve: (value: unknown) => void;
@@ -48,7 +59,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   const maxReconnectAttempts = options.reconnectAttempts ?? 5;
   const baseReconnectDelay = options.reconnectDelay ?? 1000;
   const maxReconnectDelay = options.maxReconnectDelay ?? 30000;
-  const heartbeatInterval = options.heartbeatInterval ?? 30000; // 30 seconds
+  const heartbeatInterval = options.heartbeatInterval ?? 20000; // 20 seconds (staleness check cadence)
+  const stalenessTimeout = options.stalenessTimeout ?? 70000; // 70 seconds without any message => zombie
 
   const updateConnectionState = useCallback((state: ConnectionState) => {
     setConnectionState(state);
@@ -136,15 +148,15 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     }
 
     // iOS Safari 26 note: WebSocket may report OPEN state even when the connection is dead
-    // after returning from background (zombie connection). Unfortunately, WebSocket.send()
-    // doesn't throw synchronously for zombie connections, so we can't detect them here.
+    // after returning from background (zombie connection). WebSocket.send() doesn't throw
+    // synchronously for zombie connections, so readyState alone can't detect them.
     //
-    // Actual zombie detection happens through:
-    // 1. Request timeout in sendMessage() - if server doesn't respond
-    // 2. Server heartbeat responses - missing heartbeats indicate dead connection
-    // 3. onclose event - browser eventually detects and fires close event
-    //
-    // This function serves as a quick readyState check before attempting reconnection.
+    // Zombie detection is handled separately by the heartbeat interval (see startHeartbeat),
+    // which tracks inbound traffic (the server pushes a periodic heartbeat) and forces a
+    // reconnect when nothing arrives within stalenessTimeout. We deliberately do NOT return
+    // false here on staleness: this function is consumed by useAutoReconnect, whose zombie
+    // branch calls disconnect() (an intentional close that does not reschedule a reconnect),
+    // which would leave the app stuck 'disconnected'. The heartbeat path self-heals instead.
     return true;
   }, []);
 
@@ -159,15 +171,38 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         return;
       }
 
+      const ws = wsRef.current;
+      if (!ws) {
+        return;
+      }
+
       // Check WebSocket state periodically
-      if (wsRef.current && wsRef.current.readyState !== WebSocket.OPEN) {
+      if (ws.readyState !== WebSocket.OPEN) {
         if (import.meta.env.DEV) {
-          console.warn('💔 WebSocket state changed to:', wsRef.current.readyState);
+          console.warn('💔 WebSocket state changed to:', ws.readyState);
         }
         // WebSocket state changed, let the onclose handler deal with it
+        return;
+      }
+
+      // Zombie detection: the connection reports OPEN but no frame (not even the
+      // server heartbeat) has arrived within stalenessTimeout. Force a reconnect.
+      const elapsed = Date.now() - lastMessageTimeRef.current;
+      if (lastMessageTimeRef.current > 0 && elapsed > stalenessTimeout) {
+        console.warn('💔 WebSocket stale - no messages received, forcing reconnect', { elapsedMs: elapsed });
+        sendLogNotification('WARN', 'WebSocket connection stale (no messages) - forcing reconnect', {
+          component: 'WebSocket',
+          event: 'staleness_reconnect',
+          elapsedMs: elapsed,
+          stalenessTimeout,
+        });
+        // Close with an application close code (4000) so onclose schedules a
+        // reconnect instead of treating it as an intentional close.
+        intentionalCloseRef.current = false;
+        ws.close(4000, 'stale connection');
       }
     }, heartbeatInterval);
-  }, [heartbeatInterval]);
+  }, [heartbeatInterval, stalenessTimeout, sendLogNotification]);
 
   const stopHeartbeat = useCallback(() => {
     if (heartbeatIntervalRef.current) {
@@ -216,8 +251,17 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
   }, [maxReconnectAttempts, baseReconnectDelay, maxReconnectDelay, updateConnectionState, sendLogNotification]);
 
   const handleMessage = useCallback((event: MessageEvent) => {
+    // Any inbound frame proves the connection is alive – refresh the liveness
+    // timestamp before doing anything else (even if parsing later fails).
+    lastMessageTimeRef.current = Date.now();
     try {
       const message = JSON.parse(event.data);
+
+      // server_heartbeat is a liveness-only signal; the timestamp refresh above
+      // is its sole purpose, so don't forward it to message handlers.
+      if (message?.type === 'server_heartbeat') {
+        return;
+      }
       
       if (message.requestId && pendingRequestsRef.current.has(message.requestId)) {
         // Handle command result
@@ -279,6 +323,8 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
         reconnectAttemptsRef.current = 0;
         setConnectedAt(new Date());
         updateConnectionState('connected');
+        // Seed the liveness timestamp so the first staleness window starts now.
+        lastMessageTimeRef.current = Date.now();
         // Start heartbeat to detect zombie connections
         startHeartbeat();
         // Call the onWebSocketConnected callback to clear WebSocket error logs

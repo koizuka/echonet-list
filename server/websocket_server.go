@@ -33,6 +33,11 @@ const (
 	monitoringInterval   = 30 * time.Second // Interval for periodic monitoring
 	counterLeakResetTime = 5 * time.Minute  // Reset leaked counters after this time
 
+	// Heartbeat interval: how often the server pushes an application-level
+	// server_heartbeat message so clients can detect a dead (zombie) connection.
+	// Must be comfortably shorter than the client's staleness timeout (70s).
+	serverHeartbeatInterval = 20 * time.Second
+
 	// SET operation tracking window
 	// Extended from 500ms to 1000ms based on empirical evidence (653ms delay observed in logs)
 	// Monitor in production: if delays consistently exceed 1000ms, consider making this configurable
@@ -89,6 +94,7 @@ type WebSocketServer struct {
 	recentSetOps           map[string]setOperationTracker    // Tracks recent SET operations, key: "{IP}_{EOJ}_{EPC}"
 	recentSetOpsMutex      sync.RWMutex                      // Protects recentSetOps
 	cleanupDone            chan bool                         // Channel to stop the cleanup goroutine
+	heartbeatDone          chan bool                         // Channel to stop the heartbeat goroutine
 }
 
 // NewWebSocketServer creates a new WebSocket server
@@ -112,6 +118,7 @@ func NewWebSocketServer(ctx context.Context, addr string, echonetClient client.E
 		tickerDone:        make(chan bool),     // Initialize the done channel
 		monitorDone:       make(chan bool),     // Initialize the monitor done channel
 		cleanupDone:       make(chan bool),     // Initialize the cleanup done channel
+		heartbeatDone:     make(chan bool),     // Initialize the heartbeat done channel
 		timeProvider:      &RealTimeProvider{}, // Use real time by default
 		serverStartupTime: startupTime,
 		recentSetOps:      make(map[string]setOperationTracker), // Initialize SET operation tracking map
@@ -388,6 +395,53 @@ func (ws *WebSocketServer) shouldPerformForcedUpdate(currentTime time.Time) bool
 	lastForcedTime := time.Unix(0, lastForcedUpdate)
 	timeSinceLastForced := currentTime.Sub(lastForcedTime)
 	return timeSinceLastForced >= ws.forcedUpdateInterval
+}
+
+// broadcastHeartbeats periodically pushes a server_heartbeat message to all
+// connected clients. This guarantees inbound traffic on a healthy connection so
+// clients can detect a dead (zombie) WebSocket even when no properties change.
+func (ws *WebSocketServer) broadcastHeartbeats() {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("Panic in heartbeat broadcaster", "error", r)
+		}
+		slog.Info("Heartbeat broadcaster stopped")
+	}()
+
+	ticker := time.NewTicker(serverHeartbeatInterval)
+	defer ticker.Stop()
+
+	slog.Info("Heartbeat broadcaster started", "interval", serverHeartbeatInterval)
+
+	for {
+		select {
+		case <-ticker.C:
+			ws.sendHeartbeat()
+		case <-ws.heartbeatDone:
+			return
+		case <-ws.ctx.Done():
+			return
+		}
+	}
+}
+
+// sendHeartbeat broadcasts a single server_heartbeat to all clients. It returns
+// false (and broadcasts nothing) when there are no connected clients. Split out
+// from the ticker loop so it can be unit tested without waiting on the timer.
+func (ws *WebSocketServer) sendHeartbeat() bool {
+	// Skip when there are no clients to avoid pointless work.
+	if ws.activeClients.Load() <= 0 {
+		return false
+	}
+	payload := protocol.ServerHeartbeatPayload{
+		Time: time.Now().Format(time.RFC3339),
+	}
+	if err := ws.broadcastMessageToClients(protocol.MessageTypeServerHeartbeat, payload); err != nil {
+		if !isClientDisconnectedError(err) {
+			slog.Error("Failed to broadcast heartbeat", "error", err)
+		}
+	}
+	return true
 }
 
 // monitorUpdateInterval monitors the periodic update interval in a separate goroutine
@@ -672,6 +726,9 @@ func (ws *WebSocketServer) Start(options StartOptions) error {
 		}
 	}
 
+	// Start the heartbeat broadcaster so clients can detect zombie connections.
+	go ws.broadcastHeartbeats()
+
 	return ws.transport.Start(options)
 }
 
@@ -686,6 +743,9 @@ func (ws *WebSocketServer) Stop() error {
 	}
 	if ws.cleanupDone != nil {
 		close(ws.cleanupDone)
+	}
+	if ws.heartbeatDone != nil {
+		close(ws.heartbeatDone)
 	}
 
 	// TODO: History save is now handled by handler layer

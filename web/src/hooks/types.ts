@@ -149,6 +149,15 @@ export type LogNotification = {
   };
 };
 
+// Periodic liveness signal pushed by the server so clients can detect a dead
+// (zombie) WebSocket connection even when no device properties are changing.
+export type ServerHeartbeat = {
+  type: 'server_heartbeat';
+  payload: {
+    time: string; // ISO 8601 format
+  };
+};
+
 export type ServerMessage =
   | InitialState
   | DeviceAdded
@@ -161,7 +170,8 @@ export type ServerMessage =
   | GroupChanged
   | LocationSettingsChanged
   | ErrorNotification
-  | LogNotification;
+  | LogNotification
+  | ServerHeartbeat;
 
 // Client -> Server Messages (Requests)
 export type BaseRequest<T = Record<string, unknown>> = {

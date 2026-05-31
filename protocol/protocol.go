@@ -78,6 +78,7 @@ const (
 	MessageTypeDeviceDeleted       MessageType = "device_deleted"
 	MessageTypeErrorNotification   MessageType = "error_notification"
 	MessageTypeCommandResult       MessageType = "command_result"
+	MessageTypeServerHeartbeat     MessageType = "server_heartbeat"
 
 	// Client -> Server message types
 	MessageTypeGetProperties          MessageType = "get_properties"
@@ -189,6 +190,13 @@ type PropertyChangedPayload struct {
 	EOJ   string       `json:"eoj"`
 	EPC   string       `json:"epc"`
 	Value PropertyData `json:"value"`
+}
+
+// ServerHeartbeatPayload is the payload for the server_heartbeat message.
+// It carries no application data; its purpose is to provide periodic inbound
+// traffic so clients can detect a dead (zombie) WebSocket connection.
+type ServerHeartbeatPayload struct {
+	Time string `json:"time"` // ISO 8601 / RFC3339 timestamp
 }
 
 // TimeoutNotificationPayload is the payload for the timeout_notification message
