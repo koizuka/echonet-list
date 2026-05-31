@@ -312,5 +312,31 @@ describe('useWebSocketConnection', () => {
         visibilitySpy.mockRestore();
       }
     });
+
+    it('detects a stale connection shortly after the page becomes visible again', () => {
+      // Simulate an iOS background→foreground resume: while hidden the staleness
+      // check is skipped, but once visible again a zombie connection must be
+      // detected and reconnected within one heartbeat interval.
+      const visibilitySpy = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+      try {
+        const { getInstance } = setupConnectedHook();
+
+        // Page stays hidden well past the staleness timeout: no reconnect yet.
+        act(() => {
+          vi.advanceTimersByTime(5000);
+        });
+        expect(getInstance().close).not.toHaveBeenCalled();
+
+        // Page becomes visible again; the connection is still stale.
+        visibilitySpy.mockReturnValue('visible');
+        act(() => {
+          vi.advanceTimersByTime(1000); // one heartbeat interval
+        });
+
+        expect(getInstance().close).toHaveBeenCalledWith(4000, expect.any(String));
+      } finally {
+        visibilitySpy.mockRestore();
+      }
+    });
   });
 });
