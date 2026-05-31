@@ -226,8 +226,117 @@ describe('useWebSocketConnection', () => {
     globalThis.WebSocket = MockWebSocket as unknown as typeof globalThis.WebSocket;
 
     renderHook(() => useWebSocketConnection(getDefaultOptions()));
-    
+
     // Mock should have been called to create WebSocket
     expect(MockWebSocket).toHaveBeenCalledWith('ws://localhost:8080/ws');
+  });
+
+  describe('staleness detection (zombie connection)', () => {
+    // Captures the most recently constructed mock WebSocket instance so the
+    // test can drive its event handlers (onopen/onmessage) manually.
+    const setupConnectedHook = (options: Partial<Parameters<typeof useWebSocketConnection>[0]> = {}) => {
+      const instances: MockWebSocketInstance[] = [];
+      const MockWebSocketFn = vi.fn(function (this: MockWebSocketInstance, url: string) {
+        this.readyState = 0; // CONNECTING
+        this.url = url;
+        this.onopen = null;
+        this.onclose = null;
+        this.onmessage = null;
+        this.onerror = null;
+        this.send = vi.fn();
+        this.close = vi.fn();
+        instances.push(this);
+      });
+      const MockWebSocket = MockWebSocketFn as unknown as MockWebSocketConstructor;
+      MockWebSocket.CONNECTING = 0;
+      MockWebSocket.OPEN = 1;
+      MockWebSocket.CLOSING = 2;
+      MockWebSocket.CLOSED = 3;
+      globalThis.WebSocket = MockWebSocket as unknown as typeof globalThis.WebSocket;
+
+      const hook = renderHook(() => useWebSocketConnection({
+        ...getDefaultOptions(),
+        heartbeatInterval: 1000,
+        stalenessTimeout: 3000,
+        ...options,
+      }));
+
+      // Drive the connection to OPEN so the heartbeat starts.
+      act(() => {
+        const instance = instances[instances.length - 1];
+        instance.readyState = 1; // OPEN
+        instance.onopen?.(new Event('open'));
+      });
+
+      return { hook, getInstance: () => instances[instances.length - 1] };
+    };
+
+    it('forces a reconnect when no message arrives within the staleness timeout', () => {
+      const { getInstance } = setupConnectedHook();
+
+      // Advance well past the staleness timeout without delivering any message.
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+
+      expect(getInstance().close).toHaveBeenCalledWith(4000, expect.any(String));
+    });
+
+    it('does not reconnect while messages keep arriving', () => {
+      const { getInstance } = setupConnectedHook();
+
+      // Deliver a message every second, staying under the staleness timeout.
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          vi.advanceTimersByTime(1000);
+          getInstance().onmessage?.(new MessageEvent('message', {
+            data: JSON.stringify({ type: 'server_heartbeat', payload: { time: new Date().toISOString() } }),
+          }));
+        });
+      }
+
+      expect(getInstance().close).not.toHaveBeenCalled();
+    });
+
+    it('does not run staleness check while the page is hidden', () => {
+      const visibilitySpy = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+      try {
+        const { getInstance } = setupConnectedHook();
+
+        act(() => {
+          vi.advanceTimersByTime(5000);
+        });
+
+        expect(getInstance().close).not.toHaveBeenCalled();
+      } finally {
+        visibilitySpy.mockRestore();
+      }
+    });
+
+    it('detects a stale connection shortly after the page becomes visible again', () => {
+      // Simulate an iOS background→foreground resume: while hidden the staleness
+      // check is skipped, but once visible again a zombie connection must be
+      // detected and reconnected within one heartbeat interval.
+      const visibilitySpy = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+      try {
+        const { getInstance } = setupConnectedHook();
+
+        // Page stays hidden well past the staleness timeout: no reconnect yet.
+        act(() => {
+          vi.advanceTimersByTime(5000);
+        });
+        expect(getInstance().close).not.toHaveBeenCalled();
+
+        // Page becomes visible again; the connection is still stale.
+        visibilitySpy.mockReturnValue('visible');
+        act(() => {
+          vi.advanceTimersByTime(1000); // one heartbeat interval
+        });
+
+        expect(getInstance().close).toHaveBeenCalledWith(4000, expect.any(String));
+      } finally {
+        visibilitySpy.mockRestore();
+      }
+    });
   });
 });
