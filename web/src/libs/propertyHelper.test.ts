@@ -11,6 +11,11 @@ import {
 } from './propertyHelper';
 import type { Device, PropertyDescriptionData, PropertyDescriptor } from '@/hooks/types';
 
+// Mock getCurrentLocale function
+vi.mock('./languageHelper', () => ({
+  getCurrentLocale: vi.fn(() => 'en')
+}));
+
 describe('propertyHelper', () => {
   describe('isPropertySettable', () => {
     it('should return true for properties listed in Set Property Map', () => {
@@ -414,11 +419,6 @@ describe('decodePropertyMap', () => {
 });
 
 describe('Internationalization (i18n)', () => {
-  // Mock getCurrentLocale function
-  vi.mock('./languageHelper', () => ({
-    getCurrentLocale: vi.fn(() => 'en')
-  }));
-
   const mockPropertyDescriptions: Record<string, PropertyDescriptionData> = {
     '': {
       classCode: '',
