@@ -44,6 +44,7 @@ type DialogMessages = {
   aliasName: string;
   selectLocation: string;
   addAlias: string;
+  deleteAlias: string;
   noAliases: string;
   noLocations: string;
   orderSection: string;
@@ -251,6 +252,7 @@ export function LocationSettingsDialog({
       aliasName: 'Alias (e.g. #2F Bedroom)',
       selectLocation: 'Select location',
       addAlias: 'Add',
+      deleteAlias: 'Delete alias',
       noAliases: 'No aliases defined',
       noLocations: 'No locations available',
       orderSection: 'Display Order',
@@ -274,6 +276,7 @@ export function LocationSettingsDialog({
       aliasName: 'エイリアス (例: #2F寝室)',
       selectLocation: '設置場所を選択',
       addAlias: '追加',
+      deleteAlias: 'エイリアスを削除',
       noAliases: 'エイリアスが設定されていません',
       noLocations: '設置場所がありません',
       orderSection: '表示順',
@@ -508,6 +511,7 @@ export function LocationSettingsDialog({
                       size="sm"
                       className="h-7 w-7 p-0 opacity-60 hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
                       onClick={() => handleDeleteAlias(alias)}
+                      aria-label={`${texts.deleteAlias}: ${alias}`}
                       disabled={isLoading || !isConnected}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
