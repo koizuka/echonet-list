@@ -197,14 +197,7 @@ describe('LocationSettingsDialog', () => {
         />
       );
 
-      // Find the delete button (Trash icon)
-      const deleteButtons = screen.getAllByRole('button');
-      const deleteButton = deleteButtons.find(
-        (btn) => btn.querySelector('svg.lucide-trash-2')
-      );
-      expect(deleteButton).toBeDefined();
-
-      fireEvent.click(deleteButton!);
+      fireEvent.click(screen.getByRole('button', { name: 'Delete alias: #テスト' }));
 
       await waitFor(() => {
         expect(defaultProps.onDeleteLocationAlias).toHaveBeenCalledWith('#テスト');
