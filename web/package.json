@@ -48,6 +48,7 @@
     "autoprefixer": "^10.6.1",
     "jsdom": "^30.0.1",
     "oxlint": "^1.85.0",
+    "oxlint-tsgolint": "^7.0.2003",
     "postcss": "^8.5.28",
     "rollup": "^4.63.3",
     "tailwindcss": "^4.1.11",

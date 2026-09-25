@@ -66,7 +66,7 @@ export function useLogNotifications({
     
     return {
       id: generateLogEntryId(type),
-      level: level as 'INFO' | 'WARN',
+      level,
       message: `Device ${deviceId} ${action}`,
       time: new Date().toISOString(),
       attributes: {

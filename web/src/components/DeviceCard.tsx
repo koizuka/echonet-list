@@ -295,7 +295,7 @@ export function DeviceCard({
                     key={epc}
                     device={device}
                     epc={epc}
-                    value={value as PropertyValue}
+                    value={value}
                     isCompact={true}
                     onPropertyChange={onPropertyChange}
                     propertyDescriptions={propertyDescriptions}

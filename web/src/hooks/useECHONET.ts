@@ -302,7 +302,7 @@ export function useECHONET(
         const deviceId = `${addedDevice.ip} ${addedDevice.eoj}`;
         if (Object.keys(addedDevice.properties).length === 0) {
           // プロパティが空の場合（オンライン復旧時など）は自動的にキャッシュからプロパティを取得
-          (async () => {
+          void (async () => {
             try {
               // list_devices でキャッシュされたプロパティを取得（ネットワーク通信なし）
               if (listDevicesRef.current) {
@@ -352,7 +352,7 @@ export function useECHONET(
         
         // デバイスが復帰した場合、プロパティが空の可能性があるため再取得を試行
         const deviceKey = `${message.payload.ip} ${message.payload.eoj}`;
-        (async () => {
+        void (async () => {
           try {
             if (!listDevicesRef.current) return;
             const deviceListResponse = await listDevicesRef.current([deviceKey]);

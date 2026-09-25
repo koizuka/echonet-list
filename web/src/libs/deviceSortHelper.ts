@@ -90,7 +90,7 @@ function normalizeIPv6(ip: string): string | null {
       
       groups = [
         ...leftGroups,
-        ...Array(missingGroups).fill('0'),
+        ...Array<string>(missingGroups).fill('0'),
         ...rightGroups
       ];
     }

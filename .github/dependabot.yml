@@ -56,7 +56,7 @@ updates:
           - "tailwindcss-animate"
       oxc:
         patterns:
-          - "oxlint"
+          - "oxlint*"
       react:
         patterns:
           - "react"

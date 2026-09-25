@@ -348,7 +348,7 @@ export function useAutoReconnect({
             if (import.meta.env.DEV) {
               console.log('👁️ Visibility timeout triggered, attempting reconnection');
             }
-            attemptReconnection();
+            void attemptReconnection();
           }
           visibilityTimeoutRef.current = null;
         }, VISIBILITY_TIMEOUT_MS);
@@ -410,7 +410,7 @@ export function useAutoReconnect({
         // Normal page show, check connection if needed
         // Use longer delay for iOS Safari compatibility
         pageshowTimeoutRef.current = setTimeout(() => {
-          attemptReconnection();
+          void attemptReconnection();
           pageshowTimeoutRef.current = null;
         }, PAGESHOW_TIMEOUT_MS);
       }
@@ -446,7 +446,7 @@ export function useAutoReconnect({
       // Cancel any pending disconnect since the window is now focused
       cancelDelayedDisconnect();
 
-      setTimeout(() => attemptReconnection(), 100);
+      setTimeout(() => void attemptReconnection(), 100);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
