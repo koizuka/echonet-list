@@ -1,7 +1,26 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateDeviceAlias } from './aliasHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+// Existing assertions use Japanese messages; English is covered separately
+vi.mock('@/libs/languageHelper', () => ({
+  getCurrentLocale: vi.fn(() => 'ja'),
+}));
 
 describe('validateDeviceAlias', () => {
+  beforeEach(() => {
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+  });
+
+  describe('English locale', () => {
+    it('should return English messages', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('en');
+      expect(validateDeviceAlias('')).toBe('Please enter an alias name');
+      expect(validateDeviceAlias('80')).toBe('Names that read as an even-length hex string are not allowed');
+      expect(validateDeviceAlias('!test')).toBe('Names cannot start with a symbol');
+    });
+  });
+
   describe('valid aliases', () => {
     it('should accept simple alphanumeric aliases', () => {
       expect(validateDeviceAlias('kitchen_ac')).toBeUndefined();

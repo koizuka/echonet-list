@@ -3,7 +3,31 @@ import { Edit2, Trash2, Plus, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { validateDeviceAlias } from '@/libs/aliasHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import type { Device } from '@/hooks/types';
+
+const messages = {
+  en: {
+    saveFailed: 'Failed to save alias',
+    deleteFailed: 'Failed to delete alias',
+    placeholder: 'Enter alias name',
+    save: 'Save',
+    cancel: 'Cancel',
+    edit: 'Edit alias',
+    delete: 'Delete alias',
+    add: 'Add alias',
+  },
+  ja: {
+    saveFailed: 'エイリアスの保存に失敗しました',
+    deleteFailed: 'エイリアスの削除に失敗しました',
+    placeholder: 'エイリアス名を入力',
+    save: '保存',
+    cancel: 'キャンセル',
+    edit: 'エイリアスを編集',
+    delete: 'エイリアスを削除',
+    add: 'エイリアスを追加',
+  },
+};
 
 interface AliasEditorProps {
   device: Device;
@@ -30,6 +54,7 @@ export function AliasEditor({
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const [isComposing, setIsComposing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const texts = messages[getCurrentLocale()];
 
   // Focus input when entering edit mode
   useEffect(() => {
@@ -100,7 +125,7 @@ export function AliasEditor({
       setInputValue('');
       setError(undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'エイリアスの保存に失敗しました');
+      setError(err instanceof Error ? err.message : texts.saveFailed);
     } finally {
       setSavingIndex(null);
     }
@@ -111,7 +136,7 @@ export function AliasEditor({
     try {
       await onDeleteAlias(aliasToDelete);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'エイリアスの削除に失敗しました');
+      setError(err instanceof Error ? err.message : texts.deleteFailed);
     } finally {
       setSavingIndex(null);
     }
@@ -129,7 +154,7 @@ export function AliasEditor({
               setInputValue(e.target.value);
               setError(undefined);
             }}
-            placeholder="エイリアス名を入力"
+            placeholder={texts.placeholder}
             className="h-7 text-xs flex-1"
             disabled={savingIndex !== null}
             onCompositionStart={() => setIsComposing(true)}
@@ -151,8 +176,8 @@ export function AliasEditor({
               onClick={handleSave}
               disabled={getIsSaveDisabled()}
               className="h-7 w-7 p-0"
-              aria-label="保存"
-              title="保存"
+              aria-label={texts.save}
+              title={texts.save}
             >
               <Check className="h-3 w-3" />
             </Button>
@@ -162,8 +187,8 @@ export function AliasEditor({
               onClick={handleCancel}
               disabled={savingIndex !== null}
               className="h-7 w-7 p-0"
-              aria-label="キャンセル"
-              title="キャンセル"
+              aria-label={texts.cancel}
+              title={texts.cancel}
             >
               <X className="h-3 w-3" />
             </Button>
@@ -193,8 +218,8 @@ export function AliasEditor({
               onClick={() => handleStartEdit(index)}
               disabled={isLoading || savingIndex !== null || !isConnected}
               className="h-6 w-6 p-0"
-              aria-label={`エイリアスを編集: ${alias}`}
-              title="エイリアスを編集"
+              aria-label={`${texts.edit}: ${alias}`}
+              title={texts.edit}
             >
               <Edit2 className="h-3 w-3" />
             </Button>
@@ -204,8 +229,8 @@ export function AliasEditor({
               onClick={() => handleDelete(alias, index)}
               disabled={isLoading || savingIndex !== null || !isConnected}
               className="h-6 w-6 p-0"
-              aria-label={`エイリアスを削除: ${alias}`}
-              title="エイリアスを削除"
+              aria-label={`${texts.delete}: ${alias}`}
+              title={texts.delete}
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -221,8 +246,8 @@ export function AliasEditor({
           onClick={handleStartAdd}
           disabled={isLoading || savingIndex !== null || !isConnected}
           className="h-6 w-6 p-0"
-          aria-label="エイリアスを追加"
-          title="エイリアスを追加"
+          aria-label={texts.add}
+          title={texts.add}
         >
           <Plus className="h-3 w-3" />
         </Button>

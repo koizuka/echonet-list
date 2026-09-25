@@ -5,6 +5,33 @@ import { Users } from 'lucide-react';
 import { SimpleDeviceCard } from '@/components/SimpleDeviceCard';
 import { getDeviceAliases } from '@/libs/deviceIdHelper';
 import type { Device, DeviceAlias, PropertyDescriptionData } from '@/hooks/types';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: {
+    addToGroup: 'Add to group',
+    removeFromGroup: 'Remove from group',
+    // Accessible name must contain the visible "doneEditing" text (WCAG 2.5.3)
+    doneEditingMembers: 'Done editing members',
+    doneEditing: 'Done editing',
+    membersOf: (groupName: string) => `Members of ${groupName}`,
+    dropHint: 'Drag devices here to add them to the group',
+    availableDevices: 'Available devices',
+    noDevices: 'No devices available',
+    allDevicesInGroup: 'All devices are already in the group',
+  },
+  ja: {
+    addToGroup: 'グループに追加',
+    removeFromGroup: 'グループから削除',
+    doneEditingMembers: 'メンバー編集を終了',
+    doneEditing: '編集を終了',
+    membersOf: (groupName: string) => `${groupName} のメンバー`,
+    dropHint: 'デバイスをここにドラッグしてグループに追加',
+    availableDevices: '利用可能なデバイス',
+    noDevices: '利用可能なデバイスがありません',
+    allDevicesInGroup: 'すべてのデバイスがグループに登録されています',
+  },
+};
 
 interface GroupMemberEditorProps {
   groupName: string;
@@ -35,6 +62,7 @@ export function GroupMemberEditor({
 }: GroupMemberEditorProps) {
   const [dragOverSection, setDragOverSection] = useState<'members' | 'available' | null>(null);
   const [draggingDevice, setDraggingDevice] = useState<string | null>(null);
+  const texts = messages[getCurrentLocale()];
 
 
   // Helper function to find device by matching various ID formats
@@ -191,7 +219,7 @@ export function GroupMemberEditor({
         actionButton={{
           type: isMember ? 'remove' : 'add',
           onClick: () => void (isMember ? handleRemoveDevice(deviceKey) : handleAddDevice(deviceKey)),
-          title: isMember ? "グループから削除" : "グループに追加",
+          title: isMember ? texts.removeFromGroup : texts.addToGroup,
           disabled: isLoading || !isConnected
         }}
       />
@@ -210,12 +238,12 @@ export function GroupMemberEditor({
               onClick={onDone}
               disabled={isLoading || !isConnected}
               // Label text is hidden on mobile, leaving only the icon
-              aria-label="メンバー編集を終了"
-              title="メンバー編集を終了"
+              aria-label={texts.doneEditingMembers}
+              title={texts.doneEditingMembers}
               data-testid="done-editing-button"
             >
               <Users className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">編集を終了</span>
+              <span className="hidden sm:inline">{texts.doneEditing}</span>
             </Button>
           </CardContent>
         </Card>
@@ -223,7 +251,7 @@ export function GroupMemberEditor({
 
       {/* Group Members Section */}
       <div className="space-y-2">
-        <h3 className="text-sm font-medium">{groupName} のメンバー</h3>
+        <h3 className="text-sm font-medium">{texts.membersOf(groupName)}</h3>
         <div
           data-testid="group-members-section"
           className={`min-h-[200px] p-4 border-2 border-dashed rounded-lg transition-colors ${
@@ -236,7 +264,7 @@ export function GroupMemberEditor({
         >
           {memberDevices.length === 0 ? (
             <p className="text-center text-muted-foreground text-sm">
-              デバイスをここにドラッグしてグループに追加
+              {texts.dropHint}
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -248,7 +276,7 @@ export function GroupMemberEditor({
 
       {/* Available Devices Section */}
       <div className="space-y-2">
-        <h3 className="text-sm font-medium">利用可能なデバイス</h3>
+        <h3 className="text-sm font-medium">{texts.availableDevices}</h3>
         <div
           data-testid="available-devices-section"
           className={`min-h-[200px] p-4 border-2 border-dashed rounded-lg transition-colors ${
@@ -261,11 +289,11 @@ export function GroupMemberEditor({
         >
           {Object.keys(allDevices).length === 0 ? (
             <p className="text-center text-muted-foreground text-sm">
-              利用可能なデバイスがありません
+              {texts.noDevices}
             </p>
           ) : availableDevices.length === 0 ? (
             <p className="text-center text-muted-foreground text-sm">
-              すべてのデバイスがグループに登録されています
+              {texts.allDevicesInGroup}
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">

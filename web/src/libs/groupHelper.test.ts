@@ -1,7 +1,27 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateGroupName } from './groupHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+// Existing assertions use Japanese messages; English is covered separately
+vi.mock('@/libs/languageHelper', () => ({
+  getCurrentLocale: vi.fn(() => 'ja'),
+}));
 
 describe('validateGroupName', () => {
+  beforeEach(() => {
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+  });
+
+  describe('English locale', () => {
+    it('should return English messages', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('en');
+      expect(validateGroupName('group1')).toBe('Group names must start with @');
+      expect(validateGroupName('@')).toBe('Group names need at least one character after @');
+      expect(validateGroupName('@a b')).toBe('Group names cannot contain whitespace');
+      expect(validateGroupName('@g', ['@g'])).toBe('This group name is already in use');
+    });
+  });
+
   describe('without existing groups', () => {
     it('should return undefined for valid group names', () => {
       expect(validateGroupName('@group1')).toBeUndefined();

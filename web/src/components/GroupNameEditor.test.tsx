@@ -1,8 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { GroupNameEditor } from './GroupNameEditor';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+// Existing assertions use Japanese messages; English is covered separately
+vi.mock('@/libs/languageHelper', () => ({
+  getCurrentLocale: vi.fn(() => 'ja'),
+}));
 
 describe('GroupNameEditor', () => {
+  beforeEach(() => {
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+  });
+
+  it('should use English labels in an English locale', () => {
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
+    render(<GroupNameEditor groupName="@testgroup" existingGroups={[]} onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByPlaceholderText('Enter group name')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('aria-label', 'Save');
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute('aria-label', 'Cancel');
+  });
+
   const defaultProps = {
     groupName: '@testgroup',
     existingGroups: ['@group1', '@group2'],

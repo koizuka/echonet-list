@@ -6,6 +6,12 @@ import { DeviceIcon } from '@/components/DeviceIcon';
 import { getDeviceAliases } from '@/libs/deviceIdHelper';
 import { formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import type { Device, DeviceAlias, PropertyDescriptionData } from '@/hooks/types';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: { offline: 'offline', location: 'Location' },
+  ja: { offline: 'オフライン', location: '設置場所' },
+};
 
 interface SimpleDeviceCardProps {
   deviceKey: string;
@@ -66,6 +72,7 @@ export function SimpleDeviceCard({
   
   // Use device.name for better readability (e.g., "0EF0[Node Profile]")
   const deviceDisplayName = device.name || device.eoj;
+  const texts = messages[getCurrentLocale()];
   
   return (
     <Card
@@ -78,7 +85,7 @@ export function SimpleDeviceCard({
       } ${isLoading ? 'cursor-not-allowed opacity-50' : ''} ${
         device.isOffline ? 'after:absolute after:inset-0 after:bg-background/60 after:pointer-events-none after:rounded-lg' : ''
       } ${className}`}
-      aria-label={device.isOffline ? `${deviceAliases[0] || deviceDisplayName} (オフライン)` : deviceAliases[0] || deviceDisplayName}
+      aria-label={device.isOffline ? `${deviceAliases[0] || deviceDisplayName} (${texts.offline})` : deviceAliases[0] || deviceDisplayName}
     >
       <CardContent className="p-3">
         <div className="flex items-start gap-2">
@@ -115,10 +122,9 @@ export function SimpleDeviceCard({
               {locationDisplay && (
                 <div 
                   className={`text-xs text-muted-foreground ${isCompact ? 'truncate' : ''}`} 
-                  aria-label="Installation location"
-                  title={isCompact ? `設置場所: ${locationDisplay}` : undefined}
+                  title={isCompact ? `${texts.location}: ${locationDisplay}` : undefined}
                 >
-                  設置場所: {locationDisplay}
+                  {texts.location}: {locationDisplay}
                 </div>
               )}
             </div>

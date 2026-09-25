@@ -3,6 +3,12 @@ import { Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { validateGroupName } from '@/libs/groupHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: { placeholder: 'Enter group name', save: 'Save', cancel: 'Cancel' },
+  ja: { placeholder: 'グループ名を入力', save: '保存', cancel: 'キャンセル' },
+};
 
 interface GroupNameEditorProps {
   groupName: string;
@@ -26,6 +32,7 @@ export function GroupNameEditor({
   const [error, setError] = useState<string | undefined>();
   const [isComposing, setIsComposing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const texts = messages[getCurrentLocale()];
 
   // Focus input when component mounts
   useEffect(() => {
@@ -92,7 +99,7 @@ export function GroupNameEditor({
             ref={inputRef}
             value={inputValue}
             onChange={handleInputChange}
-            placeholder="グループ名を入力"
+            placeholder={texts.placeholder}
             className="h-7 text-xs flex-1"
             disabled={isLoading || !isConnected}
             onCompositionStart={() => setIsComposing(true)}
@@ -107,8 +114,8 @@ export function GroupNameEditor({
             onClick={handleSave}
             disabled={getIsSaveDisabled()}
             className="h-7 w-7 p-0"
-            aria-label="保存"
-            title="保存"
+            aria-label={texts.save}
+            title={texts.save}
           >
             <Check className="h-3 w-3" />
           </Button>
@@ -118,8 +125,8 @@ export function GroupNameEditor({
             onClick={onCancel}
             disabled={isLoading || !isConnected}
             className="h-7 w-7 p-0"
-            aria-label="キャンセル"
-            title="キャンセル"
+            aria-label={texts.cancel}
+            title={texts.cancel}
           >
             <X className="h-3 w-3" />
           </Button>

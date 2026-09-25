@@ -1,6 +1,12 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AliasEditor } from './AliasEditor';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+// Existing assertions use Japanese messages; English is covered separately
+vi.mock('@/libs/languageHelper', () => ({
+  getCurrentLocale: vi.fn(() => 'ja'),
+}));
 import type { Device } from '@/hooks/types';
 
 const mockDevice: Device = {
@@ -27,6 +33,29 @@ describe('AliasEditor', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+  });
+
+  describe('English locale', () => {
+    it('should use English labels', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('en');
+      render(
+        <AliasEditor
+          device={mockDevice}
+          aliases={['living_ac']}
+          onAddAlias={mockOnAddAlias}
+          onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
+        />
+      );
+      expect(screen.getByRole('button', { name: 'Edit alias: living_ac' })).toHaveAttribute('aria-label', 'Edit alias: living_ac');
+      expect(screen.getByRole('button', { name: 'Delete alias: living_ac' })).toHaveAttribute('aria-label', 'Delete alias: living_ac');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add alias' }));
+      expect(screen.getByPlaceholderText('Enter alias name')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('aria-label', 'Save');
+      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute('aria-label', 'Cancel');
+    });
   });
 
   describe('when device has no alias', () => {
