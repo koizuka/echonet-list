@@ -94,13 +94,10 @@ export function DashboardCard({
         {/* Expandable area: Icon + Status */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <div
-              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+            <button
+              type="button"
+              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer text-left rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={onToggleExpand}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onToggleExpand?.(); } }}
-              onKeyUp={(e) => { if (e.key === ' ') { e.preventDefault(); onToggleExpand?.(); } }}
-              role="button"
-              tabIndex={0}
               aria-expanded={isExpanded}
               aria-label={`${deviceName}: ${isExpanded ? 'collapse' : 'expand'}`}
               data-testid={`dashboard-card-expandable-${device.ip}-${device.eoj}`}
@@ -118,7 +115,7 @@ export function DashboardCard({
                   <span className="text-muted-foreground" aria-label="No status data">---</span>
                 )}
               </span>
-            </div>
+            </button>
           </TooltipTrigger>
           <TooltipContent>
             <p>{deviceName}</p>

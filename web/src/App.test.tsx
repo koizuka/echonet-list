@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import App from './App';
 
@@ -31,7 +31,7 @@ vi.mock('@/hooks/usePropertyDescriptions', () => ({
     },
     aliases: {},
     groups: {},
-    locationSettings: { aliases: {}, order: [] },
+    locationSettings: { aliases: {}, order: ['---'] }, // leading separator so tab bar renders one
     propertyDescriptions: {},
     connectionState: 'connected',
     initialStateReceived: true,
@@ -114,6 +114,16 @@ describe('App', () => {
       // Verify the button is clickable (not disabled)
       expect(settingsButton).not.toBeDisabled();
       expect(() => fireEvent.click(settingsButton)).not.toThrow();
+    });
+
+    it('renders location separators as decorative elements hidden from assistive tech', () => {
+      render(<App />);
+      const separator = screen.getByTestId('location-separator');
+      expect(separator).toHaveAttribute('aria-hidden', 'true');
+      expect(separator).not.toHaveAttribute('role');
+      // A tablist should only expose tabs, not separators
+      const tabsList = screen.getByRole('tablist');
+      expect(within(tabsList).queryAllByRole('separator', { hidden: true })).toHaveLength(0);
     });
 
     it('renders Dashboard tab', () => {

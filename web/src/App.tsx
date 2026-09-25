@@ -590,8 +590,9 @@ function App() {
                   return (
                     <div
                       key={`separator-${index}`}
-                      role="separator"
-                      aria-orientation="vertical"
+                      // Purely visual divider: a tablist may only own tabs
+                      aria-hidden="true"
+                      data-testid="location-separator"
                       className={cn(
                         "w-px mx-0.5 self-stretch flex-shrink-0 bg-border",
                         hideOnMobileWhenDashboard && "hidden md:block"
