@@ -137,7 +137,7 @@ export function AliasEditor({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !isComposing) {
                 if (!getIsSaveDisabled()) {
-                  handleSave();
+                  void handleSave();
                 }
               } else if (e.key === 'Escape') {
                 handleCancel();

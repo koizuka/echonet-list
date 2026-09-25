@@ -26,5 +26,7 @@ export function formatValue(value: unknown): string {
     }
   }
   
+  // Remaining types (bigint, symbol, function) have meaningful string forms
+  // oxlint-disable-next-line typescript/no-base-to-string
   return String(value);
 }

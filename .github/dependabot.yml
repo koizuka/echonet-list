@@ -54,14 +54,9 @@ updates:
           - "tailwindcss"
           - "@tailwindcss/*"
           - "tailwindcss-animate"
-      eslint-core:
+      oxc:
         patterns:
-          - "eslint"
-          - "@eslint/*"
-      eslint-plugins:
-        patterns:
-          - "typescript-eslint"
-          - "eslint-plugin-*"
+          - "oxlint*"
       react:
         patterns:
           - "react"

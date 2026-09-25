@@ -421,7 +421,7 @@ describe('useECHONET', () => {
     const { result } = renderHook(() => useECHONET(testUrl));
 
     await act(async () => {
-      result.current.listDevices(['192.168.1.10 0130:1']);
+      void result.current.listDevices(['192.168.1.10 0130:1']);
     });
 
     expect(mockSendMessage).toHaveBeenCalledWith({
@@ -433,7 +433,7 @@ describe('useECHONET', () => {
     });
 
     await act(async () => {
-      result.current.setDeviceProperties('192.168.1.10 0130:1', {
+      void result.current.setDeviceProperties('192.168.1.10 0130:1', {
         '80': { string: 'on' },
       });
     });
@@ -452,7 +452,7 @@ describe('useECHONET', () => {
     const { result } = renderHook(() => useECHONET(testUrl));
 
     await act(async () => {
-      result.current.addAlias('living_ac', '013001:00000B:ABCDEF0123456789ABCDEF012345');
+      void result.current.addAlias('living_ac', '013001:00000B:ABCDEF0123456789ABCDEF012345');
     });
 
     expect(mockSendMessage).toHaveBeenCalledWith({
@@ -466,7 +466,7 @@ describe('useECHONET', () => {
     });
 
     await act(async () => {
-      result.current.deleteAlias('living_ac');
+      void result.current.deleteAlias('living_ac');
     });
 
     expect(mockSendMessage).toHaveBeenCalledWith({
@@ -483,7 +483,7 @@ describe('useECHONET', () => {
     const { result } = renderHook(() => useECHONET(testUrl));
 
     await act(async () => {
-      result.current.addGroup('@living_room', ['013001:00000B:ABCDEF0123456789ABCDEF012345']);
+      void result.current.addGroup('@living_room', ['013001:00000B:ABCDEF0123456789ABCDEF012345']);
     });
 
     expect(mockSendMessage).toHaveBeenCalledWith({

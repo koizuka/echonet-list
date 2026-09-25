@@ -14,7 +14,7 @@ import {
 import type { PropertyValue, Device } from '@/hooks/types';
 
 // Test helper functions for creating properly typed property values
-const createPropertyValue = (value: Partial<PropertyValue>): PropertyValue => value as PropertyValue;
+const createPropertyValue = (value: Partial<PropertyValue>): PropertyValue => value;
 
 const createDevice = (eoj: string, properties: Record<string, Partial<PropertyValue>>) => ({
   eoj,

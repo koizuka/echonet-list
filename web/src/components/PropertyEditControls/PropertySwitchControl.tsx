@@ -11,7 +11,7 @@ interface PropertySwitchControlProps {
 
 export function PropertySwitchControl({ value, onChange, disabled, testId, compact = false }: PropertySwitchControlProps) {
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className={cn('inline-flex items-center px-1', compact ? 'py-0' : 'py-2')}
       onClick={(e) => e.stopPropagation()}

@@ -58,8 +58,7 @@ export function GroupMemberEditor({
   // Split devices into members and non-members
   const memberDevices = groupMembers
     .map(memberId => findDeviceByMemberId(memberId))
-    .filter(result => result !== null)
-    .map(result => result!);
+    .filter(result => result !== null);
   
   const memberDeviceKeys = memberDevices.map(item => item.id);
   
@@ -191,7 +190,7 @@ export function GroupMemberEditor({
         isLoading={isLoading}
         actionButton={{
           type: isMember ? 'remove' : 'add',
-          onClick: () => isMember ? handleRemoveDevice(deviceKey) : handleAddDevice(deviceKey),
+          onClick: () => void (isMember ? handleRemoveDevice(deviceKey) : handleAddDevice(deviceKey)),
           title: isMember ? "グループから削除" : "グループに追加",
           disabled: isLoading || !isConnected
         }}

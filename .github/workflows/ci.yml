@@ -57,7 +57,7 @@ jobs:
               - 'web/vitest.config.ts'
               - 'web/postcss.config.js'
               - 'web/tailwind.config.js'
-              - 'web/eslint.config.ts'
+              - 'web/.oxlintrc.json'
               - 'web/index.html'
               - 'web/public/**'
               - '.github/workflows/ci.yml'

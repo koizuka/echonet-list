@@ -138,7 +138,7 @@ export function PropertyInputControl({
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              saveEdit();
+              void saveEdit();
             } else if (e.key === 'Escape') {
               cancelEditing();
             }
