@@ -17,8 +17,9 @@ describe('GroupManagementPanel', () => {
 
   it('should label the done-editing button even when its text is hidden on mobile', () => {
     render(<GroupManagementPanel {...defaultProps} isEditingMembers={true} onDoneEditingMembers={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Stop editing members' }))
-      .toHaveAttribute('aria-label', 'Stop editing members');
+    // Accessible name must contain the visible text (WCAG 2.5.3 Label in Name)
+    expect(screen.getByRole('button', { name: 'Done editing' }))
+      .toHaveAttribute('aria-label', 'Done editing');
   });
 
   it('should render group settings button', () => {
