@@ -324,6 +324,29 @@ function App() {
 }
 ```
 
+### UI 文言の多言語化
+
+UI の文言（ボタン名、`aria-label`、`title`、プレースホルダー、エラーメッセージなど）は、日本語と英語の両方を用意し、`getCurrentLocale()`（`web/src/libs/languageHelper.ts`）で選ぶ。日本語だけ・英語だけの固定の文言は書かない。
+
+```tsx
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: { save: 'Save', membersOf: (group: string) => `Members of ${group}` },
+  ja: { save: '保存', membersOf: (group: string) => `${group} のメンバー` },
+};
+
+export function SomeEditor(props: SomeEditorProps) {
+  const texts = messages[getCurrentLocale()];
+  return <Button aria-label={texts.save} title={texts.save}>...</Button>;
+}
+```
+
+- `isJapanese()` をコンポーネントで直接使わず、`messages[getCurrentLocale()]` の形に揃える
+- アイコンだけのボタン（画面幅によってテキストが隠れるものを含む）には `aria-label` を付ける。見えているテキストがある場合、`aria-label` にはそのテキストを含める（WCAG 2.5.3 Label in Name）
+- テストでは `@/libs/languageHelper` をモックして `getCurrentLocale` の戻り値を切り替え、両方の言語を確認する
+- サーバーから受け取るプロパティ説明の多言語化は別の仕組み（`docs/internationalization.md`）
+
 ### エラーハンドリング
 
 - WebSocket 接続エラーの表示
