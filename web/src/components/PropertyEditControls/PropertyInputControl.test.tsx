@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PropertyInputControl } from './PropertyInputControl';
-import { isJapanese } from '@/libs/languageHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(() => false),
   getCurrentLocale: vi.fn(() => 'en'),
 }));
 
@@ -16,7 +15,8 @@ describe('PropertyInputControl', () => {
   };
 
   beforeEach(() => {
-    vi.mocked(isJapanese).mockReturnValue(false);
+    // mockReturnValue persists across tests, so reset the locale for each test
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
   });
 
   it('should give the icon-only edit button an accessible name', () => {
@@ -33,11 +33,23 @@ describe('PropertyInputControl', () => {
   });
 
   it('should use Japanese button names in a Japanese locale', () => {
-    vi.mocked(isJapanese).mockReturnValue(true);
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
     render(<PropertyInputControl {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: '値を編集' }));
 
     expect(screen.getByRole('button', { name: '保存' })).toHaveAttribute('aria-label', '保存');
     expect(screen.getByRole('button', { name: 'キャンセル' })).toHaveAttribute('aria-label', 'キャンセル');
+  });
+
+  it('should localize the text input placeholder', () => {
+    const { unmount } = render(<PropertyInputControl {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit value' }));
+    expect(screen.getByPlaceholderText('Enter value')).toBeInTheDocument();
+    unmount();
+
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+    render(<PropertyInputControl {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: '値を編集' }));
+    expect(screen.getByPlaceholderText('値を入力')).toBeInTheDocument();
   });
 });

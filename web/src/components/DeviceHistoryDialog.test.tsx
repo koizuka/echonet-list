@@ -12,6 +12,11 @@ vi.mock('@/hooks/useDeviceHistory', () => ({
 
 import { useDeviceHistory } from '@/hooks/useDeviceHistory';
 
+const withJapaneseLocale = (fn: () => void) => {
+  const spy = vi.spyOn(navigator, 'language', 'get').mockReturnValue('ja-JP');
+  try { fn(); } finally { spy.mockRestore(); }
+};
+
 describe('DeviceHistoryDialog', () => {
   let mockDevice: Device;
   let mockConnection: WebSocketConnection;
@@ -1719,6 +1724,38 @@ describe('DeviceHistoryDialog', () => {
 
       // Third row should be the older entry (12:01)
       expect(rows[2]).not.toHaveAttribute('data-testid', 'history-server-startup');
+    });
+  });
+
+  it('should localize table and device labels for a Japanese locale', () => {
+    vi.mocked(useDeviceHistory).mockReturnValue({
+      entries: [{
+        timestamp: '2024-05-01T12:34:56.789Z',
+        epc: '80',
+        value: { string: 'on', EDT: 'MzA=' },
+        origin: 'set',
+        settable: true,
+      }],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    withJapaneseLocale(() => {
+      render(
+        <DeviceHistoryDialog
+          device={mockDevice}
+          connection={mockConnection}
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          classCode="0130"
+          isConnected={true}
+          aliases={{ living_ac: mockDevice.id! }}
+          allDevices={{ '192.168.1.10 0130:1': mockDevice }}
+        />
+      );
+      expect(screen.getByRole('table', { name: 'プロパティを列にしたデバイス履歴' })).toBeInTheDocument();
+      expect(screen.getByRole('alertdialog').textContent).toContain('デバイス: HomeAirConditioner');
     });
   });
 });

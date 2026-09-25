@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GroupMemberEditor } from './GroupMemberEditor';
 import type { Device } from '@/hooks/types';
+import { getCurrentLocale } from '@/libs/languageHelper';
 
-// Mock languageHelper to always return 'en' for consistent test behavior
+// Default to English for consistent device names; Japanese is covered separately
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(() => false),
   getCurrentLocale: vi.fn(() => 'en')
 }));
 
@@ -86,18 +86,31 @@ describe('GroupMemberEditor', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // mockReturnValue persists across tests, so reset the locale for each test
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
+  });
+
+  it('should use Japanese texts in a Japanese locale', () => {
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+    render(<GroupMemberEditor {...defaultProps} onDone={vi.fn()} />);
+
+    expect(screen.getByText('@testgroup のメンバー')).toBeInTheDocument();
+    expect(screen.getByText('利用可能なデバイス')).toBeInTheDocument();
+    // Accessible name contains the visible text (WCAG 2.5.3)
+    expect(screen.getByTestId('done-editing-button')).toHaveAttribute('aria-label', 'メンバー編集を終了');
+    expect(screen.getByText('編集を終了')).toBeInTheDocument();
   });
 
   it('should render group members section and available devices section', () => {
     render(<GroupMemberEditor {...defaultProps} />);
     
-    expect(screen.getByText('@testgroup のメンバー')).toBeInTheDocument();
-    expect(screen.getByText('利用可能なデバイス')).toBeInTheDocument();
+    expect(screen.getByText('Members of @testgroup')).toBeInTheDocument();
+    expect(screen.getByText('Available devices')).toBeInTheDocument();
   });
 
   it('should label the done-editing button even when its text is hidden on mobile', () => {
     render(<GroupMemberEditor {...defaultProps} onDone={vi.fn()} />);
-    expect(screen.getByTestId('done-editing-button')).toHaveAttribute('aria-label', 'メンバー編集を終了');
+    expect(screen.getByTestId('done-editing-button')).toHaveAttribute('aria-label', 'Done editing members');
   });
 
   it('should display group members in the top section', () => {
@@ -107,7 +120,7 @@ describe('GroupMemberEditor', () => {
     expect(membersSection).toHaveTextContent('029101[Single Function Lighting]');
     expect(membersSection).toHaveTextContent('192.168.1.1 0x029101');
     // Installation location should be displayed
-    expect(membersSection).toHaveTextContent('設置場所: living');
+    expect(membersSection).toHaveTextContent('Location: living');
   });
 
   it('should display installation location for each device', () => {
@@ -115,12 +128,12 @@ describe('GroupMemberEditor', () => {
     
     // Check if location is displayed for member device
     const membersSection = screen.getByTestId('group-members-section');
-    expect(membersSection).toHaveTextContent('設置場所: living');
+    expect(membersSection).toHaveTextContent('Location: living');
     
     // Check if location is displayed for available devices  
     const availableSection = screen.getByTestId('available-devices-section');
-    expect(availableSection).toHaveTextContent('設置場所: kitchen');
-    expect(availableSection).toHaveTextContent('設置場所: room');
+    expect(availableSection).toHaveTextContent('Location: kitchen');
+    expect(availableSection).toHaveTextContent('Location: room');
   });
 
   it('should display non-member devices in the bottom section', () => {
@@ -129,8 +142,8 @@ describe('GroupMemberEditor', () => {
     const availableSection = screen.getByTestId('available-devices-section');
     expect(availableSection).toHaveTextContent('013001[Air Conditioner]');
     expect(availableSection).toHaveTextContent('029101[Single Function Lighting]');
-    expect(availableSection).toHaveTextContent('設置場所: kitchen');
-    expect(availableSection).toHaveTextContent('設置場所: room');
+    expect(availableSection).toHaveTextContent('Location: kitchen');
+    expect(availableSection).toHaveTextContent('Location: room');
   });
 
 
@@ -224,14 +237,14 @@ describe('GroupMemberEditor', () => {
   it('should show empty state when no devices available', () => {
     render(<GroupMemberEditor {...defaultProps} allDevices={{}} />);
     
-    expect(screen.getByText('利用可能なデバイスがありません')).toBeInTheDocument();
+    expect(screen.getByText('No devices available')).toBeInTheDocument();
   });
 
   it('should show empty state for group with no members', () => {
     render(<GroupMemberEditor {...defaultProps} groupMembers={[]} />);
     
     const membersSection = screen.getByTestId('group-members-section');
-    expect(membersSection).toHaveTextContent('デバイスをここにドラッグしてグループに追加');
+    expect(membersSection).toHaveTextContent('Drag devices here to add them to the group');
   });
 
   it('should display minus button for member devices', () => {
@@ -239,7 +252,7 @@ describe('GroupMemberEditor', () => {
     
     const removeButton = screen.getByTestId('remove-device-device1');
     expect(removeButton).toBeInTheDocument();
-    expect(removeButton).toHaveAttribute('title', 'グループから削除');
+    expect(removeButton).toHaveAttribute('title', 'Remove from group');
   });
 
   it('should display plus button for available devices', () => {
@@ -249,8 +262,8 @@ describe('GroupMemberEditor', () => {
     const addButton3 = screen.getByTestId('add-device-device3');
     expect(addButton2).toBeInTheDocument();
     expect(addButton3).toBeInTheDocument();
-    expect(addButton2).toHaveAttribute('title', 'グループに追加');
-    expect(addButton3).toHaveAttribute('title', 'グループに追加');
+    expect(addButton2).toHaveAttribute('title', 'Add to group');
+    expect(addButton3).toHaveAttribute('title', 'Add to group');
   });
 
   it('should call onRemoveFromGroup when minus button is clicked', async () => {
@@ -301,6 +314,6 @@ describe('GroupMemberEditor', () => {
     render(<GroupMemberEditor {...propsWithUnspecified} />);
     
     const membersSection = screen.getByTestId('group-members-section');
-    expect(membersSection).toHaveTextContent('設置場所: unspecified');
+    expect(membersSection).toHaveTextContent('Location: unspecified');
   });
 });

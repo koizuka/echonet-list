@@ -3,6 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Binary } from 'lucide-react';
 import { edtToHexString } from '@/libs/propertyHelper';
 import type { PropertyValue } from '@/hooks/types';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: { show: 'Show hex data', hide: 'Hide hex data', invalidData: 'Invalid data' },
+  ja: { show: 'HEX データを表示', hide: 'HEX データを隠す', invalidData: '不正なデータ' },
+};
 
 interface HexViewerProps {
   canShowHexViewer: boolean;
@@ -17,6 +23,8 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
   const [showHexData, setShowHexData] = useState(false);
   const hexViewerRef = useRef<HTMLOutputElement>(null);
   const [leftOffset, setLeftOffset] = useState(0);
+  const texts = messages[getCurrentLocale()];
+  const toggleLabel = showHexData ? texts.hide : texts.show;
 
   useEffect(() => {
     const RESIZE_DEBOUNCE_MS = 150;
@@ -77,8 +85,8 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
         size="sm"
         onClick={() => setShowHexData(!showHexData)}
         className={`${sizeClasses.button} p-0`}
-        title={showHexData ? "Hide hex data" : "Show hex data"}
-        aria-label={showHexData ? "Hide hex data" : "Show hex data"}
+        title={toggleLabel}
+        aria-label={toggleLabel}
       >
         <Binary className={size === 'sm' ? "h-2 w-2" : "h-3 w-3"} />
       </Button>
@@ -92,7 +100,7 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
           }}
           aria-live="polite"
         >
-          {edtToHexString(currentValue.EDT) || 'Invalid data'}
+          {edtToHexString(currentValue.EDT) || texts.invalidData}
         </output>
       )}
     </>

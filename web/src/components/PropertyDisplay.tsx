@@ -5,6 +5,11 @@ import { formatPropertyValue, shouldShowHexViewer, decodeInstanceList } from '@/
 import { getCurrentLocale } from '@/libs/languageHelper';
 import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device, DeviceAlias } from '@/hooks/types';
 
+const messages = {
+  en: { instanceList: 'Instance List' },
+  ja: { instanceList: 'インスタンスリスト' },
+};
+
 interface PropertyDisplayProps {
   currentValue: PropertyValue;
   descriptor?: PropertyDescriptor;
@@ -60,7 +65,7 @@ export function PropertyDisplay({
       return (
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">
-            Instance List ({instanceCount})
+            {messages[currentLang].instanceList} ({instanceCount})
           </span>
           <HexViewer 
             canShowHexViewer={true} 

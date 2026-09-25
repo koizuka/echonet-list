@@ -6,6 +6,11 @@ import { generateLogEntryId } from '@/libs/idHelper';
 import type { PropertyValue, PropertyDescriptor } from '@/hooks/types';
 import type { LogEntry } from '@/hooks/useLogNotifications';
 
+const messages = {
+  en: { updating: 'Updating...' },
+  ja: { updating: '更新中...' },
+};
+
 interface PropertySliderControlProps {
   currentValue: PropertyValue;
   descriptor?: PropertyDescriptor;
@@ -159,7 +164,7 @@ export function PropertySliderControl({
         <div className="flex items-center justify-center gap-2 text-center">
           <span className="text-sm font-medium">{sliderValue[0]}{numberDesc.unit}</span>
           {showLoading && (
-            <span className="text-xs text-muted-foreground">Updating...</span>
+            <span className="text-xs text-muted-foreground">{messages[currentLang].updating}</span>
           )}
         </div>
       </div>

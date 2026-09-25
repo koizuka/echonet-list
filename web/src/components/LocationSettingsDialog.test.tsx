@@ -6,7 +6,6 @@ import { LOCATION_SEPARATOR } from '@/libs/locationHelper';
 
 // Mock the language helper
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(() => false),
   getCurrentLocale: vi.fn(() => 'en'),
 }));
 

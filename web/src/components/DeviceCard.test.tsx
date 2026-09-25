@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DeviceCard } from './DeviceCard';
+import { getCurrentLocale } from '@/libs/languageHelper';
+import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 import * as deviceIdHelper from '@/libs/deviceIdHelper';
 
@@ -14,7 +16,6 @@ vi.mock('@/libs/deviceIdHelper', () => ({
 
 // Mock languageHelper to always return 'en' for consistent test behavior
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(() => false),
   getCurrentLocale: vi.fn(() => 'en')
 }));
 
@@ -63,6 +64,8 @@ describe('DeviceCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // mockReturnValue persists across tests, so reset the locale for each test
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
     // Reset mocks to default behavior
     vi.mocked(deviceIdHelper.deviceHasAlias).mockReturnValue({ hasAlias: false, aliasName: undefined, deviceIdentifier: '192.168.1.100 0291:1' });
     vi.mocked(deviceIdHelper.getDeviceAliases).mockReturnValue({ aliases: [], deviceIdentifier: '192.168.1.100 0291:1' });
@@ -289,6 +292,49 @@ describe('DeviceCard', () => {
       expect(mockToggle).toHaveBeenCalledTimes(1);
     });
 
+    it('should use Japanese labels in a Japanese locale', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('ja');
+      const offlineDevice = { ...mockDevice, isOffline: true };
+      render(
+        <DeviceCard
+          device={offlineDevice}
+          isExpanded={false}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          onDeleteDevice={vi.fn()}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: offlineDevice }}
+          aliases={{}}
+          // History button only renders with a connection; the mounted dialog fetches history
+          connection={{ sendMessage: vi.fn().mockResolvedValue({ entries: [] }) } as unknown as WebSocketConnection}
+        />
+      );
+      expect(screen.getByTestId('history-button')).toHaveAttribute('aria-label', '履歴を表示');
+      expect(screen.getByTestId('update-properties-button')).toHaveAttribute('aria-label', 'デバイスへの再接続を試す');
+      expect(screen.getByTestId('delete-device-button')).toHaveAttribute('aria-label', 'オフラインデバイスを削除');
+      expect(screen.getByTestId('expand-collapse-button')).toHaveAttribute('aria-label', 'デバイスの詳細を表示');
+    });
+
+    it('should show the last-seen line in Japanese for a Japanese locale', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('ja');
+      render(
+        <DeviceCard
+          device={mockDevice}
+          isExpanded={true}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
+          aliases={{}}
+        />
+      );
+      expect(screen.getByText(/^最終確認: /)).toBeInTheDocument();
+    });
+
     it('should give the expand/collapse button an accessible name reflecting its state', () => {
       const props = {
         device: mockDevice,
@@ -449,7 +495,7 @@ describe('DeviceCard', () => {
 
       // Should show the count badge
       expect(screen.getByText('2')).toBeInTheDocument();
-      expect(screen.getByTitle('2個のエイリアス')).toBeInTheDocument();
+      expect(screen.getByTitle('2 aliases')).toBeInTheDocument();
     });
 
     it('should show device name beneath alias in expanded mode', () => {

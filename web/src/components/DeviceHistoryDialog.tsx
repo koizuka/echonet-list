@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useDeviceHistory } from '@/hooks/useDeviceHistory';
-import { isJapanese } from '@/libs/languageHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { getDevicePrimaryProperties } from '@/libs/deviceTypeHelper';
@@ -42,7 +42,7 @@ interface HistoryGroup {
 }
 
 type DialogMessages = {
-  title: string;
+  title: (displayName: string) => string;
   settableOnlyLabel: string;
   loading: string;
   noHistory: string;
@@ -60,6 +60,14 @@ type DialogMessages = {
   eventOffline: string;
   serverStarted: string;
   originServerStartup: string;
+  device: string;
+  lastFetchedAt: string;
+  dataLastFetchedAt: (time: string) => string;
+  tableLabel: string;
+  showHex: string;
+  hideHex: string;
+  closeHexViewer: string;
+  invalidData: string;
 };
 
 interface DeviceHistoryDialogProps {
@@ -150,7 +158,15 @@ export function DeviceHistoryDialog({
 
   const messages: Record<'en' | 'ja', DialogMessages> = {
     en: {
-      title: 'Device History',
+      title: (displayName) => `${displayName} - Device History`,
+      device: 'Device',
+      lastFetchedAt: 'Last fetched at',
+      dataLastFetchedAt: (time) => `Data last fetched at ${time}`,
+      tableLabel: 'Device history with properties as columns',
+      showHex: 'Show hex data',
+      hideHex: 'Hide hex data',
+      closeHexViewer: 'Close hex viewer',
+      invalidData: 'Invalid data',
       settableOnlyLabel: 'Settable properties only',
       loading: 'Loading history...',
       noHistory: 'No history available',
@@ -170,7 +186,15 @@ export function DeviceHistoryDialog({
       originServerStartup: 'Startup',
     },
     ja: {
-      title: 'デバイス履歴',
+      title: (displayName) => `${displayName}のデバイス履歴`,
+      device: 'デバイス',
+      lastFetchedAt: '最終取得日時',
+      dataLastFetchedAt: (time) => `データの最終取得日時 ${time}`,
+      tableLabel: 'プロパティを列にしたデバイス履歴',
+      showHex: 'HEX データを表示',
+      hideHex: 'HEX データを隠す',
+      closeHexViewer: 'HEX 表示を閉じる',
+      invalidData: '不正なデータ',
       settableOnlyLabel: '操作可能プロパティのみ',
       loading: '履歴を読み込み中...',
       noHistory: '履歴がありません',
@@ -191,15 +215,9 @@ export function DeviceHistoryDialog({
     },
   };
 
-  const texts = isJapanese() ? messages.ja : messages.en;
+  const texts = messages[getCurrentLocale()];
 
-  // Generate dialog title with device name (memoized for performance)
-  const dialogTitle = useMemo(
-    () => isJapanese()
-      ? `${displayName}のデバイス履歴`
-      : `${displayName} - Device History`,
-    [displayName]
-  );
+  const dialogTitle = texts.title(displayName);
 
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);
@@ -379,14 +397,14 @@ export function DeviceHistoryDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
           <div className="text-xs text-muted-foreground space-y-0.5 text-left">
-            {aliasInfo.hasAlias && <div>Device: {device.name}</div>}
+            {aliasInfo.hasAlias && <div>{texts.device}: {device.name}</div>}
             <div className="flex items-center justify-between gap-2">
               <span>{device.ip} - {device.eoj}</span>
               {lastFetchTime && (
                 <span
                   className="text-xs text-muted-foreground"
-                  title="Last fetched at"
-                  aria-label={`Data last fetched at ${lastFetchTime}`}
+                  title={texts.lastFetchedAt}
+                  aria-label={texts.dataLastFetchedAt(lastFetchTime)}
                 >
                   [{lastFetchTime}]
                 </span>
@@ -448,7 +466,7 @@ export function DeviceHistoryDialog({
             {!isLoading && !error && groupedEntries.length > 0 && (
               <div className="relative w-full">
                 {/* Use raw <table> element instead of shadcn Table wrapper for better scroll control */}
-                <table className="w-full caption-bottom text-sm" aria-label="Device history with properties as columns">
+                <table className="w-full caption-bottom text-sm" aria-label={texts.tableLabel}>
                 <TableHeader>
                 <TableRow>
                   {/* Z-index strategy: timestamp header needs z-30 to appear above other sticky headers (z-20)
@@ -629,8 +647,8 @@ export function DeviceHistoryDialog({
                                     }
                                   }}
                                   className="h-4 w-4 p-0"
-                                  title={isSelected ? "Hide hex data" : "Show hex data"}
-                                  aria-label={isSelected ? "Hide hex data" : "Show hex data"}
+                                  title={isSelected ? texts.hideHex : texts.showHex}
+                                  aria-label={isSelected ? texts.hideHex : texts.showHex}
                                 >
                                   <Binary className="h-2 w-2" />
                                 </Button>
@@ -662,14 +680,14 @@ export function DeviceHistoryDialog({
                   size="sm"
                   onClick={() => setSelectedHexData(null)}
                   className="h-5 w-5 p-0"
-                  title="Close hex viewer"
-                  aria-label="Close hex viewer"
+                  title={texts.closeHexViewer}
+                  aria-label={texts.closeHexViewer}
                 >
                   <X className="h-3 w-3" />
                 </Button>
               </div>
               <div className="text-xs font-mono bg-background p-2 rounded border break-words overflow-auto max-h-[300px] min-h-[60px]">
-                {edtToHexString(selectedHexData.edt) || 'Invalid data'}
+                {edtToHexString(selectedHexData.edt) || texts.invalidData}
               </div>
             </div>
           )}

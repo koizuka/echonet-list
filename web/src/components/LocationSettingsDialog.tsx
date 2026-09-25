@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { isJapanese } from '@/libs/languageHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import { getLocationDisplayName, LOCATION_SEPARATOR, isSeparator } from '@/libs/locationHelper';
 import type { LocationSettings, Device, PropertyDescriptionData } from '@/hooks/types';
 import { Trash2, Plus, RotateCcw, GripVertical, Minus } from 'lucide-react';
@@ -302,7 +302,7 @@ export function LocationSettingsDialog({
     },
   };
 
-  const texts = isJapanese() ? messages.ja : messages.en;
+  const texts = messages[getCurrentLocale()];
 
   // Helper to get translated location name (without alias lookup - for alias section)
   const getTranslatedLocationName = (locationId: string): string => {

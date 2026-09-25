@@ -5,6 +5,12 @@ import { SimpleDeviceCard } from './SimpleDeviceCard';
 import type { Device, DeviceAlias, PropertyDescriptionData } from '@/hooks/types';
 import * as deviceIdHelper from '@/libs/deviceIdHelper';
 import * as propertyHelper from '@/libs/propertyHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+// Existing assertions use Japanese messages; English is covered separately
+vi.mock('@/libs/languageHelper', () => ({
+  getCurrentLocale: vi.fn(() => 'ja'),
+}));
 
 // Mock deviceIdHelper functions
 vi.mock('@/libs/deviceIdHelper', () => ({
@@ -75,6 +81,8 @@ describe('SimpleDeviceCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // mockReturnValue persists across tests, so reset the locale for each test
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
     // Reset mocks to default behavior
     vi.mocked(deviceIdHelper.getDeviceAliases).mockReturnValue({
       aliases: [],
@@ -146,6 +154,17 @@ describe('SimpleDeviceCard', () => {
       render(<SimpleDeviceCard {...defaultProps} device={deviceWithoutProperties} />);
       
       expect(screen.getByTestId('device-card-192.168.1.100-0291:1')).toBeInTheDocument();
+    });
+  });
+
+  describe('English locale', () => {
+    it('should use English texts', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('en');
+      render(<SimpleDeviceCard {...defaultProps} device={{ ...mockDevice, isOffline: true }} />);
+
+      expect(screen.getByTestId('device-card-192.168.1.100-0291:1'))
+        .toHaveAttribute('aria-label', 'Single Function Lighting (offline)');
+      expect(screen.getByText(/Location: living/)).toBeInTheDocument();
     });
   });
 

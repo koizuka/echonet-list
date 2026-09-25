@@ -6,6 +6,19 @@ import { formatPropertyValue, decodePropertyMap, getPropertyName, extractClassCo
 import { getCurrentLocale } from '@/libs/languageHelper';
 import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device } from '@/hooks/types';
 
+const messages = {
+  en: {
+    showDetails: 'Show property details',
+    hideDetails: 'Hide property details',
+    noProperties: 'No properties in this map',
+  },
+  ja: {
+    showDetails: 'プロパティの詳細を表示',
+    hideDetails: 'プロパティの詳細を隠す',
+    noProperties: 'このマップにプロパティはありません',
+  },
+};
+
 interface PropertyMapDisplayProps {
   currentValue: PropertyValue;
   descriptor?: PropertyDescriptor;
@@ -21,9 +34,8 @@ export function PropertyMapDisplay({
 }: PropertyMapDisplayProps) {
   const [showPropertyMap, setShowPropertyMap] = useState(false);
   const currentLang = getCurrentLocale();
-  const toggleLabel = currentLang === 'ja'
-    ? (showPropertyMap ? 'プロパティの詳細を隠す' : 'プロパティの詳細を表示')
-    : (showPropertyMap ? 'Hide property details' : 'Show property details');
+  const texts = messages[currentLang];
+  const toggleLabel = showPropertyMap ? texts.hideDetails : texts.showDetails;
   
   // Parse property map
   const parsePropertyMap = () => {
@@ -104,7 +116,7 @@ export function PropertyMapDisplay({
             ))}
             {mapData.properties.length === 0 && (
               <div className="text-sm text-muted-foreground">
-                No properties in this map
+                {texts.noProperties}
               </div>
             )}
           </div>

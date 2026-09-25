@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DashboardTabContent } from './DashboardTabContent';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 
 // Mock deviceIdHelper functions
@@ -11,7 +12,6 @@ vi.mock('@/libs/deviceIdHelper', () => ({
 
 // Mock languageHelper to always return 'en' for consistent test behavior
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(() => false),
   getCurrentLocale: vi.fn(() => 'en')
 }));
 
@@ -60,9 +60,26 @@ describe('DashboardTabContent', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // mockReturnValue persists across tests, so reset the locale for each test
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
   });
 
   describe('empty state', () => {
+    it('should render the empty message in Japanese for a Japanese locale', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('ja');
+      render(
+        <DashboardTabContent
+          devices={{}}
+          aliases={{}}
+          propertyDescriptions={mockPropertyDescriptions}
+          locationSettings={mockLocationSettings}
+          onPropertyChange={mockOnPropertyChange}
+          isConnected={true}
+        />
+      );
+      expect(screen.getByText('デバイスが見つかりません。')).toBeInTheDocument();
+    });
+
     it('should render empty message when no devices', () => {
       render(
         <DashboardTabContent
@@ -310,7 +327,7 @@ describe('DashboardTabContent', () => {
         />
       );
 
-      // isJapanese is mocked to return false, so we expect English label
+      // getCurrentLocale is mocked to return 'en', so we expect English label
       const locationButton = screen.getByRole('button', { name: /Open.*living.*tab/i });
       fireEvent.click(locationButton);
       expect(mockOnSelectTab).toHaveBeenCalledWith('living');
@@ -355,7 +372,7 @@ describe('DashboardTabContent', () => {
         />
       );
 
-      // isJapanese is mocked to return false, so we expect English label
+      // getCurrentLocale is mocked to return 'en', so we expect English label
       const locationButton = screen.getByRole('button', { name: /Open.*living.*tab/i });
       expect(locationButton).toHaveAttribute('aria-label');
       expect(locationButton).toHaveAttribute('title');

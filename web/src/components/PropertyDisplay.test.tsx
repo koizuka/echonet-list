@@ -3,6 +3,11 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { PropertyDisplay } from './PropertyDisplay';
 import type { PropertyDescriptor } from '@/hooks/types';
 
+const withJapaneseLocale = (fn: () => void) => {
+  const spy = vi.spyOn(navigator, 'language', 'get').mockReturnValue('ja-JP');
+  try { fn(); } finally { spy.mockRestore(); }
+};
+
 // Mock the translateLocationId function
 vi.mock('@/libs/locationHelper', () => ({
   translateLocationId: (id: string) => {
@@ -144,5 +149,34 @@ describe('PropertyDisplay', () => {
     } finally {
       languageSpy.mockRestore();
     }
+  });
+
+  it('should localize the instance list fallback and empty property map for a Japanese locale', () => {
+    withJapaneseLocale(() => {
+      const device = { ip: '192.168.1.100', eoj: '0EF0:1', name: 'Node Profile', id: undefined, lastSeen: new Date().toISOString(), properties: {} };
+      const { unmount } = render(
+        <PropertyDisplay
+          currentValue={{ EDT: btoa(String.fromCharCode(0x01, 0x01, 0x30, 0x01)) }}
+          descriptor={{ description: 'Self-node Instance List S' }}
+          epc="D6"
+          propertyDescriptions={{}}
+          device={device}
+        />
+      );
+      expect(screen.getByText('インスタンスリスト (1)')).toBeInTheDocument();
+      unmount();
+
+      render(
+        <PropertyDisplay
+          currentValue={{ EDT: btoa(String.fromCharCode(0x00)) }}
+          descriptor={{ description: 'Set Property Map' }}
+          epc="9E"
+          propertyDescriptions={{}}
+          device={device}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'プロパティの詳細を表示' }));
+      expect(screen.getByText('このマップにプロパティはありません')).toBeInTheDocument();
+    });
   });
 });

@@ -5,6 +5,7 @@ import { DashboardCard } from './DashboardCard';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 import * as deviceIdHelper from '@/libs/deviceIdHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 
 // Wrapper component for TooltipProvider
 const renderWithTooltip = (ui: React.ReactElement) => {
@@ -19,7 +20,6 @@ vi.mock('@/libs/deviceIdHelper', () => ({
 
 // Mock languageHelper to always return 'en' for consistent test behavior
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(() => false),
   getCurrentLocale: vi.fn(() => 'en')
 }));
 
@@ -74,10 +74,32 @@ describe('DashboardCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // mockReturnValue persists across tests, so reset the locale for each test
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
     vi.mocked(deviceIdHelper.deviceHasAlias).mockReturnValue({
       hasAlias: false,
       aliasName: undefined,
       deviceIdentifier: '192.168.1.100 0130:1'
+    });
+  });
+
+  describe('localization', () => {
+    it('should label the expand toggle in Japanese for a Japanese locale', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('ja');
+      renderWithTooltip(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+          isExpanded={false}
+          onToggleExpand={vi.fn()}
+        />
+      );
+      const toggle = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+      expect(toggle.getAttribute('aria-label')).toMatch(/: 展開$/);
     });
   });
 

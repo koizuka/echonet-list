@@ -4,11 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Edit3, Check, X } from 'lucide-react';
 import type { PropertyValue, PropertyDescriptor } from '@/hooks/types';
-import { isJapanese } from '@/libs/languageHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 
 const messages = {
-  en: { edit: 'Edit value', save: 'Save', cancel: 'Cancel' },
-  ja: { edit: '値を編集', save: '保存', cancel: 'キャンセル' },
+  en: { edit: 'Edit value', save: 'Save', cancel: 'Cancel', enterValue: 'Enter value' },
+  ja: { edit: '値を編集', save: '保存', cancel: 'キャンセル', enterValue: '値を入力' },
 };
 
 interface PropertyInputControlProps {
@@ -34,7 +34,7 @@ export function PropertyInputControl({
   const [editValue, setEditValue] = useState('');
   const [sliderValue, setSliderValue] = useState<number[]>([0]);
   const [isLoading, setIsLoading] = useState(false);
-  const texts = isJapanese() ? messages.ja : messages.en;
+  const texts = messages[getCurrentLocale()];
   const inputRef = useRef<HTMLInputElement>(null);
 
   const hasNumberDesc = descriptor?.numberDesc;
@@ -155,7 +155,7 @@ export function PropertyInputControl({
           placeholder={
             hasNumberDesc
               ? `${descriptor?.numberDesc!.min}-${descriptor?.numberDesc!.max}${descriptor?.numberDesc!.unit}`
-              : 'Enter value'
+              : texts.enterValue
           }
           min={hasNumberDesc ? descriptor?.numberDesc!.min : undefined}
           max={hasNumberDesc ? descriptor?.numberDesc!.max : undefined}

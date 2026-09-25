@@ -13,6 +13,36 @@ import { isSensorProperty } from '@/libs/sensorPropertyHelper';
 import { isDeviceOperational, isDeviceFaulty, isOperationStatusSettable } from '@/libs/propertyHelper';
 import type { Device, PropertyValue, PropertyDescriptionData } from '@/hooks/types';
 import type { WebSocketConnection } from '@/hooks/useWebSocketConnection';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: {
+    history: 'View device history',
+    updating: 'Updating...',
+    reconnect: 'Try to reconnect device',
+    update: 'Update device properties',
+    deleteOffline: 'Delete offline device',
+    expand: 'Expand device details',
+    collapse: 'Collapse device details',
+    otherProperties: 'Other Properties',
+    aliasCount: (n: number) => `${n} aliases`,
+    device: 'Device',
+    lastSeen: 'Last seen',
+  },
+  ja: {
+    history: '履歴を表示',
+    updating: '更新中...',
+    reconnect: 'デバイスへの再接続を試す',
+    update: 'プロパティを更新',
+    deleteOffline: 'オフラインデバイスを削除',
+    expand: 'デバイスの詳細を表示',
+    collapse: 'デバイスの詳細を閉じる',
+    otherProperties: 'その他のプロパティ',
+    aliasCount: (n: number) => `${n}個のエイリアス`,
+    device: 'デバイス',
+    lastSeen: '最終確認',
+  },
+};
 
 interface DeviceCardProps {
   device: Device;
@@ -67,9 +97,10 @@ export function DeviceCard({
   const isFaulty = isDeviceFaulty(device);
   const isOffline = device.isOffline || false;
   const isControllable = isOperationStatusSettable(device);
+  const texts = messages[getCurrentLocale()];
   const updateButtonLabel = isUpdating
-    ? 'Updating...'
-    : device.isOffline ? 'Try to reconnect device' : 'Update device properties';
+    ? texts.updating
+    : device.isOffline ? texts.reconnect : texts.update;
 
   // Determine border color based on device status
   const getBorderColorClass = (): string => {
@@ -111,14 +142,14 @@ export function DeviceCard({
               </CardTitle>
               {/* Multiple alias indicator in compact mode */}
               {!isExpanded && deviceAliasesInfo.aliases.length > 1 && (
-                <div className="inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-primary-foreground bg-primary rounded-full" title={`${deviceAliasesInfo.aliases.length}個のエイリアス`}>
+                <div className="inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-primary-foreground bg-primary rounded-full" title={texts.aliasCount(deviceAliasesInfo.aliases.length)}>
                   {deviceAliasesInfo.aliases.length}
                 </div>
               )}
             </div>
             {aliasInfo.hasAlias && isExpanded && (
               <p className="text-xs text-muted-foreground truncate">
-                Device: {device.name}
+                {texts.device}: {device.name}
               </p>
             )}
             {(isExpanded || !aliasInfo.hasAlias) && (
@@ -134,8 +165,8 @@ export function DeviceCard({
                 size="sm"
                 onClick={() => setIsHistoryDialogOpen(true)}
                 className="h-6 w-6 p-0"
-                aria-label="View device history"
-                title="View device history"
+                aria-label={texts.history}
+                title={texts.history}
                 disabled={!isConnected}
                 data-testid="history-button"
               >
@@ -162,8 +193,8 @@ export function DeviceCard({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  aria-label="Delete offline device"
-                  title="Delete offline device"
+                  aria-label={texts.deleteOffline}
+                  title={texts.deleteOffline}
                   disabled={isDeletingDevice || !isConnected}
                   data-testid="delete-device-button"
                   onClick={() => setIsDeleteDialogOpen(true)}
@@ -186,7 +217,7 @@ export function DeviceCard({
               size="sm"
               onClick={onToggleExpansion}
               className="h-6 w-6 p-0"
-              aria-label={isExpanded ? 'Collapse device details' : 'Expand device details'}
+              aria-label={isExpanded ? texts.collapse : texts.expand}
               aria-expanded={isExpanded}
               data-testid="expand-collapse-button"
             >
@@ -267,7 +298,7 @@ export function DeviceCard({
           {isExpanded && secondaryProps.length > 0 && (
             <div className="border-t pt-2">
               <h4 className="text-xs font-medium mb-2 text-muted-foreground">
-                Other Properties
+                {texts.otherProperties}
               </h4>
               <div className="space-y-3">
                 {secondaryProps.map(([epc, value]) => (
@@ -322,7 +353,7 @@ export function DeviceCard({
         {isExpanded && (
           <div className="border-t pt-2 pb-3 mt-2">
             <p className="text-xs text-muted-foreground">
-              Last seen: {new Date(device.lastSeen).toLocaleString()}
+              {texts.lastSeen}: {new Date(device.lastSeen).toLocaleString()}
             </p>
           </div>
         )}

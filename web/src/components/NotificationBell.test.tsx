@@ -2,6 +2,11 @@ import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { LogEntry } from '../hooks/useLogNotifications';
 import { NotificationBell, type NotificationBellProps, formatLogTime } from './NotificationBell';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+vi.mock('@/libs/languageHelper', () => ({
+  getCurrentLocale: vi.fn(() => 'en'),
+}));
 
 describe('NotificationBell', () => {
   const mockLogs: LogEntry[] = [
@@ -31,6 +36,35 @@ describe('NotificationBell', () => {
     connectedAt: new Date('2023-04-01T12:00:00Z'),
     serverStartupTime: new Date('2023-04-01T11:00:00Z')
   };
+
+  beforeEach(() => {
+    // mockReturnValue persists across tests, so reset the locale for each test
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
+  });
+
+  it('gives the icon-only bell button an accessible name with the unread count', () => {
+    render(<NotificationBell {...defaultProps} />);
+    expect(screen.getByTestId('notification-bell-button')).toHaveAttribute('aria-label', 'Server Logs (1 unread)');
+  });
+
+  it('uses Japanese texts in a Japanese locale', () => {
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+    render(<NotificationBell {...defaultProps} logs={[]} onDiscoverDevices={vi.fn()} />);
+    expect(screen.getByTestId('notification-bell-button')).toHaveAttribute('aria-label', 'サーバーログ (未読 1 件)');
+
+    fireEvent.click(screen.getByTestId('notification-bell-button'));
+    expect(screen.getByText('サーバーログ')).toBeInTheDocument();
+    expect(screen.getByText('すべて消去')).toBeInTheDocument();
+    expect(screen.getByText('デバイス探索')).toBeInTheDocument();
+    expect(screen.getByText('ログはまだありません')).toBeInTheDocument();
+  });
+
+  it('localizes the log count footer', () => {
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+    render(<NotificationBell {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('notification-bell-button'));
+    expect(screen.getByText('全 2 件')).toBeInTheDocument();
+  });
 
   it('renders bell icon with unread count badge', () => {
     render(<NotificationBell {...defaultProps} />);
