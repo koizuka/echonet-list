@@ -15,6 +15,12 @@ describe('GroupManagementPanel', () => {
     vi.clearAllMocks();
   });
 
+  it('should label the done-editing button even when its text is hidden on mobile', () => {
+    render(<GroupManagementPanel {...defaultProps} isEditingMembers={true} onDoneEditingMembers={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Stop editing members' }))
+      .toHaveAttribute('aria-label', 'Stop editing members');
+  });
+
   it('should render group settings button', () => {
     render(<GroupManagementPanel {...defaultProps} />);
 

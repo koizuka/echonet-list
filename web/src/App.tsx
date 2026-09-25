@@ -635,6 +635,8 @@ function App() {
                 }}
                 disabled={isCreatingGroup || !isConnected}
                 className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
+                // Label text is hidden on mobile, leaving only the icon
+                aria-label="新規グループ"
                 data-testid="add-group-button"
               >
                 <Plus className="h-3 w-3 sm:mr-1" />

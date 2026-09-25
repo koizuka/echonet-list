@@ -138,8 +138,9 @@ describe('PropertyDisplay', () => {
         />
       );
       const toggle = screen.getByRole('button', { name: 'プロパティの詳細を表示' });
+      expect(toggle).toHaveAttribute('aria-label', 'プロパティの詳細を表示');
       fireEvent.click(toggle);
-      expect(screen.getByRole('button', { name: 'プロパティの詳細を隠す' })).toBeInTheDocument();
+      expect(toggle).toHaveAttribute('aria-label', 'プロパティの詳細を隠す');
     } finally {
       languageSpy.mockRestore();
     }

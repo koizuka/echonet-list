@@ -82,7 +82,7 @@ describe('AliasEditor', () => {
       expect(screen.getByRole('button', { name: 'エイリアスを削除: living_ac' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'エイリアスを編集: bedroom_ac' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'エイリアスを削除: bedroom_ac' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'エイリアスを追加' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'エイリアスを追加' })).toHaveAttribute('aria-label', 'エイリアスを追加');
     });
 
     it('should show edit and delete buttons', () => {

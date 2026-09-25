@@ -176,6 +176,8 @@ export function GroupManagementPanel({
             variant="outline"
             size="sm"
             onClick={onDoneEditingMembers}
+            // Label text is hidden on mobile, leaving only the icon
+            aria-label={GROUP_MANAGEMENT_MESSAGES.menu.stop_editing_members[locale]}
             title={GROUP_MANAGEMENT_MESSAGES.menu.stop_editing_members[locale]}
           >
             <Users className="h-4 w-4 sm:mr-2" />

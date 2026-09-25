@@ -23,7 +23,8 @@ interface SimpleDeviceCardProps {
     type: 'add' | 'remove' | 'custom';
     onClick: () => void;
     icon?: React.ReactNode;
-    title?: string;
+    // Required: the button is icon-only, so this is its accessible name
+    title: string;
     disabled?: boolean;
   };
   className?: string;

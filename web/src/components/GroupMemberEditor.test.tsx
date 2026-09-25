@@ -95,6 +95,11 @@ describe('GroupMemberEditor', () => {
     expect(screen.getByText('利用可能なデバイス')).toBeInTheDocument();
   });
 
+  it('should label the done-editing button even when its text is hidden on mobile', () => {
+    render(<GroupMemberEditor {...defaultProps} onDone={vi.fn()} />);
+    expect(screen.getByTestId('done-editing-button')).toHaveAttribute('aria-label', 'メンバー編集を終了');
+  });
+
   it('should display group members in the top section', () => {
     render(<GroupMemberEditor {...defaultProps} />);
     

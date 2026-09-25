@@ -21,15 +21,15 @@ describe('PropertyInputControl', () => {
 
   it('should give the icon-only edit button an accessible name', () => {
     render(<PropertyInputControl {...defaultProps} />);
-    expect(screen.getByRole('button', { name: 'Edit value' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit value' })).toHaveAttribute('aria-label', 'Edit value');
   });
 
   it('should give the icon-only save and cancel buttons accessible names while editing', () => {
     render(<PropertyInputControl {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit value' }));
 
-    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('aria-label', 'Save');
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute('aria-label', 'Cancel');
   });
 
   it('should use Japanese button names in a Japanese locale', () => {
@@ -37,7 +37,7 @@ describe('PropertyInputControl', () => {
     render(<PropertyInputControl {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: '値を編集' }));
 
-    expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'キャンセル' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '保存' })).toHaveAttribute('aria-label', '保存');
+    expect(screen.getByRole('button', { name: 'キャンセル' })).toHaveAttribute('aria-label', 'キャンセル');
   });
 });
