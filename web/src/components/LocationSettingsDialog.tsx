@@ -443,6 +443,10 @@ export function LocationSettingsDialog({
   };
 
   const displayOrderWithUniqueIds = orderToUniqueIds(displayOrder);
+  // 1-based ordinal of each separator, used to give its delete button a distinct label
+  const separatorOrdinals = new Map(
+    displayOrderWithUniqueIds.filter(isUniqueIdSeparator).map((id, i) => [id, i + 1])
+  );
 
   // Add separator to the end of the order list
   const handleAddSeparator = () => {
@@ -648,7 +652,7 @@ export function LocationSettingsDialog({
                           key={uniqueId}
                           id={uniqueId}
                           displayName={texts.separator}
-                          deleteLabel={texts.deleteSeparator}
+                          deleteLabel={`${texts.deleteSeparator} ${separatorOrdinals.get(uniqueId)}`}
                           disabled={isLoading || !isConnected}
                           onDelete={() => handleDeleteSeparator(uniqueId)}
                         />

@@ -222,10 +222,10 @@ describe('LocationSettingsDialog', () => {
       expect(screen.getByText('Using default order')).toBeInTheDocument();
     });
 
-    it('should give the separator delete button an accessible name', () => {
+    it('should give each separator delete button a distinct accessible name', () => {
       const locationSettings: LocationSettings = {
         aliases: {},
-        order: ['living', LOCATION_SEPARATOR, 'room2'],
+        order: ['living', LOCATION_SEPARATOR, 'room2', LOCATION_SEPARATOR, 'kitchen'],
       };
       render(
         <LocationSettingsDialog
@@ -233,7 +233,9 @@ describe('LocationSettingsDialog', () => {
           locationSettings={locationSettings}
         />
       );
-      expect(screen.getByRole('button', { name: 'Delete separator' })).toBeInTheDocument();
+      // Each separator gets a distinct name so screen-reader users can tell them apart
+      expect(screen.getByRole('button', { name: 'Delete separator 1' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Delete separator 2' })).toBeInTheDocument();
     });
 
     it('should display order items with drag handles', () => {
