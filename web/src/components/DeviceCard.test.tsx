@@ -64,7 +64,7 @@ describe('DeviceCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // clearAllMocks keeps mock implementations, so reset the locale explicitly
+    // mockReturnValue persists across tests, so reset the locale for each test
     vi.mocked(getCurrentLocale).mockReturnValue('en');
     // Reset mocks to default behavior
     vi.mocked(deviceIdHelper.deviceHasAlias).mockReturnValue({ hasAlias: false, aliasName: undefined, deviceIdentifier: '192.168.1.100 0291:1' });
