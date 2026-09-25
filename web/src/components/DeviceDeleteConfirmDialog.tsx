@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { isJapanese } from '@/libs/languageHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import type { Device } from '@/hooks/types';
 
 type DialogMessages = {
@@ -61,7 +61,7 @@ export function DeviceDeleteConfirmDialog({
     },
   };
 
-  const texts = isJapanese() ? messages.ja : messages.en;
+  const texts = messages[getCurrentLocale()];
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>

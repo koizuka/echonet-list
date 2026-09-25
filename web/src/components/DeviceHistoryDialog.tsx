@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useDeviceHistory } from '@/hooks/useDeviceHistory';
-import { isJapanese } from '@/libs/languageHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor, shouldShowHexViewer, edtToHexString } from '@/libs/propertyHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { getDevicePrimaryProperties } from '@/libs/deviceTypeHelper';
@@ -191,14 +191,15 @@ export function DeviceHistoryDialog({
     },
   };
 
-  const texts = isJapanese() ? messages.ja : messages.en;
+  const locale = getCurrentLocale();
+  const texts = messages[locale];
 
   // Generate dialog title with device name (memoized for performance)
   const dialogTitle = useMemo(
-    () => isJapanese()
+    () => locale === 'ja'
       ? `${displayName}のデバイス履歴`
       : `${displayName} - Device History`,
-    [displayName]
+    [displayName, locale]
   );
 
   const formatTimestamp = (timestamp: string): string => {

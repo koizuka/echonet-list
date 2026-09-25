@@ -11,7 +11,6 @@ vi.mock('@/libs/deviceIdHelper', () => ({
 
 // Mock languageHelper to always return 'en' for consistent test behavior
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(() => false),
   getCurrentLocale: vi.fn(() => 'en')
 }));
 
@@ -310,7 +309,7 @@ describe('DashboardTabContent', () => {
         />
       );
 
-      // isJapanese is mocked to return false, so we expect English label
+      // getCurrentLocale is mocked to return 'en', so we expect English label
       const locationButton = screen.getByRole('button', { name: /Open.*living.*tab/i });
       fireEvent.click(locationButton);
       expect(mockOnSelectTab).toHaveBeenCalledWith('living');
@@ -355,7 +354,7 @@ describe('DashboardTabContent', () => {
         />
       );
 
-      // isJapanese is mocked to return false, so we expect English label
+      // getCurrentLocale is mocked to return 'en', so we expect English label
       const locationButton = screen.getByRole('button', { name: /Open.*living.*tab/i });
       expect(locationButton).toHaveAttribute('aria-label');
       expect(locationButton).toHaveAttribute('title');

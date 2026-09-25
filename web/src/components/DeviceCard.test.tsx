@@ -14,7 +14,6 @@ vi.mock('@/libs/deviceIdHelper', () => ({
 
 // Mock languageHelper to always return 'en' for consistent test behavior
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(() => false),
   getCurrentLocale: vi.fn(() => 'en')
 }));
 

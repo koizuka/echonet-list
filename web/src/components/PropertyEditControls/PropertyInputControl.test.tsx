@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PropertyInputControl } from './PropertyInputControl';
-import { isJapanese } from '@/libs/languageHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(() => false),
   getCurrentLocale: vi.fn(() => 'en'),
 }));
 
@@ -16,7 +15,7 @@ describe('PropertyInputControl', () => {
   };
 
   beforeEach(() => {
-    vi.mocked(isJapanese).mockReturnValue(false);
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
   });
 
   it('should give the icon-only edit button an accessible name', () => {
@@ -33,7 +32,7 @@ describe('PropertyInputControl', () => {
   });
 
   it('should use Japanese button names in a Japanese locale', () => {
-    vi.mocked(isJapanese).mockReturnValue(true);
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
     render(<PropertyInputControl {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: '値を編集' }));
 

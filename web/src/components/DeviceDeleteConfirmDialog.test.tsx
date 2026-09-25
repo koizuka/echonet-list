@@ -5,10 +5,10 @@ import type { Device } from '@/hooks/types';
 
 // Mock the language helper
 vi.mock('@/libs/languageHelper', () => ({
-  isJapanese: vi.fn(),
+  getCurrentLocale: vi.fn(),
 }));
 
-const { isJapanese } = vi.mocked(await import('@/libs/languageHelper'));
+const { getCurrentLocale } = vi.mocked(await import('@/libs/languageHelper'));
 
 describe('DeviceDeleteConfirmDialog', () => {
   const mockDevice: Device = {
@@ -32,12 +32,12 @@ describe('DeviceDeleteConfirmDialog', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    isJapanese.mockReturnValue(false); // Default to English
+    getCurrentLocale.mockReturnValue('en'); // Default to English
   });
 
   describe('English Language', () => {
     beforeEach(() => {
-      isJapanese.mockReturnValue(false);
+      getCurrentLocale.mockReturnValue('en');
     });
 
     it('should render English texts when language is not Japanese', () => {
@@ -81,7 +81,7 @@ describe('DeviceDeleteConfirmDialog', () => {
 
   describe('Japanese Language', () => {
     beforeEach(() => {
-      isJapanese.mockReturnValue(true);
+      getCurrentLocale.mockReturnValue('ja');
     });
 
     it('should render Japanese texts when language is Japanese', () => {

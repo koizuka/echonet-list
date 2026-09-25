@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Edit3, Check, X } from 'lucide-react';
 import type { PropertyValue, PropertyDescriptor } from '@/hooks/types';
-import { isJapanese } from '@/libs/languageHelper';
+import { getCurrentLocale } from '@/libs/languageHelper';
 
 const messages = {
   en: { edit: 'Edit value', save: 'Save', cancel: 'Cancel' },
@@ -34,7 +34,7 @@ export function PropertyInputControl({
   const [editValue, setEditValue] = useState('');
   const [sliderValue, setSliderValue] = useState<number[]>([0]);
   const [isLoading, setIsLoading] = useState(false);
-  const texts = isJapanese() ? messages.ja : messages.en;
+  const texts = messages[getCurrentLocale()];
   const inputRef = useRef<HTMLInputElement>(null);
 
   const hasNumberDesc = descriptor?.numberDesc;
