@@ -1,6 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PropertyInputControl } from './PropertyInputControl';
+import { isJapanese } from '@/libs/languageHelper';
+
+vi.mock('@/libs/languageHelper', () => ({
+  isJapanese: vi.fn(() => false),
+  getCurrentLocale: vi.fn(() => 'en'),
+}));
 
 describe('PropertyInputControl', () => {
   const defaultProps = {
@@ -8,6 +14,10 @@ describe('PropertyInputControl', () => {
     onSave: vi.fn().mockResolvedValue(undefined),
     disabled: false,
   };
+
+  beforeEach(() => {
+    vi.mocked(isJapanese).mockReturnValue(false);
+  });
 
   it('should give the icon-only edit button an accessible name', () => {
     render(<PropertyInputControl {...defaultProps} />);
@@ -20,5 +30,14 @@ describe('PropertyInputControl', () => {
 
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+  });
+
+  it('should use Japanese button names in a Japanese locale', () => {
+    vi.mocked(isJapanese).mockReturnValue(true);
+    render(<PropertyInputControl {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: '値を編集' }));
+
+    expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'キャンセル' })).toBeInTheDocument();
   });
 });

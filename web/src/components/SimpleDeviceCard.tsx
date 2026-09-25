@@ -141,6 +141,7 @@ export function SimpleDeviceCard({
                 onClick={actionButton.onClick}
                 disabled={actionButton.disabled || isLoading}
                 className="h-8 w-8 p-0"
+                aria-label={actionButton.title}
                 title={actionButton.title}
                 data-testid={`${actionButton.type}-device-${deviceKey.replace(/\s+/g, '-')}`}
               >

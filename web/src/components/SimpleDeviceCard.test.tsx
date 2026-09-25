@@ -150,6 +150,16 @@ describe('SimpleDeviceCard', () => {
   });
 
   describe('Accessibility', () => {
+    it('should give the icon-only action button an accessible name from its title', () => {
+      render(
+        <SimpleDeviceCard
+          {...defaultProps}
+          actionButton={{ type: 'add', onClick: vi.fn(), title: 'グループに追加' }}
+        />
+      );
+      expect(screen.getByRole('button', { name: 'グループに追加' })).toBeInTheDocument();
+    });
+
     it('should have correct aria-label for online device', () => {
       render(<SimpleDeviceCard {...defaultProps} />);
       
