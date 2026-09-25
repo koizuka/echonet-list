@@ -5,13 +5,6 @@ import { DeviceCard } from './DeviceCard';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 import * as deviceIdHelper from '@/libs/deviceIdHelper';
 
-// Mock ResizeObserver for tests
-global.ResizeObserver = vi.fn(() => ({
-  observe: vi.fn(),
-  disconnect: vi.fn(),
-  unobserve: vi.fn(),
-}));
-
 // Mock deviceIdHelper functions
 vi.mock('@/libs/deviceIdHelper', () => ({
   deviceHasAlias: vi.fn(() => ({ hasAlias: false, aliasName: undefined, deviceIdentifier: '192.168.1.100 0291:1' })),

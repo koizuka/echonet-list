@@ -3,14 +3,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PropertyEditor } from './PropertyEditor';
 import type { Device, PropertyDescriptor, PropertyDescriptionData } from '@/hooks/types';
 
-// Mock ResizeObserver for tests
-// Vitest 4.0 requires 'function' or 'class' for constructors, not arrow functions
-global.ResizeObserver = vi.fn(function(this: ResizeObserver) {
-  this.observe = vi.fn();
-  this.disconnect = vi.fn();
-  this.unobserve = vi.fn();
-}) as unknown as typeof ResizeObserver;
-
 // Mock languageHelper to always return 'en' for consistent test behavior
 vi.mock('@/libs/languageHelper', () => ({
   isJapanese: vi.fn(() => false),
