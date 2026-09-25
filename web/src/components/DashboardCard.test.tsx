@@ -11,13 +11,6 @@ const renderWithTooltip = (ui: React.ReactElement) => {
   return render(<TooltipProvider>{ui}</TooltipProvider>);
 };
 
-// Mock ResizeObserver for tests
-global.ResizeObserver = class {
-  observe = vi.fn();
-  disconnect = vi.fn();
-  unobserve = vi.fn();
-};
-
 // Mock deviceIdHelper functions
 vi.mock('@/libs/deviceIdHelper', () => ({
   deviceHasAlias: vi.fn(() => ({ hasAlias: false, aliasName: undefined, deviceIdentifier: '192.168.1.100 0130:1' })),
