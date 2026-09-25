@@ -26,6 +26,8 @@ const messages = {
     collapse: 'Collapse device details',
     otherProperties: 'Other Properties',
     aliasCount: (n: number) => `${n} aliases`,
+    device: 'Device',
+    lastSeen: 'Last seen',
   },
   ja: {
     history: '履歴を表示',
@@ -37,6 +39,8 @@ const messages = {
     collapse: 'デバイスの詳細を閉じる',
     otherProperties: 'その他のプロパティ',
     aliasCount: (n: number) => `${n}個のエイリアス`,
+    device: 'デバイス',
+    lastSeen: '最終確認',
   },
 };
 
@@ -145,7 +149,7 @@ export function DeviceCard({
             </div>
             {aliasInfo.hasAlias && isExpanded && (
               <p className="text-xs text-muted-foreground truncate">
-                Device: {device.name}
+                {texts.device}: {device.name}
               </p>
             )}
             {(isExpanded || !aliasInfo.hasAlias) && (
@@ -349,7 +353,7 @@ export function DeviceCard({
         {isExpanded && (
           <div className="border-t pt-2 pb-3 mt-2">
             <p className="text-xs text-muted-foreground">
-              Last seen: {new Date(device.lastSeen).toLocaleString()}
+              {texts.lastSeen}: {new Date(device.lastSeen).toLocaleString()}
             </p>
           </div>
         )}

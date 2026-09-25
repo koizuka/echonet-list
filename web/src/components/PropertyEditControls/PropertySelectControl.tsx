@@ -6,6 +6,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: { placeholder: 'Select...' },
+  ja: { placeholder: '選択...' },
+};
 import type { AliasTranslations } from '@/hooks/types';
 
 interface PropertySelectControlProps {
@@ -47,8 +52,9 @@ export function PropertySelectControl({
       disabled={disabled}
     >
       <SelectTrigger className="h-7 w-[120px]" data-testid={testId}>
-        <SelectValue>
-          {value ? getDisplayText(value) : 'Select...'}
+        {/* Radix renders `placeholder` (not children) while the value is empty */}
+        <SelectValue placeholder={messages[currentLang].placeholder}>
+          {value ? getDisplayText(value) : null}
         </SelectValue>
       </SelectTrigger>
       <SelectContent data-testid={testId ? `${testId}-content` : undefined}>

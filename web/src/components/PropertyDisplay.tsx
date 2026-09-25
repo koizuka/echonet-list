@@ -3,6 +3,11 @@ import { PropertyMapDisplay } from './PropertyMapDisplay';
 import { SelfNodeInstanceListSDisplay } from './SelfNodeInstanceListSDisplay';
 import { formatPropertyValue, shouldShowHexViewer, decodeInstanceList } from '@/libs/propertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: { instanceList: 'Instance List' },
+  ja: { instanceList: 'インスタンスリスト' },
+};
 import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device, DeviceAlias } from '@/hooks/types';
 
 interface PropertyDisplayProps {
@@ -60,7 +65,7 @@ export function PropertyDisplay({
       return (
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">
-            Instance List ({instanceCount})
+            {messages[currentLang].instanceList} ({instanceCount})
           </span>
           <HexViewer 
             canShowHexViewer={true} 

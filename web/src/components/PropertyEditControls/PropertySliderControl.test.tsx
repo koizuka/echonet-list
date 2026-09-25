@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { PropertySliderControl } from './PropertySliderControl';
 import type { PropertyValue, PropertyDescriptor } from '@/hooks/types';
 
@@ -257,5 +257,35 @@ describe('PropertySliderControl', () => {
     );
     expect(screen.getByText('80%')).toBeInTheDocument();
     expect(screen.queryByText('50%')).not.toBeInTheDocument();
+  });
+
+  it('should show a localized updating indicator while saving', async () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(navigator, 'language', 'get').mockReturnValue('ja-JP');
+    try {
+      const pendingSave = vi.fn(() => new Promise<void>(() => {}));
+      render(
+        <PropertySliderControl
+          currentValue={{ number: 50 }}
+          descriptor={mockDescriptor}
+          onSave={pendingSave}
+          disabled={false}
+          testId="illuminance"
+        />
+      );
+      const thumb = screen.getByRole('slider');
+      act(() => {
+        thumb.focus();
+        fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(250);
+      });
+      expect(pendingSave).toHaveBeenCalled();
+      expect(screen.getByText('更新中...')).toBeInTheDocument();
+    } finally {
+      spy.mockRestore();
+      vi.useRealTimers();
+    }
   });
 });

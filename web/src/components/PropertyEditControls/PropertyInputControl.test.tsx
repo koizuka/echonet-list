@@ -40,4 +40,11 @@ describe('PropertyInputControl', () => {
     expect(screen.getByRole('button', { name: '保存' })).toHaveAttribute('aria-label', '保存');
     expect(screen.getByRole('button', { name: 'キャンセル' })).toHaveAttribute('aria-label', 'キャンセル');
   });
+
+  it('should localize the text input placeholder', () => {
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+    render(<PropertyInputControl {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: '値を編集' }));
+    expect(screen.getByPlaceholderText('値を入力')).toBeInTheDocument();
+  });
 });

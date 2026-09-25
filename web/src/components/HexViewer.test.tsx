@@ -1,6 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { HexViewer } from './HexViewer';
+
+const withJapaneseLocale = (fn: () => void) => {
+  const spy = vi.spyOn(navigator, 'language', 'get').mockReturnValue('ja-JP');
+  try { fn(); } finally { spy.mockRestore(); }
+};
 
 describe('HexViewer', () => {
   it('should render binary button when canShowHexViewer is true', () => {
@@ -97,5 +102,15 @@ describe('HexViewer', () => {
     expect(screen.getByText('Invalid data')).toBeInTheDocument();
     
     consoleSpy.mockRestore();
+  });
+
+  it('should localize the toggle label and invalid-data text for a Japanese locale', () => {
+    withJapaneseLocale(() => {
+      render(<HexViewer canShowHexViewer={true} currentValue={{ EDT: '!!!' }} />);
+      const button = screen.getByRole('button', { name: 'HEX データを表示' });
+      fireEvent.click(button);
+      expect(button).toHaveAttribute('aria-label', 'HEX データを隠す');
+      expect(screen.getByRole('status')).toHaveTextContent('不正なデータ');
+    });
   });
 });

@@ -317,6 +317,24 @@ describe('DeviceCard', () => {
       expect(screen.getByTestId('expand-collapse-button')).toHaveAttribute('aria-label', 'デバイスの詳細を表示');
     });
 
+    it('should show the last-seen line in Japanese for a Japanese locale', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('ja');
+      render(
+        <DeviceCard
+          device={mockDevice}
+          isExpanded={true}
+          onToggleExpansion={vi.fn()}
+          onPropertyChange={mockOnPropertyChange}
+          onUpdateProperties={mockOnUpdateProperties}
+          propertyDescriptions={mockPropertyDescriptions}
+          getDeviceClassCode={mockGetDeviceClassCode}
+          devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice }}
+          aliases={{}}
+        />
+      );
+      expect(screen.getByText(/^最終確認: /)).toBeInTheDocument();
+    });
+
     it('should give the expand/collapse button an accessible name reflecting its state', () => {
       const props = {
         device: mockDevice,
