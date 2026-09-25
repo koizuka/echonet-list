@@ -151,6 +151,7 @@ export function AliasEditor({
               onClick={handleSave}
               disabled={getIsSaveDisabled()}
               className="h-7 w-7 p-0"
+              aria-label="保存"
               title="保存"
             >
               <Check className="h-3 w-3" />
@@ -161,6 +162,7 @@ export function AliasEditor({
               onClick={handleCancel}
               disabled={savingIndex !== null}
               className="h-7 w-7 p-0"
+              aria-label="キャンセル"
               title="キャンセル"
             >
               <X className="h-3 w-3" />
@@ -191,6 +193,7 @@ export function AliasEditor({
               onClick={() => handleStartEdit(index)}
               disabled={isLoading || savingIndex !== null || !isConnected}
               className="h-6 w-6 p-0"
+              aria-label={`エイリアスを編集: ${alias}`}
               title="エイリアスを編集"
             >
               <Edit2 className="h-3 w-3" />
@@ -201,6 +204,7 @@ export function AliasEditor({
               onClick={() => handleDelete(alias, index)}
               disabled={isLoading || savingIndex !== null || !isConnected}
               className="h-6 w-6 p-0"
+              aria-label={`エイリアスを削除: ${alias}`}
               title="エイリアスを削除"
             >
               <Trash2 className="h-3 w-3" />
@@ -217,6 +221,7 @@ export function AliasEditor({
           onClick={handleStartAdd}
           disabled={isLoading || savingIndex !== null || !isConnected}
           className="h-6 w-6 p-0"
+          aria-label="エイリアスを追加"
           title="エイリアスを追加"
         >
           <Plus className="h-3 w-3" />

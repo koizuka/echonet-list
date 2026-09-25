@@ -131,6 +131,7 @@ export function DeviceCard({
                 size="sm"
                 onClick={() => setIsHistoryDialogOpen(true)}
                 className="h-6 w-6 p-0"
+                aria-label="View device history"
                 title="View device history"
                 disabled={!isConnected}
                 data-testid="history-button"
@@ -144,6 +145,7 @@ export function DeviceCard({
                 size="sm"
                 onClick={() => onUpdateProperties(`${device.ip} ${device.eoj}`)}
                 className="h-6 w-6 p-0"
+                aria-label={isUpdating ? "Updating..." : device.isOffline ? "Try to reconnect device" : "Update device properties"}
                 title={isUpdating ? "Updating..." : device.isOffline ? "Try to reconnect device" : "Update device properties"}
                 disabled={isUpdating || !isConnected}
                 data-testid="update-properties-button"
@@ -157,6 +159,7 @@ export function DeviceCard({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  aria-label="Delete offline device"
                   title="Delete offline device"
                   disabled={isDeletingDevice || !isConnected}
                   data-testid="delete-device-button"

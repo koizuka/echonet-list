@@ -112,6 +112,8 @@ export function PropertyInputControl({
         onClick={startEditing}
         disabled={disabled || isLoading}
         className="h-7 px-2"
+        aria-label="Edit value"
+        title="Edit value"
         data-testid={testId ? `edit-button-${testId}` : undefined}
       >
         <Edit3 className="h-3 w-3" />
@@ -162,6 +164,8 @@ export function PropertyInputControl({
             onClick={saveEdit}
             disabled={isLoading || !editValue.trim()}
             className="h-7 px-1"
+            aria-label="Save"
+            title="Save"
             data-testid={testId ? `save-button-${testId}` : undefined}
           >
             <Check className="h-3 w-3" />
@@ -172,6 +176,8 @@ export function PropertyInputControl({
             onClick={cancelEditing}
             disabled={isLoading}
             className="h-7 px-1"
+            aria-label="Cancel"
+            title="Cancel"
             data-testid={testId ? `cancel-button-${testId}` : undefined}
           >
             <X className="h-3 w-3" />

@@ -67,6 +67,24 @@ describe('AliasEditor', () => {
   });
 
   describe('when device has alias', () => {
+    it('should give each alias edit/delete button a distinct accessible name', () => {
+      render(
+        <AliasEditor
+          device={mockDevice}
+          aliases={['living_ac', 'bedroom_ac']}
+          onAddAlias={mockOnAddAlias}
+          onDeleteAlias={mockOnDeleteAlias}
+          deviceIdentifier="013001:00000B:ABCDEF0123456789ABCDEF012345"
+        />
+      );
+
+      expect(screen.getByRole('button', { name: 'エイリアスを編集: living_ac' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'エイリアスを削除: living_ac' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'エイリアスを編集: bedroom_ac' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'エイリアスを削除: bedroom_ac' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'エイリアスを追加' })).toBeInTheDocument();
+    });
+
     it('should show edit and delete buttons', () => {
       render(
         <AliasEditor

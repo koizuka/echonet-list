@@ -75,6 +75,7 @@ export function PropertyMapDisplay({
           size="sm"
           onClick={() => setShowPropertyMap(!showPropertyMap)}
           className="h-6 w-6 p-0"
+          aria-label={showPropertyMap ? "Hide property details" : "Show property details"}
           title={showPropertyMap ? "Hide property details" : "Show property details"}
         >
           {showPropertyMap ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
