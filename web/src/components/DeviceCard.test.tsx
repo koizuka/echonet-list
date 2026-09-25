@@ -5,13 +5,6 @@ import { DeviceCard } from './DeviceCard';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 import * as deviceIdHelper from '@/libs/deviceIdHelper';
 
-// Mock ResizeObserver for tests
-global.ResizeObserver = vi.fn(() => ({
-  observe: vi.fn(),
-  disconnect: vi.fn(),
-  unobserve: vi.fn(),
-}));
-
 // Mock deviceIdHelper functions
 vi.mock('@/libs/deviceIdHelper', () => ({
   deviceHasAlias: vi.fn(() => ({ hasAlias: false, aliasName: undefined, deviceIdentifier: '192.168.1.100 0291:1' })),
@@ -294,6 +287,24 @@ describe('DeviceCard', () => {
       fireEvent.click(toggleButton);
 
       expect(mockToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should give the expand/collapse button an accessible name reflecting its state', () => {
+      const props = {
+        device: mockDevice,
+        onToggleExpansion: vi.fn(),
+        onPropertyChange: mockOnPropertyChange,
+        onUpdateProperties: mockOnUpdateProperties,
+        propertyDescriptions: mockPropertyDescriptions,
+        getDeviceClassCode: mockGetDeviceClassCode,
+        devices: { [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice },
+        aliases: {},
+      };
+      const { rerender } = render(<DeviceCard {...props} isExpanded={false} />);
+      expect(screen.getByRole('button', { name: 'Expand device details' })).toBeInTheDocument();
+
+      rerender(<DeviceCard {...props} isExpanded={true} />);
+      expect(screen.getByRole('button', { name: 'Collapse device details' })).toBeInTheDocument();
     });
 
     it('should show ChevronDown when collapsed', () => {

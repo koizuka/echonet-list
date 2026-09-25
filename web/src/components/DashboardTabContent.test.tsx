@@ -3,13 +3,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { DashboardTabContent } from './DashboardTabContent';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
 
-// Mock ResizeObserver for tests
-global.ResizeObserver = vi.fn(() => ({
-  observe: vi.fn(),
-  disconnect: vi.fn(),
-  unobserve: vi.fn(),
-}));
-
 // Mock deviceIdHelper functions
 vi.mock('@/libs/deviceIdHelper', () => ({
   deviceHasAlias: vi.fn(() => ({ hasAlias: false, aliasName: undefined, deviceIdentifier: 'test' })),

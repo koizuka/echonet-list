@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LocationSettingsDialog } from './LocationSettingsDialog';
 import type { LocationSettings } from '@/hooks/types';
+import { LOCATION_SEPARATOR } from '@/libs/locationHelper';
 
 // Mock the language helper
 vi.mock('@/libs/languageHelper', () => ({
@@ -219,6 +220,22 @@ describe('LocationSettingsDialog', () => {
     it('should display "Using default order" when order is empty', () => {
       render(<LocationSettingsDialog {...defaultProps} />);
       expect(screen.getByText('Using default order')).toBeInTheDocument();
+    });
+
+    it('should give each separator delete button a distinct accessible name', () => {
+      const locationSettings: LocationSettings = {
+        aliases: {},
+        order: ['living', LOCATION_SEPARATOR, 'room2', LOCATION_SEPARATOR, 'kitchen'],
+      };
+      render(
+        <LocationSettingsDialog
+          {...defaultProps}
+          locationSettings={locationSettings}
+        />
+      );
+      // Each separator gets a distinct name so screen-reader users can tell them apart
+      expect(screen.getByRole('button', { name: 'Delete separator 1' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Delete separator 2' })).toBeInTheDocument();
     });
 
     it('should display order items with drag handles', () => {

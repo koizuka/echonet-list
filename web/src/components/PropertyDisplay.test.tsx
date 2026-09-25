@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { PropertyDisplay } from './PropertyDisplay';
 import type { PropertyDescriptor } from '@/hooks/types';
 
@@ -116,5 +116,33 @@ describe('PropertyDisplay', () => {
 
     expect(screen.getByText(/Raw data.*\(2\)/)).toBeInTheDocument();
     expect(screen.getByTitle('Show property details')).toBeInTheDocument();
+  });
+
+  it('should label the property map toggle in Japanese for a Japanese locale', () => {
+    const languageSpy = vi.spyOn(navigator, 'language', 'get').mockReturnValue('ja-JP');
+    try {
+      render(
+        <PropertyDisplay
+          currentValue={{ EDT: btoa(String.fromCharCode(0x02, 0x80, 0xB0)) }}
+          descriptor={{ description: 'Set Property Map' }}
+          epc="9E"
+          propertyDescriptions={{}}
+          device={{
+            ip: '192.168.1.100',
+            eoj: '0291:1',
+            name: 'Test Device',
+            id: undefined,
+            lastSeen: new Date().toISOString(),
+            properties: {}
+          }}
+        />
+      );
+      const toggle = screen.getByRole('button', { name: 'プロパティの詳細を表示' });
+      expect(toggle).toHaveAttribute('aria-label', 'プロパティの詳細を表示');
+      fireEvent.click(toggle);
+      expect(toggle).toHaveAttribute('aria-label', 'プロパティの詳細を隠す');
+    } finally {
+      languageSpy.mockRestore();
+    }
   });
 });

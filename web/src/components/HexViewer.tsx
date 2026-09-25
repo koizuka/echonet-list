@@ -15,7 +15,7 @@ const MOBILE_BREAKPOINT = 640;
 
 export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: HexViewerProps) {
   const [showHexData, setShowHexData] = useState(false);
-  const hexViewerRef = useRef<HTMLDivElement>(null);
+  const hexViewerRef = useRef<HTMLOutputElement>(null);
   const [leftOffset, setLeftOffset] = useState(0);
 
   useEffect(() => {
@@ -83,18 +83,17 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
         <Binary className={size === 'sm' ? "h-2 w-2" : "h-3 w-3"} />
       </Button>
       {showHexData && currentValue.EDT && (
-        <div
+        <output
           ref={hexViewerRef}
           className={`absolute top-full mt-1 ${sizeClasses.text} font-mono bg-muted ${size === 'sm' ? 'p-1' : 'p-2'} rounded border break-words shadow-md z-[100] left-0 right-0 sm:right-auto sm:min-w-[400px] sm:max-w-[600px]`}
           style={{
             // On mobile, dynamically calculate offset to reach card's content left edge
             left: window.innerWidth < MOBILE_BREAKPOINT && leftOffset !== 0 ? `${leftOffset}px` : undefined,
           }}
-          role="status"
           aria-live="polite"
         >
           {edtToHexString(currentValue.EDT) || 'Invalid data'}
-        </div>
+        </output>
       )}
     </>
   );

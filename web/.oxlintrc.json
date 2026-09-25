@@ -300,9 +300,7 @@
           "attributes": false
         }
       }
-    ],
-    "jsx-a11y/prefer-tag-over-role": "off",
-    "jsx-a11y/control-has-associated-label": "off"
+    ]
   },
   "overrides": [
     {

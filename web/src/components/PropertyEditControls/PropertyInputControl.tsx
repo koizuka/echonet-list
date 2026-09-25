@@ -4,6 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Edit3, Check, X } from 'lucide-react';
 import type { PropertyValue, PropertyDescriptor } from '@/hooks/types';
+import { isJapanese } from '@/libs/languageHelper';
+
+const messages = {
+  en: { edit: 'Edit value', save: 'Save', cancel: 'Cancel' },
+  ja: { edit: '値を編集', save: '保存', cancel: 'キャンセル' },
+};
 
 interface PropertyInputControlProps {
   currentValue: PropertyValue;
@@ -28,6 +34,7 @@ export function PropertyInputControl({
   const [editValue, setEditValue] = useState('');
   const [sliderValue, setSliderValue] = useState<number[]>([0]);
   const [isLoading, setIsLoading] = useState(false);
+  const texts = isJapanese() ? messages.ja : messages.en;
   const inputRef = useRef<HTMLInputElement>(null);
 
   const hasNumberDesc = descriptor?.numberDesc;
@@ -112,6 +119,8 @@ export function PropertyInputControl({
         onClick={startEditing}
         disabled={disabled || isLoading}
         className="h-7 px-2"
+        aria-label={texts.edit}
+        title={texts.edit}
         data-testid={testId ? `edit-button-${testId}` : undefined}
       >
         <Edit3 className="h-3 w-3" />
@@ -162,6 +171,8 @@ export function PropertyInputControl({
             onClick={saveEdit}
             disabled={isLoading || !editValue.trim()}
             className="h-7 px-1"
+            aria-label={texts.save}
+            title={texts.save}
             data-testid={testId ? `save-button-${testId}` : undefined}
           >
             <Check className="h-3 w-3" />
@@ -172,6 +183,8 @@ export function PropertyInputControl({
             onClick={cancelEditing}
             disabled={isLoading}
             className="h-7 px-1"
+            aria-label={texts.cancel}
+            title={texts.cancel}
             data-testid={testId ? `cancel-button-${testId}` : undefined}
           >
             <X className="h-3 w-3" />

@@ -21,6 +21,9 @@ export function PropertyMapDisplay({
 }: PropertyMapDisplayProps) {
   const [showPropertyMap, setShowPropertyMap] = useState(false);
   const currentLang = getCurrentLocale();
+  const toggleLabel = currentLang === 'ja'
+    ? (showPropertyMap ? 'プロパティの詳細を隠す' : 'プロパティの詳細を表示')
+    : (showPropertyMap ? 'Hide property details' : 'Show property details');
   
   // Parse property map
   const parsePropertyMap = () => {
@@ -75,7 +78,8 @@ export function PropertyMapDisplay({
           size="sm"
           onClick={() => setShowPropertyMap(!showPropertyMap)}
           className="h-6 w-6 p-0"
-          title={showPropertyMap ? "Hide property details" : "Show property details"}
+          aria-label={toggleLabel}
+          title={toggleLabel}
         >
           {showPropertyMap ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         </Button>

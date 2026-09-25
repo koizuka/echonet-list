@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DashboardCard } from './DashboardCard';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { Device, PropertyDescriptionData } from '@/hooks/types';
@@ -9,13 +10,6 @@ import * as deviceIdHelper from '@/libs/deviceIdHelper';
 const renderWithTooltip = (ui: React.ReactElement) => {
   return render(<TooltipProvider>{ui}</TooltipProvider>);
 };
-
-// Mock ResizeObserver for tests
-global.ResizeObserver = vi.fn(() => ({
-  observe: vi.fn(),
-  disconnect: vi.fn(),
-  unobserve: vi.fn(),
-}));
 
 // Mock deviceIdHelper functions
 vi.mock('@/libs/deviceIdHelper', () => ({
@@ -141,7 +135,27 @@ describe('DashboardCard', () => {
       expect(mockToggle).toHaveBeenCalledTimes(1);
     });
 
-    it('should call onToggleExpand when Enter key is pressed', () => {
+    it('should render the expandable area as a native button', () => {
+      renderWithTooltip(
+        <DashboardCard
+          device={createDevice()}
+          onPropertyChange={mockOnPropertyChange}
+          propertyDescriptions={mockPropertyDescriptions}
+          devices={mockDevices}
+          aliases={{}}
+          isConnected={true}
+          isExpanded={false}
+          onToggleExpand={vi.fn()}
+        />
+      );
+
+      const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
+      expect(expandableArea.tagName).toBe('BUTTON');
+      expect(expandableArea).toHaveAttribute('type', 'button');
+      expect(expandableArea).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('should call onToggleExpand when Enter key is pressed', async () => {
       const mockToggle = vi.fn();
       renderWithTooltip(
         <DashboardCard
@@ -157,12 +171,13 @@ describe('DashboardCard', () => {
       );
 
       const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
-      fireEvent.keyDown(expandableArea, { key: 'Enter' });
+      expandableArea.focus();
+      await userEvent.keyboard('{Enter}');
 
       expect(mockToggle).toHaveBeenCalledTimes(1);
     });
 
-    it('should call onToggleExpand when Space key is released', () => {
+    it('should call onToggleExpand when Space key is pressed', async () => {
       const mockToggle = vi.fn();
       renderWithTooltip(
         <DashboardCard
@@ -178,7 +193,8 @@ describe('DashboardCard', () => {
       );
 
       const expandableArea = screen.getByTestId('dashboard-card-expandable-192.168.1.100-0130:1');
-      fireEvent.keyUp(expandableArea, { key: ' ' });
+      expandableArea.focus();
+      await userEvent.keyboard(' ');
 
       expect(mockToggle).toHaveBeenCalledTimes(1);
     });

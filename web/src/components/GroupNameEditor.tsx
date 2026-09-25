@@ -107,6 +107,7 @@ export function GroupNameEditor({
             onClick={handleSave}
             disabled={getIsSaveDisabled()}
             className="h-7 w-7 p-0"
+            aria-label="保存"
             title="保存"
           >
             <Check className="h-3 w-3" />
@@ -117,6 +118,7 @@ export function GroupNameEditor({
             onClick={onCancel}
             disabled={isLoading || !isConnected}
             className="h-7 w-7 p-0"
+            aria-label="キャンセル"
             title="キャンセル"
           >
             <X className="h-3 w-3" />
