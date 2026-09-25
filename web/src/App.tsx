@@ -61,7 +61,43 @@ const ERROR_MESSAGE_TEMPLATES = {
 // Type for error operations
 type ErrorOperation = keyof typeof ERROR_MESSAGE_TEMPLATES;
 
+const APP_MESSAGES = {
+  en: {
+    powerOn: 'Power status: at least one device is ON',
+    powerOff: 'Power status: all devices are OFF or there are no devices',
+    fault: 'At least one device has a fault',
+    noDevicesDiscover: 'No devices found. Click refresh to discover devices.',
+    noInitialState: 'Initial data has not been received from the server',
+    cannotConnect: (state: string) => `Cannot connect to the server (${state})`,
+    // Accessible names must contain the visible text (WCAG 2.5.3)
+    locationSettings: 'Location settings',
+    location: 'Location',
+    newGroup: 'New group',
+    // Default name for a new group tab; group names cannot contain whitespace
+    newGroupTabName: '@new-group',
+    noDevices: 'No devices found.',
+    noDevicesInGroup: (group: string) => `No devices found in group ${group}.`,
+    noDevicesIn: (location: string) => `No devices found in ${location}.`,
+  },
+  ja: {
+    powerOn: '電源状態: 1 台以上がオン',
+    powerOff: '電源状態: すべてオフ、またはデバイスなし',
+    fault: '異常のあるデバイスがあります',
+    noDevicesDiscover: 'デバイスが見つかりません。更新してデバイスを探索してください。',
+    noInitialState: 'サーバーから初期情報が受信できていません',
+    cannotConnect: (state: string) => `サーバーに接続できません (${state})`,
+    locationSettings: '設置場所の設定',
+    location: '設置場所',
+    newGroup: '新規グループ',
+    newGroupTabName: '@新規グループ',
+    noDevices: 'デバイスが見つかりません。',
+    noDevicesInGroup: (group: string) => `グループ ${group} にデバイスがありません。`,
+    noDevicesIn: (location: string) => `${location} にデバイスがありません。`,
+  },
+};
+
 function App() {
+  const texts = APP_MESSAGES[getCurrentLocale()];
   // 開発環境と本番環境でWebSocket URLを切り替え
   const wsUrl = import.meta.env.DEV 
     ? (import.meta.env.VITE_WS_URL || 'wss://localhost:8080/ws')  // 開発時は環境変数またはデフォルト値
@@ -480,12 +516,12 @@ function App() {
                     ? 'bg-teal-400 shadow-[0_0_6px_2px_hsl(160_75%_50%/0.5)]'
                     : 'border border-muted-foreground/40 bg-transparent'
                 }`}
-                title={`Power Status: ${hasOperational ? 'At least one device is ON' : 'All devices are OFF or no devices'}`}
+                title={hasOperational ? texts.powerOn : texts.powerOff}
               />
               {hasFaulty && (
                 <div
                   className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_2px_hsl(0_80%_55%/0.5)]"
-                  title="At least one device has a fault"
+                  title={texts.fault}
                 />
               )}
             </div>
@@ -497,7 +533,7 @@ function App() {
         </div>
       </TabsTrigger>
     );
-  }, [echonet.devices, echonet.groups, echonet.propertyDescriptions, echonet.locationSettings]);
+  }, [echonet.devices, echonet.groups, echonet.propertyDescriptions, echonet.locationSettings, texts]);
 
   // Get all offline devices
   const allOfflineDevices = Object.values(echonet.devices).filter(device => device.isOffline);
@@ -556,10 +592,10 @@ function App() {
               <p className="text-center text-muted-foreground">
                 {echonet.connectionState === 'connected' 
                   ? (echonet.initialStateReceived 
-                      ? 'No devices found. Click refresh to discover devices.'
-                      : 'サーバーから初期情報が受信できていません'
+                      ? texts.noDevicesDiscover
+                      : texts.noInitialState
                     )
-                  : `サーバーに接続できません (${echonet.connectionState})`
+                  : texts.cannotConnect(echonet.connectionState)
                 }
               </p>
             </CardContent>
@@ -615,12 +651,13 @@ function App() {
                 size="sm"
                 onClick={() => setIsLocationSettingsOpen(true)}
                 className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
-                title="Location Settings"
-                aria-label="設置場所の設定"
+                // Label text is hidden on mobile, leaving only the icon
+                title={texts.locationSettings}
+                aria-label={texts.locationSettings}
                 data-testid="location-settings-button"
               >
                 <Settings className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">設置場所</span>
+                <span className="hidden sm:inline">{texts.location}</span>
               </Button>
               {/* Group tabs (@prefix) - always show status indicators */}
               {groupTabs.map((tabId) => renderTabTrigger(tabId, true, true))}
@@ -629,18 +666,18 @@ function App() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  const tempTabName = '@新規グループ';
+                  const tempTabName = texts.newGroupTabName;
                   setNewGroupTabName(tempTabName);
                   setIsCreatingGroup(true);
                 }}
                 disabled={isCreatingGroup || !isConnected}
                 className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
                 // Label text is hidden on mobile, leaving only the icon
-                aria-label="新規グループ"
+                aria-label={texts.newGroup}
                 data-testid="add-group-button"
               >
                 <Plus className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">新規グループ</span>
+                <span className="hidden sm:inline">{texts.newGroup}</span>
               </Button>
               </TabsList>
             </div>
@@ -784,10 +821,10 @@ function App() {
                     <CardContent className="pt-6">
                       <p className="text-center text-muted-foreground">
                         {tabId === 'All' 
-                          ? 'No devices found.' 
+                          ? texts.noDevices
                           : tabId.startsWith('@') 
-                            ? `No devices found in group ${tabId}.`
-                            : `No devices found in ${translateLocationId(tabId)}.`
+                            ? texts.noDevicesInGroup(tabId)
+                            : texts.noDevicesIn(translateLocationId(tabId))
                         }
                       </p>
                     </CardContent>

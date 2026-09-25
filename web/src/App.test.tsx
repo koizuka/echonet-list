@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import App from './App';
+import { getCurrentLocale } from '@/libs/languageHelper';
 import { LOCATION_SEPARATOR } from '@/libs/locationHelper';
 
 // Mock deviceIdHelper
@@ -13,7 +14,7 @@ vi.mock('@/libs/deviceIdHelper', () => ({
 
 // Mock languageHelper
 vi.mock('@/libs/languageHelper', () => ({
-  getCurrentLocale: () => 'en',
+  getCurrentLocale: vi.fn(() => 'en'),
 }));
 
 // Mock usePropertyDescriptions hook
@@ -82,6 +83,7 @@ vi.mock('@/hooks/usePersistedTab', () => ({
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getCurrentLocale).mockReturnValue('en');
   });
 
   it('renders ECHONET List title', () => {
@@ -99,13 +101,13 @@ describe('App', () => {
     it('location settings button has aria-label for accessibility', () => {
       render(<App />);
       const settingsButton = screen.getByTestId('location-settings-button');
-      expect(settingsButton).toHaveAttribute('aria-label', '設置場所の設定');
+      expect(settingsButton).toHaveAttribute('aria-label', 'Location settings');
     });
 
     it('location settings button has title attribute', () => {
       render(<App />);
       const settingsButton = screen.getByTestId('location-settings-button');
-      expect(settingsButton).toHaveAttribute('title', 'Location Settings');
+      expect(settingsButton).toHaveAttribute('title', 'Location settings');
     });
 
     it('settings button is clickable', () => {
@@ -129,7 +131,19 @@ describe('App', () => {
 
     it('labels the add group button even when its text is hidden on mobile', () => {
       render(<App />);
-      expect(screen.getByTestId('add-group-button')).toHaveAttribute('aria-label', '新規グループ');
+      expect(screen.getByTestId('add-group-button')).toHaveAttribute('aria-label', 'New group');
+    });
+
+    it('uses Japanese labels in a Japanese locale', () => {
+      vi.mocked(getCurrentLocale).mockReturnValue('ja');
+      render(<App />);
+      const settingsButton = screen.getByTestId('location-settings-button');
+      // Accessible names contain the visible (sm+) text (WCAG 2.5.3)
+      expect(settingsButton).toHaveAttribute('aria-label', '設置場所の設定');
+      expect(settingsButton).toHaveTextContent('設置場所');
+      const addGroupButton = screen.getByTestId('add-group-button');
+      expect(addGroupButton).toHaveAttribute('aria-label', '新規グループ');
+      expect(addGroupButton).toHaveTextContent('新規グループ');
     });
 
     it('renders Dashboard tab', () => {

@@ -2,6 +2,20 @@ import { SimpleDeviceCard } from '@/components/SimpleDeviceCard';
 import { HexViewer } from '@/components/HexViewer';
 import { decodeInstanceList } from '@/libs/propertyHelper';
 import type { PropertyValue, Device, DeviceAlias, PropertyDescriptionData } from '@/hooks/types';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: {
+    invalidData: 'Invalid instance list data',
+    deviceNotFound: 'Device not found',
+    instanceList: 'Instance List',
+  },
+  ja: {
+    invalidData: 'インスタンスリストのデータが不正です',
+    deviceNotFound: 'デバイスが見つかりません',
+    instanceList: 'インスタンスリスト',
+  },
+};
 
 interface SelfNodeInstanceListSDisplayProps {
   currentValue: PropertyValue;
@@ -22,6 +36,8 @@ export function SelfNodeInstanceListSDisplay({
   getDeviceClassCode,
   isCompact = false,
 }: SelfNodeInstanceListSDisplayProps) {
+  const texts = messages[getCurrentLocale()];
+
   // Decode the instance list from EDT
   const instances = currentValue.EDT ? decodeInstanceList(currentValue.EDT) : null;
   
@@ -30,7 +46,7 @@ export function SelfNodeInstanceListSDisplay({
       <div className="relative">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">
-            Invalid instance list data
+            {texts.invalidData}
           </span>
           <HexViewer 
             canShowHexViewer={true} 
@@ -58,7 +74,7 @@ export function SelfNodeInstanceListSDisplay({
           isCompact ? "text-xs" : "text-sm"
         }`}>
           <div className="font-mono">{eoj}</div>
-          <div className={isCompact ? "text-xs" : "text-sm"}>Device not found</div>
+          <div className={isCompact ? "text-xs" : "text-sm"}>{texts.deviceNotFound}</div>
         </div>
       );
     }
@@ -85,7 +101,7 @@ export function SelfNodeInstanceListSDisplay({
       {!isCompact && (
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">
-            Instance List ({instances.length})
+            {texts.instanceList} ({instances.length})
           </span>
           <HexViewer 
             canShowHexViewer={true} 
