@@ -45,6 +45,7 @@ type DialogMessages = {
   selectLocation: string;
   addAlias: string;
   deleteAlias: string;
+  deleteSeparator: string;
   noAliases: string;
   noLocations: string;
   orderSection: string;
@@ -139,11 +140,12 @@ function SortableItem({ id, displayName, disabled }: SortableItemProps) {
 interface SortableSeparatorProps {
   id: string;
   displayName: string;
+  deleteLabel: string;
   disabled: boolean;
   onDelete: () => void;
 }
 
-function SortableSeparator({ id, displayName, disabled, onDelete }: SortableSeparatorProps) {
+function SortableSeparator({ id, displayName, deleteLabel, disabled, onDelete }: SortableSeparatorProps) {
   const {
     attributes,
     listeners,
@@ -196,6 +198,8 @@ function SortableSeparator({ id, displayName, disabled, onDelete }: SortableSepa
         className="h-5 w-5 p-0 flex items-center justify-center rounded-sm text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
         onClick={onDelete}
         disabled={disabled}
+        aria-label={deleteLabel}
+        title={deleteLabel}
       >
         <Trash2 className="h-3 w-3" />
       </button>
@@ -253,6 +257,7 @@ export function LocationSettingsDialog({
       selectLocation: 'Select location',
       addAlias: 'Add',
       deleteAlias: 'Delete alias',
+      deleteSeparator: 'Delete separator',
       noAliases: 'No aliases defined',
       noLocations: 'No locations available',
       orderSection: 'Display Order',
@@ -277,6 +282,7 @@ export function LocationSettingsDialog({
       selectLocation: '設置場所を選択',
       addAlias: '追加',
       deleteAlias: 'エイリアスを削除',
+      deleteSeparator: 'セパレータを削除',
       noAliases: 'エイリアスが設定されていません',
       noLocations: '設置場所がありません',
       orderSection: '表示順',
@@ -642,6 +648,7 @@ export function LocationSettingsDialog({
                           key={uniqueId}
                           id={uniqueId}
                           displayName={texts.separator}
+                          deleteLabel={texts.deleteSeparator}
                           disabled={isLoading || !isConnected}
                           onDelete={() => handleDeleteSeparator(uniqueId)}
                         />

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import App from './App';
+import { LOCATION_SEPARATOR } from '@/libs/locationHelper';
 
 // Mock deviceIdHelper
 vi.mock('@/libs/deviceIdHelper', () => ({
@@ -31,7 +32,7 @@ vi.mock('@/hooks/usePropertyDescriptions', () => ({
     },
     aliases: {},
     groups: {},
-    locationSettings: { aliases: {}, order: ['---'] }, // leading separator so tab bar renders one
+    locationSettings: { aliases: {}, order: [LOCATION_SEPARATOR] }, // leading separator so tab bar renders one
     propertyDescriptions: {},
     connectionState: 'connected',
     initialStateReceived: true,
