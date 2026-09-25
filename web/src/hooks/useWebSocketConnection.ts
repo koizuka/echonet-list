@@ -255,6 +255,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     // timestamp before doing anything else (even if parsing later fails).
     lastMessageTimeRef.current = Date.now();
     try {
+      // The server only sends JSON text frames (no binary frames / binaryType)
       const message = JSON.parse(event.data as string) as { type?: string; requestId?: string };
 
       // server_heartbeat is a liveness-only signal; the timestamp refresh above
