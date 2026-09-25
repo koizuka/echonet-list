@@ -42,8 +42,9 @@ describe('HexViewer', () => {
     const button = screen.getByTitle('Show hex data');
     fireEvent.click(button);
 
-    // Hex data should be shown (with spaces)
+    // Hex data should be shown (with spaces) in a live <output> region
     expect(screen.getByText('48 65 6C 6C 6F')).toBeInTheDocument();
+    expect(screen.getByRole('status').tagName).toBe('OUTPUT');
     expect(button).toHaveAttribute('title', 'Hide hex data');
 
     // Click to hide hex data

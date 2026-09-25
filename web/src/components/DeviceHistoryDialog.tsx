@@ -410,6 +410,7 @@ export function DeviceHistoryDialog({
             size="sm"
             onClick={handleManualReload}
             disabled={isLoading || !isConnected}
+            aria-label={texts.reload}
             title={texts.reload}
             className="h-8 w-8 p-0"
           >

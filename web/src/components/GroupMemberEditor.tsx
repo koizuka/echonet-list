@@ -209,6 +209,8 @@ export function GroupMemberEditor({
               size="sm"
               onClick={onDone}
               disabled={isLoading || !isConnected}
+              // Label text is hidden on mobile, leaving only the icon
+              aria-label="メンバー編集を終了"
               title="メンバー編集を終了"
               data-testid="done-editing-button"
             >

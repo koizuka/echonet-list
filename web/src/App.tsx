@@ -590,8 +590,9 @@ function App() {
                   return (
                     <div
                       key={`separator-${index}`}
-                      role="separator"
-                      aria-orientation="vertical"
+                      // Purely visual divider: a tablist may only own tabs
+                      aria-hidden="true"
+                      data-testid="location-separator"
                       className={cn(
                         "w-px mx-0.5 self-stretch flex-shrink-0 bg-border",
                         hideOnMobileWhenDashboard && "hidden md:block"
@@ -634,6 +635,8 @@ function App() {
                 }}
                 disabled={isCreatingGroup || !isConnected}
                 className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
+                // Label text is hidden on mobile, leaving only the icon
+                aria-label="新規グループ"
                 data-testid="add-group-button"
               >
                 <Plus className="h-3 w-3 sm:mr-1" />

@@ -23,7 +23,8 @@ interface SimpleDeviceCardProps {
     type: 'add' | 'remove' | 'custom';
     onClick: () => void;
     icon?: React.ReactNode;
-    title?: string;
+    // Required: the button is icon-only, so this is its accessible name
+    title: string;
     disabled?: boolean;
   };
   className?: string;
@@ -141,6 +142,7 @@ export function SimpleDeviceCard({
                 onClick={actionButton.onClick}
                 disabled={actionButton.disabled || isLoading}
                 className="h-8 w-8 p-0"
+                aria-label={actionButton.title}
                 title={actionButton.title}
                 data-testid={`${actionButton.type}-device-${deviceKey.replace(/\s+/g, '-')}`}
               >

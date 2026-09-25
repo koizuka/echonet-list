@@ -176,6 +176,9 @@ export function GroupManagementPanel({
             variant="outline"
             size="sm"
             onClick={onDoneEditingMembers}
+            // Label text is hidden on mobile, leaving only the icon; the name
+            // matches the visible text (WCAG 2.5.3 Label in Name)
+            aria-label={GROUP_MANAGEMENT_MESSAGES.menu.done_editing[locale]}
             title={GROUP_MANAGEMENT_MESSAGES.menu.stop_editing_members[locale]}
           >
             <Users className="h-4 w-4 sm:mr-2" />

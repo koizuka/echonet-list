@@ -150,6 +150,16 @@ describe('SimpleDeviceCard', () => {
   });
 
   describe('Accessibility', () => {
+    it('should give the icon-only action button an accessible name from its title', () => {
+      render(
+        <SimpleDeviceCard
+          {...defaultProps}
+          actionButton={{ type: 'add', onClick: vi.fn(), title: 'グループに追加' }}
+        />
+      );
+      expect(screen.getByRole('button', { name: 'グループに追加' })).toHaveAttribute('aria-label', 'グループに追加');
+    });
+
     it('should have correct aria-label for online device', () => {
       render(<SimpleDeviceCard {...defaultProps} />);
       
@@ -350,6 +360,7 @@ describe('SimpleDeviceCard', () => {
           {...defaultProps} 
           actionButton={{
             type: 'add',
+            title: 'グループに追加',
             onClick
           }}
         />
@@ -369,6 +380,7 @@ describe('SimpleDeviceCard', () => {
           {...defaultProps} 
           actionButton={{
             type: 'add',
+            title: 'グループに追加',
             onClick,
             disabled: true
           }}
@@ -388,6 +400,7 @@ describe('SimpleDeviceCard', () => {
           isLoading={true}
           actionButton={{
             type: 'add',
+            title: 'グループに追加',
             onClick
           }}
         />
