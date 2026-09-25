@@ -55,17 +55,9 @@
     "vitest",
     "webroot"
   ],
-  "eslint.enable": true,
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
-  "eslint.useFlatConfig": true,
-  "eslint.workingDirectories": ["web"],
+  "oxc.enable": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
+    "source.fixAll.oxc": "explicit"
   },
   "makefile.configureOnOpen": false
 }
