@@ -8,6 +8,12 @@ import { isTemperatureSensor, getTemperatureColor } from '@/libs/sensorPropertyH
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { cn } from '@/libs/utils';
 import type { Device, PropertyDescriptionData, DeviceAlias, PropertyValue } from '@/hooks/types';
+import { getCurrentLocale } from '@/libs/languageHelper';
+
+const messages = {
+  en: { expand: 'expand', collapse: 'collapse', status: 'Status', noStatus: 'No status data' },
+  ja: { expand: '展開', collapse: '折りたたむ', status: '状態', noStatus: '状態データなし' },
+};
 
 interface StatusItem {
   value: string;
@@ -38,6 +44,7 @@ export function DashboardCard({
   const classCode = device.eoj.split(':')[0];
   const aliasInfo = deviceHasAlias(device, devices, aliases);
   const deviceName = aliasInfo.aliasName || device.name;
+  const texts = messages[getCurrentLocale()];
 
   // Get operation status for on/off control
   const operationStatus = device.properties['80'];
@@ -99,7 +106,7 @@ export function DashboardCard({
               className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer text-left rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={onToggleExpand}
               aria-expanded={isExpanded}
-              aria-label={`${deviceName}: ${isExpanded ? 'collapse' : 'expand'}`}
+              aria-label={`${deviceName}: ${isExpanded ? texts.collapse : texts.expand}`}
               data-testid={`dashboard-card-expandable-${device.ip}-${device.eoj}`}
             >
               <DeviceIcon device={device} classCode={classCode} className="flex-shrink-0" />
@@ -108,11 +115,11 @@ export function DashboardCard({
                   statusItems.map((item, index) => (
                     <span key={index}>
                       {index > 0 && <span className="text-muted-foreground" aria-hidden="true"> / </span>}
-                      <span className={item.colorClass} aria-label={`Status: ${item.value}`}>{item.value}</span>
+                      <span className={item.colorClass} aria-label={`${texts.status}: ${item.value}`}>{item.value}</span>
                     </span>
                   ))
                 ) : (
-                  <span className="text-muted-foreground" aria-label="No status data">---</span>
+                  <span className="text-muted-foreground" aria-label={texts.noStatus}>---</span>
                 )}
               </span>
             </button>

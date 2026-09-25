@@ -4,6 +4,36 @@ import { cn } from '../libs/utils';
 import { formatValue } from '../libs/formatValue';
 import { Button } from './ui/button';
 import type { LogEntry } from '../hooks/useLogNotifications';
+import { getCurrentLocale } from '../libs/languageHelper';
+
+const messages = {
+  en: {
+    serverLogs: 'Server logs',
+    serverLogsTitle: 'Server Logs',
+    unread: (n: number) => `${n} unread`,
+    discover: 'Discover',
+    discovering: 'Searching...',
+    discoverTitle: 'Discover new devices on the network',
+    clearAll: 'Clear All',
+    serverStarted: 'Server started',
+    webUiBuilt: 'Web UI built',
+    connectedAt: 'Connected at',
+    noLogs: 'No logs yet',
+  },
+  ja: {
+    serverLogs: 'サーバーログ',
+    serverLogsTitle: 'サーバーログ',
+    unread: (n: number) => `未読 ${n} 件`,
+    discover: 'デバイス探索',
+    discovering: '探索中...',
+    discoverTitle: 'ネットワーク上の新しいデバイスを探索',
+    clearAll: 'すべて消去',
+    serverStarted: 'サーバー起動',
+    webUiBuilt: 'Web UI ビルド',
+    connectedAt: '接続',
+    noLogs: 'ログはまだありません',
+  },
+};
 
 /**
  * Format log timestamp.
@@ -57,6 +87,7 @@ export function NotificationBell({
   const [isOpen, setIsOpen] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const texts = messages[getCurrentLocale()];
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -107,6 +138,8 @@ export function NotificationBell({
           hasUnreadLogs && "text-red-600 hover:text-red-700"
         )}
         onClick={handleToggleDropdown}
+        aria-label={unreadCount > 0 ? `${texts.serverLogs} (${texts.unread(unreadCount)})` : texts.serverLogs}
+        aria-expanded={isOpen}
         data-testid="notification-bell-button"
       >
         <Bell className={cn(
@@ -128,7 +161,7 @@ export function NotificationBell({
           {/* Header */}
           <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Server Logs</h3>
+              <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">{texts.serverLogsTitle}</h3>
               <div className="flex items-center gap-2">
                 {/* Discover Devices Button */}
                 {onDiscoverDevices && (
@@ -138,10 +171,10 @@ export function NotificationBell({
                     className="text-xs h-7 px-2 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900"
                     onClick={handleDiscoverDevices}
                     disabled={isDiscovering}
-                    title="Discover new devices on the network"
+                    title={texts.discoverTitle}
                   >
                     <Search className={cn("h-3 w-3 mr-1", isDiscovering && "animate-spin")} />
-                    {isDiscovering ? 'Searching...' : 'Discover'}
+                    {isDiscovering ? texts.discovering : texts.discover}
                   </Button>
                 )}
                 <Button
@@ -159,7 +192,7 @@ export function NotificationBell({
                   }}
                   disabled={logs.length === 0}
                 >
-                  Clear All
+                  {texts.clearAll}
                 </Button>
               </div>
             </div>
@@ -167,15 +200,15 @@ export function NotificationBell({
             <div className="space-y-1">
               {serverStartupTime && (
                 <div className="text-xs text-gray-500 dark:text-gray-400" data-testid="server-startup-time">
-                  Server started: {serverStartupTime.toLocaleString()}
+                  {texts.serverStarted}: {serverStartupTime.toLocaleString()}
                 </div>
               )}
               <div className="text-xs text-gray-500 dark:text-gray-400" data-testid="build-time">
-                Web UI built: {new Date(import.meta.env.BUILD_DATE).toLocaleString()}
+                {texts.webUiBuilt}: {new Date(import.meta.env.BUILD_DATE).toLocaleString()}
               </div>
               {connectedAt && (
                 <div className="text-xs text-gray-500 dark:text-gray-400" data-testid="connection-time">
-                  Connected at: {connectedAt.toLocaleString()}
+                  {texts.connectedAt}: {connectedAt.toLocaleString()}
                 </div>
               )}
             </div>
@@ -185,7 +218,7 @@ export function NotificationBell({
           <div className="max-h-64 overflow-y-auto">
             {logs.length === 0 ? (
               <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
-                No logs yet
+                {texts.noLogs}
               </div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
