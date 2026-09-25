@@ -259,11 +259,12 @@ describe('PropertySliderControl', () => {
     expect(screen.queryByText('50%')).not.toBeInTheDocument();
   });
 
-  it('should show a localized updating indicator while saving', async () => {
+  it('should show a localized updating indicator while saving and clear it when done', async () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(navigator, 'language', 'get').mockReturnValue('ja-JP');
     try {
-      const pendingSave = vi.fn(() => new Promise<void>(() => {}));
+      let resolveSave: () => void = () => {};
+      const pendingSave = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));
       render(
         <PropertySliderControl
           currentValue={{ number: 50 }}
@@ -283,6 +284,13 @@ describe('PropertySliderControl', () => {
       });
       expect(pendingSave).toHaveBeenCalled();
       expect(screen.getByText('更新中...')).toBeInTheDocument();
+      expect(thumb).toHaveAttribute('data-disabled');
+
+      await act(async () => {
+        resolveSave();
+      });
+      expect(screen.queryByText('更新中...')).not.toBeInTheDocument();
+      expect(thumb).not.toHaveAttribute('data-disabled');
     } finally {
       spy.mockRestore();
       vi.useRealTimers();

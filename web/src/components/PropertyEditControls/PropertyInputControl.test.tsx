@@ -42,6 +42,11 @@ describe('PropertyInputControl', () => {
   });
 
   it('should localize the text input placeholder', () => {
+    const { unmount } = render(<PropertyInputControl {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit value' }));
+    expect(screen.getByPlaceholderText('Enter value')).toBeInTheDocument();
+    unmount();
+
     vi.mocked(getCurrentLocale).mockReturnValue('ja');
     render(<PropertyInputControl {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: '値を編集' }));

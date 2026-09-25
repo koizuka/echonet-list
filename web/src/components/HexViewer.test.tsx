@@ -105,12 +105,18 @@ describe('HexViewer', () => {
   });
 
   it('should localize the toggle label and invalid-data text for a Japanese locale', () => {
-    withJapaneseLocale(() => {
-      render(<HexViewer canShowHexViewer={true} currentValue={{ EDT: '!!!' }} />);
-      const button = screen.getByRole('button', { name: 'HEX データを表示' });
-      fireEvent.click(button);
-      expect(button).toHaveAttribute('aria-label', 'HEX データを隠す');
-      expect(screen.getByRole('status')).toHaveTextContent('不正なデータ');
-    });
+    // Invalid EDT makes edtToHexString warn; keep the test output clean
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      withJapaneseLocale(() => {
+        render(<HexViewer canShowHexViewer={true} currentValue={{ EDT: '!!!' }} />);
+        const button = screen.getByRole('button', { name: 'HEX データを表示' });
+        fireEvent.click(button);
+        expect(button).toHaveAttribute('aria-label', 'HEX データを隠す');
+        expect(screen.getByRole('status')).toHaveTextContent('不正なデータ');
+      });
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 });
