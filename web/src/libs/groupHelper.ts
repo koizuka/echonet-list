@@ -40,3 +40,15 @@ export function validateGroupName(name: string, existingGroups?: string[]): stri
 
   return undefined;
 }
+
+/**
+ * Returns `baseName`, or `baseName-1`, `baseName-2`, ... if it is already used.
+ */
+export function getUnusedGroupName(baseName: string, usedNames: Iterable<string>): string {
+  const used = new Set(usedNames);
+  let candidate = baseName;
+  for (let suffix = 1; used.has(candidate); suffix++) {
+    candidate = `${baseName}-${suffix}`;
+  }
+  return candidate;
+}

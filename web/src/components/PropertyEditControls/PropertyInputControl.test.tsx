@@ -15,6 +15,7 @@ describe('PropertyInputControl', () => {
   };
 
   beforeEach(() => {
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('en');
   });
 

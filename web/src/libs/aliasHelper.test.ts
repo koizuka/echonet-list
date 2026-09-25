@@ -9,6 +9,7 @@ vi.mock('@/libs/languageHelper', () => ({
 
 describe('validateDeviceAlias', () => {
   beforeEach(() => {
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('ja');
   });
 

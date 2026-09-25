@@ -74,6 +74,7 @@ describe('DashboardCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('en');
     vi.mocked(deviceIdHelper.deviceHasAlias).mockReturnValue({
       hasAlias: false,

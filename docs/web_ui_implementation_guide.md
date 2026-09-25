@@ -329,6 +329,8 @@ function App() {
 UI の文言（ボタン名、`aria-label`、`title`、プレースホルダー、エラーメッセージなど）は、日本語と英語の両方を用意し、`getCurrentLocale()`（`web/src/libs/languageHelper.ts`）で選ぶ。日本語だけ・英語だけの固定の文言は書かない。
 
 ```tsx
+import { Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { getCurrentLocale } from '@/libs/languageHelper';
 
 const messages = {
@@ -336,9 +338,15 @@ const messages = {
   ja: { save: '保存', membersOf: (group: string) => `${group} のメンバー` },
 };
 
-export function SomeEditor(props: SomeEditorProps) {
+type SaveButtonProps = { groupName: string; onSave: () => void };
+export function SaveButton({ groupName, onSave }: SaveButtonProps) {
   const texts = messages[getCurrentLocale()];
-  return <Button aria-label={texts.save} title={texts.save}>...</Button>;
+  return <>
+    <h3>{texts.membersOf(groupName)}</h3>
+    <Button onClick={onSave} aria-label={texts.save} title={texts.save}>
+      <Check className="h-3 w-3" />
+    </Button>
+  </>;
 }
 ```
 

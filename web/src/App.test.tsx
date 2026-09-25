@@ -83,6 +83,7 @@ vi.mock('@/hooks/usePersistedTab', () => ({
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('en');
   });
 

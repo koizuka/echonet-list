@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { validateGroupName } from './groupHelper';
+import { validateGroupName, getUnusedGroupName } from './groupHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
 
 // Existing assertions use Japanese messages; English is covered separately
@@ -7,8 +7,20 @@ vi.mock('@/libs/languageHelper', () => ({
   getCurrentLocale: vi.fn(() => 'ja'),
 }));
 
+describe('getUnusedGroupName', () => {
+  it('should return the base name when it is unused', () => {
+    expect(getUnusedGroupName('@new-group', ['@living'])).toBe('@new-group');
+  });
+
+  it('should append a numeric suffix when the base name is taken', () => {
+    expect(getUnusedGroupName('@new-group', ['@new-group'])).toBe('@new-group-1');
+    expect(getUnusedGroupName('@new-group', ['@new-group', '@new-group-1'])).toBe('@new-group-2');
+  });
+});
+
 describe('validateGroupName', () => {
   beforeEach(() => {
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('ja');
   });
 

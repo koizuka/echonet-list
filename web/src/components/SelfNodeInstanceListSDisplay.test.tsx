@@ -30,6 +30,7 @@ describe('SelfNodeInstanceListSDisplay', () => {
   };
 
   beforeEach(() => {
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('en');
   });
 
@@ -47,8 +48,13 @@ describe('SelfNodeInstanceListSDisplay', () => {
   });
 
   it('should show a localized message for invalid data', () => {
+    const invalid = { EDT: btoa(String.fromCharCode(0x02, 0x01)) };
+    const { unmount } = render(<SelfNodeInstanceListSDisplay {...baseProps} currentValue={invalid} />);
+    expect(screen.getByText('Invalid instance list data')).toBeInTheDocument();
+    unmount();
+
     vi.mocked(getCurrentLocale).mockReturnValue('ja');
-    render(<SelfNodeInstanceListSDisplay {...baseProps} currentValue={{ EDT: btoa(String.fromCharCode(0x02, 0x01)) }} />);
+    render(<SelfNodeInstanceListSDisplay {...baseProps} currentValue={invalid} />);
     expect(screen.getByText('インスタンスリストのデータが不正です')).toBeInTheDocument();
   });
 });

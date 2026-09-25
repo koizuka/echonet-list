@@ -8,8 +8,7 @@ import { getCurrentLocale } from '../libs/languageHelper';
 
 const messages = {
   en: {
-    serverLogs: 'Server logs',
-    serverLogsTitle: 'Server Logs',
+    serverLogs: 'Server Logs',
     unread: (n: number) => `${n} unread`,
     discover: 'Discover',
     discovering: 'Searching...',
@@ -19,10 +18,10 @@ const messages = {
     webUiBuilt: 'Web UI built',
     connectedAt: 'Connected at',
     noLogs: 'No logs yet',
+    total: (n: number) => `${n} log${n !== 1 ? 's' : ''} total`,
   },
   ja: {
     serverLogs: 'サーバーログ',
-    serverLogsTitle: 'サーバーログ',
     unread: (n: number) => `未読 ${n} 件`,
     discover: 'デバイス探索',
     discovering: '探索中...',
@@ -32,6 +31,7 @@ const messages = {
     webUiBuilt: 'Web UI ビルド',
     connectedAt: '接続',
     noLogs: 'ログはまだありません',
+    total: (n: number) => `全 ${n} 件`,
   },
 };
 
@@ -161,7 +161,7 @@ export function NotificationBell({
           {/* Header */}
           <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">{texts.serverLogsTitle}</h3>
+              <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">{texts.serverLogs}</h3>
               <div className="flex items-center gap-2">
                 {/* Discover Devices Button */}
                 {onDiscoverDevices && (
@@ -284,7 +284,7 @@ export function NotificationBell({
           {logs.length > 0 && (
             <div className="p-2 border-t border-gray-200 dark:border-gray-700 text-center">
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {logs.length} log{logs.length !== 1 ? 's' : ''} total
+                {texts.total(logs.length)}
               </span>
             </div>
           )}

@@ -42,7 +42,7 @@ interface HistoryGroup {
 }
 
 type DialogMessages = {
-  title: string;
+  title: (displayName: string) => string;
   settableOnlyLabel: string;
   loading: string;
   noHistory: string;
@@ -150,7 +150,7 @@ export function DeviceHistoryDialog({
 
   const messages: Record<'en' | 'ja', DialogMessages> = {
     en: {
-      title: 'Device History',
+      title: (displayName) => `${displayName} - Device History`,
       settableOnlyLabel: 'Settable properties only',
       loading: 'Loading history...',
       noHistory: 'No history available',
@@ -170,7 +170,7 @@ export function DeviceHistoryDialog({
       originServerStartup: 'Startup',
     },
     ja: {
-      title: 'デバイス履歴',
+      title: (displayName) => `${displayName}のデバイス履歴`,
       settableOnlyLabel: '操作可能プロパティのみ',
       loading: '履歴を読み込み中...',
       noHistory: '履歴がありません',
@@ -191,16 +191,9 @@ export function DeviceHistoryDialog({
     },
   };
 
-  const locale = getCurrentLocale();
-  const texts = messages[locale];
+  const texts = messages[getCurrentLocale()];
 
-  // Generate dialog title with device name (memoized for performance)
-  const dialogTitle = useMemo(
-    () => locale === 'ja'
-      ? `${displayName}のデバイス履歴`
-      : `${displayName} - Device History`,
-    [displayName, locale]
-  );
+  const dialogTitle = texts.title(displayName);
 
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);

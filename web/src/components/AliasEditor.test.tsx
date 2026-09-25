@@ -33,6 +33,7 @@ describe('AliasEditor', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('ja');
   });
 

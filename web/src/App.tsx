@@ -2,6 +2,7 @@ import { usePropertyDescriptions } from '@/hooks/usePropertyDescriptions';
 import { getAllTabs, getDevicesForTab as getDevicesForTabHelper, hasAnyOperationalDevice, hasAnyFaultyDevice, translateLocationId, getTabDisplayName, getTabsWithSeparators } from '@/libs/locationHelper';
 import { deviceHasAlias } from '@/libs/deviceIdHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
+import { getUnusedGroupName } from '@/libs/groupHelper';
 import { getPropertyName, formatPropertyValue, getPropertyDescriptor } from '@/libs/propertyHelper';
 import { generateLogEntryId } from '@/libs/idHelper';
 import { cn } from '@/libs/utils';
@@ -666,7 +667,11 @@ function App() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  const tempTabName = texts.newGroupTabName;
+                  // Avoid colliding with an existing (or pending) group tab
+                  const tempTabName = getUnusedGroupName(texts.newGroupTabName, [
+                    ...Object.keys(echonet.groups),
+                    ...(pendingGroupName ? [pendingGroupName] : []),
+                  ]);
                   setNewGroupTabName(tempTabName);
                   setIsCreatingGroup(true);
                 }}

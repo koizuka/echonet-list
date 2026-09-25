@@ -64,6 +64,7 @@ describe('DeviceCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('en');
     // Reset mocks to default behavior
     vi.mocked(deviceIdHelper.deviceHasAlias).mockReturnValue({ hasAlias: false, aliasName: undefined, deviceIdentifier: '192.168.1.100 0291:1' });
@@ -306,8 +307,8 @@ describe('DeviceCard', () => {
           getDeviceClassCode={mockGetDeviceClassCode}
           devices={{ [`${mockDevice.ip} ${mockDevice.eoj}`]: offlineDevice }}
           aliases={{}}
-          // History button only renders with a connection; the dialog stays closed
-          connection={{} as WebSocketConnection}
+          // History button only renders with a connection; the mounted dialog fetches history
+          connection={{ sendMessage: vi.fn().mockResolvedValue({ entries: [] }) } as unknown as WebSocketConnection}
         />
       );
       expect(screen.getByTestId('history-button')).toHaveAttribute('aria-label', '履歴を表示');

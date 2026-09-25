@@ -38,12 +38,13 @@ describe('NotificationBell', () => {
   };
 
   beforeEach(() => {
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('en');
   });
 
   it('gives the icon-only bell button an accessible name with the unread count', () => {
     render(<NotificationBell {...defaultProps} />);
-    expect(screen.getByTestId('notification-bell-button')).toHaveAttribute('aria-label', 'Server logs (1 unread)');
+    expect(screen.getByTestId('notification-bell-button')).toHaveAttribute('aria-label', 'Server Logs (1 unread)');
   });
 
   it('uses Japanese texts in a Japanese locale', () => {
@@ -56,6 +57,13 @@ describe('NotificationBell', () => {
     expect(screen.getByText('すべて消去')).toBeInTheDocument();
     expect(screen.getByText('デバイス探索')).toBeInTheDocument();
     expect(screen.getByText('ログはまだありません')).toBeInTheDocument();
+  });
+
+  it('localizes the log count footer', () => {
+    vi.mocked(getCurrentLocale).mockReturnValue('ja');
+    render(<NotificationBell {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('notification-bell-button'));
+    expect(screen.getByText('全 2 件')).toBeInTheDocument();
   });
 
   it('renders bell icon with unread count badge', () => {

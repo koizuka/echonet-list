@@ -10,6 +10,7 @@ vi.mock('@/libs/languageHelper', () => ({
 
 describe('GroupNameEditor', () => {
   beforeEach(() => {
+    // clearAllMocks keeps mock implementations, so reset the locale explicitly
     vi.mocked(getCurrentLocale).mockReturnValue('ja');
   });
 
