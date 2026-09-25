@@ -67,6 +67,9 @@ export function DeviceCard({
   const isFaulty = isDeviceFaulty(device);
   const isOffline = device.isOffline || false;
   const isControllable = isOperationStatusSettable(device);
+  const updateButtonLabel = isUpdating
+    ? 'Updating...'
+    : device.isOffline ? 'Try to reconnect device' : 'Update device properties';
 
   // Determine border color based on device status
   const getBorderColorClass = (): string => {
@@ -131,6 +134,7 @@ export function DeviceCard({
                 size="sm"
                 onClick={() => setIsHistoryDialogOpen(true)}
                 className="h-6 w-6 p-0"
+                aria-label="View device history"
                 title="View device history"
                 disabled={!isConnected}
                 data-testid="history-button"
@@ -144,7 +148,8 @@ export function DeviceCard({
                 size="sm"
                 onClick={() => onUpdateProperties(`${device.ip} ${device.eoj}`)}
                 className="h-6 w-6 p-0"
-                title={isUpdating ? "Updating..." : device.isOffline ? "Try to reconnect device" : "Update device properties"}
+                aria-label={updateButtonLabel}
+                title={updateButtonLabel}
                 disabled={isUpdating || !isConnected}
                 data-testid="update-properties-button"
               >
@@ -157,6 +162,7 @@ export function DeviceCard({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  aria-label="Delete offline device"
                   title="Delete offline device"
                   disabled={isDeletingDevice || !isConnected}
                   data-testid="delete-device-button"
@@ -180,6 +186,8 @@ export function DeviceCard({
               size="sm"
               onClick={onToggleExpansion}
               className="h-6 w-6 p-0"
+              aria-label={isExpanded ? 'Collapse device details' : 'Expand device details'}
+              aria-expanded={isExpanded}
               data-testid="expand-collapse-button"
             >
               {isExpanded ? (

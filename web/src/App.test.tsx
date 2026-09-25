@@ -127,6 +127,11 @@ describe('App', () => {
       expect(within(tabsList).queryAllByRole('separator', { hidden: true })).toHaveLength(0);
     });
 
+    it('labels the add group button even when its text is hidden on mobile', () => {
+      render(<App />);
+      expect(screen.getByTestId('add-group-button')).toHaveAttribute('aria-label', '新規グループ');
+    });
+
     it('renders Dashboard tab', () => {
       render(<App />);
       expect(screen.getByTestId('tab-Dashboard')).toBeInTheDocument();

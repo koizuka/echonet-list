@@ -289,6 +289,24 @@ describe('DeviceCard', () => {
       expect(mockToggle).toHaveBeenCalledTimes(1);
     });
 
+    it('should give the expand/collapse button an accessible name reflecting its state', () => {
+      const props = {
+        device: mockDevice,
+        onToggleExpansion: vi.fn(),
+        onPropertyChange: mockOnPropertyChange,
+        onUpdateProperties: mockOnUpdateProperties,
+        propertyDescriptions: mockPropertyDescriptions,
+        getDeviceClassCode: mockGetDeviceClassCode,
+        devices: { [`${mockDevice.ip} ${mockDevice.eoj}`]: mockDevice },
+        aliases: {},
+      };
+      const { rerender } = render(<DeviceCard {...props} isExpanded={false} />);
+      expect(screen.getByRole('button', { name: 'Expand device details' })).toBeInTheDocument();
+
+      rerender(<DeviceCard {...props} isExpanded={true} />);
+      expect(screen.getByRole('button', { name: 'Collapse device details' })).toBeInTheDocument();
+    });
+
     it('should show ChevronDown when collapsed', () => {
       render(
         <DeviceCard
