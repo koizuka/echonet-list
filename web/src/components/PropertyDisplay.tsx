@@ -3,12 +3,12 @@ import { PropertyMapDisplay } from './PropertyMapDisplay';
 import { SelfNodeInstanceListSDisplay } from './SelfNodeInstanceListSDisplay';
 import { formatPropertyValue, shouldShowHexViewer, decodeInstanceList } from '@/libs/propertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
+import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device, DeviceAlias } from '@/hooks/types';
 
 const messages = {
   en: { instanceList: 'Instance List' },
   ja: { instanceList: 'インスタンスリスト' },
 };
-import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device, DeviceAlias } from '@/hooks/types';
 
 interface PropertyDisplayProps {
   currentValue: PropertyValue;

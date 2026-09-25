@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { HexViewer } from './HexViewer';
 import { formatPropertyValue, decodePropertyMap, getPropertyName, extractClassCodeFromEOJ } from '@/libs/propertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
+import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device } from '@/hooks/types';
 
 const messages = {
   en: {
@@ -17,7 +18,6 @@ const messages = {
     noProperties: 'このマップにプロパティはありません',
   },
 };
-import type { PropertyValue, PropertyDescriptor, PropertyDescriptionData, Device } from '@/hooks/types';
 
 interface PropertyMapDisplayProps {
   currentValue: PropertyValue;

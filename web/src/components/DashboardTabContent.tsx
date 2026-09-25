@@ -6,6 +6,7 @@ import { arrangeDashboardDevices, isPlaceholder } from '@/libs/dashboardLayoutHe
 import { useDashboardCardExpansion } from '@/hooks/useDashboardCardExpansion';
 import { cn } from '@/libs/utils';
 import { getCurrentLocale } from '@/libs/languageHelper';
+import type { Device, PropertyDescriptionData, DeviceAlias, LocationSettings } from '@/hooks/types';
 
 const messages = {
   en: {
@@ -17,7 +18,6 @@ const messages = {
     openTab: (location: string) => `${location} タブを開く`,
   },
 };
-import type { Device, PropertyDescriptionData, DeviceAlias, LocationSettings } from '@/hooks/types';
 
 interface DashboardTabContentProps {
   devices: Record<string, Device>;

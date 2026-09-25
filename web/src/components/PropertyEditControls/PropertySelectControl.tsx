@@ -6,12 +6,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getCurrentLocale } from '@/libs/languageHelper';
+import type { AliasTranslations } from '@/hooks/types';
 
 const messages = {
   en: { placeholder: 'Select...' },
   ja: { placeholder: '選択...' },
 };
-import type { AliasTranslations } from '@/hooks/types';
 
 interface PropertySelectControlProps {
   value: string;

@@ -2,14 +2,14 @@ import React, { useState, useCallback, useRef } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { formatPropertyValue } from '@/libs/propertyHelper';
 import { getCurrentLocale } from '@/libs/languageHelper';
+import { generateLogEntryId } from '@/libs/idHelper';
+import type { PropertyValue, PropertyDescriptor } from '@/hooks/types';
+import type { LogEntry } from '@/hooks/useLogNotifications';
 
 const messages = {
   en: { updating: 'Updating...' },
   ja: { updating: '更新中...' },
 };
-import { generateLogEntryId } from '@/libs/idHelper';
-import type { PropertyValue, PropertyDescriptor } from '@/hooks/types';
-import type { LogEntry } from '@/hooks/useLogNotifications';
 
 interface PropertySliderControlProps {
   currentValue: PropertyValue;
