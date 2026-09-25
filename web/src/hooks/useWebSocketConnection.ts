@@ -255,7 +255,9 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     // timestamp before doing anything else (even if parsing later fails).
     lastMessageTimeRef.current = Date.now();
     try {
-      // The server only sends JSON text frames (no binary frames / binaryType)
+      // The server only sends JSON text frames (no binary frames / binaryType).
+      // Only the routing fields are typed here; the message is narrowed to
+      // CommandResult / ServerMessage below once its kind is known.
       const message = JSON.parse(event.data as string) as { type?: string; requestId?: string };
 
       // server_heartbeat is a liveness-only signal; the timestamp refresh above
@@ -534,7 +536,7 @@ export function useWebSocketConnection(options: WebSocketConnectionOptions): Web
     return () => {
       cleanup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [options.url]); // URLが変更された場合のみ再接続。connectRef は ref なので React のリアクティブ値ではなく deps に含めない。cleanup も安定化済みのため省略。
 
   return {
