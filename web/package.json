@@ -50,7 +50,7 @@
     "oxlint": "^1.86.0",
     "oxlint-tsgolint": "^7.0.2003",
     "postcss": "^8.5.28",
-    "rollup": "^4.63.5",
+    "rollup": "^4.63.6",
     "tailwindcss": "^4.1.11",
     "typescript": "~7.0.2",
     "vite": "^8.3.1",
