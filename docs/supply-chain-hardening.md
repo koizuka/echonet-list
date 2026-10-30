@@ -29,9 +29,9 @@ Legend: `[x]` done in this repo · `[ ]` not applicable or left to repo settings
   installs exactly what the lockfile specifies and fails on any drift.
 - [x] **No lifecycle scripts** (`postinstall`, etc.) in `web/package.json` that
   run arbitrary code on install.
-- [x] **Single source of truth for the Node version.** `web/.nvmrc` pins the
+- [x] **Single source of truth for the Node version.** `web/.node-version` pins the
   version; `package.json` `engines.node` records the minimum; CI's `setup-node`
-  reads `node-version-file: web/.nvmrc`.
+  reads `node-version-file: web/.node-version`.
 - [x] **Audit dependencies in CI.** The `npm-audit` job runs
   `npm audit --package-lock-only` on pull requests (report-only) and posts a
   sticky comment when high/critical advisories are found.
