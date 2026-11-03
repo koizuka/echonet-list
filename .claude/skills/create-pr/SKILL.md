@@ -43,7 +43,14 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git b
    - 変更内容と目的を分析して適切なコミットメッセージを自動生成
    - コミット実行
 
-3. **PR 作成**:
+3. **最新 main への追従**（コンフリクトを早期に検出し、base が最新でないとマージできない branch protection にも対応するため）:
+   - `git fetch origin main`
+   - `git merge-base --is-ancestor origin/main HEAD` で最新 main を含んでいるか確認
+   - 含んでいなければ `git rebase origin/main` を実行
+     - コンフリクトした場合は `git rebase --abort` してユーザーに報告し中断
+     - rebase 後、プリチェック（Go / Web UI のうち変更に関係する側）を再実行して通ることを確認
+
+4. **PR 作成**:
    - ブランチをリモートに push
    - 変更内容を分析して PR 説明を自動生成:
      - 変更の概要（コミット内容から分析）
