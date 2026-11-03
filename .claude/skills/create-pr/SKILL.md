@@ -45,10 +45,12 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git b
 
 3. **最新 main への追従**（コンフリクトを早期に検出し、base が最新でないとマージできない branch protection にも対応するため）:
    - `git fetch origin main`
+     - 失敗した場合（オフライン・認証エラー等）はユーザーに報告し中断
    - `git merge-base --is-ancestor origin/main HEAD` で最新 main を含んでいるか確認
    - 含んでいなければ `git rebase origin/main` を実行
-     - コンフリクトした場合は `git rebase --abort` してユーザーに報告し中断
-     - rebase 後、プリチェック（Go / Web UI のうち変更に関係する側）を再実行して通ることを確認
+     - ブランチが既に push 済みの場合は rebase すると force push が必要になるため、rebase せずユーザーに報告し中断
+     - コンフリクトした場合は `git rebase --abort` し、「コミットは作成済み・未 push」の状態であることを添えてユーザーに報告し中断
+     - rebase 後は手順 1 のプリチェックを再実行して通ることを確認（どちらに影響するか迷う場合は Go / Web UI の両方）
 
 4. **PR 作成**:
    - ブランチをリモートに push
