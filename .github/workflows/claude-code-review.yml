@@ -15,8 +15,9 @@ permissions: {}
 
 jobs:
   claude-review:
-    # Skip Dependabot PRs (handled by separate security review workflow)
-    if: github.actor != 'dependabot[bot]'
+    # Skip Dependabot PRs. Check the PR author rather than github.actor so that
+    # pushes by a human (e.g. "Update branch" merging main) don't trigger a review.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
 
     # Optional: Filter by PR author
     # if: |
