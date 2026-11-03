@@ -1,7 +1,7 @@
 ---
 name: create-pr
 description: Runs Go and Web UI prechecks (fmt/vet/test/build, lint/typecheck/test/build), commits the working changes on a fresh branch with an auto-generated message, pushes, and opens a pull request against main. Use when the user is ready to ship the current uncommitted work as a PR and wants the full pre-flight pipeline run automatically.
-allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git log:*), Bash(git commit:*), Bash(git checkout:*), Bash(git push:*), Bash(gh pr create:*), Bash(go fmt:*), Bash(go vet:*), Bash(go test:*), Bash(go build:*), Bash(npm run:*), Bash(git rev-parse:*)
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git log:*), Bash(git commit:*), Bash(git checkout:*), Bash(git push:*), Bash(git fetch:*), Bash(git rebase:*), Bash(git merge-base:*), Bash(gh pr create:*), Bash(go fmt:*), Bash(go vet:*), Bash(go test:*), Bash(go build:*), Bash(npm run:*), Bash(git rev-parse:*)
 ---
 
 ## Context
