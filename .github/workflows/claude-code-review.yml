@@ -38,26 +38,14 @@ jobs:
         with:
           fetch-depth: 1
 
-      # Pin the code-review plugin to a reviewed revision. A remote marketplace URL
-      # always tracks the default branch, so check it out at a fixed SHA and load
-      # it as a local marketplace instead. Update the SHA manually (not Dependabot).
-      - name: Checkout Claude Code plugins
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: anthropics/claude-plugins-official
-          ref: a7ba5b93db0c7c8d17f3f1d25853adca79598a1a # main as of 2026-10-30
-          path: .claude-plugins-official
-          fetch-depth: 1
-          persist-credentials: false
-
       - name: Run Claude Code Review
         id: claude-review
         timeout-minutes: 10
         uses: anthropics/claude-code-action@865bb43f22cdd55c6a5da7496b08836728729826 # v1.0.267
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: './.claude-plugins-official'
-          plugins: 'code-review@claude-plugins-official'
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
           claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
