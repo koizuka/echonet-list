@@ -58,17 +58,17 @@ export function HexViewer({ canShowHexViewer, currentValue, size = 'normal' }: H
     calculateOffset(); // Initial calculation
 
     // Debounce resize events to prevent performance issues
-    let resizeTimer: ReturnType<typeof setTimeout>;
+    const resizeTimer: { id?: ReturnType<typeof setTimeout> } = {};
     const debouncedCalculateOffset = () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(calculateOffset, RESIZE_DEBOUNCE_MS);
+      clearTimeout(resizeTimer.id);
+      resizeTimer.id = setTimeout(calculateOffset, RESIZE_DEBOUNCE_MS);
     };
 
     // Add resize listener to recalculate on window resize or device rotation
     window.addEventListener('resize', debouncedCalculateOffset);
     return () => {
       window.removeEventListener('resize', debouncedCalculateOffset);
-      clearTimeout(resizeTimer);
+      clearTimeout(resizeTimer.id);
     };
   }, [showHexData]);
 
