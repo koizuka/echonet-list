@@ -175,7 +175,7 @@ describe('GroupNameEditor', () => {
   it('should auto-focus and select text on mount', async () => {
     render(<GroupNameEditor {...defaultProps} />);
     
-    const input = screen.getByRole('textbox') as HTMLInputElement;
+    const input = screen.getByRole<HTMLInputElement>('textbox');
     
     await waitFor(() => {
       expect(document.activeElement).toBe(input);
