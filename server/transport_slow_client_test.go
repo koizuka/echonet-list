@@ -5,10 +5,12 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -39,6 +41,29 @@ func startTestTransport(t *testing.T, sendBufferSize int) (*DefaultWebSocketTran
 	return transport, "ws" + strings.TrimPrefix(srv.URL, "http"), connected, disconnected
 }
 
+// dialStalled は受信しないクライアント用に、OS の受信バッファを小さくしてから接続する。
+// OS の TCP バッファにテストデータが収まってしまうと詰まりが再現しないため。
+func dialStalled(t *testing.T, url string) *websocket.Conn {
+	t.Helper()
+	nd := &net.Dialer{
+		Control: func(network, address string, c syscall.RawConn) error {
+			var serr error
+			if err := c.Control(func(fd uintptr) {
+				serr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, 4096)
+			}); err != nil {
+				return err
+			}
+			return serr
+		},
+	}
+	dialer := websocket.Dialer{NetDialContext: nd.DialContext}
+	conn, _, err := dialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("dial stalled: %v", err)
+	}
+	return conn
+}
+
 func waitConnID(t *testing.T, ch chan string) string {
 	t.Helper()
 	select {
@@ -67,10 +92,7 @@ func TestBroadcastMessageDoesNotBlockOnStalledClient(t *testing.T) {
 	setBroadcastLogger(t, transport)
 
 	// 受信しないクライアント
-	stalled, _, err := websocket.DefaultDialer.Dial(url, nil)
-	if err != nil {
-		t.Fatalf("dial stalled: %v", err)
-	}
+	stalled := dialStalled(t, url)
 	defer stalled.Close()
 	stalledID := waitConnID(t, connected)
 
@@ -142,10 +164,7 @@ func TestSendMessageDoesNotBlockOnStalledClient(t *testing.T) {
 	transport, url, connected, disconnected := startTestTransport(t, 4)
 	setBroadcastLogger(t, transport)
 
-	stalled, _, err := websocket.DefaultDialer.Dial(url, nil)
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
+	stalled := dialStalled(t, url)
 	defer stalled.Close()
 	id := waitConnID(t, connected)
 

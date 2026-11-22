@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -27,6 +28,10 @@ const (
 	// ブラウザはスリープ等でいつでも通信が止まりうるが、再接続時に初期状態を
 	// 丸ごと受け取って最新状態に回復できるため、待たずに切ってよい。
 	defaultSendBufferSize = 512
+	// defaultSendBufferBytes はクライアントごとの送信キューに溜められる合計バイト数の上限。
+	// メモリの少ない環境（Raspberry Pi 等）で詰まったクライアントがメモリを食い潰さないようにする。
+	// キューが空のときは上限を超える1メッセージ（大きな初期状態など）も受け付ける。
+	defaultSendBufferBytes = 4 * 1024 * 1024
 )
 
 // ErrClientDisconnected は送信先クライアントが切断済み、または送信キューが溢れて
@@ -72,36 +77,55 @@ type clientConnection struct {
 	send      chan []byte     // 送信キュー（close しない。終了は done で通知）
 	done      chan struct{}   // 接続終了時に close される
 	closeOnce sync.Once
+	mu        sync.Mutex // closed・queuedBytes とキュー投入を排他する（保持中にブロックする処理はしない）
+	closed    bool
+	maxBytes  int // 送信キューの合計バイト数上限
+	queued    int // 送信キューに積まれている合計バイト数
 }
 
-func newClientConnection(conn *websocket.Conn, bufferSize int) *clientConnection {
+func newClientConnection(conn *websocket.Conn, bufferSize, maxBytes int) *clientConnection {
 	return &clientConnection{
-		conn: conn,
-		send: make(chan []byte, bufferSize),
-		done: make(chan struct{}),
+		conn:     conn,
+		send:     make(chan []byte, bufferSize),
+		done:     make(chan struct{}),
+		maxBytes: maxBytes,
 	}
 }
 
 // enqueue はメッセージを送信キューに積む。ブロックしない。
 // 切断済み、またはキューが満杯の場合は false を返す。
 func (c *clientConnection) enqueue(message []byte) bool {
-	select {
-	case <-c.done:
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
 		return false
-	default:
+	}
+	if c.queued > 0 && c.queued+len(message) > c.maxBytes {
+		return false
 	}
 	select {
 	case c.send <- message:
+		c.queued += len(message)
 		return true
 	default:
 		return false
 	}
 }
 
+// dequeued は writePump がキューから取り出したメッセージ分のバイト数を戻す
+func (c *clientConnection) dequeued(message []byte) {
+	c.mu.Lock()
+	c.queued -= len(message)
+	c.mu.Unlock()
+}
+
 // close は接続を閉じる。何度呼んでもよい。
 // conn を閉じると読み取りループがエラーで抜け、クライアントの登録解除が行われる。
 func (c *clientConnection) close() {
 	c.closeOnce.Do(func() {
+		c.mu.Lock()
+		c.closed = true
+		c.mu.Unlock()
 		close(c.done)
 		if c.conn != nil {
 			c.conn.Close()
@@ -122,6 +146,7 @@ type DefaultWebSocketTransport struct {
 	connectHandler    func(connID string) error
 	disconnectHandler func(connID string)
 	sendBufferSize    int
+	sendBufferBytes   int
 }
 
 // NewDefaultWebSocketTransport は DefaultWebSocketTransport の新しいインスタンスを作成する
@@ -137,10 +162,11 @@ func NewDefaultWebSocketTransport(ctx context.Context, addr string) *DefaultWebS
 				return true
 			},
 		},
-		clients:        make(map[string]*clientConnection),
-		clientsReverse: make(map[*websocket.Conn]string),
-		clientsMutex:   sync.RWMutex{},
-		sendBufferSize: defaultSendBufferSize,
+		clients:         make(map[string]*clientConnection),
+		clientsReverse:  make(map[*websocket.Conn]string),
+		clientsMutex:    sync.RWMutex{},
+		sendBufferSize:  defaultSendBufferSize,
+		sendBufferBytes: defaultSendBufferBytes,
 	}
 
 	// Create the HTTP server
@@ -238,13 +264,14 @@ func isConnectionClosedError(err error) bool {
 }
 
 // removeClient safely removes a client from the transport and calls the disconnect handler.
+// target が登録中の接続と同一の場合のみ削除する（同じ connID の別接続を誤って消さないため）。
 // Returns true if the client was actually removed, false if it was already removed.
-func (t *DefaultWebSocketTransport) removeClient(connID string) bool {
+func (t *DefaultWebSocketTransport) removeClient(connID string, target *clientConnection) bool {
 	t.clientsMutex.Lock()
 	defer t.clientsMutex.Unlock()
 
 	client, exists := t.clients[connID]
-	if !exists {
+	if !exists || client != target {
 		return false
 	}
 
@@ -270,6 +297,7 @@ func (t *DefaultWebSocketTransport) removeClient(connID string) bool {
 
 // SendMessage は特定のクライアントにメッセージを送信する。
 // 実際の書き込みは非同期で行われ、この関数はブロックしない。
+// message はコピーされるので、呼び出し後に再利用してよい。
 func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) error {
 	t.clientsMutex.RLock()
 	client, exists := t.clients[connID]
@@ -279,7 +307,7 @@ func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) e
 		return fmt.Errorf("client with ID %s not found", connID)
 	}
 
-	if !t.enqueueOrDrop(connID, client, message) {
+	if !t.enqueueOrDrop(connID, client, bytes.Clone(message)) {
 		return fmt.Errorf("failed to send message to client %s: %w", connID, ErrClientDisconnected)
 	}
 	return nil
@@ -288,6 +316,7 @@ func (t *DefaultWebSocketTransport) SendMessage(connID string, message []byte) e
 // BroadcastMessage は接続中の全クライアントにメッセージを送信する。
 // 実際の書き込みは非同期で行われ、この関数はブロックしない。
 // 受信が追いつかないクライアントは切断する。
+// message はコピーされるので、呼び出し後に再利用してよい。
 func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 	t.clientsMutex.RLock()
 	clients := make(map[string]*clientConnection, len(t.clients))
@@ -296,6 +325,11 @@ func (t *DefaultWebSocketTransport) BroadcastMessage(message []byte) error {
 	}
 	t.clientsMutex.RUnlock()
 
+	if len(clients) == 0 {
+		return nil
+	}
+	// 全クライアントで同じコピーを共有する（writePump は読み取りのみ）
+	message = bytes.Clone(message)
 	for connID, client := range clients {
 		t.enqueueOrDrop(connID, client, message)
 	}
@@ -319,11 +353,15 @@ func (t *DefaultWebSocketTransport) enqueueOrDrop(connID string, client *clientC
 }
 
 // writePump は送信キューと ping を conn に書き込む。conn への書き込みはここだけで行う。
-// 書き込みに失敗（タイムアウト含む）したら接続を閉じて終了する。
+// 書き込みに失敗（タイムアウト含む）したら接続を閉じ、登録も解除して終了する。
+// 読み取り側が messageHandler 内で待っていても、閉じた接続が登録に残らないようにするため。
 func (t *DefaultWebSocketTransport) writePump(connID string, client *clientConnection) {
 	ticker := time.NewTicker(pingPeriod)
 	defer ticker.Stop()
-	defer client.close()
+	defer func() {
+		client.close()
+		t.removeClient(connID, client)
+	}()
 
 	write := func(messageType int, data []byte) bool {
 		client.conn.SetWriteDeadline(time.Now().Add(writeWait))
@@ -339,6 +377,7 @@ func (t *DefaultWebSocketTransport) writePump(connID string, client *clientConne
 	for {
 		select {
 		case message := <-client.send:
+			client.dequeued(message)
 			if !write(websocket.TextMessage, message) {
 				return
 			}
@@ -377,7 +416,7 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 	connID := fmt.Sprintf("%p", conn)
 
 	// Register the client
-	client := newClientConnection(conn, t.sendBufferSize)
+	client := newClientConnection(conn, t.sendBufferSize, t.sendBufferBytes)
 	t.clientsMutex.Lock()
 	t.clients[connID] = client
 	t.clientsReverse[conn] = connID
@@ -386,7 +425,7 @@ func (t *DefaultWebSocketTransport) handleWebSocket(w http.ResponseWriter, r *ht
 	// Remove the client when the function returns
 	defer func() {
 		client.close()
-		t.removeClient(connID)
+		t.removeClient(connID, client)
 	}()
 
 	// Start writer goroutine (messages and periodic pings).
