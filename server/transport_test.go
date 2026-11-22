@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -130,20 +129,52 @@ func TestTimeoutConstants(t *testing.T) {
 	}
 }
 
-// TestClientConnectionHasPingDone verifies pingDone channel is initialized
-func TestClientConnectionHasPingDone(t *testing.T) {
-	client := &clientConnection{
-		conn:     nil,
-		mutex:    sync.Mutex{},
-		pingDone: make(chan struct{}),
+// TestClientConnectionCloseIsIdempotent verifies close can be called multiple times
+// and enqueue fails after close
+func TestClientConnectionCloseIsIdempotent(t *testing.T) {
+	client := newClientConnection(nil, 1, 1024)
+
+	if !client.enqueue([]byte("a")) {
+		t.Fatal("enqueue should succeed before close")
+	}
+	if client.enqueue([]byte("b")) {
+		t.Error("enqueue should fail when queue is full")
 	}
 
-	if client.pingDone == nil {
-		t.Error("pingDone channel should be initialized")
+	client.close()
+	client.close() // must not panic
+
+	// キューを空にしてから、close 済みであることだけで enqueue が失敗することを確認する
+	<-client.send
+	if client.enqueue([]byte("c")) {
+		t.Error("enqueue should fail after close")
+	}
+}
+
+// TestClientConnectionByteLimit verifies the per-client byte cap on the send queue
+func TestClientConnectionByteLimit(t *testing.T) {
+	client := newClientConnection(nil, 16, 100)
+
+	// キューが空なら上限超えの1メッセージも受け付ける（大きな初期状態など）
+	big := make([]byte, 150)
+	if !client.enqueue(big) {
+		t.Fatal("oversized message should be accepted when queue is empty")
+	}
+	if client.enqueue([]byte("x")) {
+		t.Error("enqueue should fail while queued bytes exceed the cap")
 	}
 
-	// Test that channel can be closed without panic
-	close(client.pingDone)
+	// 取り出せば再び積める
+	client.dequeued(<-client.send)
+	if !client.enqueue(make([]byte, 60)) {
+		t.Fatal("enqueue should succeed after draining")
+	}
+	if !client.enqueue(make([]byte, 40)) {
+		t.Error("enqueue up to the cap should succeed")
+	}
+	if client.enqueue([]byte("y")) {
+		t.Error("enqueue beyond the cap should fail")
+	}
 }
 
 // TestPingDoneChannelStopsPingGoroutine tests graceful shutdown
