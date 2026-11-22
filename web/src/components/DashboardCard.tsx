@@ -103,7 +103,7 @@ export function DashboardCard({
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer text-left rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer text-left rounded-sm -m-1 p-1 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={onToggleExpand}
               aria-expanded={isExpanded}
               aria-label={`${deviceName}: ${isExpanded ? texts.collapse : texts.expand}`}
