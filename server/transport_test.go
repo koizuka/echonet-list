@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -130,20 +129,24 @@ func TestTimeoutConstants(t *testing.T) {
 	}
 }
 
-// TestClientConnectionHasPingDone verifies pingDone channel is initialized
-func TestClientConnectionHasPingDone(t *testing.T) {
-	client := &clientConnection{
-		conn:     nil,
-		mutex:    sync.Mutex{},
-		pingDone: make(chan struct{}),
+// TestClientConnectionCloseIsIdempotent verifies close can be called multiple times
+// and enqueue fails after close
+func TestClientConnectionCloseIsIdempotent(t *testing.T) {
+	client := newClientConnection(nil, 1)
+
+	if !client.enqueue([]byte("a")) {
+		t.Fatal("enqueue should succeed before close")
+	}
+	if client.enqueue([]byte("b")) {
+		t.Error("enqueue should fail when queue is full")
 	}
 
-	if client.pingDone == nil {
-		t.Error("pingDone channel should be initialized")
-	}
+	client.close()
+	client.close() // must not panic
 
-	// Test that channel can be closed without panic
-	close(client.pingDone)
+	if client.enqueue([]byte("c")) {
+		t.Error("enqueue should fail after close")
+	}
 }
 
 // TestPingDoneChannelStopsPingGoroutine tests graceful shutdown
