@@ -43,7 +43,7 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git b
    - 変更内容と目的を分析して適切なコミットメッセージを自動生成
    - コミット実行
 
-3. **最新 main への追従**（コンフリクトを早期に検出し、base が最新でないとマージできない branch protection にも対応するため）:
+3. **最新 main への追従**（コンフリクトや最新 main との組み合わせによる CI 失敗を早期に検出するため）:
    - `git fetch origin main`
      - 失敗した場合（オフライン・認証エラー等）はユーザーに報告し中断
    - `git merge-base --is-ancestor origin/main HEAD` で最新 main を含んでいるか確認
