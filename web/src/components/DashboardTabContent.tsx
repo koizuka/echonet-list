@@ -78,7 +78,7 @@ export function DashboardTabContent({
             const arranged = arrangeDashboardDevices(locationDevices);
             const firstIsPlaceholder = arranged.length > 0 && isPlaceholder(arranged[0]);
 
-            const locationLabelClassName = "text-sm font-semibold font-display text-muted-foreground/80 uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0";
+            const locationLabelClassName = "text-sm font-semibold font-display text-muted-foreground/80 dark:text-foreground uppercase tracking-wide px-1 md:px-0 translate-y-1.5 md:translate-y-0";
             const buttonLabel = texts.openTab(locationName);
             const locationLabel = onSelectTab ? (
               <button

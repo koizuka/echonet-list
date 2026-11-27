@@ -142,7 +142,7 @@ export function DashboardCard({
 
       {/* Line 2: Device name (only when expanded) */}
       {isExpanded && (
-        <div className="text-xs text-muted-foreground truncate mt-0.5" title={deviceName}>
+        <div className="text-xs text-muted-foreground dark:text-foreground truncate mt-0.5" title={deviceName}>
           {deviceName}
         </div>
       )}
