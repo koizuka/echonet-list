@@ -2,7 +2,9 @@ name: Dependabot auto-merge
 
 # Enable auto-merge on Dependabot PRs that only update build-time tooling
 # (TypeScript compiler, type definitions, linters, test tools), except
-# semver-major updates. These are fully verified by CI; anything that can
+# semver-major updates. These are fully verified by CI. A few low-risk
+# runtime libraries (lucide-react, tailwind-merge) are also allowed for
+# patch/minor updates because they bump often. Anything else that can
 # change the built app (UI libraries, CSS, bundler) stays manual.
 # The PR is merged only after the required status checks pass.
 
@@ -29,7 +31,7 @@ jobs:
         env:
           NAMES: ${{ steps.meta.outputs.dependency-names }}
         run: |
-          tooling='^(typescript|@types/.+|typescript-eslint|@typescript-eslint/.+|eslint|eslint-(plugin|config)-.+|@eslint/.+|globals|oxlint|oxlint-.+|oxfmt|@biomejs/.+|prettier|vitest|@vitest/.+|@testing-library/.+|jsdom|happy-dom)$'
+          tooling='^(typescript|@types/.+|typescript-eslint|@typescript-eslint/.+|eslint|eslint-(plugin|config)-.+|@eslint/.+|globals|oxlint|oxlint-.+|oxfmt|@biomejs/.+|prettier|vitest|@vitest/.+|@testing-library/.+|jsdom|happy-dom|lucide-react|tailwind-merge)$'
           ok=true
           [ -n "$NAMES" ] || ok=false
           IFS=',' read -ra names <<< "$NAMES"
