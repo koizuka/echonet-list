@@ -71,7 +71,6 @@ updates:
       postcss:
         patterns:
           - "postcss"
-          - "autofixer"
     ignore:
       - dependency-name: "rollup"
         versions: ["4.45.3", "4.46.0", "4.46.1", "4.46.2"]
