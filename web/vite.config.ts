@@ -6,11 +6,31 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: 'bundle'
+    outDir: 'bundle',
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react',
+              test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              priority: 20,
+            },
+            {
+              // @dnd-kit is only used by the lazy-loaded LocationSettingsDialog,
+              // so leave it out of the eagerly loaded vendor chunk.
+              name: 'vendor',
+              test: /node_modules[\\/](?!@dnd-kit[\\/])/,
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   server: {

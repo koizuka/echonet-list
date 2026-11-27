@@ -367,6 +367,17 @@ export function SaveButton({ groupName, onSave }: SaveButtonProps) {
 - 不要な再レンダリングの防止
 - 効率的なデバイス状態更新
 
+#### バンドル分割（`web/vite.config.ts`）
+
+`build.rolldownOptions.output.codeSplitting` で以下のチャンクに分割している。
+
+- `react`: react / react-dom / scheduler
+- `vendor`: それ以外の `node_modules`（初回ロードで読み込まれる）
+- `index`: アプリ本体
+- `lazy()` で遅延ロードしているコンポーネント（現在は `LocationSettingsDialog`）
+
+**注意**: `vendor` グループは `node_modules` 全体にマッチするため、遅延ロードするコンポーネントでしか使わないライブラリも、そのままでは `vendor` に入って初回ロードされてしまう。そのようなライブラリを追加したときは、`vendor` グループの `test` 正規表現の除外リスト（現在は `@dnd-kit`）に追加すること。`npm run build` の出力で、遅延チャンクのサイズが極端に小さくなっていないかで確認できる。
+
 ## 今後の拡張可能性
 
 ### 1. 追加可能な機能
