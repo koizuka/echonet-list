@@ -24,7 +24,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Settings } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
 
-// Lazy load heavy dialog to reduce initial bundle size
+// Lazy load heavy dialog to reduce initial bundle size.
+// Libraries used only by a lazy-loaded component must be excluded from the
+// `vendor` chunk group in vite.config.ts, or they are loaded eagerly anyway.
 const LocationSettingsDialog = lazy(() =>
   import('@/components/LocationSettingsDialog').then(m => ({ default: m.LocationSettingsDialog }))
 );

@@ -1,3 +1,6 @@
+// NOTE: This component is lazy-loaded from App.tsx. Libraries used only here
+// (currently @dnd-kit) must be excluded from the `vendor` chunk group in
+// web/vite.config.ts; otherwise they end up in the initial bundle.
 import { useState } from 'react';
 import {
   DndContext,
