@@ -6,6 +6,10 @@ name: Dependabot auto-merge
 # runtime libraries (lucide-react, tailwind-merge) are also allowed for
 # patch/minor updates because they bump often. Anything else that can
 # change the built app (UI libraries, CSS, bundler) stays manual.
+# Official GitHub actions used by ci.yml are allowed too: a PR touching
+# ci.yml runs every CI job, so a broken action fails the required checks.
+# Third-party actions and the actions used by other workflows (Claude,
+# this workflow itself) stay manual.
 # The PR is merged only after the required status checks pass.
 
 on:
@@ -31,7 +35,7 @@ jobs:
         env:
           NAMES: ${{ steps.meta.outputs.dependency-names }}
         run: |
-          tooling='^(typescript|@types/.+|typescript-eslint|@typescript-eslint/.+|eslint|eslint-(plugin|config)-.+|@eslint/.+|globals|oxlint|oxlint-.+|oxfmt|@biomejs/.+|prettier|vitest|@vitest/.+|@testing-library/.+|jsdom|happy-dom|lucide-react|tailwind-merge)$'
+          tooling='^(typescript|@types/.+|typescript-eslint|@typescript-eslint/.+|eslint|eslint-(plugin|config)-.+|@eslint/.+|globals|oxlint|oxlint-.+|oxfmt|@biomejs/.+|prettier|vitest|@vitest/.+|@testing-library/.+|jsdom|happy-dom|lucide-react|tailwind-merge|actions/(checkout|setup-go|setup-node|cache|github-script))$'
           ok=true
           [ -n "$NAMES" ] || ok=false
           IFS=',' read -ra names <<< "$NAMES"
