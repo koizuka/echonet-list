@@ -17,8 +17,10 @@ export default defineConfig({
               priority: 20,
             },
             {
+              // @dnd-kit is only used by the lazy-loaded LocationSettingsDialog,
+              // so leave it out of the eagerly loaded vendor chunk.
               name: 'vendor',
-              test: /node_modules/,
+              test: /node_modules[\\/](?!@dnd-kit[\\/])/,
               priority: 10,
             },
           ],
